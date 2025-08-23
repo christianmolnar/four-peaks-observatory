@@ -666,24 +666,43 @@ async function getDateTaken(filePath) {
       }
       
       if (bestDate && !isNaN(bestDate.getTime())) {
-        // Format as "Month, Year" (e.g., "February, 2024")
-        const monthNames = [
-          'January', 'February', 'March', 'April', 'May', 'June',
-          'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-        
-        const month = monthNames[bestDate.getMonth()];
+        // Validate that the date is reasonable for photography
         const year = bestDate.getFullYear();
+        const currentYear = new Date().getFullYear();
         
-        console.log(`   📅 Date from EXIF ${bestField}: ${month}, ${year}`);
-        return `${month}, ${year}`;
+        // Reject dates that are clearly unreasonable:
+        // - Before 1995 (before digital photography was common)
+        // - More than 1 year in the future
+        if (year < 1995 || year > currentYear + 1) {
+          console.log(`   ⚠️  Rejecting unreasonable EXIF date: ${year} (from ${bestField})`);
+        } else {
+          // Format as "Month, Year" (e.g., "February, 2024")
+          const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+          ];
+          
+          const month = monthNames[bestDate.getMonth()];
+          
+          console.log(`   📅 Date from EXIF ${bestField}: ${month}, ${year}`);
+          return `${month}, ${year}`;
+        }
       }
     }
     
     // Fallback to file system dates if no EXIF data
-    console.log(`   ⚠️  No EXIF date found, using file system date`);
+    console.log(`   ⚠️  No EXIF date found, checking file system date`);
     const stats = fs.statSync(filePath);
     const fileDate = stats.birthtime || stats.mtime;
+    
+    // Validate file system date is reasonable
+    const year = fileDate.getFullYear();
+    const currentYear = new Date().getFullYear();
+    
+    if (year < 1995 || year > currentYear + 1) {
+      console.log(`   ❌ File system date ${year} is unreasonable, leaving date blank`);
+      return '';
+    }
     
     const monthNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -691,8 +710,8 @@ async function getDateTaken(filePath) {
     ];
     
     const month = monthNames[fileDate.getMonth()];
-    const year = fileDate.getFullYear();
     
+    console.log(`   📁 Using file system date: ${month}, ${year}`);
     return `${month}, ${year}`;
   } catch (error) {
     console.warn(`⚠️  Could not read date for ${filePath}: ${error.message}`);
