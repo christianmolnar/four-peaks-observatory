@@ -637,6 +637,29 @@ function generateLocationFromFolder(folder) {
     .join(' ');
 }
 
+// Helper function to extract Month, Year from file creation date
+function getDateTaken(filePath) {
+  try {
+    const stats = fs.statSync(filePath);
+    // Use birthtime (creation time) if available, otherwise use mtime (modification time)
+    const fileDate = stats.birthtime || stats.mtime;
+    
+    // Format as "Month, Year" (e.g., "February, 2024")
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const month = monthNames[fileDate.getMonth()];
+    const year = fileDate.getFullYear();
+    
+    return `${month}, ${year}`;
+  } catch (error) {
+    console.warn(`⚠️  Could not read date for ${filePath}: ${error.message}`);
+    return '';
+  }
+}
+
 function getImageType(folder) {
   if (folder.startsWith('terrestrial/')) {
     return 'terrestrial';
@@ -651,12 +674,14 @@ function getImageType(folder) {
 
 function createMetadataEntry(image) {
   const imageType = getImageType(image.folder);
+  const dateTaken = getDateTaken(image.fullPath);
   
   switch (imageType) {
     case 'terrestrial':
       return {
-        "location": generateLocationFromFolder(image.folder), // e.g., "Yellowstone National Park"
         "name": generateCleanName(image.filename),      // e.g., "Mammoth Springs"
+        "dateTaken": dateTaken,                         // e.g., "August, 2024"
+        "location": generateLocationFromFolder(image.folder), // e.g., "Yellowstone National Park"
         "protected": false,
         "youtubeLink": "",
         "youtubeTitle": ""
@@ -675,6 +700,7 @@ function createMetadataEntry(image) {
       return {
         "catalogDesignation": "",
         "objectName": generateCleanName(image.filename), // e.g., "Total Eclipse" instead of "2017 Total Eclipse1"
+        "dateTaken": dateTaken,                         // e.g., "August, 2017"
         "location": "Maple Valley, WA",
         "equipment": "",
         "exposure": "",
@@ -688,6 +714,7 @@ function createMetadataEntry(image) {
       return {
         "catalogDesignation": parsed.catalogDesignation,
         "objectName": parsed.objectName,
+        "dateTaken": dateTaken,                         // e.g., "February, 2024"
         "location": "Maple Valley, WA",
         "equipment": "",
         "exposure": "",
@@ -740,41 +767,72 @@ function updateMetadata() {
       // Create new entry with appropriate fields for image type
       existingMetadata[image.filename] = createMetadataEntry(image);
     } else {
+      // For all image types, check if dateTaken field is missing and add it
+      const entry = existingMetadata[image.filename];
+      let needsDateUpdate = false;
+      
+      // Check if dateTaken field is missing or empty (for astrophotography, terrestrial, and celestial events)
+      if ((imageType === 'astrophotography' || imageType === 'terrestrial' || imageType === 'celestial-events') && 
+          (!entry.dateTaken || entry.dateTaken === '')) {
+        entry.dateTaken = getDateTaken(image.fullPath);
+        needsDateUpdate = true;
+        console.log(`📅 Added dateTaken field for: ${image.filename} (${entry.dateTaken})`);
+      }
+      
       // For terrestrial and equipment images, update if fields are empty
       if (imageType === 'terrestrial') {
-        const entry = existingMetadata[image.filename];
-        const needsUpdate = !entry.location || !entry.name || entry.location === '' || entry.name === '';
+        const needsUpdate = !entry.location || !entry.name || entry.location === '' || entry.name === '' ||
+                           (!entry.protected && entry.protected !== false) || 
+                           (!entry.youtubeLink && entry.youtubeLink !== '') || 
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
-        if (needsUpdate) {
+        if (needsUpdate || needsDateUpdate) {
           console.log(`🔄 Updating terrestrial metadata for: ${image.filename} (${imageType} in ${image.folder})`);
-          entry.location = generateLocationFromFolder(image.folder);
-          entry.name = generateCleanName(image.filename);
+          if (!entry.location || entry.location === '') entry.location = generateLocationFromFolder(image.folder);
+          if (!entry.name || entry.name === '') entry.name = generateCleanName(image.filename);
+          if (entry.protected === undefined) entry.protected = false;
+          if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+          if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
           updatedEntries++;
         } else {
           console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder})`);
         }
       } else if (imageType === 'equipment') {
-        const entry = existingMetadata[image.filename];
         // Only update if both equipmentName and equipmentInfo are empty/missing
         // This preserves any manual edits to equipment descriptions
         const needsUpdate = (!entry.equipmentName || entry.equipmentName === '') && 
-                           (!entry.equipmentInfo || entry.equipmentInfo === '');
+                           (!entry.equipmentInfo || entry.equipmentInfo === '') ||
+                           (!entry.protected && entry.protected !== false) || 
+                           (!entry.youtubeLink && entry.youtubeLink !== '') || 
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
         if (needsUpdate) {
           console.log(`🔄 Updating equipment metadata for: ${image.filename} (${imageType} in ${image.folder})`);
-          entry.equipmentName = generateCleanName(image.filename);
+          if (!entry.equipmentName || entry.equipmentName === '') entry.equipmentName = generateCleanName(image.filename);
           // Don't overwrite equipmentInfo if it already has content
-          if (!entry.equipmentInfo) {
-            entry.equipmentInfo = '';
-          }
+          if (!entry.equipmentInfo) entry.equipmentInfo = '';
+          if (entry.protected === undefined) entry.protected = false;
+          if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+          if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
           updatedEntries++;
         } else {
           console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder}) - preserving manual edits`);
         }
       } else {
-        console.log(`🔄 Existing entry found for: ${image.filename} (${imageType} in ${image.folder})`);
-        updatedEntries++;
-        // Keep existing astrophotography entry as-is since user may have manually edited it
+        // For astrophotography and celestial events, check if required fields are missing
+        const needsUpdate = (!entry.protected && entry.protected !== false) || 
+                           (!entry.youtubeLink && entry.youtubeLink !== '') || 
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '');
+        
+        if (needsUpdate || needsDateUpdate) {
+          console.log(`🔄 Updating ${imageType} metadata for: ${image.filename} (${imageType} in ${image.folder})`);
+          if (entry.protected === undefined) entry.protected = false;
+          if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+          if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+          updatedEntries++;
+        } else {
+          console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder})`);
+        }
       }
     }
   });

@@ -21,6 +21,7 @@ interface ImageMetadata {
   equipmentName?: string;
   equipmentInfo?: string;
   // Common fields
+  dateTaken?: string; // e.g., "February, 2024"
   location: string;
   // YouTube contemplation fields
   youtubeLink?: string;
@@ -653,6 +654,13 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                         </span>
                       );
                     }
+                    
+                    // Date taken (for astrophotography)
+                    if (images[currentImage].dateTaken) {
+                      metadataItems.push(
+                        <span key="dateTaken">{images[currentImage].dateTaken}</span>
+                      );
+                    }
                   } else if (isEquipment) {
                     // Equipment: Show equipment name and info
                     metadataItems.push(
@@ -674,6 +682,13 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                         <span key="name" className="font-medium tracking-wide">
                           {images[currentImage].name}
                         </span>
+                      );
+                    }
+                    
+                    // Date taken (for terrestrial)
+                    if (images[currentImage].dateTaken) {
+                      metadataItems.push(
+                        <span key="dateTaken">{images[currentImage].dateTaken}</span>
                       );
                     }
                   }
