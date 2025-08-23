@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const exifr = require('exifr');
 
 // Paths
 const METADATA_FILE = '/Users/christian/Repos/MapleValleyObservatory/src/data/metadata.json';
@@ -637,14 +638,53 @@ function generateLocationFromFolder(folder) {
     .join(' ');
 }
 
-// Helper function to extract Month, Year from file creation date
-function getDateTaken(filePath) {
+// Helper function to extract Month, Year from image EXIF metadata
+async function getDateTaken(filePath) {
   try {
+    // First try to get EXIF data from the image
+    const exifData = await exifr.parse(filePath);
+    
+    if (exifData) {
+      // Look for the best date field in order of preference
+      const dateFields = [
+        'DateTimeOriginal',  // Best - actual capture time
+        'CreateDate',        // Good - creation time  
+        'DateTime',          // OK - file datetime
+        'DateTimeDigitized', // OK - digitization time
+        'ModifyDate'         // Last resort - modification time (processing date)
+      ];
+      
+      let bestDate = null;
+      let bestField = null;
+      
+      for (const field of dateFields) {
+        if (exifData[field]) {
+          bestDate = new Date(exifData[field]);
+          bestField = field;
+          break;
+        }
+      }
+      
+      if (bestDate && !isNaN(bestDate.getTime())) {
+        // Format as "Month, Year" (e.g., "February, 2024")
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        
+        const month = monthNames[bestDate.getMonth()];
+        const year = bestDate.getFullYear();
+        
+        console.log(`   📅 Date from EXIF ${bestField}: ${month}, ${year}`);
+        return `${month}, ${year}`;
+      }
+    }
+    
+    // Fallback to file system dates if no EXIF data
+    console.log(`   ⚠️  No EXIF date found, using file system date`);
     const stats = fs.statSync(filePath);
-    // Use birthtime (creation time) if available, otherwise use mtime (modification time)
     const fileDate = stats.birthtime || stats.mtime;
     
-    // Format as "Month, Year" (e.g., "February, 2024")
     const monthNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
@@ -672,9 +712,9 @@ function getImageType(folder) {
   }
 }
 
-function createMetadataEntry(image) {
+async function createMetadataEntry(image) {
   const imageType = getImageType(image.folder);
-  const dateTaken = getDateTaken(image.fullPath);
+  const dateTaken = await getDateTaken(image.fullPath);
   
   switch (imageType) {
     case 'terrestrial':
@@ -725,7 +765,7 @@ function createMetadataEntry(image) {
   }
 }
 
-function updateMetadata() {
+async function updateMetadata() {
   console.log('🔍 Scanning for images...');
   
   const allImages = findImages();
@@ -756,7 +796,7 @@ function updateMetadata() {
   });
   
   // Add/update entries for all images
-  allImages.forEach(image => {
+  for (const image of allImages) {
     const isNewEntry = !existingMetadata[image.filename];
     const imageType = getImageType(image.folder);
     
@@ -765,7 +805,7 @@ function updateMetadata() {
       newEntries++;
       
       // Create new entry with appropriate fields for image type
-      existingMetadata[image.filename] = createMetadataEntry(image);
+      existingMetadata[image.filename] = await createMetadataEntry(image);
     } else {
       // For all image types, check if dateTaken field is missing and add it
       const entry = existingMetadata[image.filename];
@@ -774,7 +814,7 @@ function updateMetadata() {
       // Check if dateTaken field is missing or empty (for astrophotography, terrestrial, and celestial events)
       if ((imageType === 'astrophotography' || imageType === 'terrestrial' || imageType === 'celestial-events') && 
           (!entry.dateTaken || entry.dateTaken === '')) {
-        entry.dateTaken = getDateTaken(image.fullPath);
+        entry.dateTaken = await getDateTaken(image.fullPath);
         needsDateUpdate = true;
         console.log(`📅 Added dateTaken field for: ${image.filename} (${entry.dateTaken})`);
       }
@@ -835,7 +875,7 @@ function updateMetadata() {
         }
       }
     }
-  });
+  }
   
   if (newEntries > 0 || updatedEntries > 0 || deletedEntries > 0) {
     // Write updated metadata back to file
@@ -859,4 +899,4 @@ function updateMetadata() {
 }
 
 // Run the script
-updateMetadata();
+updateMetadata().catch(console.error);
