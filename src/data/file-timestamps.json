@@ -69,6 +69,13 @@
     "ctimeMs": 1753945145256.6914,
     "filename": "M31-Final.jpg"
   },
+  "astrophotography/deep-sky/galaxies/M31.jpg": {
+    "mtime": "2025-08-23T22:41:13.946Z",
+    "mtimeMs": 1755988873945.652,
+    "ctime": "2025-08-23T22:42:07.149Z",
+    "ctimeMs": 1755988927149.0898,
+    "filename": "M31.jpg"
+  },
   "astrophotography/deep-sky/galaxies/M33 - The Triangulum Galaxy.jpg": {
     "mtime": "2025-07-31T23:06:44.434Z",
     "mtimeMs": 1754003204433.8103,
@@ -139,6 +146,13 @@
     "ctimeMs": 1755058392695.534,
     "filename": "IC63.jpg"
   },
+  "astrophotography/deep-sky/nebulas/M1 - Crab Nebule-1.jpg": {
+    "mtime": "2025-08-22T23:10:03.337Z",
+    "mtimeMs": 1755904203337.4797,
+    "ctime": "2025-08-22T23:10:03.337Z",
+    "ctimeMs": 1755904203337.4797,
+    "filename": "M1 - Crab Nebule-1.jpg"
+  },
   "astrophotography/deep-sky/nebulas/M1 - The Crab Nebula.jpg": {
     "mtime": "2025-07-31T22:11:42.317Z",
     "mtimeMs": 1753999902317.1958,
@@ -180,6 +194,13 @@
     "ctime": "2025-08-01T03:55:34.310Z",
     "ctimeMs": 1754020534309.8357,
     "filename": "M42 The Orion Nebula.jpg"
+  },
+  "astrophotography/deep-sky/nebulas/M45.jpg": {
+    "mtime": "2025-08-23T22:13:38.776Z",
+    "mtimeMs": 1755987218776.2412,
+    "ctime": "2025-08-23T22:38:54.774Z",
+    "ctimeMs": 1755988734774.0078,
+    "filename": "M45.jpg"
   },
   "astrophotography/deep-sky/nebulas/M97.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
@@ -279,12 +300,26 @@
     "ctimeMs": 1754272426786.7373,
     "filename": "Wizard-Lr-PI.jpg"
   },
+  "astrophotography/deep-sky/star-clusters/M103.jpg": {
+    "mtime": "2025-08-24T18:41:07.924Z",
+    "mtimeMs": 1756060867924.1763,
+    "ctime": "2025-08-24T18:41:07.924Z",
+    "ctimeMs": 1756060867924.1763,
+    "filename": "M103.jpg"
+  },
   "astrophotography/deep-sky/star-clusters/M13-1.jpg": {
     "mtime": "2025-08-14T01:41:00.520Z",
     "mtimeMs": 1755135660520.1433,
     "ctime": "2025-08-14T01:41:00.520Z",
     "ctimeMs": 1755135660520.1433,
     "filename": "M13-1.jpg"
+  },
+  "astrophotography/deep-sky/star-clusters/M39.jpg": {
+    "mtime": "2025-08-24T17:41:21.465Z",
+    "mtimeMs": 1756057281464.9604,
+    "ctime": "2025-08-24T17:44:47.258Z",
+    "ctimeMs": 1756057487257.5369,
+    "filename": "M39.jpg"
   },
   "astrophotography/deep-sky/star-clusters/M45 - Pleiades.jpg": {
     "mtime": "2025-07-31T21:55:25.271Z",
@@ -293,12 +328,47 @@
     "ctimeMs": 1753998925270.5557,
     "filename": "M45 - Pleiades.jpg"
   },
+  "astrophotography/deep-sky/star-clusters/M56.jpg": {
+    "mtime": "2025-08-24T19:08:07.990Z",
+    "mtimeMs": 1756062487989.7444,
+    "ctime": "2025-08-24T19:09:52.188Z",
+    "ctimeMs": 1756062592188.3748,
+    "filename": "M56.jpg"
+  },
+  "astrophotography/deep-sky/star-clusters/M71.jpg": {
+    "mtime": "2025-08-24T17:19:16.238Z",
+    "mtimeMs": 1756055956237.6638,
+    "ctime": "2025-08-24T17:44:54.418Z",
+    "ctimeMs": 1756057494418.354,
+    "filename": "M71.jpg"
+  },
+  "astrophotography/deep-sky/star-clusters/M92.jpg": {
+    "mtime": "2025-08-24T18:51:56.126Z",
+    "mtimeMs": 1756061516126.0598,
+    "ctime": "2025-08-24T19:09:57.812Z",
+    "ctimeMs": 1756062597811.664,
+    "filename": "M92.jpg"
+  },
   "astrophotography/deep-sky/star-clusters/NGC869 and NGC884 - The Double Cluster.jpg": {
     "mtime": "2025-07-31T22:23:58.545Z",
     "mtimeMs": 1754000638544.6248,
     "ctime": "2025-08-01T04:01:12.970Z",
     "ctimeMs": 1754020872969.9792,
     "filename": "NGC869 and NGC884 - The Double Cluster.jpg"
+  },
+  "astrophotography/deep-sky/wide-field/Double Cluster.jpg": {
+    "mtime": "2025-08-24T18:31:29.347Z",
+    "mtimeMs": 1756060289346.5103,
+    "ctime": "2025-08-24T20:38:01.602Z",
+    "ctimeMs": 1756067881602.391,
+    "filename": "Double Cluster.jpg"
+  },
+  "astrophotography/deep-sky/wide-field/NGC 7635 - M52.jpg": {
+    "mtime": "2025-08-24T18:05:36.027Z",
+    "mtimeMs": 1756058736027.1592,
+    "ctime": "2025-08-24T18:26:35.339Z",
+    "ctimeMs": 1756059995338.9028,
+    "filename": "NGC 7635 - M52.jpg"
   },
   "astrophotography/deep-sky/wide-field/Orion-wide-death-valley.jpg": {
     "mtime": "2025-07-31T05:11:52.913Z",
@@ -314,110 +384,75 @@
     "ctimeMs": 1753981149339.6116,
     "filename": "Sadr Region.jpg"
   },
-  "astrophotography/featured/Ghost of Cassiopeia-S50.jpg": {
-    "mtime": "2025-08-13T04:22:06.827Z",
-    "mtimeMs": 1755058926826.698,
-    "ctime": "2025-08-13T04:22:06.827Z",
-    "ctimeMs": 1755058926826.698,
-    "filename": "Ghost of Cassiopeia-S50.jpg"
+  "astrophotography/featured/Double Cluster.jpg": {
+    "mtime": "2025-08-24T18:31:29.347Z",
+    "mtimeMs": 1756060289346.5103,
+    "ctime": "2025-08-24T20:38:14.455Z",
+    "ctimeMs": 1756067894455.293,
+    "filename": "Double Cluster.jpg"
   },
-  "astrophotography/featured/Heart Nebula.jpg": {
-    "mtime": "2025-07-31T09:03:52.479Z",
-    "mtimeMs": 1753952632479.178,
-    "ctime": "2025-08-01T00:00:55.787Z",
-    "ctimeMs": 1754006455787.171,
-    "filename": "Heart Nebula.jpg"
+  "astrophotography/featured/M1 - Crab Nebule.jpg": {
+    "mtime": "2025-08-22T23:09:51.974Z",
+    "mtimeMs": 1755904191974.0398,
+    "ctime": "2025-08-24T17:23:08.457Z",
+    "ctimeMs": 1756056188457.248,
+    "filename": "M1 - Crab Nebule.jpg"
   },
-  "astrophotography/featured/Heart and Soul Nebulas-4.jpg": {
-    "mtime": "2025-08-02T21:31:32.268Z",
-    "mtimeMs": 1754170292268.2388,
-    "ctime": "2025-08-02T21:31:47.132Z",
-    "ctimeMs": 1754170307132.3762,
-    "filename": "Heart and Soul Nebulas-4.jpg"
+  "astrophotography/featured/M103-1.jpg": {
+    "mtime": "2025-08-24T18:41:22.112Z",
+    "mtimeMs": 1756060882111.7632,
+    "ctime": "2025-08-24T18:41:22.112Z",
+    "ctimeMs": 1756060882111.7632,
+    "filename": "M103-1.jpg"
   },
-  "astrophotography/featured/IC1396-Elephant-Lr.jpg": {
-    "mtime": "2025-07-30T18:46:17.433Z",
-    "mtimeMs": 1753901177432.7502,
-    "ctime": "2025-08-01T00:00:15.309Z",
-    "ctimeMs": 1754006415309.134,
-    "filename": "IC1396-Elephant-Lr.jpg"
+  "astrophotography/featured/M31.jpg": {
+    "mtime": "2025-08-23T22:40:49.806Z",
+    "mtimeMs": 1755988849806.4077,
+    "ctime": "2025-08-24T17:22:49.752Z",
+    "ctimeMs": 1756056169752.254,
+    "filename": "M31.jpg"
   },
-  "astrophotography/featured/IC63.jpg": {
-    "mtime": "2025-08-13T02:11:19.711Z",
-    "mtimeMs": 1755051079710.545,
-    "ctime": "2025-08-13T04:13:06.737Z",
-    "ctimeMs": 1755058386737.2622,
-    "filename": "IC63.jpg"
+  "astrophotography/featured/M39.jpg": {
+    "mtime": "2025-08-24T17:41:05.902Z",
+    "mtimeMs": 1756057265901.6433,
+    "ctime": "2025-08-24T17:41:05.902Z",
+    "ctimeMs": 1756057265901.6433,
+    "filename": "M39.jpg"
   },
-  "astrophotography/featured/M13-2.jpg": {
-    "mtime": "2025-08-14T01:41:17.616Z",
-    "mtimeMs": 1755135677616.0505,
-    "ctime": "2025-08-14T01:41:17.616Z",
-    "ctimeMs": 1755135677616.0505,
-    "filename": "M13-2.jpg"
+  "astrophotography/featured/M45.jpg": {
+    "mtime": "2025-08-23T22:13:24.738Z",
+    "mtimeMs": 1755987204737.5615,
+    "ctime": "2025-08-24T17:22:58.824Z",
+    "ctimeMs": 1756056178824.2988,
+    "filename": "M45.jpg"
   },
-  "astrophotography/featured/M27-2-2.jpg": {
-    "mtime": "2025-08-03T00:58:03.607Z",
-    "mtimeMs": 1754182683607.1064,
-    "ctime": "2025-08-03T00:58:03.607Z",
-    "ctimeMs": 1754182683607.1064,
-    "filename": "M27-2-2.jpg"
+  "astrophotography/featured/M56.jpg": {
+    "mtime": "2025-08-24T19:07:53.865Z",
+    "mtimeMs": 1756062473864.9329,
+    "ctime": "2025-08-24T19:07:53.865Z",
+    "ctimeMs": 1756062473864.9329,
+    "filename": "M56.jpg"
   },
-  "astrophotography/featured/M33.jpg": {
-    "mtime": "2025-07-31T23:08:40.258Z",
-    "mtimeMs": 1754003320258.4426,
-    "ctime": "2025-07-31T23:13:13.451Z",
-    "ctimeMs": 1754003593451.1692,
-    "filename": "M33.jpg"
+  "astrophotography/featured/M71.jpg": {
+    "mtime": "2025-08-24T17:19:33.277Z",
+    "mtimeMs": 1756055973277.2668,
+    "ctime": "2025-08-24T17:22:32.034Z",
+    "ctimeMs": 1756056152033.806,
+    "filename": "M71.jpg"
   },
-  "astrophotography/featured/NGC6635-Hubble.jpg": {
-    "mtime": "2025-08-15T07:31:53.818Z",
-    "mtimeMs": 1755243113817.9717,
-    "ctime": "2025-08-15T07:31:53.818Z",
-    "ctimeMs": 1755243113817.9717,
-    "filename": "NGC6635-Hubble.jpg"
+  "astrophotography/featured/M92-1.jpg": {
+    "mtime": "2025-08-24T18:52:08.782Z",
+    "mtimeMs": 1756061528782.4165,
+    "ctime": "2025-08-24T18:52:08.782Z",
+    "ctimeMs": 1756061528782.4165,
+    "filename": "M92-1.jpg"
   },
-  "astrophotography/featured/NGC7000 and IC5070-2.jpg": {
-    "mtime": "2025-08-15T06:28:21.010Z",
-    "mtimeMs": 1755239301010.0942,
-    "ctime": "2025-08-15T06:28:21.010Z",
-    "ctimeMs": 1755239301010.0942,
-    "filename": "NGC7000 and IC5070-2.jpg"
-  },
-  "astrophotography/featured/NGC7000-Pelican-1.jpg": {
-    "mtime": "2025-07-30T21:12:44.695Z",
-    "mtimeMs": 1753909964695.0574,
-    "ctime": "2025-07-30T21:53:35.600Z",
-    "ctimeMs": 1753912415599.9138,
-    "filename": "NGC7000-Pelican-1.jpg"
-  },
-  "astrophotography/featured/SH2-132-The-LobsterClaw.jpg": {
-    "mtime": "2025-07-30T01:35:14.625Z",
-    "mtimeMs": 1753839314624.9797,
-    "ctime": "2025-07-30T21:51:17.026Z",
-    "ctimeMs": 1753912277026.2004,
-    "filename": "SH2-132-The-LobsterClaw.jpg"
-  },
-  "astrophotography/featured/Soul Nebula.jpg": {
-    "mtime": "2025-08-01T00:03:41.418Z",
-    "mtimeMs": 1754006621418.258,
-    "ctime": "2025-08-02T19:47:23.872Z",
-    "ctimeMs": 1754164043872.2458,
-    "filename": "Soul Nebula.jpg"
-  },
-  "astrophotography/featured/Veil Nebula Complex.jpg": {
-    "mtime": "2025-08-12T23:10:05.203Z",
-    "mtimeMs": 1755040205202.9807,
-    "ctime": "2025-08-13T04:13:06.737Z",
-    "ctimeMs": 1755058386737.416,
-    "filename": "Veil Nebula Complex.jpg"
-  },
-  "astrophotography/featured/Wizard-Lr-PI.jpg": {
-    "mtime": "2025-08-04T01:56:56.114Z",
-    "mtimeMs": 1754272616113.7053,
-    "ctime": "2025-08-04T01:56:56.114Z",
-    "ctimeMs": 1754272616113.8762,
-    "filename": "Wizard-Lr-PI.jpg"
+  "astrophotography/featured/NGC 7635 - M52.jpg": {
+    "mtime": "2025-08-24T18:07:19.913Z",
+    "mtimeMs": 1756058839912.9773,
+    "ctime": "2025-08-24T18:07:29.758Z",
+    "ctimeMs": 1756058849758.2678,
+    "filename": "NGC 7635 - M52.jpg"
   },
   "astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse1.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",

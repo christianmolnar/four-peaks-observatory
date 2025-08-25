@@ -8,21 +8,39 @@ This folder contains comprehensive documentation for the Maple Valley Observator
 - **[SITE_MANAGEMENT_GUIDE.md](SITE_MANAGEMENT_GUIDE.md)** - **START HERE** - Complete guide for running and managing the site
 - **[README.md](../README.md)** - Main project overview (in root directory)
 
-### 🎵 **Contemplation System**
-- **[CONTEMPLATION_INVENTORY_GUIDE.md](CONTEMPLATION_INVENTORY_GUIDE.md)** - Video assignment and inventory management
-- **[youtube-contemplation-links.md](youtube-contemplation-links.md)** - Curated contemplation content library
+### 🎨 **Design & Architecture** (`design/`)
+- **[DESIGN_DOCUMENT_CURRENT.md](design/DESIGN_DOCUMENT_CURRENT.md)** - **Current implementation status** and completed features
+- **[DESIGN_DOCUMENT.md](design/DESIGN_DOCUMENT.md)** - Original design system and component specifications
+- **[DESIGN_PROTECTION.md](design/DESIGN_PROTECTION.md)** - Design consistency guidelines and protection measures
 
-### 🎨 **Design & Development**
-- **[DESIGN_DOCUMENT.md](DESIGN_DOCUMENT.md)** - Complete design system and component specifications
-- **[DESIGN_PROTECTION.md](DESIGN_PROTECTION.md)** - Design consistency guidelines and protection measures
+### ⚙️ **Setup & Configuration** (`setup/`)
+- **[CONTACT_SETUP.md](setup/CONTACT_SETUP.md)** - Contact form and communication setup
+- **[SEO_SETUP_GUIDE.md](setup/SEO_SETUP_GUIDE.md)** - Search engine optimization configuration
+- **[agent-setup-instructions.md](setup/agent-setup-instructions.md)** - AI agent configuration and workflow
 
-### ⚙️ **Setup & Configuration**
-- **[SEO_SETUP_GUIDE.md](SEO_SETUP_GUIDE.md)** - Search engine optimization configuration
-- **[CONTACT_SETUP.md](CONTACT_SETUP.md)** - Contact form and communication setup
+### 📝 **Content Management** (`content/`)
+- **[CONTEMPLATION_INVENTORY_GUIDE.md](content/CONTEMPLATION_INVENTORY_GUIDE.md)** - Video assignment and inventory management
+- **[IMAGE_SORTING_SOLUTION.md](content/IMAGE_SORTING_SOLUTION.md)** - Image organization and metadata management
+- **[youtube-contemplation-links.md](content/youtube-contemplation-links.md)** - Curated contemplation content library
 
-### 🔧 **Technical Solutions**
-- **[IMAGE_SORTING_SOLUTION.md](IMAGE_SORTING_SOLUTION.md)** - Image organization and metadata management
-- **[agent-setup-instructions.md](agent-setup-instructions.md)** - AI agent configuration and workflow
+### 🧪 **Testing Documentation** (`testing/`)
+- **[TEST_DOCUMENTATION.md](testing/TEST_DOCUMENTATION.md)** - Comprehensive test suite documentation and guidelines
+- **[DATE_VALIDATION_SUMMARY.md](testing/DATE_VALIDATION_SUMMARY.md)** - Date validation implementation and testing summary
+
+### 🛠️ **Development Documentation** (`development/`)
+- **[PROJECT_ORGANIZATION_SUMMARY.md](development/PROJECT_ORGANIZATION_SUMMARY.md)** - Project structure and organization guide
+
+### 📋 **Project Documentation** (`project/`)
+- **[DOCUMENTATION_ORGANIZATION_SUMMARY.md](project/DOCUMENTATION_ORGANIZATION_SUMMARY.md)** - Documentation organization methodology
+- **[DOCUMENTATION_ORGANIZATION_COMPLETE.md](project/DOCUMENTATION_ORGANIZATION_COMPLETE.md)** - Organization completion verification
+- **[DUPLICATE_REMOVAL_SUMMARY.md](project/DUPLICATE_REMOVAL_SUMMARY.md)** - File cleanup and optimization results
+
+### 🔭 **Equipment Documentation** (`arizona-observatory/`)
+- **[ARIZONA_OBSERVATORY_EQUIPMENT_INVENTORY.md](arizona-observatory/ARIZONA_OBSERVATORY_EQUIPMENT_INVENTORY.md)** - Current equipment inventory
+- **[ARIZONA_OBSERVATORY_HARDWARE_INVENTORY.md](arizona-observatory/ARIZONA_OBSERVATORY_HARDWARE_INVENTORY.md)** - Hardware specifications
+- **[ARIZONA_OBSERVATORY_MONOCHROME_OPTIONS.md](arizona-observatory/ARIZONA_OBSERVATORY_MONOCHROME_OPTIONS.md)** - Monochrome imaging options
+- **[ARIZONA_OBSERVATORY_BUDGET_PRINTABLE.md](arizona-observatory/ARIZONA_OBSERVATORY_BUDGET_PRINTABLE.md)** - Budget planning documentation
+- **[ARIZONA_OBSERVATORY_SOFTWARE_GUIDE.md](arizona-observatory/ARIZONA_OBSERVATORY_SOFTWARE_GUIDE.md)** - Software setup and configuration
 
 ## 🎯 Quick Reference
 

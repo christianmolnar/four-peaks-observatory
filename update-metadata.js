@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const exifr = require('exifr');
+const { promptForLocation } = require('./scripts/manage-locations');
 
 // Paths
 const METADATA_FILE = '/Users/christian/Repos/MapleValleyObservatory/src/data/metadata.json';
@@ -598,45 +599,6 @@ function generateCleanName(filename) {
   return name || 'Untitled';
 }
 
-// Helper function to generate location from folder path
-function generateLocationFromFolder(folder) {
-  if (!folder.startsWith('terrestrial/')) {
-    return '';
-  }
-  
-  // Extract the location part after 'terrestrial/'
-  const locationPart = folder.replace('terrestrial/', '');
-  
-  // Convert folder names to proper location names
-  const locationMap = {
-    'yellowstone': 'Yellowstone National Park',
-    'grand-tetons': 'Grand Teton National Park',
-    'grand-teton': 'Grand Teton National Park',
-    'yosemite': 'Yosemite National Park',
-    'glacier': 'Glacier National Park',
-    'zion': 'Zion National Park',
-    'bryce': 'Bryce Canyon National Park',
-    'arches': 'Arches National Park',
-    'death-valley': 'Death Valley National Park',
-    'joshua-tree': 'Joshua Tree National Park',
-    'crater-lake': 'Crater Lake National Park',
-    'olympic': 'Olympic National Park',
-    'mount-rainier': 'Mount Rainier National Park',
-    'north-cascades': 'North Cascades National Park'
-  };
-  
-  // Check if we have a specific mapping
-  if (locationMap[locationPart]) {
-    return locationMap[locationPart];
-  }
-  
-  // Otherwise, clean up the folder name
-  return locationPart
-    .replace(/[-_]/g, ' ')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
 
 // Helper function to extract Month, Year from image EXIF metadata
 async function getDateTaken(filePath) {
@@ -740,7 +702,6 @@ async function createMetadataEntry(image) {
       return {
         "name": generateCleanName(image.filename),      // e.g., "Mammoth Springs"
         "dateTaken": dateTaken,                         // e.g., "August, 2024"
-        "location": generateLocationFromFolder(image.folder), // e.g., "Yellowstone National Park"
         "protected": false,
         "youtubeLink": "",
         "youtubeTitle": ""
@@ -760,7 +721,6 @@ async function createMetadataEntry(image) {
         "catalogDesignation": "",
         "objectName": generateCleanName(image.filename), // e.g., "Total Eclipse" instead of "2017 Total Eclipse1"
         "dateTaken": dateTaken,                         // e.g., "August, 2017"
-        "location": "Maple Valley, WA",
         "equipment": "",
         "exposure": "",
         "protected": false,
@@ -774,7 +734,6 @@ async function createMetadataEntry(image) {
         "catalogDesignation": parsed.catalogDesignation,
         "objectName": parsed.objectName,
         "dateTaken": dateTaken,                         // e.g., "February, 2024"
-        "location": "Maple Valley, WA",
         "equipment": "",
         "exposure": "",
         "protected": false,
@@ -840,14 +799,14 @@ async function updateMetadata() {
       
       // For terrestrial and equipment images, update if fields are empty
       if (imageType === 'terrestrial') {
-        const needsUpdate = !entry.location || !entry.name || entry.location === '' || entry.name === '' ||
+        const needsUpdate = !entry.name || entry.name === '' ||
                            (!entry.protected && entry.protected !== false) || 
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
                            (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
         if (needsUpdate || needsDateUpdate) {
           console.log(`🔄 Updating terrestrial metadata for: ${image.filename} (${imageType} in ${image.folder})`);
-          if (!entry.location || entry.location === '') entry.location = generateLocationFromFolder(image.folder);
+          // Note: Location is now managed manually only
           if (!entry.name || entry.name === '') entry.name = generateCleanName(image.filename);
           if (entry.protected === undefined) entry.protected = false;
           if (entry.youtubeLink === undefined) entry.youtubeLink = '';

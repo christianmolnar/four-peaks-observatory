@@ -61,6 +61,22 @@
     max-width: 100%;
     height: auto;
   }
+
+  /* Admin page animations */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 @theme inline {
@@ -176,5 +192,24 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Favicon and browser icon improvements */
+@layer utilities {
+  /* Modern browsers support CSS for favicon styling in some contexts */
+  link[rel="icon"],
+  link[rel="shortcut icon"],
+  link[rel="apple-touch-icon"] {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Additional improvements for favicon quality */
+@media (prefers-color-scheme: dark) {
+  /* Ensure favicon looks good in dark mode browser themes */
+  link[rel="icon"] {
+    filter: brightness(1.1) contrast(1.05);
   }
 }

@@ -18,7 +18,6 @@ export const navigationConfig = {
     { label: 'Terrestrial', href: '/terrestrial' },
     { label: 'Gear', href: '/equipment' },
     { label: 'Resources', href: '/resources' },
-    { label: 'About', href: '/about' },
     { label: 'Contact', href: '/contact' },
   ]
 };

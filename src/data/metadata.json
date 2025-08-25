@@ -1,283 +1,226 @@
 {
   "20 Day Old Moon.jpg": {
     "catalogDesignation": "",
-    "objectName": "Day Old Moon",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "protected": false,
-    "dateTaken": "September, 2005"
-  },
-  "2017 Total Eclipse1.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse1",
-    "location": "Portland, OR",
-    "equipment": "",
-    "exposure": "",
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "protected": false,
-    "dateTaken": "July, 2025"
-  },
-  "2017 Total Eclipse10.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse10",
-    "location": "Portland, OR",
-    "equipment": "",
-    "exposure": "",
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "protected": false,
-    "dateTaken": "August, 2017"
-  },
-  "2017 Total Eclipse2.mp4": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse2",
-    "location": "Portland, OR",
-    "equipment": "",
-    "exposure": "",
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "protected": false,
-    "dateTaken": "July, 2025"
-  },
-  "2017 Total Eclipse8.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse8",
-    "location": "Portland, OR",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2017"
-  },
-  "2017 Total Eclipse87.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse87",
-    "location": "Portland, OR",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2017"
-  },
-  "2017 Total Eclipse88.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse88",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2017"
-  },
-  "2017 Total Eclipse9.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Total Eclipse9",
-    "location": "Portland, OR",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2017"
-  },
-  "Cocoon Nebula Tight.jpg": {
-    "catalogDesignation": "IC5146",
-    "objectName": "Cocoon Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "Konus 8 indh Reflector and ASI Camera",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=GWggDMDhwIA",
-    "youtubeTitle": "Contemplative Sounds",
-    "dateTaken": "July, 2005"
-  },
-  "Cocoon Nebula Wide.jpg": {
-    "catalogDesignation": "IC5146",
-    "objectName": "Cocoon Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "Konus 8 indh Reflector and ASI Camera",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://youtu.be/vWZ6hmHj2MA",
-    "youtubeTitle": "Contemplative Sounds",
-    "dateTaken": "July, 2005"
-  },
-  "Crescent Moon.jpg": {
-    "catalogDesignation": "NGC6888",
-    "objectName": "Crescent Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://youtu.be/7kWl-ZGMwkQ",
-    "youtubeTitle": "Contemplative Sounds",
-    "dateTaken": "August, 2005"
-  },
-  "Crescent Nebula.jpg": {
-    "catalogDesignation": "NGC6888",
-    "objectName": "Crescent Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://youtu.be/yeohTfT5fcU",
-    "youtubeTitle": "Contemplative Sounds",
-    "dateTaken": "July, 2023"
-  },
-  "Full Moon.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Full Moon",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://youtu.be/4oK1Jco6JFM",
-    "youtubeTitle": "Contemplative Sounds",
-    "dateTaken": "August, 2005"
-  },
-  "Ghost of Cassiopeia-S50.jpg": {
-    "catalogDesignation": "IC63",
-    "objectName": "Ghost of Cassiopeia",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2025"
-  },
-  "Grand Tetons1.jpg": {
-    "location": "Grand Teton National Park",
-    "name": "Grand Tetons",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
-  },
-  "Grand Tetons2.jpg": {
-    "location": "Grand Teton National Park",
-    "name": "Grand Tetons",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
-  },
-  "Grand Tetons3.jpg": {
-    "location": "Grand Teton National Park",
-    "name": "Grand Tetons",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
-  },
-  "Grand Tetons4.jpg": {
-    "location": "Grand Teton National Park",
-    "name": "Grand Tetons",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
-  },
-  "Heart Nebula.jpg": {
-    "catalogDesignation": "IC1805",
-    "objectName": "Heart Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=Y1uZmnh6LwM",
-    "youtubeTitle": "Lito Vitale Cuarteto - Recuerdos en mi bemol",
-    "dateTaken": "June, 2025"
-  },
-  "Heart and Soul Nebulas-4.jpg": {
-    "catalogDesignation": "IC1805 and IC1848",
-    "objectName": "Heart and Soul Nebulas",
-    "location": "Ravensdale, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": true,
-    "youtubeLink": "https://www.youtube.com/watch?v=7xwq2QsBtoA",
-    "youtubeTitle": "A Good Day... Brother David Steindl-Rast",
-    "dateTaken": "August, 2025"
-  },
-  "Hubble and Me.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Hubble And Me",
-    "location": "Maple Valley, WA",
-    "equipment": "Konus 8 indh Reflector and ASI Camera",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "September, 2003"
-  },
-  "IC1396-Elephant-Lr.jpg": {
-    "catalogDesignation": "IC1396",
-    "objectName": "Elephant's Trunk Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=NHKhvIQXxpY",
-    "youtubeTitle": "Lito Vitale Quinteto │ Recuerdos En Mi Bemol",
-    "dateTaken": "July, 2025"
-  },
-  "IC1396-The Elephant.jpg": {
-    "catalogDesignation": "IC1396",
-    "objectName": "Elephant's Trunk Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
-  },
-  "IC434.jpg": {
-    "catalogDesignation": "IC434",
-    "objectName": "Horsehead Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "February, 2024"
-  },
-  "IC63.jpg": {
-    "catalogDesignation": "IC 63",
-    "objectName": "Ghost of Cassiopeia",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "protected": false,
-    "dateTaken": "August, 2025"
-  },
-  "M1 - Crab Nebule-1.jpg": {
-    "catalogDesignation": "M1",
-    "objectName": "Crab Nebula",
-    "dateTaken": "August, 2025",
-    "location": "Maple Valley, WA",
+    "objectName": "20 Day Old Moon",
+    "dateTaken": "September, 2005",
     "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
-  "M1 - Crab Nebule.jpg": {
-    "catalogDesignation": "M1",
-    "objectName": "Crab Nebula",
+  "2017 Total Eclipse10.jpg": {
+    "catalogDesignation": "",
+    "objectName": "2017 Total Eclipse",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "2017 Total Eclipse2.mp4": {
+    "catalogDesignation": "",
+    "objectName": "2017 Total Eclipse",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "2017 Total Eclipse8.jpg": {
+    "catalogDesignation": "",
+    "objectName": "2017 Total Eclipse",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "2017 Total Eclipse87.jpg": {
+    "catalogDesignation": "",
+    "objectName": "2017 Total Eclipse",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "2017 Total Eclipse88.jpg": {
+    "catalogDesignation": "",
+    "objectName": "2017 Total Eclipse",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "2017 Total Eclipse9.jpg": {
+    "catalogDesignation": "",
+    "objectName": "2017 Total Eclipse",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Cocoon Nebula Tight.jpg": {
+    "catalogDesignation": "IC5146",
+    "objectName": "Cocoon Nebula",
+    "dateTaken": "July, 2005",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Cocoon Nebula Wide.jpg": {
+    "catalogDesignation": "IC5146",
+    "objectName": "Cocoon Nebula",
+    "dateTaken": "July, 2005",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Crescent Moon.jpg": {
+    "catalogDesignation": "NGC6888",
+    "objectName": "Crescent Nebula",
+    "dateTaken": "August, 2005",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Crescent Nebula.jpg": {
+    "catalogDesignation": "NGC6888",
+    "objectName": "Crescent Nebula",
+    "dateTaken": "July, 2023",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Double Cluster.jpg": {
+    "catalogDesignation": "NGC869",
+    "objectName": "Double Cluster",
     "dateTaken": "August, 2025",
-    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Eclipse2017.jpg": {
+    "catalogDesignation": "",
+    "objectName": "Looking Up....",
+    "dateTaken": "August, 2017",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Full Moon.jpg": {
+    "catalogDesignation": "",
+    "objectName": "Full Moon",
+    "dateTaken": "August, 2005",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Grand Tetons1.jpg": {
+    "name": "Grand Tetons",
+    "dateTaken": "July, 2021",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Grand Tetons2.jpg": {
+    "name": "Grand Tetons",
+    "dateTaken": "July, 2021",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Grand Tetons3.jpg": {
+    "name": "Grand Tetons",
+    "dateTaken": "July, 2021",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Grand Tetons4.jpg": {
+    "name": "Grand Tetons",
+    "dateTaken": "July, 2021",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Heart Nebula.jpg": {
+    "catalogDesignation": "IC1805",
+    "objectName": "Heart Nebula",
+    "dateTaken": "June, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Heart and Soul Nebulas-4.jpg": {
+    "catalogDesignation": "IC1805",
+    "objectName": "Heart Nebula",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Hubble and Me.jpg": {
+    "catalogDesignation": "",
+    "objectName": "Mars - Hubble And Me",
+    "dateTaken": "September, 2003",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "IC1396-The Elephant.jpg": {
+    "catalogDesignation": "IC1396",
+    "objectName": "Elephant's Trunk Nebula",
+    "dateTaken": "July, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "IC434.jpg": {
+    "catalogDesignation": "IC434",
+    "objectName": "Horsehead Nebula",
+    "dateTaken": "February, 2024",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "IC63.jpg": {
+    "catalogDesignation": "IC63",
+    "objectName": "Ghost of Cassiopeia",
+    "dateTaken": "August, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
@@ -287,32 +230,49 @@
   "M1 - The Crab Nebula.jpg": {
     "catalogDesignation": "M1",
     "objectName": "Crab Nebula",
-    "location": "Ravensdale, WA",
+    "dateTaken": "July, 2025",
     "equipment": "",
     "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
-  },
-  "M13-1.jpg": {
-    "catalogDesignation": "M13",
-    "objectName": "Great Globular Cluster in Hercules",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "dateTaken": "August, 2025",
     "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
-  "M13-2.jpg": {
-    "catalogDesignation": "M13",
-    "objectName": "Great Globular Cluster in Hercules",
-    "location": "Maple Valley, WA",
+  "M1.jpg": {
+    "catalogDesignation": "M1",
+    "objectName": "Crab Nebula",
+    "dateTaken": "August, 2025",
     "equipment": "",
     "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M103-1.jpg": {
+    "catalogDesignation": "M103",
+    "objectName": "Open Cluster M103",
     "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M103.jpg": {
+    "catalogDesignation": "M103",
+    "objectName": "Open Cluster M103",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M13-1.jpg": {
+    "catalogDesignation": "M13",
+    "objectName": "Great Globular Cluster in Hercules",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
     "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
@@ -320,10 +280,9 @@
   "M13-4.jpg": {
     "catalogDesignation": "M13",
     "objectName": "Great Globular Cluster in Hercules",
-    "location": "Maple Valley, WA",
+    "dateTaken": "August, 2025",
     "equipment": "",
     "exposure": "",
-    "dateTaken": "August, 2025",
     "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
@@ -331,74 +290,57 @@
   "M16.jpg": {
     "catalogDesignation": "M16",
     "objectName": "Eagle Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S50",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=XdOt_RqDC68",
-    "youtubeTitle": "David Whyte - Blessings",
-    "dateTaken": "August, 2024"
-  },
-  "M27-2-1.jpg": {
-    "catalogDesignation": "M27",
-    "objectName": "The Dumbbell Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "",
-    "exposure": "",
-    "youtubeLink": "https://www.youtube.com/watch?v=7xwq2QsBtoA",
-    "youtubeTitle": "A Good Day... Brother David Steindl-Rast",
-    "protected": true,
-    "dateTaken": "August, 2025"
-  },
-  "M27-2-2.jpg": {
-    "catalogDesignation": "M27",
-    "objectName": "Dumbbell Nebula",
-    "location": "Maple Valley, WA",
+    "dateTaken": "August, 2024",
     "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2025"
+    "youtubeTitle": ""
+  },
+  "M27-2-1.jpg": {
+    "catalogDesignation": "M27",
+    "objectName": "Dumbbell Nebula",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "M27.jpg": {
     "catalogDesignation": "M27",
     "objectName": "Dumbbell Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "August, 2024",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2024"
+    "youtubeTitle": ""
   },
   "M31-25x300sec-Tight-1600x1131.jpg": {
     "catalogDesignation": "M31",
     "objectName": "Andromeda Galaxy",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
+    "dateTaken": "July, 2005",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2005"
+    "youtubeTitle": ""
   },
   "M31-Final.jpg": {
     "catalogDesignation": "M31",
     "objectName": "Andromeda Galaxy",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
+    "dateTaken": "September, 2023",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=evAaX3kdFEw",
-    "youtubeTitle": "Carl Sagan Cosmos Contemplation with Handpan",
-    "dateTaken": "September, 2023"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "M31.jpg": {
     "catalogDesignation": "M31",
     "objectName": "Andromeda Galaxy",
     "dateTaken": "August, 2025",
-    "location": "Maple Valley, WA",
     "equipment": "",
     "exposure": "",
     "protected": false,
@@ -408,52 +350,97 @@
   "M33 - The Triangulum Galaxy.jpg": {
     "catalogDesignation": "M33",
     "objectName": "Triangulum Galaxy",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/shorts/AZGISldnsVo",
-    "youtubeTitle": "Just beyond yourself, by David Whyte",
-    "dateTaken": "July, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
-  "M33.jpg": {
-    "catalogDesignation": "M33",
-    "objectName": "Triangulum Galaxy",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
+  "M39.jpg": {
+    "catalogDesignation": "M39",
+    "objectName": "Messier 39",
+    "dateTaken": "August, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=qm-40iddr2I",
-    "youtubeTitle": "Schindler's List - John Williams Violin Performance",
-    "dateTaken": "July, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "M42 The Orion Nebula.jpg": {
     "catalogDesignation": "M42",
     "objectName": "Orion Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "Orion 80mm ED APO and Canon EOS",
+    "dateTaken": "March, 2005",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=UtBsl3j0YRQ",
-    "youtubeTitle": "Brother David on Gratitude and Happiness",
-    "dateTaken": "March, 2005"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "M45 - Pleiades.jpg": {
     "catalogDesignation": "M45",
     "objectName": "Pleiades",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=nrKKxVpSnbI",
-    "youtubeTitle": "Prayer and Gratitude - Spiritual Dialogue",
-    "dateTaken": "July, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M45 --1.jpg": {
+    "catalogDesignation": "M45",
+    "objectName": "Pleiades",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "M45.jpg": {
     "catalogDesignation": "M45",
     "objectName": "Pleiades",
     "dateTaken": "August, 2025",
-    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M56.jpg": {
+    "catalogDesignation": "M56",
+    "objectName": "Messier 56",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M71.jpg": {
+    "catalogDesignation": "M71",
+    "objectName": "Messier 71",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M92-1.jpg": {
+    "catalogDesignation": "M92",
+    "objectName": "Globular Cluster M92",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "M92.jpg": {
+    "catalogDesignation": "M92",
+    "objectName": "Globular Cluster M92",
+    "dateTaken": "August, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
@@ -463,308 +450,285 @@
   "M97.jpg": {
     "catalogDesignation": "M97",
     "objectName": "Owl Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "March, 2024",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "March, 2024"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs1.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs10.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs11.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs2.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs3.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs4.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs5.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs6.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs7.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs8.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Mammoth Hot Springs9.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Mammoth Hot Springs",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin1.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin10.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin11.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin12.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin15.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin16.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin17.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin18.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin19.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin20.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin21.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin22.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin23.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin24.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin25.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin4.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin5.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin6.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin7.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin8.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Midway Basin9.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Midway Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "My Gear0.jpg": {
-    "equipmentName": "Meade 8 inch ACF SFT and William Optics Zenithstar 81",
-    "equipmentInfo": "My current setup, with ZWO ASI 533MC and 676MC cameras.",
-    "protected": true,
+    "equipmentName": "My Gear",
+    "equipmentInfo": "",
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
   "My Gear1.jpg": {
-    "equipmentName": "Meade LX65 Dual AltAz",
-    "equipmentInfo": "Wish I had kept this one.",
-    "protected": true,
+    "equipmentName": "My Gear",
+    "equipmentInfo": "",
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
   "My Gear5.jpg": {
-    "equipmentName": "SeeStar S50",
-    "equipmentInfo": "On the platform on our roof",
-    "protected": true,
+    "equipmentName": "My Gear",
+    "equipmentInfo": "",
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
   "My Gear6.jpg": {
-    "equipmentName": "Meade LX200 10 inch and Orion 80mm ED APO",
-    "equipmentInfo": "This was my firrst serious setup, with Canon EOS and ASIC Camera",
-    "protected": true,
+    "equipmentName": "My Gear",
+    "equipmentInfo": "",
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
   "My Gear7.jpg": {
-    "equipmentName": "The ObseShed",
-    "equipmentInfo": "With rolling roof designed by me.  It did the job.",
-    "protected": true,
+    "equipmentName": "My Gear",
+    "equipmentInfo": "",
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
   },
   "My Gear8.jpg": {
-    "equipmentName": "The ObseShed",
+    "equipmentName": "My Gear",
     "equipmentInfo": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "NGC 7635 - M52.jpg": {
+    "catalogDesignation": "NGC7635",
+    "objectName": "Bubble Nebula",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
     "protected": false,
     "youtubeLink": "",
     "youtubeTitle": ""
@@ -772,610 +736,514 @@
   "NGC1499.jpg": {
     "catalogDesignation": "NGC1499",
     "objectName": "California Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
+    "dateTaken": "July, 2005",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2005"
+    "youtubeTitle": ""
   },
   "NGC2244.jpg": {
     "catalogDesignation": "NGC2244",
-    "objectName": "Rosette Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "SeeStar S50",
+    "objectName": "Rosette Nebula Open Cluster",
+    "dateTaken": "February, 2024",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "February, 2024"
+    "youtubeTitle": ""
   },
   "NGC2264.jpg": {
     "catalogDesignation": "NGC2264",
     "objectName": "Cone Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": ""
+    "youtubeTitle": ""
   },
   "NGC281.jpg": {
     "catalogDesignation": "NGC281",
     "objectName": "Pacman Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "August, 2024",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2024"
+    "youtubeTitle": ""
   },
   "NGC6635-Hubble-1.jpg": {
     "catalogDesignation": "NGC6635",
-    "objectName": "The Bubble Nebula - Hubble Palette",
-    "location": "Maple Valley, WA",
+    "objectName": "NGC6635",
+    "dateTaken": "August, 2025",
     "equipment": "",
-    "exposure": "",
-    "protected": true,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2025"
-  },
-  "NGC6635-Hubble.jpg": {
-    "catalogDesignation": "NGC6635",
-    "objectName": "The Bubble Nebula - Hubble Palette",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": true,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2025"
-  },
-  "NGC7000 and IC5070-2.jpg": {
-    "catalogDesignation": "NGC7000 and IC5070",
-    "objectName": "North America Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "My first Hubble Palette processing attempt...",
-    "exposure": "",
-    "protected": true,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2025"
-  },
-  "NGC7000-Pelican-1.jpg": {
-    "catalogDesignation": "NGC7000",
-    "objectName": "North America Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S30 Mosaic",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=9-BMlq_zyko",
-    "youtubeTitle": "Yes - Wondrous Stories (Official Music Video)",
-    "dateTaken": "July, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "NGC7000 and IC5070-2.jpg": {
+    "catalogDesignation": "NGC7000",
+    "objectName": "North America Nebula",
+    "dateTaken": "August, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "NGC7000.jpg": {
     "catalogDesignation": "NGC7000",
     "objectName": "North America Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
+    "dateTaken": "July, 2023",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2023"
+    "youtubeTitle": ""
   },
   "NGC7635 - The Bubble Nebula - Tight.jpg": {
     "catalogDesignation": "NGC7635",
     "objectName": "Bubble Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=7S_P59vnw3w",
-    "youtubeTitle": "Lito Vitale Quinteto, La Orquestita │ Los instantes recordados. Una intensa calma",
-    "dateTaken": "July, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "NGC7635 - The Bubble Nebula-Wide.jpg": {
     "catalogDesignation": "NGC7635",
     "objectName": "Bubble Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
   "NGC869 and NGC884 - The Double Cluster.jpg": {
     "catalogDesignation": "NGC869",
-    "objectName": "Double Cluster in Persei",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
+    "objectName": "Double Cluster",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
-    "protected": true,
-    "youtubeLink": "https://www.youtube.com/watch?v=cgGl1LzShIg",
-    "youtubeTitle": "Lito Vitale - La vida entera juntos",
-    "dateTaken": "July, 2025"
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "North America and The Pelican.jpg": {
     "catalogDesignation": "NGC7000",
     "objectName": "North America Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S30 Mosaic",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
   "Old Faithful10.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful3.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful4.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful5.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful6.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful7.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful8.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Old Faithful9.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Old Faithful",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Orion-wide-death-valley.jpg": {
     "catalogDesignation": "M42",
     "objectName": "Orion Nebula",
-    "location": "Maple Valley, WA",
+    "dateTaken": "July, 2025",
     "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=ogt64MHt-LA",
-    "youtubeTitle": "Lito Vitale Cuarteto │ Viento Sur │ Álbum Completo",
-    "dateTaken": "July, 2025"
-  },
-  "SH2-132-The-LobsterClaw.jpg": {
-    "catalogDesignation": "Sh2-132",
-    "objectName": "Lobster Claw Nebula",
-    "location": "Maple Valley, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 676MC",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
-  "Sadr Region.jpg": {
-    "catalogDesignation": "",
-    "objectName": "Sadr Region in Cygnus",
-    "location": "Maple Valley, WA",
-    "equipment": "",
-    "exposure": "",
-    "protected": true,
-    "youtubeLink": "https://www.youtube.com/watch?v=fmRBQAWFu08",
-    "youtubeTitle": "Lito Vitale - La Senda Infinita",
-    "dateTaken": "July, 2025"
-  },
-  "Soul Nebula.jpg": {
-    "catalogDesignation": "IC1848",
-    "objectName": "Soul Nebula",
-    "location": "Maple Valley, WA",
+  "SH2-132-The-LobsterClaw.jpg": {
+    "catalogDesignation": "Sh2-132",
+    "objectName": "Lion Nebula",
+    "dateTaken": "July, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=R4l1mRpamSg",
-    "youtubeTitle": "Ese Amigo Del Alma",
-    "dateTaken": "October, 2023"
+    "youtubeLink": "",
+    "youtubeTitle": ""
+  },
+  "Sadr Region.jpg": {
+    "catalogDesignation": "IC 1318",
+    "objectName": "Sadr Region",
+    "dateTaken": "July, 2025",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "Sun .jpg": {
     "catalogDesignation": "",
     "objectName": "Sun",
-    "location": "Ravensdale, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
   "Sun.jpg": {
     "catalogDesignation": "",
     "objectName": "Sun",
-    "location": "Maple Valley, WA",
+    "dateTaken": "July, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
   "The Leo Trio.jpg": {
-    "catalogDesignation": "M65, M66, NGC3628",
+    "catalogDesignation": "NGC 3628, M65, and M66.",
     "objectName": "The Leo Trio",
-    "location": "Maple Valley, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "March, 2024",
+    "equipment": "",
     "exposure": "",
-    "protected": true,
-    "youtubeLink": "https://www.youtube.com/watch?v=75YEC2sj_4g",
-    "youtubeTitle": "Lito Vitale - Los Instantes recordados",
-    "dateTaken": "March, 2024"
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "The Soul Nebula.jpg": {
     "catalogDesignation": "IC1848",
     "objectName": "Soul Nebula",
-    "location": "Ravensdale, WA",
-    "equipment": "William Optics Zenithstar 81 and ZWO ASI 533MC",
+    "dateTaken": "October, 2023",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "October, 2023"
+    "youtubeTitle": ""
   },
   "Thor's Helmet.jpg": {
     "catalogDesignation": "NGC2359",
     "objectName": "Thor's Helmet",
-    "location": "Cabo San Lucas, Mexico",
-    "equipment": "SeeStar S50",
+    "dateTaken": "February, 2024",
+    "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=5bRCtz-pzew",
-    "youtubeTitle": "I Was Always Dreaming",
-    "dateTaken": "February, 2024"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "Twilight Moon - Copernicus.jpg": {
     "catalogDesignation": "",
     "objectName": "Twilight Moon Copernicus",
-    "location": "Maple Valley, WA",
+    "dateTaken": "July, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
-    "youtubeLink": "https://www.youtube.com/watch?v=s8q6WJ52oDc",
-    "youtubeTitle": "David Whyte - The Journey",
-    "dateTaken": "July, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "Twilight Moon - Tycho Region.jpg": {
     "catalogDesignation": "",
     "objectName": "Twilight Moon Tycho Region",
-    "location": "Maple Valley, WA",
+    "dateTaken": "July, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
   "Twilight Moon.jpg": {
     "catalogDesignation": "",
     "objectName": "Twilight Moon",
-    "location": "Maple Valley, WA",
-    "equipment": "SeeStar S50",
+    "dateTaken": "July, 2025",
+    "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2025"
+    "youtubeTitle": ""
   },
   "Upper Basin1.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin10.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin11.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin12.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin2.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin3.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin4.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin5.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin6.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin7.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin8.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Upper Basin9.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Upper Basin",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Veil Nebula Complex.jpg": {
-    "catalogDesignation": "NGC 6960/6992",
-    "objectName": "Veil Nebula Complex",
-    "location": "Maple Valley, WA",
+    "catalogDesignation": "NGC6960",
+    "objectName": "Western Veil Nebula",
+    "dateTaken": "August, 2025",
     "equipment": "",
     "exposure": "",
-    "youtubeLink": "",
-    "youtubeTitle": "",
     "protected": false,
-    "dateTaken": "August, 2025"
+    "youtubeLink": "",
+    "youtubeTitle": ""
   },
   "Wizard-Lr-PI.jpg": {
-    "catalogDesignation": "Sh2-140",
+    "catalogDesignation": "NGC7380",
     "objectName": "Wizard Nebula",
-    "location": "Maple Valley, WA",
+    "dateTaken": "July, 2025",
     "equipment": "",
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "August, 2025"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon13.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon14.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon16.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon2.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon4.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon6.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon7.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Canyon9.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Canyon",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna1.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna12.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna13.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna15.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna16.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna2.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna4.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna5.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna6.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna7.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   },
   "Yellowstone Fauna8.jpg": {
-    "location": "Yellowstone National Park",
     "name": "Yellowstone Fauna",
+    "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": "",
-    "dateTaken": "July, 2021"
+    "youtubeTitle": ""
   }
 }

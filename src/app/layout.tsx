@@ -16,7 +16,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "Maple Valley Observatory | Astrophotography & Astronomy",
+    default: "Maple Valley Observatory",
     template: "%s | Maple Valley Observatory",
   },
   description: "Professional astrophotography and celestial imaging from Maple Valley, Washington. Explore deep sky objects, nebulas, galaxies, and terrestrial photography through our advanced telescope setups.",
@@ -76,6 +76,27 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
+  },
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+        sizes: '16x16',
+        type: 'image/x-icon',
+      },
+      {
+        url: '/favicon-32x32.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+    ],
+    apple: [
+      {
+        url: '/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
   },
   verification: {
     // Add your verification codes when you have them
