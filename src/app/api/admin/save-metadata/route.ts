@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Path to the metadata file
     const metadataPath = path.join(process.cwd(), 'src', 'data', 'metadata.json');
     console.log('DEBUG: [API] metadataPath:', metadataPath);
-    let metadata = {};
+    let metadata: Record<string, any> = {};
     if (fs.existsSync(metadataPath)) {
       try {
         metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));

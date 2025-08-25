@@ -2,22 +2,29 @@
   "assets/M33.jpg": {
     "mtime": "2025-07-31T23:08:40.258Z",
     "mtimeMs": 1754003320258.4426,
-    "ctime": "2025-08-01T00:02:48.294Z",
-    "ctimeMs": 1754006568293.889,
+    "ctime": "2025-08-25T00:59:26.066Z",
+    "ctimeMs": 1756083566066.48,
     "filename": "M33.jpg"
+  },
+  "assets/MVO-Favicon.jpg": {
+    "mtime": "2025-08-25T19:34:29.793Z",
+    "mtimeMs": 1756150469792.8777,
+    "ctime": "2025-08-25T19:34:29.793Z",
+    "ctimeMs": 1756150469792.8777,
+    "filename": "MVO-Favicon.jpg"
   },
   "assets/Mauna-Kea-1.jpg": {
     "mtime": "2018-03-07T23:17:23.000Z",
     "mtimeMs": 1520464643000,
-    "ctime": "2025-07-31T18:23:24.244Z",
-    "ctimeMs": 1753986204243.6294,
+    "ctime": "2025-08-25T00:59:26.066Z",
+    "ctimeMs": 1756083566066.2737,
     "filename": "Mauna-Kea-1.jpg"
   },
   "assets/Mauna-Kea-2.jpg": {
     "mtime": "2018-03-07T23:17:16.000Z",
     "mtimeMs": 1520464636000,
-    "ctime": "2025-07-31T18:23:32.691Z",
-    "ctimeMs": 1753986212690.8018,
+    "ctime": "2025-08-25T00:59:26.066Z",
+    "ctimeMs": 1756083566066.3713,
     "filename": "Mauna-Kea-2.jpg"
   },
   "assets/NGC2070-Finished.jpg": {
@@ -86,36 +93,36 @@
   "astrophotography/deep-sky/galaxies/The Leo Trio.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-08-01T03:13:08.284Z",
-    "ctimeMs": 1754017988284.4348,
+    "ctime": "2025-08-25T00:59:26.051Z",
+    "ctimeMs": 1756083566051.3562,
     "filename": "The Leo Trio.jpg"
   },
   "astrophotography/deep-sky/nebulas/Cocoon Nebula Tight.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-08-01T03:55:05.510Z",
-    "ctimeMs": 1754020505509.864,
+    "ctime": "2025-08-25T00:59:26.054Z",
+    "ctimeMs": 1756083566053.7007,
     "filename": "Cocoon Nebula Tight.jpg"
   },
   "astrophotography/deep-sky/nebulas/Cocoon Nebula Wide.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-08-01T03:55:16.251Z",
-    "ctimeMs": 1754020516250.8901,
+    "ctime": "2025-08-25T00:59:26.054Z",
+    "ctimeMs": 1756083566054.498,
     "filename": "Cocoon Nebula Wide.jpg"
   },
   "astrophotography/deep-sky/nebulas/Crescent Nebula.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T08:28:53.170Z",
-    "ctimeMs": 1753950533169.7717,
+    "ctime": "2025-08-25T00:59:26.055Z",
+    "ctimeMs": 1756083566054.6438,
     "filename": "Crescent Nebula.jpg"
   },
   "astrophotography/deep-sky/nebulas/Heart Nebula.jpg": {
     "mtime": "2025-07-31T09:03:52.479Z",
     "mtimeMs": 1753952632479.178,
-    "ctime": "2025-08-01T00:00:43.565Z",
-    "ctimeMs": 1754006443565.3762,
+    "ctime": "2025-08-25T00:59:26.053Z",
+    "ctimeMs": 1756083566053.4888,
     "filename": "Heart Nebula.jpg"
   },
   "astrophotography/deep-sky/nebulas/Heart and Soul Nebulas-4.jpg": {
@@ -146,19 +153,19 @@
     "ctimeMs": 1755058392695.534,
     "filename": "IC63.jpg"
   },
-  "astrophotography/deep-sky/nebulas/M1 - Crab Nebule-1.jpg": {
-    "mtime": "2025-08-22T23:10:03.337Z",
-    "mtimeMs": 1755904203337.4797,
-    "ctime": "2025-08-22T23:10:03.337Z",
-    "ctimeMs": 1755904203337.4797,
-    "filename": "M1 - Crab Nebule-1.jpg"
-  },
   "astrophotography/deep-sky/nebulas/M1 - The Crab Nebula.jpg": {
     "mtime": "2025-07-31T22:11:42.317Z",
     "mtimeMs": 1753999902317.1958,
     "ctime": "2025-07-31T22:11:42.317Z",
     "ctimeMs": 1753999902317.1958,
     "filename": "M1 - The Crab Nebula.jpg"
+  },
+  "astrophotography/deep-sky/nebulas/M1.jpg": {
+    "mtime": "2025-08-22T23:10:03.337Z",
+    "mtimeMs": 1755904203337.4797,
+    "ctime": "2025-08-25T00:52:56.270Z",
+    "ctimeMs": 1756083176270.1587,
+    "filename": "M1.jpg"
   },
   "astrophotography/deep-sky/nebulas/M13-4.jpg": {
     "mtime": "2025-08-14T02:00:30.943Z",
@@ -195,18 +202,11 @@
     "ctimeMs": 1754020534309.8357,
     "filename": "M42 The Orion Nebula.jpg"
   },
-  "astrophotography/deep-sky/nebulas/M45.jpg": {
-    "mtime": "2025-08-23T22:13:38.776Z",
-    "mtimeMs": 1755987218776.2412,
-    "ctime": "2025-08-23T22:38:54.774Z",
-    "ctimeMs": 1755988734774.0078,
-    "filename": "M45.jpg"
-  },
   "astrophotography/deep-sky/nebulas/M97.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T08:12:36.795Z",
-    "ctimeMs": 1753949556794.537,
+    "ctime": "2025-08-25T00:59:26.054Z",
+    "ctimeMs": 1756083566054.0793,
     "filename": "M97.jpg"
   },
   "astrophotography/deep-sky/nebulas/NGC1499.jpg": {
@@ -233,8 +233,8 @@
   "astrophotography/deep-sky/nebulas/NGC281.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-08-01T04:30:35.176Z",
-    "ctimeMs": 1754022635176.4185,
+    "ctime": "2025-08-25T00:59:26.054Z",
+    "ctimeMs": 1756083566053.822,
     "filename": "NGC281.jpg"
   },
   "astrophotography/deep-sky/nebulas/NGC7000.jpg": {
@@ -261,8 +261,8 @@
   "astrophotography/deep-sky/nebulas/North America and The Pelican.jpg": {
     "mtime": "2025-07-30T21:12:58.691Z",
     "mtimeMs": 1753909978690.7815,
-    "ctime": "2025-08-01T03:58:48.759Z",
-    "ctimeMs": 1754020728759.0308,
+    "ctime": "2025-08-25T00:59:26.054Z",
+    "ctimeMs": 1756083566054.3245,
     "filename": "North America and The Pelican.jpg"
   },
   "astrophotography/deep-sky/nebulas/SH2-132-The-LobsterClaw.jpg": {
@@ -328,6 +328,13 @@
     "ctimeMs": 1753998925270.5557,
     "filename": "M45 - Pleiades.jpg"
   },
+  "astrophotography/deep-sky/star-clusters/M45 --1.jpg": {
+    "mtime": "2025-08-24T20:47:02.767Z",
+    "mtimeMs": 1756068422766.505,
+    "ctime": "2025-08-24T20:47:02.767Z",
+    "ctimeMs": 1756068422766.505,
+    "filename": "M45 --1.jpg"
+  },
   "astrophotography/deep-sky/star-clusters/M56.jpg": {
     "mtime": "2025-08-24T19:08:07.990Z",
     "mtimeMs": 1756062487989.7444,
@@ -391,12 +398,12 @@
     "ctimeMs": 1756067894455.293,
     "filename": "Double Cluster.jpg"
   },
-  "astrophotography/featured/M1 - Crab Nebule.jpg": {
+  "astrophotography/featured/M1.jpg": {
     "mtime": "2025-08-22T23:09:51.974Z",
     "mtimeMs": 1755904191974.0398,
-    "ctime": "2025-08-24T17:23:08.457Z",
-    "ctimeMs": 1756056188457.248,
-    "filename": "M1 - Crab Nebule.jpg"
+    "ctime": "2025-08-25T00:53:16.492Z",
+    "ctimeMs": 1756083196492.4807,
+    "filename": "M1.jpg"
   },
   "astrophotography/featured/M103-1.jpg": {
     "mtime": "2025-08-24T18:41:22.112Z",
@@ -418,6 +425,13 @@
     "ctime": "2025-08-24T17:41:05.902Z",
     "ctimeMs": 1756057265901.6433,
     "filename": "M39.jpg"
+  },
+  "astrophotography/featured/M45 --1.jpg": {
+    "mtime": "2025-08-24T20:46:47.046Z",
+    "mtimeMs": 1756068407046.4822,
+    "ctime": "2025-08-24T20:46:47.046Z",
+    "ctimeMs": 1756068407046.4822,
+    "filename": "M45 --1.jpg"
   },
   "astrophotography/featured/M45.jpg": {
     "mtime": "2025-08-23T22:13:24.738Z",
@@ -454,13 +468,6 @@
     "ctimeMs": 1756058849758.2678,
     "filename": "NGC 7635 - M52.jpg"
   },
-  "astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse1.jpg": {
-    "mtime": "1979-11-30T08:00:00.000Z",
-    "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T07:06:35.413Z",
-    "ctimeMs": 1753945595413.0063,
-    "filename": "2017 Total Eclipse1.jpg"
-  },
   "astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse10.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
@@ -492,9 +499,16 @@
   "astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse9.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T07:06:35.415Z",
-    "ctimeMs": 1753945595414.707,
+    "ctime": "2025-08-25T00:59:26.049Z",
+    "ctimeMs": 1756083566049.1943,
     "filename": "2017 Total Eclipse9.jpg"
+  },
+  "astrophotography/solar-system/events/total-eclipse-2017/Eclipse2017.jpg": {
+    "mtime": "2025-08-25T19:29:09.985Z",
+    "mtimeMs": 1756150149985.0288,
+    "ctime": "2025-08-25T19:29:09.985Z",
+    "ctimeMs": 1756150149985.0288,
+    "filename": "Eclipse2017.jpg"
   },
   "astrophotography/solar-system/lunar/20 Day Old Moon.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
@@ -590,8 +604,8 @@
   "equipment/My Gear7.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T07:40:37.295Z",
-    "ctimeMs": 1753947637294.9175,
+    "ctime": "2025-08-25T00:59:26.067Z",
+    "ctimeMs": 1756083566067.393,
     "filename": "My Gear7.jpg"
   },
   "equipment/My Gear8.jpg": {
@@ -611,8 +625,8 @@
   "hero/NGC7000-Pelican-1.jpg": {
     "mtime": "2025-07-30T21:12:44.695Z",
     "mtimeMs": 1753909964695.0574,
-    "ctime": "2025-07-30T21:53:30.468Z",
-    "ctimeMs": 1753912410468.1362,
+    "ctime": "2025-08-25T00:59:26.066Z",
+    "ctimeMs": 1756083566065.7886,
     "filename": "NGC7000-Pelican-1.jpg"
   },
   "logo/Logo.jpg": {
@@ -632,15 +646,15 @@
   "terrestrial/grand-tetons/Grand Tetons1.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:39:07.919Z",
-    "ctimeMs": 1753943947919.1658,
+    "ctime": "2025-08-25T00:59:26.065Z",
+    "ctimeMs": 1756083566065.3806,
     "filename": "Grand Tetons1.jpg"
   },
   "terrestrial/grand-tetons/Grand Tetons2.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:39:07.924Z",
-    "ctimeMs": 1753943947923.7158,
+    "ctime": "2025-08-25T00:59:26.065Z",
+    "ctimeMs": 1756083566065.044,
     "filename": "Grand Tetons2.jpg"
   },
   "terrestrial/grand-tetons/Grand Tetons3.jpg": {
@@ -681,8 +695,8 @@
   "terrestrial/yellowstone/Mammoth Hot Springs2.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:04:18.598Z",
-    "ctimeMs": 1753941858597.7847,
+    "ctime": "2025-08-25T00:59:26.064Z",
+    "ctimeMs": 1756083566063.8445,
     "filename": "Mammoth Hot Springs2.jpg"
   },
   "terrestrial/yellowstone/Mammoth Hot Springs3.jpg": {
@@ -709,22 +723,22 @@
   "terrestrial/yellowstone/Mammoth Hot Springs6.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:04:18.599Z",
-    "ctimeMs": 1753941858598.6106,
+    "ctime": "2025-08-25T00:59:26.063Z",
+    "ctimeMs": 1756083566063.3486,
     "filename": "Mammoth Hot Springs6.jpg"
   },
   "terrestrial/yellowstone/Mammoth Hot Springs7.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:04:18.599Z",
-    "ctimeMs": 1753941858598.796,
+    "ctime": "2025-08-25T00:59:26.063Z",
+    "ctimeMs": 1756083566063.1775,
     "filename": "Mammoth Hot Springs7.jpg"
   },
   "terrestrial/yellowstone/Mammoth Hot Springs8.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:04:18.599Z",
-    "ctimeMs": 1753941858598.9636,
+    "ctime": "2025-08-25T00:59:26.063Z",
+    "ctimeMs": 1756083566062.5332,
     "filename": "Mammoth Hot Springs8.jpg"
   },
   "terrestrial/yellowstone/Mammoth Hot Springs9.jpg": {
@@ -751,15 +765,15 @@
   "terrestrial/yellowstone/Midway Basin11.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.058Z",
-    "ctimeMs": 1753943041058.0344,
+    "ctime": "2025-08-25T00:59:26.064Z",
+    "ctimeMs": 1756083566063.5059,
     "filename": "Midway Basin11.jpg"
   },
   "terrestrial/yellowstone/Midway Basin12.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.061Z",
-    "ctimeMs": 1753943041060.7012,
+    "ctime": "2025-08-25T00:59:26.064Z",
+    "ctimeMs": 1756083566064.2058,
     "filename": "Midway Basin12.jpg"
   },
   "terrestrial/yellowstone/Midway Basin15.jpg": {
@@ -793,22 +807,22 @@
   "terrestrial/yellowstone/Midway Basin19.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.076Z",
-    "ctimeMs": 1753943041075.719,
+    "ctime": "2025-08-25T00:59:26.062Z",
+    "ctimeMs": 1756083566062.3994,
     "filename": "Midway Basin19.jpg"
   },
   "terrestrial/yellowstone/Midway Basin20.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.077Z",
-    "ctimeMs": 1753943041077.407,
+    "ctime": "2025-08-25T00:59:26.062Z",
+    "ctimeMs": 1756083566061.741,
     "filename": "Midway Basin20.jpg"
   },
   "terrestrial/yellowstone/Midway Basin21.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.079Z",
-    "ctimeMs": 1753943041078.9382,
+    "ctime": "2025-08-25T00:59:26.062Z",
+    "ctimeMs": 1756083566062.043,
     "filename": "Midway Basin21.jpg"
   },
   "terrestrial/yellowstone/Midway Basin22.jpg": {
@@ -842,8 +856,8 @@
   "terrestrial/yellowstone/Midway Basin4.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.048Z",
-    "ctimeMs": 1753943041047.5962,
+    "ctime": "2025-08-25T00:59:26.061Z",
+    "ctimeMs": 1756083566060.8706,
     "filename": "Midway Basin4.jpg"
   },
   "terrestrial/yellowstone/Midway Basin5.jpg": {
@@ -877,8 +891,8 @@
   "terrestrial/yellowstone/Midway Basin9.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:24:01.054Z",
-    "ctimeMs": 1753943041054.2366,
+    "ctime": "2025-08-25T00:59:26.064Z",
+    "ctimeMs": 1756083566064.2952,
     "filename": "Midway Basin9.jpg"
   },
   "terrestrial/yellowstone/Old Faithful10.jpg": {
@@ -898,22 +912,22 @@
   "terrestrial/yellowstone/Old Faithful4.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:06:44.081Z",
-    "ctimeMs": 1753942004081.027,
+    "ctime": "2025-08-25T00:59:26.061Z",
+    "ctimeMs": 1756083566061.2573,
     "filename": "Old Faithful4.jpg"
   },
   "terrestrial/yellowstone/Old Faithful5.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:06:44.081Z",
-    "ctimeMs": 1753942004081.205,
+    "ctime": "2025-08-25T00:59:26.062Z",
+    "ctimeMs": 1756083566061.6018,
     "filename": "Old Faithful5.jpg"
   },
   "terrestrial/yellowstone/Old Faithful6.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:06:44.081Z",
-    "ctimeMs": 1753942004081.3691,
+    "ctime": "2025-08-25T00:59:26.062Z",
+    "ctimeMs": 1756083566062.1504,
     "filename": "Old Faithful6.jpg"
   },
   "terrestrial/yellowstone/Old Faithful7.jpg": {
@@ -926,15 +940,15 @@
   "terrestrial/yellowstone/Old Faithful8.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:06:44.082Z",
-    "ctimeMs": 1753942004081.81,
+    "ctime": "2025-08-25T00:59:26.064Z",
+    "ctimeMs": 1756083566063.636,
     "filename": "Old Faithful8.jpg"
   },
   "terrestrial/yellowstone/Old Faithful9.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:06:44.082Z",
-    "ctimeMs": 1753942004082.0981,
+    "ctime": "2025-08-25T00:59:26.064Z",
+    "ctimeMs": 1756083566064.2256,
     "filename": "Old Faithful9.jpg"
   },
   "terrestrial/yellowstone/Upper Basin1.jpg": {
@@ -954,8 +968,8 @@
   "terrestrial/yellowstone/Upper Basin11.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:07:15.181Z",
-    "ctimeMs": 1753942035181.1895,
+    "ctime": "2025-08-25T00:59:26.063Z",
+    "ctimeMs": 1756083566062.75,
     "filename": "Upper Basin11.jpg"
   },
   "terrestrial/yellowstone/Upper Basin12.jpg": {
@@ -982,8 +996,8 @@
   "terrestrial/yellowstone/Upper Basin4.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:07:15.180Z",
-    "ctimeMs": 1753942035180.1604,
+    "ctime": "2025-08-25T00:59:26.065Z",
+    "ctimeMs": 1756083566064.5073,
     "filename": "Upper Basin4.jpg"
   },
   "terrestrial/yellowstone/Upper Basin5.jpg": {
@@ -1017,8 +1031,8 @@
   "terrestrial/yellowstone/Upper Basin9.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:07:15.181Z",
-    "ctimeMs": 1753942035180.9082,
+    "ctime": "2025-08-25T00:59:26.061Z",
+    "ctimeMs": 1756083566060.6567,
     "filename": "Upper Basin9.jpg"
   },
   "terrestrial/yellowstone/Yellowstone Canyon13.jpg": {
@@ -1031,8 +1045,8 @@
   "terrestrial/yellowstone/Yellowstone Canyon14.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:01:10.094Z",
-    "ctimeMs": 1753941670094.1592,
+    "ctime": "2025-08-25T00:59:26.062Z",
+    "ctimeMs": 1756083566061.905,
     "filename": "Yellowstone Canyon14.jpg"
   },
   "terrestrial/yellowstone/Yellowstone Canyon16.jpg": {
@@ -1066,15 +1080,15 @@
   "terrestrial/yellowstone/Yellowstone Canyon7.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:01:10.092Z",
-    "ctimeMs": 1753941670091.8542,
+    "ctime": "2025-08-25T00:59:26.063Z",
+    "ctimeMs": 1756083566063.4795,
     "filename": "Yellowstone Canyon7.jpg"
   },
   "terrestrial/yellowstone/Yellowstone Canyon9.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:01:10.093Z",
-    "ctimeMs": 1753941670092.522,
+    "ctime": "2025-08-25T00:59:26.061Z",
+    "ctimeMs": 1756083566061.4324,
     "filename": "Yellowstone Canyon9.jpg"
   },
   "terrestrial/yellowstone/Yellowstone Fauna1.jpg": {
@@ -1143,8 +1157,8 @@
   "terrestrial/yellowstone/Yellowstone Fauna7.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
-    "ctime": "2025-07-31T06:01:39.595Z",
-    "ctimeMs": 1753941699594.8591,
+    "ctime": "2025-08-25T00:59:26.063Z",
+    "ctimeMs": 1756083566063.2188,
     "filename": "Yellowstone Fauna7.jpg"
   },
   "terrestrial/yellowstone/Yellowstone Fauna8.jpg": {
