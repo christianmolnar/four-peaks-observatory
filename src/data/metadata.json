@@ -7,7 +7,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/lunar"
   },
   "2017 Total Eclipse10.jpg": {
     "catalogDesignation": "",
@@ -17,7 +19,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "2017 Total Eclipse2.mp4": {
     "catalogDesignation": "",
@@ -27,7 +31,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "2017 Total Eclipse8.jpg": {
     "catalogDesignation": "",
@@ -37,7 +43,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "2017 Total Eclipse87.jpg": {
     "catalogDesignation": "",
@@ -47,7 +55,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "2017 Total Eclipse88.jpg": {
     "catalogDesignation": "",
@@ -57,7 +67,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "2017 Total Eclipse9.jpg": {
     "catalogDesignation": "",
@@ -67,7 +79,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "Cocoon Nebula Tight.jpg": {
     "catalogDesignation": "IC5146",
@@ -77,7 +91,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Cocoon Nebula Wide.jpg": {
     "catalogDesignation": "IC5146",
@@ -87,7 +103,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Crescent Moon.jpg": {
     "catalogDesignation": "NGC6888",
@@ -97,7 +115,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/lunar"
   },
   "Crescent Nebula.jpg": {
     "catalogDesignation": "NGC6888",
@@ -107,7 +127,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Double Cluster.jpg": {
     "catalogDesignation": "NGC869",
@@ -117,7 +139,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/wide-field"
   },
   "Eclipse2017.jpg": {
     "catalogDesignation": "",
@@ -127,7 +151,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-eclipses"
   },
   "Full Moon.jpg": {
     "catalogDesignation": "",
@@ -137,35 +163,45 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/lunar"
   },
   "Grand Tetons1.jpg": {
     "name": "Grand Tetons",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "grand-tetons"
   },
   "Grand Tetons2.jpg": {
     "name": "Grand Tetons",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "grand-tetons"
   },
   "Grand Tetons3.jpg": {
     "name": "Grand Tetons",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "grand-tetons"
   },
   "Grand Tetons4.jpg": {
     "name": "Grand Tetons",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "grand-tetons"
   },
   "Heart Nebula.jpg": {
     "catalogDesignation": "IC1805",
@@ -175,7 +211,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Heart and Soul Nebulas-4.jpg": {
     "catalogDesignation": "IC1805",
@@ -185,7 +223,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Hubble and Me.jpg": {
     "catalogDesignation": "",
@@ -195,7 +235,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/planets"
   },
   "IC1396-The Elephant.jpg": {
     "catalogDesignation": "IC1396",
@@ -205,7 +247,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "IC434.jpg": {
     "catalogDesignation": "IC434",
@@ -215,7 +259,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "IC63.jpg": {
     "catalogDesignation": "IC63",
@@ -225,7 +271,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M1 - The Crab Nebula.jpg": {
     "catalogDesignation": "M1",
@@ -235,7 +283,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M1.jpg": {
     "catalogDesignation": "M1",
@@ -245,7 +295,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M103-1.jpg": {
     "catalogDesignation": "M103",
@@ -255,7 +307,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "featured"
   },
   "M103.jpg": {
     "catalogDesignation": "M103",
@@ -265,7 +319,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M13-1.jpg": {
     "catalogDesignation": "M13",
@@ -275,7 +331,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M13-4.jpg": {
     "catalogDesignation": "M13",
@@ -285,7 +343,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M16.jpg": {
     "catalogDesignation": "M16",
@@ -295,7 +355,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M27-2-1.jpg": {
     "catalogDesignation": "M27",
@@ -305,7 +367,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M27.jpg": {
     "catalogDesignation": "M27",
@@ -315,7 +379,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M31-25x300sec-Tight-1600x1131.jpg": {
     "catalogDesignation": "M31",
@@ -325,7 +391,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies"
   },
   "M31-Final.jpg": {
     "catalogDesignation": "M31",
@@ -335,7 +403,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies"
   },
   "M31.jpg": {
     "catalogDesignation": "M31",
@@ -345,7 +415,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies"
   },
   "M33 - The Triangulum Galaxy.jpg": {
     "catalogDesignation": "M33",
@@ -355,7 +427,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies"
   },
   "M39.jpg": {
     "catalogDesignation": "M39",
@@ -365,7 +439,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M42 The Orion Nebula.jpg": {
     "catalogDesignation": "M42",
@@ -375,7 +451,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "M45 - Pleiades.jpg": {
     "catalogDesignation": "M45",
@@ -385,7 +463,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M45 --1.jpg": {
     "catalogDesignation": "M45",
@@ -395,7 +475,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M45.jpg": {
     "catalogDesignation": "M45",
@@ -405,7 +487,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "featured"
   },
   "M56.jpg": {
     "catalogDesignation": "M56",
@@ -415,7 +499,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M71.jpg": {
     "catalogDesignation": "M71",
@@ -425,7 +511,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M92-1.jpg": {
     "catalogDesignation": "M92",
@@ -435,7 +523,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "featured"
   },
   "M92.jpg": {
     "catalogDesignation": "M92",
@@ -445,7 +535,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "M97.jpg": {
     "catalogDesignation": "M97",
@@ -455,273 +547,351 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Mammoth Hot Springs1.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs10.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs11.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs2.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs3.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs4.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs5.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs6.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs7.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs8.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Mammoth Hot Springs9.jpg": {
     "name": "Mammoth Hot Springs",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin1.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin10.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin11.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin12.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin15.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin16.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin17.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin18.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin19.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin20.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin21.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin22.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin23.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin24.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin25.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin4.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin5.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin6.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin7.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin8.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Midway Basin9.jpg": {
     "name": "Midway Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "My Gear0.jpg": {
     "equipmentName": "My Gear",
     "equipmentInfo": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "equipment",
+    "subcategory": "equipment"
   },
   "My Gear1.jpg": {
     "equipmentName": "My Gear",
     "equipmentInfo": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "equipment",
+    "subcategory": "equipment"
   },
   "My Gear5.jpg": {
     "equipmentName": "My Gear",
     "equipmentInfo": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "equipment",
+    "subcategory": "equipment"
   },
   "My Gear6.jpg": {
     "equipmentName": "My Gear",
     "equipmentInfo": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "equipment",
+    "subcategory": "equipment"
   },
   "My Gear7.jpg": {
     "equipmentName": "My Gear",
     "equipmentInfo": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "equipment",
+    "subcategory": "equipment"
   },
   "My Gear8.jpg": {
     "equipmentName": "My Gear",
     "equipmentInfo": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "equipment",
+    "subcategory": "equipment"
   },
   "NGC 7635 - M52.jpg": {
     "catalogDesignation": "NGC7635",
@@ -731,7 +901,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/wide-field"
   },
   "NGC1499.jpg": {
     "catalogDesignation": "NGC1499",
@@ -741,7 +913,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC2244.jpg": {
     "catalogDesignation": "NGC2244",
@@ -751,7 +925,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC2264.jpg": {
     "catalogDesignation": "NGC2264",
@@ -761,7 +937,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC281.jpg": {
     "catalogDesignation": "NGC281",
@@ -771,7 +949,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC6635-Hubble-1.jpg": {
     "catalogDesignation": "NGC6635",
@@ -781,7 +961,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/hubble-palette"
   },
   "NGC7000 and IC5070-2.jpg": {
     "catalogDesignation": "NGC7000",
@@ -791,7 +973,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/hubble-palette"
   },
   "NGC7000.jpg": {
     "catalogDesignation": "NGC7000",
@@ -801,7 +985,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC7635 - The Bubble Nebula - Tight.jpg": {
     "catalogDesignation": "NGC7635",
@@ -811,7 +997,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC7635 - The Bubble Nebula-Wide.jpg": {
     "catalogDesignation": "NGC7635",
@@ -821,7 +1009,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "NGC869 and NGC884 - The Double Cluster.jpg": {
     "catalogDesignation": "NGC869",
@@ -831,7 +1021,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters"
   },
   "North America and The Pelican.jpg": {
     "catalogDesignation": "NGC7000",
@@ -841,63 +1033,81 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Old Faithful10.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful3.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful4.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful5.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful6.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful7.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful8.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Old Faithful9.jpg": {
     "name": "Old Faithful",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Orion-wide-death-valley.jpg": {
     "catalogDesignation": "M42",
@@ -907,7 +1117,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/wide-field"
   },
   "SH2-132-The-LobsterClaw.jpg": {
     "catalogDesignation": "Sh2-132",
@@ -917,7 +1129,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Sadr Region.jpg": {
     "catalogDesignation": "IC 1318",
@@ -927,7 +1141,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/wide-field"
   },
   "Sun .jpg": {
     "catalogDesignation": "",
@@ -937,7 +1153,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/solar"
   },
   "Sun.jpg": {
     "catalogDesignation": "",
@@ -947,7 +1165,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/solar"
   },
   "The Leo Trio.jpg": {
     "catalogDesignation": "NGC 3628, M65, and M66.",
@@ -957,7 +1177,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies"
   },
   "The Soul Nebula.jpg": {
     "catalogDesignation": "IC1848",
@@ -967,7 +1189,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Thor's Helmet.jpg": {
     "catalogDesignation": "NGC2359",
@@ -977,7 +1201,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Twilight Moon - Copernicus.jpg": {
     "catalogDesignation": "",
@@ -987,7 +1213,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/lunar"
   },
   "Twilight Moon - Tycho Region.jpg": {
     "catalogDesignation": "",
@@ -997,7 +1225,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/lunar"
   },
   "Twilight Moon.jpg": {
     "catalogDesignation": "",
@@ -1007,91 +1237,117 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "solar-system/lunar"
   },
   "Upper Basin1.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin10.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin11.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin12.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin2.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin3.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin4.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin5.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin6.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin7.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin8.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Upper Basin9.jpg": {
     "name": "Upper Basin",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Veil Nebula Complex.jpg": {
     "catalogDesignation": "NGC6960",
@@ -1101,7 +1357,9 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Wizard-Lr-PI.jpg": {
     "catalogDesignation": "NGC7380",
@@ -1111,139 +1369,179 @@
     "exposure": "",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas"
   },
   "Yellowstone Canyon13.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon14.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon16.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon2.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon4.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon6.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon7.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Canyon9.jpg": {
     "name": "Yellowstone Canyon",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna1.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna12.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna13.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna15.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna16.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna2.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna4.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna5.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna6.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna7.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   },
   "Yellowstone Fauna8.jpg": {
     "name": "Yellowstone Fauna",
     "dateTaken": "July, 2021",
     "protected": false,
     "youtubeLink": "",
-    "youtubeTitle": ""
+    "youtubeTitle": "",
+    "category": "terrestrial",
+    "subcategory": "yellowstone"
   }
 }

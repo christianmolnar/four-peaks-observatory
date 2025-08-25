@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { globalConfig } from "@/config/global";
-import fileLocationMappings from "./fileLocationMappings";
 
 // Type definitions for different image schemas
 interface BaseImageData {
@@ -11,6 +10,8 @@ interface BaseImageData {
   youtubeTitle: string;
   protected: boolean;
   dateTaken?: string;
+  category?: string;      // NEW: metadata-driven category
+  subcategory?: string;   // NEW: metadata-driven subcategory
 }
 interface AstrophysicsImageData extends BaseImageData {
   catalogDesignation: string;
@@ -130,113 +131,49 @@ export default function AssetManagerPage() {
     }).length;
   };
 
-  // Helper: get count for astrophotography subcategories
+  // Helper: get count for astrophotography subcategories using metadata-driven categorization
   const getAstroSubcategoryCount = (subcategory: string) => {
     return Object.entries(metadata).filter(([filename, data]) => {
-      const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
-      const objectName = safeGet(data, 'objectName') || '';
+      const category = safeGet(data, 'category') || '';
+      const metadataSubcategory = safeGet(data, 'subcategory') || '';
       
-      // Skip if not an astrophotography image
-      if (!catalogDesignation && !objectName) return false;
-      
-      // Skip terrestrial and equipment images
-      if (safeGet(data, 'name') || safeGet(data, 'equipmentName')) return false;
-      
-      const objNameLower = objectName.toLowerCase();
-      const catalogLower = catalogDesignation.toLowerCase();
+      // Only count astrophotography images
+      if (category !== 'astrophotography') {
+        // Fallback to traditional detection if no category field
+        const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
+        const objectName = safeGet(data, 'objectName') || '';
+        if (!catalogDesignation && !objectName) return false;
+        if (safeGet(data, 'name') || safeGet(data, 'equipmentName')) return false;
+      }
       
       switch (subcategory) {
         case 'Featured':
-          // Check if this image exists in the featured directory
-          // These are the actual featured images shown in the carousel
-          const featuredImages = [
-            'Double Cluster.jpg',
-            'M1.jpg', 
-            'M103-1.jpg',
-            'M31.jpg',
-            'M39.jpg',
-            'M45 --1.jpg',
-            'M45.jpg',
-            'M56.jpg',
-            'M71.jpg',
-            'M92-1.jpg',
-            'NGC 7635 - M52.jpg'
-          ];
-          return featuredImages.includes(filename);
+          return metadataSubcategory === 'featured';
         
         case 'DS - Galaxies':
-          return objNameLower.includes('galaxy') || 
-                 objNameLower.includes('andromeda') || 
-                 objNameLower.includes('triangulum') ||
-                 catalogLower.startsWith('m31') ||
-                 catalogLower.startsWith('m33') ||
-                 objNameLower.includes('leo trio');
+          return metadataSubcategory === 'deep-sky/galaxies';
         
         case 'DS - Nebulas':
-          return objNameLower.includes('nebula') || 
-                 objNameLower.includes('ghost') ||
-                 objNameLower.includes('elephant') ||
-                 objNameLower.includes('horsehead') ||
-                 objNameLower.includes('orion') ||
-                 objNameLower.includes('heart') ||
-                 objNameLower.includes('soul') ||
-                 objNameLower.includes('wizard') ||
-                 objNameLower.includes('bubble') ||
-                 objNameLower.includes('crab') ||
-                 objNameLower.includes('dumbbell') ||
-                 objNameLower.includes('eagle') ||
-                 objNameLower.includes('owl') ||
-                 objNameLower.includes('thor') ||
-                 objNameLower.includes('helmet') ||
-                 objNameLower.includes('cone') ||
-                 objNameLower.includes('pacman') ||
-                 objNameLower.includes('california') ||
-                 objNameLower.includes('rosette') ||
-                 objNameLower.includes('north america') ||
-                 objNameLower.includes('veil') ||
-                 objNameLower.includes('pelican') ||
-                 objNameLower.includes('cocoon') ||
-                 objNameLower.includes('crescent') ||
-                 objNameLower.includes('lion') ||
-                 catalogLower.includes('ic') ||
-                 catalogLower.includes('ngc') ||
-                 catalogLower.includes('sh2') ||
-                 (catalogLower.startsWith('m') && !objNameLower.includes('cluster') && !objNameLower.includes('galaxy'));
+          return metadataSubcategory === 'deep-sky/nebulas';
         
         case 'DS - Star Clusters':
-          return objNameLower.includes('cluster') || 
-                 objNameLower.includes('pleiades') ||
-                 catalogLower.startsWith('m13') ||
-                 catalogLower.startsWith('m92') ||
-                 catalogLower.startsWith('m39') ||
-                 catalogLower.startsWith('m45') ||
-                 catalogLower.startsWith('m56') ||
-                 catalogLower.startsWith('m71') ||
-                 catalogLower.startsWith('m103');
+          return metadataSubcategory === 'deep-sky/star-clusters';
         
         case 'DS - Wide Field':
-          return objNameLower.includes('wide') || 
-                 objNameLower.includes('sadr') ||
-                 objNameLower.includes('region');
+          return metadataSubcategory === 'deep-sky/wide-field';
         
         case 'SS - Solar':
-          return objNameLower.includes('sun') && !objNameLower.includes('eclipse');
+          return metadataSubcategory === 'solar-system/solar';
         
         case 'SS - Lunar':
-          return objNameLower.includes('moon') && !objNameLower.includes('eclipse');
+          return metadataSubcategory === 'solar-system/lunar';
         
         case 'SS - Planets':
-          return objNameLower.includes('mars') ||
-                 objNameLower.includes('venus') ||
-                 objNameLower.includes('jupiter') ||
-                 objNameLower.includes('saturn') ||
-                 objNameLower.includes('uranus') ||
-                 objNameLower.includes('neptune') ||
-                 objNameLower.includes('mercury') ||
-                 objNameLower.includes('planet');
+          return metadataSubcategory === 'solar-system/planets';
         
         case 'SS - Events':
-          return objNameLower.includes('eclipse');
+          return metadataSubcategory === 'solar-eclipses' || 
+                 metadataSubcategory === 'lunar-eclipses';
         
         default:
           return false;
@@ -244,11 +181,11 @@ export default function AssetManagerPage() {
     }).length;
   };
 
-  // Helper: get filtered images
+  // Helper: get filtered images using metadata-driven categorization
   const getFilteredImages = () => {
     let filteredData = Object.entries(metadata);
     
-    // Apply filter based on activeFilter
+    // Apply filter based on activeFilter using new category/subcategory fields
     if (activeFilter === 'all') {
       // Show all images (no filtering)
     } else if (activeFilter === 'new') {
@@ -259,184 +196,99 @@ export default function AssetManagerPage() {
         
         const objectName = safeGet(data, 'objectName') || '';
         const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
+        const category = safeGet(data, 'category') || '';
+        const subcategory = safeGet(data, 'subcategory') || '';
         
-        // Check if it's a solar system object using improved detection
-        const isSolarSystemObject = isSolarSystemImage(filename) || 
-                                    isSolarSystemImage(objectName);
+        // If we have category info, use it to determine if it's complete
+        if (category === 'astrophotography') {
+          // Check completeness based on subcategory
+          if (subcategory.includes('solar') || subcategory.includes('lunar') || subcategory.includes('planets')) {
+            return !objectName; // Solar system objects just need objectName
+          }
+          return (!catalogDesignation || !objectName); // Deep sky objects need both
+        }
         
-        // If it's a solar system object, it's only "new" if it's missing objectName
+        // Fallback to old logic if no category info
+        const isSolarSystemObject = isSolarSystemImage(filename) || isSolarSystemImage(objectName);
         if (isSolarSystemObject) {
           return !objectName;
         }
-        
-        // For deep sky and wide field objects, they need both catalogDesignation AND objectName
         return (!catalogDesignation || !objectName);
       });
     } else if (activeFilter === 'astrophotography') {
-      // Images with catalogDesignation OR objectName
+      // Images with category='astrophotography' OR traditional detection
       filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'category') === 'astrophotography' ||
         safeGet(data, 'catalogDesignation') || safeGet(data, 'objectName')
       );
     } else if (activeFilter === 'terrestrial') {
-      // Images with name field but not equipmentName
+      // Images with category='terrestrial' OR traditional detection
       filteredData = filteredData.filter(([_, data]) => 
-        safeGet(data, 'name') && !safeGet(data, 'equipmentName')
+        safeGet(data, 'category') === 'terrestrial' ||
+        (safeGet(data, 'name') && !safeGet(data, 'equipmentName'))
       );
     } else if (activeFilter === 'equipment') {
-      // Images with equipmentName field
+      // Images with category='equipment' OR traditional detection
       filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'category') === 'equipment' ||
         safeGet(data, 'equipmentName')
       );
     } else if (activeFilter === 'featured') {
-      // Featured astrophotography images - images that exist in the featured directory
-      const featuredImages = [
-        'Double Cluster.jpg',
-        'M1.jpg', 
-        'M103-1.jpg',
-        'M31.jpg',
-        'M39.jpg',
-        'M45 --1.jpg',
-        'M45.jpg',
-        'M56.jpg',
-        'M71.jpg',
-        'M92-1.jpg',
-        'NGC 7635 - M52.jpg'
-      ];
-      filteredData = filteredData.filter(([filename, _]) => 
-        featuredImages.includes(filename)
+      // Featured astrophotography images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'featured'
       );
     } else if (activeFilter === 'galaxies') {
-      // Galaxy images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
-        const objNameLower = objectName.toLowerCase();
-        const catalogLower = catalogDesignation.toLowerCase();
-        
-        return objNameLower.includes('galaxy') || 
-               objNameLower.includes('andromeda') || 
-               objNameLower.includes('triangulum') ||
-               catalogLower.startsWith('m31') ||
-               catalogLower.startsWith('m33') ||
-               objNameLower.includes('leo trio');
-      });
+      // Galaxy images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'deep-sky/galaxies'
+      );
     } else if (activeFilter === 'nebulas') {
-      // Nebula images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
-        const objNameLower = objectName.toLowerCase();
-        const catalogLower = catalogDesignation.toLowerCase();
-        
-        return objNameLower.includes('nebula') || 
-               objNameLower.includes('ghost') ||
-               objNameLower.includes('elephant') ||
-               objNameLower.includes('horsehead') ||
-               objNameLower.includes('orion') ||
-               objNameLower.includes('heart') ||
-               objNameLower.includes('soul') ||
-               objNameLower.includes('wizard') ||
-               objNameLower.includes('bubble') ||
-               objNameLower.includes('crab') ||
-               objNameLower.includes('dumbbell') ||
-               objNameLower.includes('eagle') ||
-               objNameLower.includes('owl') ||
-               objNameLower.includes('thor') ||
-               objNameLower.includes('helmet') ||
-               objNameLower.includes('cone') ||
-               objNameLower.includes('pacman') ||
-               objNameLower.includes('california') ||
-               objNameLower.includes('rosette') ||
-               objNameLower.includes('north america') ||
-               objNameLower.includes('veil') ||
-               objNameLower.includes('pelican') ||
-               objNameLower.includes('cocoon') ||
-               objNameLower.includes('crescent') ||
-               objNameLower.includes('lion') ||
-               catalogLower.includes('ic') ||
-               catalogLower.includes('ngc') ||
-               catalogLower.includes('sh2') ||
-               (catalogLower.startsWith('m') && !objNameLower.includes('cluster') && !objNameLower.includes('galaxy'));
-      });
+      // Nebula images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'deep-sky/nebulas'
+      );
     } else if (activeFilter === 'star-clusters') {
-      // Star cluster images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
-        const objNameLower = objectName.toLowerCase();
-        const catalogLower = catalogDesignation.toLowerCase();
-        
-        return objNameLower.includes('cluster') || 
-               objNameLower.includes('pleiades') ||
-               catalogLower.startsWith('m13') ||
-               catalogLower.startsWith('m92') ||
-               catalogLower.startsWith('m39') ||
-               catalogLower.startsWith('m45') ||
-               catalogLower.startsWith('m56') ||
-               catalogLower.startsWith('m71') ||
-               catalogLower.startsWith('m103');
-      });
+      // Star cluster images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'deep-sky/star-clusters'
+      );
     } else if (activeFilter === 'wide-field') {
-      // Wide field images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const objNameLower = objectName.toLowerCase();
-        
-        return objNameLower.includes('wide') || 
-               objNameLower.includes('sadr') ||
-               objNameLower.includes('region');
-      });
+      // Wide field images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'deep-sky/wide-field'
+      );
     } else if (activeFilter === 'solar') {
-      // Solar images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const objNameLower = objectName.toLowerCase();
-        
-        return objNameLower.includes('sun') && !objNameLower.includes('eclipse');
-      });
+      // Solar images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'solar-system/solar'
+      );
     } else if (activeFilter === 'lunar') {
-      // Lunar images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const objNameLower = objectName.toLowerCase();
-        
-        return objNameLower.includes('moon') && !objNameLower.includes('eclipse');
-      });
+      // Lunar images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'solar-system/lunar'
+      );
     } else if (activeFilter === 'planets') {
-      // Planet images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const objNameLower = objectName.toLowerCase();
-        
-        return objNameLower.includes('mars') ||
-               objNameLower.includes('venus') ||
-               objNameLower.includes('jupiter') ||
-               objNameLower.includes('saturn') ||
-               objNameLower.includes('uranus') ||
-               objNameLower.includes('neptune') ||
-               objNameLower.includes('mercury') ||
-               objNameLower.includes('planet');
-      });
+      // Planet images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'solar-system/planets'
+      );
     } else if (activeFilter === 'events') {
-      // Eclipse and special event images
-      filteredData = filteredData.filter(([_, data]) => {
-        const objectName = safeGet(data, 'objectName') || '';
-        const objNameLower = objectName.toLowerCase();
-        
-        return objNameLower.includes('eclipse');
-      });
+      // Eclipse and special event images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'solar-eclipses' ||
+        safeGet(data, 'subcategory') === 'lunar-eclipses'
+      );
     } else if (activeFilter === 'yellowstone') {
-      // Yellowstone images
-      filteredData = filteredData.filter(([_, data]) => {
-        const name = safeGet(data, 'name') || '';
-        return name.toLowerCase().includes('yellowstone');
-      });
+      // Yellowstone images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'yellowstone'
+      );
     } else if (activeFilter === 'grand-tetons') {
-      // Grand Tetons images
-      filteredData = filteredData.filter(([_, data]) => {
-        const name = safeGet(data, 'name') || '';
-        return name.toLowerCase().includes('grand tetons');
-      });
+      // Grand Tetons images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'grand-tetons'
+      );
     }
     
     return filteredData.map(([filename, imageData]) => ({ filename, ...imageData }));

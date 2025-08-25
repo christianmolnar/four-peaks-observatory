@@ -27,6 +27,52 @@ const SCAN_FOLDERS = [
   'equipment'
 ];
 
+// ===== PHASE 1: ENHANCED CATEGORIZATION SYSTEM =====
+// Category mapping for automatic detection from file paths
+const CATEGORY_MAPPINGS = {
+  // Astrophotography categories
+  'astrophotography/deep-sky/nebulas': { category: 'astrophotography', subcategory: 'deep-sky/nebulas' },
+  'astrophotography/deep-sky/galaxies': { category: 'astrophotography', subcategory: 'deep-sky/galaxies' },
+  'astrophotography/deep-sky/star-clusters': { category: 'astrophotography', subcategory: 'deep-sky/star-clusters' },
+  'astrophotography/deep-sky/wide-field': { category: 'astrophotography', subcategory: 'deep-sky/wide-field' },
+  'astrophotography/deep-sky/hubble-palette': { category: 'astrophotography', subcategory: 'deep-sky/hubble-palette' },
+  'astrophotography/solar-system/solar': { category: 'astrophotography', subcategory: 'solar-system/solar' },
+  'astrophotography/solar-system/lunar': { category: 'astrophotography', subcategory: 'solar-system/lunar' },
+  'astrophotography/solar-system/planets': { category: 'astrophotography', subcategory: 'solar-system/planets' },
+  // Solar system events - specific events first, then general pattern
+  'astrophotography/solar-system/events/total-eclipse-2017': { category: 'astrophotography', subcategory: 'solar-eclipses' },
+  'astrophotography/solar-system/events': { category: 'astrophotography', subcategory: 'solar-system/events' },
+  'astrophotography/featured': { category: 'astrophotography', subcategory: 'featured' },
+  
+  // Terrestrial categories
+  'terrestrial/yellowstone': { category: 'terrestrial', subcategory: 'yellowstone' },
+  'terrestrial/grand-tetons': { category: 'terrestrial', subcategory: 'grand-tetons' },
+  
+  // Equipment category
+  'equipment': { category: 'equipment', subcategory: 'equipment' }
+};
+
+// Helper function to detect category from file path
+function detectCategoryFromPath(folderPath) {
+  const normalizedPath = folderPath.replace(/\\/g, '/').toLowerCase();
+  
+  for (const [pathPattern, categoryInfo] of Object.entries(CATEGORY_MAPPINGS)) {
+    if (normalizedPath === pathPattern.toLowerCase()) {
+      return {
+        category: categoryInfo.category,
+        subcategory: categoryInfo.subcategory
+      };
+    }
+  }
+  
+  // Fallback for unmapped paths
+  console.log(`Warning: Unmapped folder path: ${folderPath}`);
+  return {
+    category: 'astrophotography', // default
+    subcategory: 'uncategorized'
+  };
+}
+
 // Supported image and video extensions
 const MEDIA_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.avif', '.webp', '.mp4', '.mov', '.avi', '.webm'];
 
@@ -697,6 +743,9 @@ async function createMetadataEntry(image) {
   const imageType = getImageType(image.folder);
   const dateTaken = await getDateTaken(image.fullPath);
   
+  // Phase 1: Detect category and subcategory from file path
+  const categoryInfo = detectCategoryFromPath(image.folder);
+  
   switch (imageType) {
     case 'terrestrial':
       return {
@@ -704,7 +753,9 @@ async function createMetadataEntry(image) {
         "dateTaken": dateTaken,                         // e.g., "August, 2024"
         "protected": false,
         "youtubeLink": "",
-        "youtubeTitle": ""
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "terrestrial"
+        "subcategory": categoryInfo.subcategory        // NEW: "yellowstone" or "grand-tetons"
       };
       
     case 'equipment':
@@ -713,7 +764,9 @@ async function createMetadataEntry(image) {
         "equipmentInfo": "",  // e.g., "Smart Telescope by ZWO"
         "protected": false,
         "youtubeLink": "",
-        "youtubeTitle": ""
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "equipment"
+        "subcategory": categoryInfo.subcategory        // NEW: "equipment"
       };
       
     case 'celestial-events':
@@ -725,7 +778,9 @@ async function createMetadataEntry(image) {
         "exposure": "",
         "protected": false,
         "youtubeLink": "",
-        "youtubeTitle": ""
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "astrophotography"
+        "subcategory": categoryInfo.subcategory        // NEW: "solar-system/events"
       };
       
     default: // astrophotography
@@ -738,7 +793,9 @@ async function createMetadataEntry(image) {
         "exposure": "",
         "protected": false,
         "youtubeLink": "",
-        "youtubeTitle": ""
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "astrophotography"
+        "subcategory": categoryInfo.subcategory        // NEW: "deep-sky/nebulas", etc.
       };
   }
 }
@@ -788,6 +845,18 @@ async function updateMetadata() {
       // For all image types, check if dateTaken field is missing and add it
       const entry = existingMetadata[image.filename];
       let needsDateUpdate = false;
+      let needsCategoryUpdate = false;
+      
+      // Phase 1: Check if category/subcategory fields are missing or incorrect and add/update them
+      const categoryInfo = detectCategoryFromPath(image.folder);
+      if (!entry.category || !entry.subcategory || 
+          entry.category !== categoryInfo.category || 
+          entry.subcategory !== categoryInfo.subcategory) {
+        entry.category = categoryInfo.category;
+        entry.subcategory = categoryInfo.subcategory;
+        needsCategoryUpdate = true;
+        console.log(`🏷️  Updated category fields for: ${image.filename} (${categoryInfo.category}/${categoryInfo.subcategory})`);
+      }
       
       // Check if dateTaken field is missing or empty (for astrophotography, terrestrial, and celestial events)
       if ((imageType === 'astrophotography' || imageType === 'terrestrial' || imageType === 'celestial-events') && 
@@ -804,7 +873,7 @@ async function updateMetadata() {
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
                            (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
-        if (needsUpdate || needsDateUpdate) {
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate) {
           console.log(`🔄 Updating terrestrial metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           // Note: Location is now managed manually only
           if (!entry.name || entry.name === '') entry.name = generateCleanName(image.filename);
@@ -824,7 +893,7 @@ async function updateMetadata() {
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
                            (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
-        if (needsUpdate) {
+        if (needsUpdate || needsCategoryUpdate) {
           console.log(`🔄 Updating equipment metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           if (!entry.equipmentName || entry.equipmentName === '') entry.equipmentName = generateCleanName(image.filename);
           // Don't overwrite equipmentInfo if it already has content
@@ -842,7 +911,7 @@ async function updateMetadata() {
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
                            (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
-        if (needsUpdate || needsDateUpdate) {
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate) {
           console.log(`🔄 Updating ${imageType} metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           if (entry.protected === undefined) entry.protected = false;
           if (entry.youtubeLink === undefined) entry.youtubeLink = '';
