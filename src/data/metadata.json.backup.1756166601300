@@ -1608,5 +1608,17 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "uncategorized"
+  },
+  "test-duplicate.jpg": {
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "test"
+  },
+  "test-unique-file.jpg": {
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "test"
   }
 }

@@ -5,11 +5,7 @@
 Create a comprehensive admin interface for managing site assets, specifically image metadata and organization. This page will provide real-time editing capabilities for all image metadata stored in `metadata.json`.
 
 ## Security & Access Control
-**✅ IMPLEMENTED:** Vercel Build Exclusion approach using `vercel.json`
-- **Development**: Admin interface fully functional at `/admin/asset-manager`
-- **Production**: Routes completely excluded from Vercel deployment (404 response)
-- **Security Method**: `vercel.json` excludes `src/app/admin/**` from build and returns 404 for `/admin.*` routes
-- **Benefits**: No code changes required, simple configuration, complete production security
+**✅ DECIDED:** Development environment only access (`NODE_ENV=development`) at hidden route `/admin/asset-manager`
 
 ## Page Structure
 
@@ -62,18 +58,23 @@ Positioned between statistics and main table:
 
 #### Columns (in this order):
 1. **Image Name** (filename, non-editable, acts as row identifier)
-2. **Catalog Designation** (editable)
-3. **Object Name** (editable)
-4. **Date Taken** (editable - Month, Year format)
-5. **Location** (editable)
-6. **Equipment** (editable)
-7. **Exposure** (editable)
-8. **YouTube Link** (editable)
-9. **YouTube Title** (editable)
-10. **Protected** (editable - checkbox/toggle)
+2. **Category** (editable - dropdown: astrophotography, terrestrial, equipment)
+3. **Subcategory** (editable - dropdown based on category selection)
+4. **Catalog Designation** (editable)
+5. **Object Name** (editable)
+6. **Date Taken** (editable - Month, Year format)
+7. **Location** (editable)
+8. **Equipment** (editable)
+9. **Exposure** (editable)
+10. **YouTube Link** (editable)
+11. **YouTube Title** (editable)
+12. **Protected** (editable - checkbox/toggle)
 
 #### Table Features:
 - **Inline Editing**: Click any cell to edit (except Image Name)
+- **Category/Subcategory Dropdowns**: Cascading dropdowns for category selection
+- **Bulk Selection**: Checkbox column for selecting multiple rows
+- **Bulk Delete**: Delete selected rows with "Are You Sure?" confirmation dialog
 - **Real-time Validation**: Immediate feedback for invalid data
 - **Sort Capabilities**: Click column headers to sort
 - **Search/Filter**: Global search box + category filtering from cards
@@ -81,7 +82,8 @@ Positioned between statistics and main table:
 - **Pagination**: Handle large datasets efficiently
 
 **✅ DECIDED:** 
-- Bulk delete functionality included
+- Category and Subcategory as primary editable columns (replaces fileLocationMappings.ts)
+- Bulk delete with confirmation flow included
 - All fields editable in real-time (no separate edit buttons needed)
 - Focus on editing existing images (add/delete handled via file system)
 
@@ -92,6 +94,32 @@ Positioned between statistics and main table:
 - **Professional**: Clean, organized, easy to scan
 
 ## Technical Considerations
+
+### Categorization System Redesign:
+**✅ ENHANCED DESIGN:** Eliminate `fileLocationMappings.ts` and use metadata.json category fields
+
+#### Current System Problems:
+- Dual sources of truth: `fileLocationMappings.ts` + `metadata.json`
+- Manual mapping maintenance required
+- Inconsistencies between file-based and metadata-based categorization
+
+#### New Integrated System:
+- **Single Source**: All categorization stored in `metadata.json`
+- **Editable Categories**: Category and Subcategory as table columns
+- **Dropdown Validation**: Enforced category/subcategory relationships
+- **Auto-sync**: Update script uses metadata categories (not file mappings)
+
+#### Category Structure:
+```typescript
+type Category = 'astrophotography' | 'terrestrial' | 'equipment';
+type Subcategory = {
+  astrophotography: 'deep-sky/nebulas' | 'deep-sky/galaxies' | 'deep-sky/star-clusters' | 
+                    'deep-sky/wide-field' | 'deep-sky/hubble-palette' | 'solar-system/solar' |
+                    'solar-system/lunar' | 'solar-system/planets' | 'solar-eclipses' | 'featured';
+  terrestrial: 'yellowstone' | 'grand-tetons';
+  equipment: 'equipment';
+}
+```
 
 ### Data Management:
 - Load metadata.json on page load
@@ -111,8 +139,8 @@ Positioned between statistics and main table:
 
 All design decisions have been finalized based on requirements:
 
-0. **Access Method**: Hidden page `/admin/asset-manager` - SECURED FOR PRODUCTION VIA VERCEL.JSON
-1. **Authentication**: Vercel build exclusion - admin routes completely inaccessible in production
+0. **Access Method**: Hidden page `/admin/asset-manager` - DEVELOPMENT ONLY (NODE_ENV=development)
+1. **Authentication**: Development environment only - no production access
 2. **Image count source**: Check both filesystem AND metadata.json - auto-sync discrepancies
 3. **Save behavior**: Manual Save/Discard buttons positioned above table
 4. **Editing**: All fields editable in real-time, no edit buttons + Bulk Delete function
@@ -120,80 +148,42 @@ All design decisions have been finalized based on requirements:
 6. **Error handling**: Inline validation with toast notifications
 7. **Mobile support**: Responsive design, low priority
 
-## COMPREHENSIVE METADATA REFACTOR PLAN
-
-### Background: Current System Issues
-The current admin interface uses a hardcoded `fileLocationMappings.ts` system that:
-- ❌ Requires manual updates for every new image
-- ❌ Creates maintenance burden and scalability issues
-- ❌ Doesn't utilize the existing rich metadata.json system
-- ❌ Forces hardcoded categorization logic
-
-### Solution: Metadata-Driven Categorization
-Replace hardcoded mapping system with category/subcategory fields in metadata.json:
-
-**New Metadata Schema (Addition):**
-```json
-{
-  "filename.jpg": {
-    "catalogDesignation": "M42",
-    "objectName": "Orion Nebula", 
-    "dateTaken": "February 2005",
-    "location": "Maple Valley Observatory",
-    "equipment": "Canon 20D",
-    "exposure": "20x240sec",
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "protected": false,
-    "category": "astrophotography",        // NEW FIELD
-    "subcategory": "deep-sky/nebulas"      // NEW FIELD
-  }
-}
-```
-
-**Static Category System:**
-- **astrophotography**
-  - `deep-sky/nebulas`
-  - `deep-sky/galaxies` 
-  - `deep-sky/star-clusters`
-  - `deep-sky/wide-field`
-  - `solar-system/solar`
-  - `solar-system/lunar`
-  - `solar-system/planets`
-  - `solar-system/events`
-- **terrestrial**
-  - `yellowstone`
-  - `grand-tetons`
-- **equipment**
-
 ## Implementation Phases:
 
-### Phase 0: Security Implementation ✅ COMPLETED
-- ✅ Created `vercel.json` with admin route exclusion for production deployment
-- ✅ Admin interface secured from public access while maintaining development functionality
+### Phase 1: Basic Structure ✅ READY TO START
+- Create admin page route: `/admin/asset-manager` (development only)
+- Development environment check (NODE_ENV=development)
+- Header with logo and title matching main site
+- Empty statistics dashboard layout
+- Empty table layout
+- Basic styling using site's design tokens
 
-### Phase 1: Metadata Schema Enhancement 🔄 READY TO START
-- Add `category` and `subcategory` fields to metadata.json TypeScript interfaces
-- Update `update-metadata.js` script to populate new fields for existing images
-- Implement automatic category detection based on file system paths
-- Preserve existing functionality while adding new metadata structure
+### Phase 2: Data Loading & Display
+- Load metadata.json
+- Display basic statistics cards with counts
+- Show data in table format (read-only initially)
+- Basic filtering by category cards
 
-### Phase 2: Asset Manager Core Updates
-- Replace `fileLocationMappings.ts` hardcoded system with metadata-driven categorization
-- Update category counting logic to read from metadata.json
-- Implement new editable category/subcategory fields in admin table
-- Add dropdown selectors for category assignment
+### Phase 3: Enhanced Editing Functionality
+- Make table cells editable (click to edit)
+- **Category/Subcategory dropdown editors** with validation
+- **Bulk selection checkboxes** for multiple row operations
+- **Bulk delete with confirmation dialog** ("Are you sure?" flow)
+- Track changes in memory
+- Save/Discard buttons functionality
+- Write changes back to metadata.json
 
-### Phase 3: Enhanced Asset Manager Features  
-- Add table sorting functionality (click column headers)
-- Implement bulk delete with confirmation dialog
-- Add search/filter capabilities across all metadata fields
-- Enhanced UI with better responsive design
+### Phase 4: File System Integration & Legacy Cleanup
+- Scan filesystem for images
+- Detect discrepancies between files and metadata
+- Auto-sync new images to metadata.json
+- **Remove dependency on fileLocationMappings.ts**
+- **Refactor site to use metadata.json categories exclusively**
+- Bulk delete functionality (files + metadata)
 
-### Phase 4: Migration & Cleanup
-- Remove deprecated `fileLocationMappings.ts` file  
-- Update all references to use metadata-driven system
-- Comprehensive testing of new categorization system
-- Documentation updates for new workflow
+### Phase 5: Polish & Validation
+- Error handling and validation
+- Loading states and toast notifications
+- Performance optimizations
 
-**✅ SECURITY COMPLETED, READY TO START PHASE 1** - Admin interface secured for production, comprehensive refactor plan approved.
+**✅ READY TO START IMPLEMENTATION** - All requirements clarified and design decisions finalized.

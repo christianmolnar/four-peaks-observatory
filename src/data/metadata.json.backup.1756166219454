@@ -1545,40 +1545,40 @@
     "subcategory": "yellowstone"
   },
   "M33.jpg": {
-    "protected": true,
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": "",
-    "category": "assets"
+    "category": "uncategorized"
   },
   "MVO-Favicon.jpg": {
-    "protected": true,
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": "",
-    "category": "assets"
+    "category": "uncategorized"
   },
   "Mauna-Kea-1.jpg": {
-    "protected": true,
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": "",
-    "category": "assets"
+    "category": "uncategorized"
   },
   "Mauna-Kea-2.jpg": {
-    "protected": true,
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": "",
-    "category": "assets"
+    "category": "uncategorized"
   },
   "NGC2070-Finished.jpg": {
-    "protected": true,
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": "",
-    "category": "assets"
+    "category": "uncategorized"
   },
   "NGC7000-Pelican-1.jpg": {
-    "protected": true,
+    "protected": false,
     "youtubeLink": "",
     "youtubeTitle": "",
-    "category": "assets"
+    "category": "uncategorized"
   },
   "M33-1.jpg": {
     "protected": false,
@@ -1608,5 +1608,17 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "uncategorized"
+  },
+  "test-duplicate.jpg": {
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "test"
+  },
+  "test-unique-file.jpg": {
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "test"
   }
 }

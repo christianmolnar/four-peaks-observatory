@@ -67,7 +67,170 @@ export default function AssetManagerPage() {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<string>("");
+  
+  // Bulk selection state
+  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  
+  // File system integration state
+  const [fileSystemData, setFileSystemData] = useState<any>(null);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [showFileSystemPanel, setShowFileSystemPanel] = useState<boolean>(false);
+  const [syncMessage, setSyncMessage] = useState<string>("");
+
+  // Set default filter based on new images count
+  useEffect(() => {
+    if (Object.keys(metadata).length > 0 && activeFilter === "") {
+      const newImagesCount = getNewImagesCount();
+      setActiveFilter(newImagesCount > 0 ? 'new' : 'all');
+    }
+  }, [metadata, activeFilter]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  // Bulk selection handlers
+  const toggleImageSelection = (filename: string) => {
+    const newSelected = new Set(selectedImages);
+    if (newSelected.has(filename)) {
+      newSelected.delete(filename);
+    } else {
+      newSelected.add(filename);
+    }
+    setSelectedImages(newSelected);
+  };
+
+  const selectAllImages = () => {
+    const filteredImages = getFilteredImages();
+    setSelectedImages(new Set(filteredImages.map(image => image.filename)));
+  };
+
+  const selectNoneImages = () => {
+    setSelectedImages(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedImages.size === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      const filenames = Array.from(selectedImages);
+      
+      // Call API to delete images
+      const response = await fetch('/api/admin/delete-images', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filenames }),
+      });
+
+      if (response.ok) {
+        // Remove deleted images from metadata
+        const updatedMetadata = { ...metadata };
+        filenames.forEach(filename => {
+          delete updatedMetadata[filename];
+        });
+        setMetadata(updatedMetadata);
+        
+        // Clear selection and pending changes for deleted items
+        setSelectedImages(new Set());
+        const updatedPendingChanges = { ...pendingChanges };
+        filenames.forEach(filename => {
+          Object.keys(updatedPendingChanges).forEach(key => {
+            if (key.startsWith(filename + '.')) {
+              delete updatedPendingChanges[key];
+            }
+          });
+        });
+        setPendingChanges(updatedPendingChanges);
+        
+        setSaveMessage(`Successfully deleted ${filenames.length} image(s)`);
+      } else {
+        const errorData = await response.json();
+        setSaveMessage(`Failed to delete images: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      setSaveMessage('Network error while deleting images');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirmation(false);
+      setTimeout(() => setSaveMessage(''), 5000);
+    }
+  };
+
+  // File system integration functions
+  const scanFileSystem = async () => {
+    setIsScanning(true);
+    try {
+      const response = await fetch('/api/admin/file-scan?includeMetadata=true');
+      if (response.ok) {
+        const data = await response.json();
+        setFileSystemData(data);
+        setSyncMessage(`Scan complete: ${data.analysis.totalFiles} files found, ${data.analysis.filesNotInMetadata.length} not in metadata`);
+      } else {
+        const errorData = await response.json();
+        setSyncMessage(`Scan failed: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      setSyncMessage('Network error during file system scan');
+    } finally {
+      setIsScanning(false);
+      setTimeout(() => setSyncMessage(''), 5000);
+    }
+  };
+
+  const syncNewFiles = async () => {
+    if (!fileSystemData || !fileSystemData.analysis.filesNotInMetadata.length) {
+      setSyncMessage('No new files to sync');
+      setTimeout(() => setSyncMessage(''), 3000);
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // Prepare files to sync with their category/subcategory info
+      const filesToSync = fileSystemData.files
+        .filter((file: any) => fileSystemData.analysis.filesNotInMetadata.includes(file.filename))
+        .map((file: any) => ({
+          filename: file.filename,
+          relativePath: file.relativePath,
+          category: file.category,
+          subcategory: file.subcategory
+        }));
+
+      const response = await fetch('/api/admin/sync-files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filesToSync }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSyncMessage(`Sync complete: ${result.summary.added} files added to metadata`);
+        
+        // Refresh metadata
+        const metadataResponse = await fetch(`/api/admin/get-metadata?v=${Date.now()}`);
+        if (metadataResponse.ok) {
+          const metadataData = await metadataResponse.json();
+          setMetadata(metadataData.metadata || {});
+        }
+        
+        // Refresh file system data
+        await scanFileSystem();
+      } else {
+        const errorData = await response.json();
+        setSyncMessage(`Sync failed: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      setSyncMessage('Network error during file sync');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(''), 5000);
+    }
+  };
 
   // Helper: toggle category expansion
   const toggleCategory = (category: string) => {
@@ -186,7 +349,7 @@ export default function AssetManagerPage() {
     let filteredData = Object.entries(metadata);
     
     // Apply filter based on activeFilter using new category/subcategory fields
-    if (activeFilter === 'all') {
+    if (activeFilter === 'all' || activeFilter === '') {
       // Show all images (no filtering)
     } else if (activeFilter === 'new') {
       // Images that should be astrophotography but missing required data
@@ -278,6 +441,16 @@ export default function AssetManagerPage() {
       filteredData = filteredData.filter(([_, data]) => 
         safeGet(data, 'subcategory') === 'solar-eclipses' ||
         safeGet(data, 'subcategory') === 'lunar-eclipses'
+      );
+    } else if (activeFilter === 'yellowstone') {
+      // Yellowstone images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'yellowstone'
+      );
+    } else if (activeFilter === 'grand-tetons') {
+      // Grand Tetons images using subcategory
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'subcategory') === 'grand-tetons'
       );
     } else if (activeFilter === 'yellowstone') {
       // Yellowstone images using subcategory
@@ -648,7 +821,8 @@ export default function AssetManagerPage() {
                   <div>
                     <div className="text-2xl font-bold text-white mb-1">
                       {Object.entries(metadata).filter(([_, data]) => 
-                        safeGet(data, 'name') && !safeGet(data, 'equipmentName')
+                        safeGet(data, 'category') === 'terrestrial' ||
+                        (safeGet(data, 'name') && !safeGet(data, 'equipmentName'))
                       ).length}
                     </div>
                     <div className="text-white/70 text-sm font-light">Terrestrial</div>
@@ -673,7 +847,7 @@ export default function AssetManagerPage() {
                     <span className="text-white font-medium">Yellowstone</span>
                     <span className="text-amber-400 font-bold text-lg">
                       {Object.entries(metadata).filter(([_, data]) => 
-                        safeGet(data, 'name') && safeGet(data, 'name').toLowerCase().includes('yellowstone')
+                        safeGet(data, 'subcategory') === 'yellowstone'
                       ).length}
                     </span>
                   </div>
@@ -688,7 +862,7 @@ export default function AssetManagerPage() {
                     <span className="text-white font-medium">Grand Tetons</span>
                     <span className="text-amber-400 font-bold text-lg">
                       {Object.entries(metadata).filter(([_, data]) => 
-                        safeGet(data, 'name') && safeGet(data, 'name').toLowerCase().includes('grand tetons')
+                        safeGet(data, 'subcategory') === 'grand-tetons'
                       ).length}
                     </span>
                   </div>
@@ -721,14 +895,72 @@ export default function AssetManagerPage() {
                 >
                   Discard Changes
                 </button>
+                
+                {/* Bulk Operations */}
+                <div className="flex items-center space-x-2 border-l border-white/20 pl-4">
+                  <button
+                    onClick={selectAllImages}
+                    disabled={getFilteredImages().length === 0}
+                    className="bg-blue-600/50 hover:bg-blue-600/70 disabled:bg-blue-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={selectNoneImages}
+                    disabled={selectedImages.size === 0}
+                    className="bg-gray-600/50 hover:bg-gray-600/70 disabled:bg-gray-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300"
+                  >
+                    Select None
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirmation(true)}
+                    disabled={selectedImages.size === 0 || isDeleting}
+                    className="bg-red-600/50 hover:bg-red-600/70 disabled:bg-red-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
+                  >
+                    {isDeleting && (
+                      <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                    )}
+                    <span>{isDeleting ? 'Deleting...' : `Delete Selected (${selectedImages.size})`}</span>
+                  </button>
+                </div>
+                
+                {/* File System Operations */}
+                <div className="flex items-center space-x-2 border-l border-white/20 pl-4">
+                  <button
+                    onClick={() => setShowFileSystemPanel(!showFileSystemPanel)}
+                    className="bg-purple-600/50 hover:bg-purple-600/70 text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300"
+                  >
+                    File System
+                  </button>
+                  <button
+                    onClick={scanFileSystem}
+                    disabled={isScanning}
+                    className="bg-indigo-600/50 hover:bg-indigo-600/70 disabled:bg-indigo-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
+                  >
+                    {isScanning && (
+                      <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                    )}
+                    <span>{isScanning ? 'Scanning...' : 'Scan Files'}</span>
+                  </button>
+                  <button
+                    onClick={syncNewFiles}
+                    disabled={isSyncing || !fileSystemData || !fileSystemData.analysis?.filesNotInMetadata?.length}
+                    className="bg-orange-600/50 hover:bg-orange-600/70 disabled:bg-orange-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
+                  >
+                    {isSyncing && (
+                      <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                    )}
+                    <span>{isSyncing ? 'Syncing...' : `Sync New (${fileSystemData?.analysis?.filesNotInMetadata?.length || 0})`}</span>
+                  </button>
+                </div>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="text-white/60 text-sm">
-                  Pending changes: {Object.keys(pendingChanges).length} | Editing: {editingCell || 'None'}
+                  Selected: {selectedImages.size} | Pending changes: {Object.keys(pendingChanges).length} | Editing: {editingCell || 'None'}
                 </div>
-                {saveMessage && (
+                {(saveMessage || syncMessage) && (
                   <div className="text-sm font-medium">
-                    {saveMessage}
+                    {saveMessage || syncMessage}
                   </div>
                 )}
                 <div className="text-white/70 text-sm font-light">
@@ -737,15 +969,164 @@ export default function AssetManagerPage() {
               </div>
             </div>
           </section>
+          
+          {/* File System Integration Panel */}
+          {showFileSystemPanel && (
+            <section className="mb-8">
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                <h3 className="text-white text-lg font-semibold mb-4">File System Integration</h3>
+                
+                {fileSystemData && (
+                  <div className="space-y-4">
+                    {/* Only show analysis if there are actual issues */}
+                    {(fileSystemData.analysis.filesNotInMetadata.length > 0 || fileSystemData.analysis.metadataWithoutFiles.length > 0) ? (
+                      <>
+                        {/* File System Analysis - Only show when there are issues */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-white/5 rounded-lg p-3">
+                            <div className="text-amber-400 text-2xl font-bold">{fileSystemData.analysis.totalFiles}</div>
+                            <div className="text-white/70 text-sm">Total Files</div>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-3">
+                            <div className="text-green-400 text-2xl font-bold">{fileSystemData.analysis.totalMetadataEntries}</div>
+                            <div className="text-white/70 text-sm">In Metadata</div>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-3">
+                            <div className="text-orange-400 text-2xl font-bold">{fileSystemData.analysis.filesNotInMetadata.length}</div>
+                            <div className="text-white/70 text-sm">Missing Metadata</div>
+                          </div>
+                          <div className="bg-white/5 rounded-lg p-3">
+                            <div className="text-red-400 text-2xl font-bold">{fileSystemData.analysis.metadataWithoutFiles.length}</div>
+                            <div className="text-white/70 text-sm">Orphaned Metadata</div>
+                          </div>
+                        </div>
+                        
+                        {/* Files not in metadata */}
+                        {fileSystemData.analysis.filesNotInMetadata.length > 0 && (
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <h4 className="text-white font-medium mb-3">Files Missing from Metadata ({fileSystemData.analysis.filesNotInMetadata.length})</h4>
+                            <div className="max-h-40 overflow-y-auto space-y-1">
+                              {fileSystemData.analysis.filesNotInMetadata.slice(0, 10).map((filename: string) => {
+                                const fileInfo = fileSystemData.files.find((f: any) => f.filename === filename);
+                                return (
+                                  <div key={filename} className="flex justify-between items-center text-sm">
+                                    <span className="text-white/80 truncate flex-1">{filename}</span>
+                                    <span className="text-amber-400 ml-2">{fileInfo?.category || 'uncategorized'}</span>
+                                    <span className="text-white/60 ml-2">{fileInfo?.subcategory || ''}</span>
+                                  </div>
+                                );
+                              })}
+                              {fileSystemData.analysis.filesNotInMetadata.length > 10 && (
+                                <div className="text-white/40 text-sm">... and {fileSystemData.analysis.filesNotInMetadata.length - 10} more</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Orphaned metadata entries */}
+                        {fileSystemData.analysis.metadataWithoutFiles.length > 0 && (
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <h4 className="text-white font-medium mb-3">Orphaned Metadata Entries ({fileSystemData.analysis.metadataWithoutFiles.length})</h4>
+                            <div className="text-white/60 text-sm mb-3">These metadata entries reference files that don't exist. They can be safely deleted.</div>
+                            <div className="max-h-40 overflow-y-auto space-y-1">
+                              {fileSystemData.analysis.metadataWithoutFiles.slice(0, 10).map((filename: string) => (
+                                <div key={filename} className="flex justify-between items-center text-sm">
+                                  <span className="text-red-400">{filename}</span>
+                                  <button 
+                                    onClick={() => {
+                                      // Add to selected for bulk deletion
+                                      const newSelected = new Set(selectedImages);
+                                      newSelected.add(filename);
+                                      setSelectedImages(newSelected);
+                                    }}
+                                    className="text-white/60 hover:text-red-400 text-xs px-2 py-1 rounded border border-white/20 hover:border-red-400"
+                                  >
+                                    Select for Deletion
+                                  </button>
+                                </div>
+                              ))}
+                              {fileSystemData.analysis.metadataWithoutFiles.length > 10 && (
+                                <div className="text-white/40 text-sm">... and {fileSystemData.analysis.metadataWithoutFiles.length - 10} more</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="text-green-400 text-4xl font-bold mb-2">✅</div>
+                        <div className="text-white text-lg font-medium">File System is Clean!</div>
+                        <div className="text-white/60 text-sm mt-1">All files are properly synced with metadata</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {!fileSystemData && (
+                  <div className="text-white/60 text-center py-8">
+                    Click "Scan Files" to analyze the file system and detect discrepancies
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
           {/* Data Table */}
           <section>
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
-              <div className="overflow-x-auto">
-                <div className="w-[3200px]">
+            {/* Table count and info */}
+            <div className="bg-white/5 backdrop-blur-sm rounded-t-lg border border-b-0 border-white/10 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="text-white/90 text-sm font-medium">
+                  Displaying {getFilteredImages().length} image(s)
+                  {activeFilter && activeFilter !== 'all' && activeFilter !== '' && (
+                    <span className="text-amber-400 ml-2">
+                      (filtered by: {activeFilter === 'new' ? 'New Images' : 
+                                    activeFilter === 'astrophotography' ? 'Astrophotography' :
+                                    activeFilter === 'terrestrial' ? 'Terrestrial' :
+                                    activeFilter === 'equipment' ? 'Equipment' :
+                                    activeFilter === 'featured' ? 'Featured' :
+                                    activeFilter === 'galaxies' ? 'Galaxies' :
+                                    activeFilter === 'nebulas' ? 'Nebulas' :
+                                    activeFilter === 'star-clusters' ? 'Star Clusters' :
+                                    activeFilter === 'wide-field' ? 'Wide Field' :
+                                    activeFilter === 'solar' ? 'Solar' :
+                                    activeFilter === 'lunar' ? 'Lunar' :
+                                    activeFilter === 'planets' ? 'Planets' :
+                                    activeFilter === 'events' ? 'Events' :
+                                    activeFilter === 'yellowstone' ? 'Yellowstone' :
+                                    activeFilter === 'grand-tetons' ? 'Grand Tetons' :
+                                    activeFilter})
+                    </span>
+                  )}
+                </div>
+                <div className="text-white/60 text-sm">
+                  {selectedImages.size > 0 && `${selectedImages.size} selected`}
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/5 backdrop-blur-sm rounded-b-lg border border-white/10 overflow-hidden">
+              <div className="overflow-x-auto overflow-y-hidden">
+                <div className="w-[3500px]">
                   {/* Table Header */}
-                  <div className="grid grid-cols-[300px_150px_250px_150px_250px_300px_150px_450px_300px_100px] gap-6 p-4 border-b border-white/10 bg-white/5 sticky top-0">
+                  <div className="grid grid-cols-[60px_300px_120px_120px_150px_250px_120px_200px_250px_120px_400px_250px_80px] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0">
+                    <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedImages.size > 0 && selectedImages.size === getFilteredImages().length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            selectAllImages();
+                          } else {
+                            selectNoneImages();
+                          }
+                        }}
+                        className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
+                      />
+                    </div>
                     {[
                       'Image Name',
+                      'Category',
+                      'Subcategory', 
                       'Catalog',
                       'Object Name',
                       'Date Taken',
@@ -762,7 +1143,7 @@ export default function AssetManagerPage() {
                     ))}
                   </div>
                   {/* Table Content */}
-                  <div className="max-h-96 overflow-y-auto">
+                  <div className="max-h-[70vh] overflow-y-auto">
                     {(() => {
                       const filteredImages = getFilteredImages();
                       if (filteredImages.length === 0) {
@@ -778,10 +1159,103 @@ export default function AssetManagerPage() {
                         );
                       }
                       return filteredImages.map(({ filename, ...imageData }) => (
-                        <div key={filename} className="grid grid-cols-[300px_150px_250px_150px_250px_300px_150px_450px_300px_100px] gap-6 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200">
+                        <div key={filename} className="grid grid-cols-[60px_300px_120px_120px_150px_250px_120px_200px_250px_120px_400px_250px_80px] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200">
+                          {/* Checkbox for bulk selection */}
+                          <div className="text-white/80 text-sm flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedImages.has(filename)}
+                              onChange={() => toggleImageSelection(filename)}
+                              className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
+                            />
+                          </div>
                           {/* Image Name */}
                           <div className="text-white/90 text-sm font-medium truncate" title={filename}>
                             {filename}
+                          </div>
+                          {/* Category - Editable Dropdown */}
+                          <div className="text-white/80 text-sm">
+                            {editingCell === `${filename}.category` ? (
+                              <select
+                                value={getCurrentValue(filename, 'category', safeGet(imageData, 'category'))}
+                                onChange={(e) => handleCellEdit(filename, 'category', e.target.value)}
+                                onBlur={handleCellBlur}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCellBlur();
+                                  if (e.key === 'Escape') handleCellBlur();
+                                }}
+                                autoFocus
+                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
+                              >
+                                <option value="">Select...</option>
+                                <option value="astrophotography">Astrophotography</option>
+                                <option value="terrestrial">Terrestrial</option>
+                                <option value="equipment">Equipment</option>
+                              </select>
+                            ) : (
+                              <div
+                                onClick={() => handleCellClick(filename, 'category')}
+                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
+                                title={getCurrentValue(filename, 'category', safeGet(imageData, 'category')) || 'Click to edit'}
+                              >
+                                {getCurrentValue(filename, 'category', safeGet(imageData, 'category')) || '—'}
+                              </div>
+                            )}
+                          </div>
+                          {/* Subcategory - Editable Dropdown */}
+                          <div className="text-white/80 text-sm">
+                            {editingCell === `${filename}.subcategory` ? (
+                              <select
+                                value={getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory'))}
+                                onChange={(e) => handleCellEdit(filename, 'subcategory', e.target.value)}
+                                onBlur={handleCellBlur}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCellBlur();
+                                  if (e.key === 'Escape') handleCellBlur();
+                                }}
+                                autoFocus
+                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
+                              >
+                                <option value="">Select...</option>
+                                {(() => {
+                                  const category = getCurrentValue(filename, 'category', safeGet(imageData, 'category'));
+                                  if (category === 'astrophotography') {
+                                    return (
+                                      <>
+                                        <option value="deep-sky/nebulas">Deep Sky - Nebulas</option>
+                                        <option value="deep-sky/galaxies">Deep Sky - Galaxies</option>
+                                        <option value="deep-sky/star-clusters">Deep Sky - Star Clusters</option>
+                                        <option value="deep-sky/wide-field">Deep Sky - Wide Field</option>
+                                        <option value="deep-sky/hubble-palette">Deep Sky - Hubble Palette</option>
+                                        <option value="solar-system/solar">Solar System - Solar</option>
+                                        <option value="solar-system/lunar">Solar System - Lunar</option>
+                                        <option value="solar-system/planets">Solar System - Planets</option>
+                                        <option value="solar-eclipses">Solar Eclipses</option>
+                                        <option value="featured">Featured</option>
+                                      </>
+                                    );
+                                  } else if (category === 'terrestrial') {
+                                    return (
+                                      <>
+                                        <option value="yellowstone">Yellowstone</option>
+                                        <option value="grand-tetons">Grand Tetons</option>
+                                      </>
+                                    );
+                                  } else if (category === 'equipment') {
+                                    return <option value="equipment">Equipment</option>;
+                                  }
+                                  return <option value="">Select category first</option>;
+                                })()}
+                              </select>
+                            ) : (
+                              <div
+                                onClick={() => handleCellClick(filename, 'subcategory')}
+                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
+                                title={getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory')) || 'Click to edit'}
+                              >
+                                {getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory')) || '—'}
+                              </div>
+                            )}
                           </div>
                           {/* Catalog Designation - Editable */}
                           <div className="text-white/80 text-sm">
@@ -1005,6 +1479,48 @@ export default function AssetManagerPage() {
             </div>
           </section>
         </main>
+        
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirmation && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+            <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6 max-w-md w-full mx-4">
+              <h3 className="text-white text-xl font-semibold mb-4">Confirm Deletion</h3>
+              <p className="text-white/80 mb-6">
+                Are you sure you want to delete <span className="text-amber-400 font-medium">{selectedImages.size}</span> selected image(s)? 
+                This action cannot be undone.
+              </p>
+              
+              {/* List first few filenames */}
+              <div className="text-white/60 text-sm mb-6 max-h-32 overflow-y-auto">
+                {Array.from(selectedImages).slice(0, 5).map(filename => (
+                  <div key={filename} className="truncate">• {filename}</div>
+                ))}
+                {selectedImages.size > 5 && (
+                  <div className="text-white/40">... and {selectedImages.size - 5} more</div>
+                )}
+              </div>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  className="flex-1 bg-gray-600/50 hover:bg-gray-600/70 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isDeleting}
+                  className="flex-1 bg-red-600/50 hover:bg-red-600/70 disabled:bg-red-600/20 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center space-x-2"
+                >
+                  {isDeleting && (
+                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                  )}
+                  <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DevelopmentGuard>
   );

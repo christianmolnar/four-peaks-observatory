@@ -120,61 +120,6 @@ All metadata entries now include a `"protected": true/false` field for complete 
 
 ---
 
-### 5. Admin Interface Security (`/vercel.json`)
-
-**Protected Configuration:**
-```json
-{
-  "functions": {
-    "src/app/admin/**": {
-      "excludeFiles": "**"
-    }
-  },
-  "routes": [
-    {
-      "src": "/admin.*",
-      "status": 404
-    }
-  ]
-}
-```
-
-**Protected Behaviors:**
-- ✅ Admin interface fully functional in development environment
-- ✅ Complete exclusion from Vercel production builds
-- ✅ Returns 404 for any `/admin.*` routes in production
-- ✅ No code-level environment checks required
-
-**Security Requirements:**
-- ❌ **DO NOT modify vercel.json** without explicit permission
-- ❌ **DO NOT add NODE_ENV checks** in admin components  
-- ❌ **DO NOT create alternate admin access methods**
-
----
-
-### 6. Metadata System Protection (`/src/data/metadata.json`)
-
-**Protected Fields:**
-All metadata entries with `"protected": true` are fully protected from automatic updates.
-
-**Protected Structure:**
-```json
-{
-  "filename.jpg": {
-    "catalogDesignation": "User Override",
-    "objectName": "Custom Name",
-    "protected": true  // ← PROTECTS ALL FIELDS IN THIS ENTRY
-  }
-}
-```
-
-**Protected Behaviors:**
-- ✅ Protected entries completely skip automatic metadata updates
-- ✅ Manual admin interface edits always respected regardless of protection status
-- ✅ Update script preserves all protected entries without modification
-
----
-
 ## Example Protected vs Allowed Changes
 
 ### ❌ **REQUIRES PERMISSION:**
@@ -201,23 +146,11 @@ All metadata entries with `"protected": true` are fully protected from automatic
 - ✅ Styling: Large white text with amber active state, drop shadow for visibility
 - ✅ Layout: Centered horizontally, fixed position floating over content
 
-### Admin Interface Security:
-- ✅ Vercel build exclusion implemented via `vercel.json`
-- ✅ Production deployment completely blocks admin access (404 response)
-- ✅ Development environment maintains full admin functionality
-- ✅ No environment variable dependencies required
-
-### Metadata Protection System:
-- ✅ Boolean `"protected": true/false` field for granular entry control
-- ✅ Protected entries immune to automatic metadata updates
-- ✅ Manual admin edits always respected regardless of protection status
-
 ### Key Design Decisions:
 1. **No background/backdrop** - maintains clean overlay aesthetic
 2. **Leaf pages only** - prevents confusion on category selection pages  
 3. **Drop shadow** - ensures text visibility over varied background images
 4. **Fixed positioning** - consistent placement regardless of content scroll
-5. **Build-level security** - admin routes completely excluded from production builds
 
 ---
 

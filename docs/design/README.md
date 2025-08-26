@@ -14,57 +14,31 @@ Original comprehensive design document including:
 
 ### `DESIGN_DOCUMENT_CURRENT.md`
 Current implementation status document showing:
-- ✅ Completed features and recent enhancements (favicon quality, admin security, categorization fixes)
-- 🔄 Major metadata system refactor in progress (4-phase plan)
-- Current tech stack (Next.js 15.4.5, TypeScript, Tailwind CSS 4.0)
-- Enhanced astronomical object recognition system (200+ objects from 8 catalogs)
+- Completed features and enhancements
+- Current tech stack (Next.js 15.4.5, TypeScript, Tailwind)
+- Enhanced astronomical object recognition system
 - Automated metadata generation capabilities
-
-### `ADMIN_PAGE_DESIGN.md`
-Comprehensive admin interface design specification including:
-- ✅ Production security implementation via Vercel build exclusion
-- 🔄 Comprehensive metadata refactor plan (Phase 1 ready to begin)
-- Asset management interface design and functionality
-- Security architecture and access control methods
-- Implementation phases with current status tracking
+- Implementation progress and remaining tasks
 
 ### `DESIGN_PROTECTION.md`
-Design consistency and security guidelines including:
-- SubNavigation component protection (positioning, styling, visibility logic)  
-- Admin interface security requirements (Vercel build exclusion)
-- Metadata system protection (protected field system)
-- Brand protection measures and change control protocol
-- Current state baseline (December 2024)
-
-## Recent Updates (December 2024)
-
-### Completed Implementations:
-- ✅ **Favicon Quality**: Progressive scaling for crisp rendering at all sizes
-- ✅ **Site Title Cleanup**: Removed "MVO" abbreviation from titles  
-- ✅ **Admin Security**: Vercel build exclusion protects admin routes in production
-- ✅ **Categorization Fixes**: Corrected planet detection and hardcoded mapping issues
-
-### Major Refactor Approved:
-- 🔄 **Metadata System Overhaul**: 4-phase plan to replace hardcoded fileLocationMappings.ts
-- 🔄 **Category/Subcategory Fields**: Adding structured categorization to metadata.json
-- 🔄 **Enhanced Asset Manager**: Table sorting, bulk delete, improved search functionality
+Design consistency guidelines including:
+- Brand protection measures
+- Design system maintenance
+- Style guide enforcement
+- Consistency standards across the site
 
 ## Purpose
 
 These documents guide the visual and functional design of the observatory website, ensuring:
-- Consistent brand experience across all interfaces
+- Consistent brand experience
 - Professional astronomical photography presentation
-- Secure and maintainable admin interface
 - User-friendly navigation and interaction
 - Technical implementation alignment with design goals
-- Protection of critical design elements and security measures
 
 ## Usage
 
 Refer to these documents when:
-- Making design decisions or implementing new features
-- Understanding current implementation status and progress
-- Maintaining brand and design consistency
-- Planning design system updates or major refactors
-- Implementing security measures for admin interfaces
-- Protecting established design patterns and behaviors
+- Making design decisions
+- Implementing new features
+- Maintaining brand consistency
+- Planning design system updates
