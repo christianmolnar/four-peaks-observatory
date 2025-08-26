@@ -98,6 +98,16 @@ function inferCategoryFromPath(relativePath: string): { category?: string; subca
 
 export async function GET(request: NextRequest) {
   try {
+    // Security check: Require admin token in production
+    if (process.env.NODE_ENV === 'production') {
+      const authHeader = request.headers.get('authorization');
+      const adminToken = process.env.ADMIN_API_TOKEN;
+      
+      if (!adminToken || !authHeader || authHeader !== `Bearer ${adminToken}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     const { searchParams } = new URL(request.url);
     const includeMetadata = searchParams.get('includeMetadata') !== 'false'; // Default to true
     

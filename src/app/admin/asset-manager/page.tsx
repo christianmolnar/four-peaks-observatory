@@ -159,21 +159,21 @@ export default function AssetManagerPage() {
     }
   };
 
-  // File system integration functions
-  const scanFileSystem = async () => {
+  // Metadata analysis functions
+  const scanMetadata = async () => {
     setIsScanning(true);
     try {
-      const response = await fetch('/api/admin/file-scan?includeMetadata=true');
+      const response = await fetch('/api/admin/metadata-scan');
       if (response.ok) {
         const data = await response.json();
         setFileSystemData(data);
-        setSyncMessage(`Scan complete: ${data.analysis.totalFiles} files found, ${data.analysis.filesNotInMetadata.length} not in metadata`);
+        setSyncMessage(`Metadata scan complete: ${data.analysis.totalMetadataEntries} entries, ${data.analysis.categorizedFiles} categorized`);
       } else {
         const errorData = await response.json();
         setSyncMessage(`Scan failed: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      setSyncMessage('Network error during file system scan');
+      setSyncMessage('Network error during metadata scan');
     } finally {
       setIsScanning(false);
       setTimeout(() => setSyncMessage(''), 5000);
@@ -181,11 +181,19 @@ export default function AssetManagerPage() {
   };
 
   const syncNewFiles = async () => {
+    // For metadata-only mode, this becomes an "add new entry" function
+    setSyncMessage('Metadata-only mode: Use "Add New Image" button to manually add entries');
+    setTimeout(() => setSyncMessage(''), 3000);
+    return;
+    
+    // Original sync logic disabled for metadata-only mode
+    /*
     if (!fileSystemData || !fileSystemData.analysis.filesNotInMetadata.length) {
       setSyncMessage('No new files to sync');
       setTimeout(() => setSyncMessage(''), 3000);
       return;
     }
+    */
 
     setIsSyncing(true);
     try {
@@ -218,8 +226,8 @@ export default function AssetManagerPage() {
           setMetadata(metadataData.metadata || {});
         }
         
-        // Refresh file system data
-        await scanFileSystem();
+        // Refresh metadata scan
+        await scanMetadata();
       } else {
         const errorData = await response.json();
         setSyncMessage(`Sync failed: ${errorData.error || 'Unknown error'}`);
@@ -933,14 +941,14 @@ export default function AssetManagerPage() {
                     File System
                   </button>
                   <button
-                    onClick={scanFileSystem}
+                    onClick={scanMetadata}
                     disabled={isScanning}
                     className="bg-indigo-600/50 hover:bg-indigo-600/70 disabled:bg-indigo-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
                   >
                     {isScanning && (
                       <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
                     )}
-                    <span>{isScanning ? 'Scanning...' : 'Scan Files'}</span>
+                    <span>{isScanning ? 'Scanning...' : 'Scan Metadata'}</span>
                   </button>
                   <button
                     onClick={syncNewFiles}

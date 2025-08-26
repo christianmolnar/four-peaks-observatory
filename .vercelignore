@@ -1,15 +1,15 @@
-# Exclude large image directories to prevent serverless function size issues
-public/images/astrophotography/**
-public/images/terrestrial/**
-public/images/assets/**
-public/images/equipment/**
-public/images/hero/**
+# Allow all images - this is an astrophotography portfolio site!
+# Admin routes are secured via environment variables instead
 
-# Exclude admin-only directories that shouldn't be in production
-src/app/admin/**
-src/app/api/admin/**
+# Development and test files
+*.test.js
+*.test.ts
+__tests__/
+tests/admin/
+node_modules/
+.git/
 
-# Other large files
+# Large video files (keep images but exclude videos to save space)
 *.mp4
 *.mov
 *.avi

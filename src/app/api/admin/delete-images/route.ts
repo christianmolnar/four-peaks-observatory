@@ -4,6 +4,16 @@ import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
+    // Security check: Require admin token in production
+    if (process.env.NODE_ENV === 'production') {
+      const authHeader = request.headers.get('authorization');
+      const adminToken = process.env.ADMIN_API_TOKEN;
+      
+      if (!adminToken || !authHeader || authHeader !== `Bearer ${adminToken}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     const { filenames, deleteFiles = false } = await request.json();
     
     if (!filenames || !Array.isArray(filenames)) {
