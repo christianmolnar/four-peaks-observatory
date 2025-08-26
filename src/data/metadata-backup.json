@@ -680,6 +680,18 @@
     "category": "terrestrial",
     "subcategory": "yellowstone"
   },
+  "Markarian's Chain.jpg": {
+    "catalogDesignation": "M84, M86, NGC4477, NGC4473, NGC4461, NGC4458, NGC4438, NGC4435",
+    "objectName": "Markarian's Chain",
+    "dateTaken": "",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies"
+  },
   "Mauna-Kea-1.jpg": {
     "name": "Mauna Kea",
     "description": "UI/Logo asset file",

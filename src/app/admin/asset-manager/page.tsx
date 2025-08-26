@@ -60,6 +60,11 @@ export default function AssetManagerPage() {
     document.title = "Asset Manager | Maple Valley Observatory";
   }, []);
 
+  // Auto-scan metadata on page load
+  useEffect(() => {
+    scanMetadata();
+  }, []);
+
   // State variables
   const [metadata, setMetadata] = useState<Record<string, ImageData>>({});
   const [pendingChanges, setPendingChanges] = useState<Record<string, string | boolean>>({});
@@ -76,8 +81,6 @@ export default function AssetManagerPage() {
   // File system integration state
   const [fileSystemData, setFileSystemData] = useState<any>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [showFileSystemPanel, setShowFileSystemPanel] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string>("");
 
   // Set default filter based on new images count
@@ -180,62 +183,53 @@ export default function AssetManagerPage() {
     }
   };
 
-  const syncNewFiles = async () => {
-    // For metadata-only mode, this becomes an "add new entry" function
-    setSyncMessage('Metadata-only mode: Use "Add New Image" button to manually add entries');
-    setTimeout(() => setSyncMessage(''), 3000);
-    return;
+  // Update metadata function - runs scripts then scans
+  const updateMetadata = async () => {
+    setIsScanning(true);
+    setSyncMessage('Running metadata update scripts...');
     
-    // Original sync logic disabled for metadata-only mode
-    /*
-    if (!fileSystemData || !fileSystemData.analysis.filesNotInMetadata.length) {
-      setSyncMessage('No new files to sync');
-      setTimeout(() => setSyncMessage(''), 3000);
-      return;
-    }
-    */
-
-    setIsSyncing(true);
     try {
-      // Prepare files to sync with their category/subcategory info
-      const filesToSync = fileSystemData.files
-        .filter((file: any) => fileSystemData.analysis.filesNotInMetadata.includes(file.filename))
-        .map((file: any) => ({
-          filename: file.filename,
-          relativePath: file.relativePath,
-          category: file.category,
-          subcategory: file.subcategory
-        }));
-
-      const response = await fetch('/api/admin/sync-files', {
+      // Run the update-metadata script to find new images
+      const response = await fetch('/api/admin/run-script', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ filesToSync }),
+        body: JSON.stringify({
+          script: 'update-metadata'
+        })
       });
 
       if (response.ok) {
         const result = await response.json();
-        setSyncMessage(`Sync complete: ${result.summary.added} files added to metadata`);
+        setSyncMessage('Scripts completed. Reloading metadata...');
         
-        // Refresh metadata
-        const metadataResponse = await fetch(`/api/admin/get-metadata?v=${Date.now()}`);
-        if (metadataResponse.ok) {
-          const metadataData = await metadataResponse.json();
-          setMetadata(metadataData.metadata || {});
-        }
-        
-        // Refresh metadata scan
-        await scanMetadata();
+        // After script completion, reload metadata and then scan
+        setTimeout(async () => {
+          try {
+            // Reload metadata from server to get new entries
+            const metadataRes = await fetch(`/api/admin/get-metadata?v=${Date.now()}`);
+            if (metadataRes.ok) {
+              const metadataData = await metadataRes.json();
+              setMetadata(metadataData.metadata || {});
+              console.log('[Update Metadata] Reloaded metadata:', Object.keys(metadataData.metadata || {}).length, 'entries');
+            }
+            
+            // Then scan the updated metadata for analysis
+            await scanMetadata();
+            setSyncMessage('Metadata update complete!');
+          } catch (error) {
+            console.error('[Update Metadata] Error reloading metadata:', error);
+            setSyncMessage('Error reloading metadata after update');
+          }
+        }, 1000);
       } else {
         const errorData = await response.json();
-        setSyncMessage(`Sync failed: ${errorData.error || 'Unknown error'}`);
+        setSyncMessage(`Script failed: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      setSyncMessage('Network error during file sync');
-    } finally {
-      setIsSyncing(false);
+      setSyncMessage('Network error during metadata update');
+      setIsScanning(false);
       setTimeout(() => setSyncMessage(''), 5000);
     }
   };
@@ -393,10 +387,10 @@ export default function AssetManagerPage() {
         safeGet(data, 'catalogDesignation') || safeGet(data, 'objectName')
       );
     } else if (activeFilter === 'terrestrial') {
-      // Images with category='terrestrial' OR traditional detection
+      // Images with category='terrestrial' OR traditional detection (but exclude assets)
       filteredData = filteredData.filter(([_, data]) => 
         safeGet(data, 'category') === 'terrestrial' ||
-        (safeGet(data, 'name') && !safeGet(data, 'equipmentName'))
+        (safeGet(data, 'name') && !safeGet(data, 'equipmentName') && safeGet(data, 'category') !== 'assets')
       );
     } else if (activeFilter === 'equipment') {
       // Images with category='equipment' OR traditional detection
@@ -932,33 +926,17 @@ export default function AssetManagerPage() {
                   </button>
                 </div>
                 
-                {/* File System Operations */}
+                {/* Metadata Operations */}
                 <div className="flex items-center space-x-2 border-l border-white/20 pl-4">
                   <button
-                    onClick={() => setShowFileSystemPanel(!showFileSystemPanel)}
-                    className="bg-purple-600/50 hover:bg-purple-600/70 text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300"
-                  >
-                    File System
-                  </button>
-                  <button
-                    onClick={scanMetadata}
+                    onClick={updateMetadata}
                     disabled={isScanning}
-                    className="bg-indigo-600/50 hover:bg-indigo-600/70 disabled:bg-indigo-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
+                    className="bg-blue-600/50 hover:bg-blue-600/70 disabled:bg-blue-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
                   >
                     {isScanning && (
                       <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
                     )}
-                    <span>{isScanning ? 'Scanning...' : 'Scan Metadata'}</span>
-                  </button>
-                  <button
-                    onClick={syncNewFiles}
-                    disabled={isSyncing || !fileSystemData || !fileSystemData.analysis?.filesNotInMetadata?.length}
-                    className="bg-orange-600/50 hover:bg-orange-600/70 disabled:bg-orange-600/20 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-light tracking-wide transition-all duration-300 flex items-center space-x-2"
-                  >
-                    {isSyncing && (
-                      <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                    )}
-                    <span>{isSyncing ? 'Syncing...' : `Sync New (${fileSystemData?.analysis?.filesNotInMetadata?.length || 0})`}</span>
+                    <span>{isScanning ? 'Processing...' : 'Update Metadata'}</span>
                   </button>
                 </div>
               </div>
@@ -978,106 +956,6 @@ export default function AssetManagerPage() {
             </div>
           </section>
           
-          {/* File System Integration Panel */}
-          {showFileSystemPanel && (
-            <section className="mb-8">
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-                <h3 className="text-white text-lg font-semibold mb-4">File System Integration</h3>
-                
-                {fileSystemData && (
-                  <div className="space-y-4">
-                    {/* Only show analysis if there are actual issues */}
-                    {(fileSystemData.analysis.filesNotInMetadata.length > 0 || fileSystemData.analysis.metadataWithoutFiles.length > 0) ? (
-                      <>
-                        {/* File System Analysis - Only show when there are issues */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <div className="bg-white/5 rounded-lg p-3">
-                            <div className="text-amber-400 text-2xl font-bold">{fileSystemData.analysis.totalFiles}</div>
-                            <div className="text-white/70 text-sm">Total Files</div>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-3">
-                            <div className="text-green-400 text-2xl font-bold">{fileSystemData.analysis.totalMetadataEntries}</div>
-                            <div className="text-white/70 text-sm">In Metadata</div>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-3">
-                            <div className="text-orange-400 text-2xl font-bold">{fileSystemData.analysis.filesNotInMetadata.length}</div>
-                            <div className="text-white/70 text-sm">Missing Metadata</div>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-3">
-                            <div className="text-red-400 text-2xl font-bold">{fileSystemData.analysis.metadataWithoutFiles.length}</div>
-                            <div className="text-white/70 text-sm">Orphaned Metadata</div>
-                          </div>
-                        </div>
-                        
-                        {/* Files not in metadata */}
-                        {fileSystemData.analysis.filesNotInMetadata.length > 0 && (
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="text-white font-medium mb-3">Files Missing from Metadata ({fileSystemData.analysis.filesNotInMetadata.length})</h4>
-                            <div className="max-h-40 overflow-y-auto space-y-1">
-                              {fileSystemData.analysis.filesNotInMetadata.slice(0, 10).map((filename: string) => {
-                                const fileInfo = fileSystemData.files.find((f: any) => f.filename === filename);
-                                return (
-                                  <div key={filename} className="flex justify-between items-center text-sm">
-                                    <span className="text-white/80 truncate flex-1">{filename}</span>
-                                    <span className="text-amber-400 ml-2">{fileInfo?.category || 'uncategorized'}</span>
-                                    <span className="text-white/60 ml-2">{fileInfo?.subcategory || ''}</span>
-                                  </div>
-                                );
-                              })}
-                              {fileSystemData.analysis.filesNotInMetadata.length > 10 && (
-                                <div className="text-white/40 text-sm">... and {fileSystemData.analysis.filesNotInMetadata.length - 10} more</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Orphaned metadata entries */}
-                        {fileSystemData.analysis.metadataWithoutFiles.length > 0 && (
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="text-white font-medium mb-3">Orphaned Metadata Entries ({fileSystemData.analysis.metadataWithoutFiles.length})</h4>
-                            <div className="text-white/60 text-sm mb-3">These metadata entries reference files that don't exist. They can be safely deleted.</div>
-                            <div className="max-h-40 overflow-y-auto space-y-1">
-                              {fileSystemData.analysis.metadataWithoutFiles.slice(0, 10).map((filename: string) => (
-                                <div key={filename} className="flex justify-between items-center text-sm">
-                                  <span className="text-red-400">{filename}</span>
-                                  <button 
-                                    onClick={() => {
-                                      // Add to selected for bulk deletion
-                                      const newSelected = new Set(selectedImages);
-                                      newSelected.add(filename);
-                                      setSelectedImages(newSelected);
-                                    }}
-                                    className="text-white/60 hover:text-red-400 text-xs px-2 py-1 rounded border border-white/20 hover:border-red-400"
-                                  >
-                                    Select for Deletion
-                                  </button>
-                                </div>
-                              ))}
-                              {fileSystemData.analysis.metadataWithoutFiles.length > 10 && (
-                                <div className="text-white/40 text-sm">... and {fileSystemData.analysis.metadataWithoutFiles.length - 10} more</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-center py-8">
-                        <div className="text-green-400 text-4xl font-bold mb-2">✅</div>
-                        <div className="text-white text-lg font-medium">File System is Clean!</div>
-                        <div className="text-white/60 text-sm mt-1">All files are properly synced with metadata</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {!fileSystemData && (
-                  <div className="text-white/60 text-center py-8">
-                    Click "Scan Files" to analyze the file system and detect discrepancies
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
           {/* Data Table */}
           <section>
             {/* Table count and info */}
