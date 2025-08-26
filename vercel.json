@@ -1,4 +1,15 @@
 {
+  "functions": {
+    "src/app/api/admin/delete-images/route.ts": {
+      "excludeFiles": "public/images/**"
+    },
+    "src/app/api/admin/file-scan/route.ts": {
+      "excludeFiles": "public/images/**"
+    },
+    "src/app/api/admin/sync-files/route.ts": {
+      "excludeFiles": "public/images/**"
+    }
+  },
   "redirects": [
     {
       "source": "/admin/asset-manager/:path*",
