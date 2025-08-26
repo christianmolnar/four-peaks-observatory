@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/admin/asset-manager/:path*",
+      "destination": "/404",
+      "permanent": false
+    }
+  ]
+}
