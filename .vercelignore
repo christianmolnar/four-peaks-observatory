@@ -1,5 +1,16 @@
-public/images/astrophotography/
-public/images/terrestrial/
-public/images/assets/
-public/images/equipment/
-public/images/hero/
+# Exclude large image directories to prevent serverless function size issues
+public/images/astrophotography/**
+public/images/terrestrial/**
+public/images/assets/**
+public/images/equipment/**
+public/images/hero/**
+
+# Exclude admin-only directories that shouldn't be in production
+src/app/admin/**
+src/app/api/admin/**
+
+# Other large files
+*.mp4
+*.mov
+*.avi
+*.webm

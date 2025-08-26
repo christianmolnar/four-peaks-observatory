@@ -1,7 +1,4 @@
 {
-  "functions": {
-    "src/app/api/admin/**": false
-  },
   "redirects": [
     {
       "source": "/admin/:path*",
