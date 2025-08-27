@@ -14,6 +14,7 @@ interface ImageData {
   location: string;
   equipment: string;
   exposure: string;
+  description?: string;
 }
 
 // Dynamically import all images from the featured folder
@@ -329,6 +330,15 @@ export default function LatestCapturesCarousel() {
                   ));
                 })()}
               </div>
+              
+              {/* AI Description - Centered on new line */}
+              {images[current].description && (
+                <div className="mt-3 text-center">
+                  <p className="text-white/80 text-sm leading-relaxed max-w-4xl mx-auto px-2">
+                    {images[current].description.replace(/^"|"$/g, '')}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Image Counter */}

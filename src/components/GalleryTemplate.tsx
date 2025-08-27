@@ -28,6 +28,8 @@ interface ImageMetadata {
   // YouTube contemplation fields
   youtubeLink?: string;
   youtubeTitle?: string;
+  // AI-generated description
+  description?: string;
 }
 
 interface GalleryTemplateProps {
@@ -757,6 +759,15 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                   ));
                 })()}
               </div>
+              
+              {/* AI Description - Centered on new line */}
+              {images[currentImage].description && (
+                <div className="mt-3 text-center">
+                  <p className="text-white/80 text-sm leading-relaxed max-w-4xl mx-auto px-2">
+                    {images[currentImage].description.replace(/^"|"$/g, '')}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Image Counter */}
