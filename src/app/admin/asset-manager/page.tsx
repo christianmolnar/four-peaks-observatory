@@ -128,10 +128,12 @@ export default function AssetManagerPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ filenames }),
+        body: JSON.stringify({ filenames, deleteFiles: true }),
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        
         // Remove deleted images from metadata
         const updatedMetadata = { ...metadata };
         filenames.forEach(filename => {
@@ -151,7 +153,8 @@ export default function AssetManagerPage() {
         });
         setPendingChanges(updatedPendingChanges);
         
-        setSaveMessage(`Successfully deleted ${filenames.length} image(s)`);
+        // Show detailed success message
+        setSaveMessage(responseData.message || `Successfully deleted ${filenames.length} image(s) and files`);
       } else {
         const errorData = await response.json();
         setSaveMessage(`Failed to delete images: ${errorData.error || 'Unknown error'}`);
@@ -1710,7 +1713,8 @@ export default function AssetManagerPage() {
               <h3 className="text-white text-xl font-semibold mb-4">Confirm Deletion</h3>
               <p className="text-white/80 mb-6">
                 Are you sure you want to delete <span className="text-amber-400 font-medium">{selectedImages.size}</span> selected image(s)? 
-                This action cannot be undone.
+                <br />
+                <span className="text-red-400 font-medium">This will permanently remove both the image files and their metadata.</span> This action cannot be undone.
               </p>
               
               {/* List first few filenames */}
