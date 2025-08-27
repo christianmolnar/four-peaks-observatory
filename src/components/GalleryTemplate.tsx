@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import Head from 'next/head';
 import Image from 'next/image';
 import SiteLayout from '@/components/SiteLayout';
 import metadata from '@/data/metadata.json';
 import fileTimestamps from '@/data/file-timestamps.json';
+import { generateImageGalleryStructuredData, generateBreadcrumbStructuredData } from '@/lib/seo';
 
 interface ImageMetadata {
   src: string;
@@ -254,15 +256,15 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
     setShowYouTubeOverlay(false);
   };
 
-  const nextImage = () => {
+  const nextImage = useCallback(() => {
     setCurrentImage((prev) => (prev + 1) % images.length);
     setShowYouTubeOverlay(false); // Close YouTube overlay when changing images
-  };
+  }, [images.length]);
 
-  const prevImage = () => {
+  const prevImage = useCallback(() => {
     setCurrentImage((prev) => (prev - 1 + images.length) % images.length);
     setShowYouTubeOverlay(false); // Close YouTube overlay when changing images
-  };
+  }, [images.length]);
 
   // Swipe gesture handling
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -317,8 +319,58 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
     return () => document.removeEventListener('keydown', handleKeydown);
   }, [modalOpen, nextImage, prevImage]);
 
+  // Generate structured data for SEO
+  const galleryImages = images.map(image => ({
+    url: image.src,
+    name: image.objectName || image.name || image.equipmentName || image.filename,
+    description: image.catalogDesignation 
+      ? `${image.objectName || 'Deep sky object'} (${image.catalogDesignation}) captured with ${image.equipment || 'telescope'}`
+      : `${image.name || image.equipmentName || 'Image'} captured by Maple Valley Observatory`,
+    dateCreated: image.dateTaken,
+    author: 'Maple Valley Observatory'
+  }));
+
+  const imageGalleryStructuredData = generateImageGalleryStructuredData(
+    `${title} - Maple Valley Observatory`,
+    `${title} gallery featuring astrophotography and celestial imaging from Maple Valley Observatory`,
+    galleryImages
+  );
+
+  // Generate breadcrumb structured data
+  const breadcrumbItems = [];
+  breadcrumbItems.push({ name: 'Home', url: '/' });
+  
+  if (imageFolder.includes('astrophotography')) {
+    if (imageFolder.includes('deep-sky')) {
+      breadcrumbItems.push({ name: 'Deep Sky', url: '/astrophotography/deep-sky' });
+    } else if (imageFolder.includes('solar-system')) {
+      breadcrumbItems.push({ name: 'Solar System', url: '/astrophotography/solar-system' });
+    }
+  } else if (imageFolder.includes('terrestrial')) {
+    breadcrumbItems.push({ name: 'Terrestrial', url: '/terrestrial' });
+  }
+  
+  breadcrumbItems.push({ name: title, url: `/${imageFolder}` });
+
+  const breadcrumbStructuredData = generateBreadcrumbStructuredData(breadcrumbItems);
+
   return (
     <SiteLayout>
+      {/* Add structured data for SEO */}
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(imageGalleryStructuredData),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(breadcrumbStructuredData),
+          }}
+        />
+      </Head>
       <div className="min-h-screen bg-black">
         {/* Background Image */}
         <div className="fixed inset-0 z-0">

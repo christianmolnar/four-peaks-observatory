@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import metadata from '@/data/metadata.json';
@@ -56,13 +56,13 @@ export default function LatestCapturesCarousel() {
   const openModal = () => setModalOpen(true);
   const closeModal = () => setModalOpen(false);
 
-  const nextImage = () => {
+  const nextImage = useCallback(() => {
     setCurrent((prev) => (prev + 1) % length);
-  };
+  }, [length]);
 
-  const prevImage = () => {
+  const prevImage = useCallback(() => {
     setCurrent((prev) => (prev - 1 + length) % length);
-  };
+  }, [length]);
 
   // Keyboard navigation for modal
   useEffect(() => {

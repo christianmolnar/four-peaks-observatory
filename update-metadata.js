@@ -1000,11 +1000,32 @@ async function updateMetadata() {
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
                            (!entry.youtubeTitle && entry.youtubeTitle !== '');
         
-        if (needsUpdate || needsDateUpdate || needsCategoryUpdate) {
+        // Check if this is a deep-sky object without a description
+        const needsDescription = entry.category === 'astrophotography' && 
+                                 entry.subcategory && 
+                                 entry.subcategory.includes('deep-sky') && 
+                                 !entry.description;
+        
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate || needsDescription) {
           console.log(`🔄 Updating ${imageType} metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           if (entry.protected === undefined) entry.protected = false;
           if (entry.youtubeLink === undefined) entry.youtubeLink = '';
           if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+          
+          // Generate description for deep-sky objects that don't have one
+          if (needsDescription) {
+            console.log(`   🤖 Generating AI description for deep-sky object: ${entry.objectName || entry.catalogDesignation}`);
+            const description = await getAstronomicalObjectDescription(
+              entry.objectName, 
+              entry.catalogDesignation, 
+              entry.subcategory
+            );
+            if (description) {
+              entry.description = description;
+              console.log(`   ✅ Description added: ${description.substring(0, 50)}...`);
+            }
+          }
+          
           updatedEntries++;
         } else {
           console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder})`);

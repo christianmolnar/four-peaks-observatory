@@ -97,6 +97,11 @@ describe('Image Metadata', () => {
     imageKeys.forEach(imageKey => {
       const image = metadata[imageKey as keyof typeof metadata] as MetadataEntry;
       
+      // Skip assets - they don't need catalog designations
+      if (image.category === 'assets') {
+        return;
+      }
+      
       // If it's clearly an astronomical object, it should have a catalog designation
       const astroPatterns = [
         /nebula/i, /galaxy/i, /cluster/i, /supernova/i,

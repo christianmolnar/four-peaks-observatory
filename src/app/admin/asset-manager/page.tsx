@@ -71,7 +71,10 @@ export default function AssetManagerPage() {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string>("");
-  const [activeFilter, setActiveFilter] = useState<string>("");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
+  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation'>('metadata');
   
   // Bulk selection state
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -86,8 +89,8 @@ export default function AssetManagerPage() {
   // Set default filter based on new images count
   useEffect(() => {
     if (Object.keys(metadata).length > 0 && activeFilter === "") {
-      const newImagesCount = getNewImagesCount();
-      setActiveFilter(newImagesCount > 0 ? 'new' : 'all');
+      // Always default to 'all' for simplicity
+      setActiveFilter('all');
     }
   }, [metadata, activeFilter]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -346,6 +349,78 @@ export default function AssetManagerPage() {
     }).length;
   };
 
+  // Helper: get count for assets (protected images)
+  const getAssetsCount = () => {
+    return Object.entries(metadata).filter(([filename, data]) => 
+      safeGet(data, 'protected') === true
+    ).length;
+  };
+
+  // Helper: get count for terrestrial images (excluding assets)
+  const getTerrestrialCount = () => {
+    return Object.entries(metadata).filter(([filename, data]) => 
+      (safeGet(data, 'category') === 'terrestrial' ||
+       (safeGet(data, 'name') && !safeGet(data, 'equipmentName'))) &&
+      safeGet(data, 'protected') !== true  // Exclude assets
+    ).length;
+  };
+
+  // Helper: fuzzy search functionality
+  const fuzzySearch = (query: string, text: string): boolean => {
+    if (!query) return true;
+    
+    const queryLower = query.toLowerCase();
+    const textLower = text.toLowerCase();
+    
+    // Exact match gets highest priority
+    if (textLower.includes(queryLower)) return true;
+    
+    // Fuzzy match - check if all characters in query appear in order in text
+    let queryIndex = 0;
+    for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
+      if (textLower[i] === queryLower[queryIndex]) {
+        queryIndex++;
+      }
+    }
+    return queryIndex === queryLower.length;
+  };
+
+  // Helper: table sorting functionality
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Helper: get contemplation data (images with YouTube assignments)
+  const getContemplationData = () => {
+    return Object.entries(metadata)
+      .filter(([filename, data]) => {
+        // Only show astrophotography images with or without YouTube data
+        const isAstro = safeGet(data, 'category') === 'astrophotography' ||
+                       (safeGet(data, 'catalogDesignation') || safeGet(data, 'objectName')) &&
+                       !safeGet(data, 'name') && !safeGet(data, 'equipmentName');
+        return isAstro;
+      })
+      .map(([filename, data]) => ({
+        filename,
+        objectName: safeGet(data, 'objectName', ''),
+        catalogDesignation: safeGet(data, 'catalogDesignation', ''),
+        subcategory: safeGet(data, 'subcategory', ''),
+        youtubeLink: safeGet(data, 'youtubeLink', ''),
+        youtubeTitle: safeGet(data, 'youtubeTitle', ''),
+        hasVideo: !!(safeGet(data, 'youtubeLink', '').trim())
+      }))
+      .sort((a, b) => {
+        // Sort by: has video first, then by object name
+        if (a.hasVideo && !b.hasVideo) return -1;
+        if (!a.hasVideo && b.hasVideo) return 1;
+        return a.objectName.localeCompare(b.objectName);
+      });
+  };
+
   // Helper: get filtered images using metadata-driven categorization
   const getFilteredImages = () => {
     let filteredData = Object.entries(metadata);
@@ -397,6 +472,11 @@ export default function AssetManagerPage() {
       filteredData = filteredData.filter(([_, data]) => 
         safeGet(data, 'category') === 'equipment' ||
         safeGet(data, 'equipmentName')
+      );
+    } else if (activeFilter === 'assets') {
+      // Protected/asset images
+      filteredData = filteredData.filter(([_, data]) => 
+        safeGet(data, 'protected') === true
       );
     } else if (activeFilter === 'featured') {
       // Featured astrophotography images using subcategory
@@ -464,6 +544,46 @@ export default function AssetManagerPage() {
       filteredData = filteredData.filter(([_, data]) => 
         safeGet(data, 'subcategory') === 'grand-tetons'
       );
+    }
+
+    // Apply search filter
+    if (searchQuery) {
+      filteredData = filteredData.filter(([filename, data]) => {
+        const searchableText = [
+          filename,
+          safeGet(data, 'objectName', ''),
+          safeGet(data, 'catalogDesignation', ''),
+          safeGet(data, 'category', ''),
+          safeGet(data, 'subcategory', ''),
+          safeGet(data, 'name', ''),
+          safeGet(data, 'equipmentName', ''),
+          safeGet(data, 'location', ''),
+          safeGet(data, 'equipment', ''),
+          safeGet(data, 'youtubeTitle', '')
+        ].join(' ');
+        
+        return fuzzySearch(searchQuery, searchableText);
+      });
+    }
+
+    // Apply sorting
+    if (sortConfig) {
+      filteredData.sort(([aFilename, aData], [bFilename, bData]) => {
+        let aValue = sortConfig.key === 'filename' ? aFilename : safeGet(aData, sortConfig.key, '');
+        let bValue = sortConfig.key === 'filename' ? bFilename : safeGet(bData, sortConfig.key, '');
+        
+        // Handle boolean values (protected field)
+        if (typeof aValue === 'boolean') aValue = aValue ? 'true' : 'false';
+        if (typeof bValue === 'boolean') bValue = bValue ? 'true' : 'false';
+        
+        // Convert to strings for comparison
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
+        
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
     }
     
     return filteredData.map(([filename, imageData]) => ({ filename, ...imageData }));
@@ -630,12 +750,40 @@ export default function AssetManagerPage() {
               </div>
             </div>
           </div>
+          
+          {/* Tab Navigation */}
+          <div className="mt-8 flex space-x-4">
+            <button
+              onClick={() => setActiveTab('metadata')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
+                activeTab === 'metadata'
+                  ? 'bg-amber-400/20 border border-amber-400 text-amber-400'
+                  : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              📊 Image Metadata
+            </button>
+            <button
+              onClick={() => setActiveTab('contemplation')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
+                activeTab === 'contemplation'
+                  ? 'bg-amber-400/20 border border-amber-400 text-amber-400'
+                  : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              🎵 Contemplation Videos
+            </button>
+          </div>
         </header>
         
-        {/* Statistics Dashboard */}
-        <section className="relative z-10 w-full px-6 py-6">
-          {/* Top Row: Total Images, New Images, Equipment */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        {/* Tab Content */}
+        <div className="relative z-10 w-full">
+          {activeTab === 'metadata' && (
+            <>
+              {/* Statistics Dashboard */}
+              <section className="relative z-10 w-full px-6 py-6">
+          {/* Top Row: Total Images, New Images, Equipment, Assets */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             {/* Total Images Card */}
             <div 
               className={`bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 cursor-pointer transition-all duration-300 hover:bg-white/10 hover:border-amber-400/30 ${activeFilter === 'all' ? 'bg-amber-400/20 border-amber-400' : ''}`}
@@ -665,6 +813,15 @@ export default function AssetManagerPage() {
                 ).length}
               </div>
               <div className="text-white/70 text-sm font-light">Equipment</div>
+            </div>
+
+            {/* Assets Card */}
+            <div 
+              className={`bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 cursor-pointer transition-all duration-300 hover:bg-white/10 hover:border-amber-400/30 ${activeFilter === 'assets' ? 'bg-amber-400/20 border-amber-400' : ''}`}
+              onClick={() => setActiveFilter(activeFilter === 'assets' ? '' : 'assets')}
+            >
+              <div className="text-2xl font-bold text-white mb-1">{getAssetsCount()}</div>
+              <div className="text-white/70 text-sm font-light">Assets</div>
             </div>
           </div>
 
@@ -822,10 +979,7 @@ export default function AssetManagerPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-2xl font-bold text-white mb-1">
-                      {Object.entries(metadata).filter(([_, data]) => 
-                        safeGet(data, 'category') === 'terrestrial' ||
-                        (safeGet(data, 'name') && !safeGet(data, 'equipmentName'))
-                      ).length}
+                      {getTerrestrialCount()}
                     </div>
                     <div className="text-white/70 text-sm font-light">Terrestrial</div>
                   </div>
@@ -958,8 +1112,31 @@ export default function AssetManagerPage() {
           
           {/* Data Table */}
           <section>
-            {/* Table count and info */}
+            {/* Search Box */}
             <div className="bg-white/5 backdrop-blur-sm rounded-t-lg border border-b-0 border-white/10 px-4 py-3">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="🔍 Search images... (filename, object name, catalog, etc.)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder:text-white/50 focus:border-amber-400/50 focus:outline-none"
+                  />
+                </div>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-white/60 hover:text-white text-sm px-2 py-1 rounded"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Table count and info */}
+            <div className="bg-white/5 backdrop-blur-sm border border-b-0 border-white/10 px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="text-white/90 text-sm font-medium">
                   Displaying {getFilteredImages().length} image(s)
@@ -969,6 +1146,7 @@ export default function AssetManagerPage() {
                                     activeFilter === 'astrophotography' ? 'Astrophotography' :
                                     activeFilter === 'terrestrial' ? 'Terrestrial' :
                                     activeFilter === 'equipment' ? 'Equipment' :
+                                    activeFilter === 'assets' ? 'Assets' :
                                     activeFilter === 'featured' ? 'Featured' :
                                     activeFilter === 'galaxies' ? 'Galaxies' :
                                     activeFilter === 'nebulas' ? 'Nebulas' :
@@ -983,6 +1161,11 @@ export default function AssetManagerPage() {
                                     activeFilter})
                     </span>
                   )}
+                  {searchQuery && (
+                    <span className="text-green-400 ml-2">
+                      (search: "{searchQuery}")
+                    </span>
+                  )}
                 </div>
                 <div className="text-white/60 text-sm">
                   {selectedImages.size > 0 && `${selectedImages.size} selected`}
@@ -991,10 +1174,10 @@ export default function AssetManagerPage() {
             </div>
             
             <div className="bg-white/5 backdrop-blur-sm rounded-b-lg border border-white/10 overflow-hidden">
-              <div className="overflow-x-auto overflow-y-hidden">
-                <div className="w-[3500px]">
+              <div className="overflow-x-auto overflow-y-hidden max-w-full">
+                <div className="min-w-max max-w-none">
                   {/* Table Header */}
-                  <div className="grid grid-cols-[60px_300px_120px_120px_150px_250px_120px_200px_250px_120px_400px_250px_80px] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0">
+                  <div className="grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(200px,250px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0">
                     <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
                       <input
                         type="checkbox"
@@ -1010,21 +1193,28 @@ export default function AssetManagerPage() {
                       />
                     </div>
                     {[
-                      'Image Name',
-                      'Category',
-                      'Subcategory', 
-                      'Catalog',
-                      'Object Name',
-                      'Date Taken',
-                      'Location',
-                      'Equipment',
-                      'Exposure',
-                      'YouTube Link',
-                      'YouTube Title',
-                      'Protected'
-                    ].map((header) => (
-                      <div key={header} className="text-white/90 text-sm font-medium tracking-wide">
-                        {header}
+                      { key: 'filename', label: 'Image Name' },
+                      { key: 'category', label: 'Category' },
+                      { key: 'subcategory', label: 'Subcategory' },
+                      { key: 'catalogDesignation', label: 'Catalog' },
+                      { key: 'objectName', label: 'Object Name' },
+                      { key: 'dateTaken', label: 'Date Taken' },
+                      { key: 'location', label: 'Location' },
+                      { key: 'equipment', label: 'Equipment' },
+                      { key: 'exposure', label: 'Exposure' },
+                      { key: 'protected', label: 'Protected' }
+                    ].map((column) => (
+                      <div 
+                        key={column.key} 
+                        className="text-white/90 text-sm font-medium tracking-wide cursor-pointer hover:text-amber-400 transition-colors flex items-center space-x-1"
+                        onClick={() => handleSort(column.key)}
+                      >
+                        <span>{column.label}</span>
+                        {sortConfig?.key === column.key && (
+                          <span className="text-amber-400">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1045,7 +1235,7 @@ export default function AssetManagerPage() {
                         );
                       }
                       return filteredImages.map(({ filename, ...imageData }) => (
-                        <div key={filename} className="grid grid-cols-[60px_300px_120px_120px_150px_250px_120px_200px_250px_120px_400px_250px_80px] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200">
+                        <div key={filename} className="grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(200px,250px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200">
                           {/* Checkbox for bulk selection */}
                           <div className="text-white/80 text-sm flex items-center justify-center">
                             <input
@@ -1293,56 +1483,6 @@ export default function AssetManagerPage() {
                               </div>
                             )}
                           </div>
-                          {/* YouTube Link - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.youtubeLink` ? (
-                              <input
-                                type="text"
-                                value={getCurrentValue(filename, 'youtubeLink', safeGet(imageData, 'youtubeLink'))}
-                                onChange={(e) => handleCellEdit(filename, 'youtubeLink', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'youtubeLink')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'youtubeLink', safeGet(imageData, 'youtubeLink')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'youtubeLink', safeGet(imageData, 'youtubeLink')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          {/* YouTube Title - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.youtubeTitle` ? (
-                              <input
-                                type="text"
-                                value={getCurrentValue(filename, 'youtubeTitle', safeGet(imageData, 'youtubeTitle'))}
-                                onChange={(e) => handleCellEdit(filename, 'youtubeTitle', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'youtubeTitle')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'youtubeTitle', safeGet(imageData, 'youtubeTitle')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'youtubeTitle', safeGet(imageData, 'youtubeTitle')) || '—'}
-                              </div>
-                            )}
-                          </div>
                           {/* Protected - Toggle */}
                           <div className="text-white/80 text-sm">
                             <button
@@ -1365,6 +1505,203 @@ export default function AssetManagerPage() {
             </div>
           </section>
         </main>
+            </>
+          )}
+
+          {/* Tab 2: Contemplation Videos */}
+          {activeTab === 'contemplation' && (
+            <>
+              {/* Contemplation Dashboard */}
+              <section className="relative z-10 w-full px-6 py-6">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* Total Astrophotography Images */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+                    <div className="text-2xl font-bold text-white mb-1">
+                      {getContemplationData().length}
+                    </div>
+                    <div className="text-white/70 text-sm font-light">Astrophotography Images</div>
+                  </div>
+
+                  {/* Images with Videos */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+                    <div className="text-2xl font-bold text-amber-400 mb-1">
+                      {getContemplationData().filter(img => img.hasVideo).length}
+                    </div>
+                    <div className="text-white/70 text-sm font-light">Have Contemplation Videos</div>
+                  </div>
+
+                  {/* Images without Videos */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+                    <div className="text-2xl font-bold text-red-400 mb-1">
+                      {getContemplationData().filter(img => !img.hasVideo).length}
+                    </div>
+                    <div className="text-white/70 text-sm font-light">Need Contemplation Videos</div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Contemplation Table */}
+              <main className="relative z-10 w-full px-6 py-8">
+                <section>
+                  {/* Search Box */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-t-lg border border-b-0 border-white/10 px-4 py-3">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder="🔍 Search contemplation assignments... (object name, video title, etc.)"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder:text-white/50 focus:border-amber-400/50 focus:outline-none"
+                        />
+                      </div>
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="text-white/60 hover:text-white text-sm px-2 py-1 rounded"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Table info */}
+                  <div className="bg-white/5 backdrop-blur-sm border border-b-0 border-white/10 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-white/90 text-sm font-medium">
+                        Displaying {getContemplationData().filter(img => {
+                          if (!searchQuery) return true;
+                          const searchableText = [img.filename, img.objectName, img.catalogDesignation, img.youtubeTitle].join(' ');
+                          return fuzzySearch(searchQuery, searchableText);
+                        }).length} astrophotography image(s)
+                        {searchQuery && (
+                          <span className="text-green-400 ml-2">(search: "{searchQuery}")</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white/5 backdrop-blur-sm rounded-b-lg border border-white/10 overflow-hidden">
+                    <div className="overflow-x-auto overflow-y-hidden max-w-full">
+                      <div className="min-w-max max-w-none">
+                        {/* Table Header */}
+                        <div className="grid grid-cols-[minmax(250px,300px)_minmax(100px,120px)_minmax(150px,200px)_minmax(250px,350px)_minmax(250px,350px)_minmax(100px,120px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0">
+                          {[
+                            { key: 'objectName', label: 'Object Name' },
+                            { key: 'catalogDesignation', label: 'Catalog' },
+                            { key: 'subcategory', label: 'Category' },
+                            { key: 'youtubeLink', label: 'YouTube Link' },
+                            { key: 'youtubeTitle', label: 'Video Title' },
+                            { key: 'hasVideo', label: 'Status' }
+                          ].map((column) => (
+                            <div 
+                              key={column.key} 
+                              className="text-white/90 text-sm font-medium tracking-wide cursor-pointer hover:text-amber-400 transition-colors flex items-center space-x-1"
+                              onClick={() => handleSort(column.key)}
+                            >
+                              <span>{column.label}</span>
+                              {sortConfig?.key === column.key && (
+                                <span className="text-amber-400">
+                                  {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Table Content */}
+                        <div className="max-h-[70vh] overflow-y-auto">
+                          {(() => {
+                            let contemplationData = getContemplationData();
+                            
+                            // Apply search filter
+                            if (searchQuery) {
+                              contemplationData = contemplationData.filter(img => {
+                                const searchableText = [img.filename, img.objectName, img.catalogDesignation, img.youtubeTitle].join(' ');
+                                return fuzzySearch(searchQuery, searchableText);
+                              });
+                            }
+
+                            if (contemplationData.length === 0) {
+                              return (
+                                <div className="p-8 text-center">
+                                  <div className="text-white/50 text-lg font-light mb-2">
+                                    No astrophotography images found
+                                  </div>
+                                  <div className="text-white/40 text-sm">
+                                    {searchQuery ? 'Try a different search term' : 'No astrophotography images available'}
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return contemplationData.map((img, index) => (
+                              <div 
+                                key={img.filename}
+                                className={`grid grid-cols-[minmax(250px,300px)_minmax(100px,120px)_minmax(150px,200px)_minmax(250px,350px)_minmax(250px,350px)_minmax(100px,120px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors ${
+                                  index % 2 === 0 ? 'bg-white/[0.02]' : ''
+                                }`}
+                              >
+                                {/* Object Name */}
+                                <div className="text-white text-sm font-medium">
+                                  {img.objectName || img.filename}
+                                </div>
+
+                                {/* Catalog Designation */}
+                                <div className="text-white/80 text-sm">
+                                  {img.catalogDesignation}
+                                </div>
+
+                                {/* Category */}
+                                <div className="text-white/70 text-sm">
+                                  {img.subcategory?.replace('deep-sky/', '').replace('solar-system/', '') || 'Unknown'}
+                                </div>
+
+                                {/* YouTube Link */}
+                                <div className="text-white/80 text-sm">
+                                  {img.youtubeLink ? (
+                                    <a 
+                                      href={img.youtubeLink} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-400 hover:text-blue-300 underline truncate block"
+                                    >
+                                      {img.youtubeLink}
+                                    </a>
+                                  ) : (
+                                    <span className="text-white/40 italic">No video assigned</span>
+                                  )}
+                                </div>
+
+                                {/* YouTube Title */}
+                                <div className="text-white/80 text-sm">
+                                  {img.youtubeTitle || (
+                                    <span className="text-white/40 italic">No title</span>
+                                  )}
+                                </div>
+
+                                {/* Status */}
+                                <div className="text-sm">
+                                  {img.hasVideo ? (
+                                    <span className="text-green-400 font-medium">✓ Assigned</span>
+                                  ) : (
+                                    <span className="text-red-400 font-medium">⚠ Missing</span>
+                                  )}
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </main>
+            </>
+          )}
+        </div>
         
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirmation && (

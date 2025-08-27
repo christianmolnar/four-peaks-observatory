@@ -1,5 +1,6 @@
 // This component embeds the Maple Valley Observatory Clear Sky Clock using an iframe.
 import React from 'react';
+import Image from 'next/image';
 
 export default function ClearSkyClockEmbed() {
   return (
@@ -19,12 +20,13 @@ export default function ClearSkyClockEmbed() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img
+          <Image
             src="https://www.cleardarksky.com/c/MplVllyObWAcsk.gif?c=493250"
             alt="Maple Valley Observatory Clear Sky Clock"
             width={600}
             height={250}
             style={{ border: 'none', background: 'transparent', maxWidth: '100%', height: 'auto' }}
+            unoptimized // Required for external animated GIF
           />
         </a>
       </div>

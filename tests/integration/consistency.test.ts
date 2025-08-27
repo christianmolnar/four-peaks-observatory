@@ -30,7 +30,9 @@ describe('Image and Metadata Consistency', () => {
         path.join(imageBaseDir, 'terrestrial', imageKey),
         path.join(imageBaseDir, 'terrestrial/yellowstone', imageKey),
         path.join(imageBaseDir, 'terrestrial/grand-tetons', imageKey),
-        path.join(imageBaseDir, 'equipment', imageKey)
+        path.join(imageBaseDir, 'equipment', imageKey),
+        path.join(imageBaseDir, 'assets', imageKey),
+        path.join(imageBaseDir, 'hero', imageKey)
       ];
       
       const imageExists = astroPaths.some(imagePath => fs.existsSync(imagePath));

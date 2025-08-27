@@ -4,6 +4,19 @@
 ## Overview
 Create a comprehensive admin interface for managing site assets, specifically image metadata and organization. This page will provide real-time editing capabilities for all image metadata stored in `metadata.json`.
 
+## Current Issues Identified (August 2025)
+
+### YouTube Contemplation Feature Problems:
+1. **Not Working on Site**: YouTube contemplation controls don't appear in gallery images
+2. **Data Duplication**: YouTube links exist in two places:
+   - `/src/data/contemplation-inventory.json` (has actual data, not integrated)
+   - `/src/data/metadata.json` (empty fields, but integrated with site)
+3. **Integration Gap**: Site looks for `youtubeLink` in metadata.json but all entries are empty strings
+
+### Solution: Tabbed Admin Interface
+- **Tab 1**: Metadata Management (existing design without YouTube fields)
+- **Tab 2**: YouTube Contemplation Management (dedicated interface for YouTube links)
+
 ## Security & Access Control
 **✅ DECIDED:** Development environment only access (`NODE_ENV=development`) at hidden route `/admin/asset-manager`
 
@@ -14,7 +27,12 @@ Create a comprehensive admin interface for managing site assets, specifically im
 - **Main Title**: "MAPLE VALLEY OBSERVATORY"
 - **Subtitle**: "Site Asset Management"
 
-### 2. Statistics Dashboard
+### 2. Tab Navigation
+Two-tab interface for different management aspects:
+- **Tab 1: "Image Metadata"** - Main image metadata management (existing functionality)
+- **Tab 2: "Contemplation Videos"** - YouTube video assignments for astrophotography images
+
+### 3. Statistics Dashboard (Tab 1: Image Metadata)
 Display summary cards with total counts and filtering capabilities:
 
 #### Summary Cards:
@@ -46,7 +64,7 @@ Display summary cards with total counts and filtering capabilities:
 - "Clear Filter" option to show all images
 - Smooth expand/collapse animations for better UX
 
-### 3. Save/Discard Controls
+### 4. Save/Discard Controls (Both Tabs)
 Positioned between statistics and main table:
 - **Save Changes** button (enabled when there are unsaved changes)
 - **Discard Changes** button (revert to last saved state)
@@ -54,7 +72,7 @@ Positioned between statistics and main table:
 
 **✅ DECIDED:** Manual Save/Discard buttons for better control over when changes are committed
 
-### 4. Main Data Table
+### 5. Main Data Table (Tab 1: Image Metadata)
 
 #### Columns (in this order):
 1. **Image Name** (filename, non-editable, acts as row identifier)
@@ -66,9 +84,37 @@ Positioned between statistics and main table:
 7. **Location** (editable)
 8. **Equipment** (editable)
 9. **Exposure** (editable)
-10. **YouTube Link** (editable)
-11. **YouTube Title** (editable)
-12. **Protected** (editable - checkbox/toggle)
+10. **Protected** (editable - checkbox/toggle)
+
+**⚠️ REMOVED:** YouTube Link and YouTube Title columns (moved to Tab 2)
+
+### 6. Contemplation Videos Table (Tab 2: Contemplation Videos)
+
+#### Purpose:
+Manage YouTube video assignments for astrophotography images to provide contemplative viewing experiences.
+
+#### Columns (in this order):
+1. **Image Name** (filename, non-editable, acts as row identifier)
+2. **Object Name** (editable - for display purposes)
+3. **Catalog Designation** (editable - for reference)
+4. **YouTube Link** (editable - full YouTube URL)
+5. **YouTube Title** (editable - descriptive title for the video)
+6. **Status** (computed - shows "Assigned" or "Available")
+
+#### Table Features (Tab 2):
+- **Filter by Status**: Show only "Assigned" or "Available" images
+- **Astrophotography Only**: Only show astrophotography images (exclude terrestrial/equipment)
+- **Inline Editing**: Click any cell to edit (except Image Name)
+- **URL Validation**: Real-time validation for YouTube URLs
+- **Bulk Operations**: 
+  - Bulk clear assignments
+  - Bulk assign from contemplation inventory
+- **Import from Inventory**: Button to load assignments from `/docs/design/contemplation-inventory.json`
+
+#### Data Integration:
+- **Primary Source**: metadata.json (youtubeLink, youtubeTitle fields)
+- **Import Source**: `/docs/design/contemplation-inventory.json` (existing assignments)
+- **Migration**: One-time import to transfer data from contemplation-inventory.json to metadata.json
 
 #### Table Features:
 - **Inline Editing**: Click any cell to edit (except Image Name)

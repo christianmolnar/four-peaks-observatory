@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
  
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://maplevalleyobservatory.com' // Replace with your actual domain
+  const baseUrl = 'https://www.maplevalleyobservatory.com' // Updated with www
 
   return [
     {
@@ -16,13 +16,44 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.7,
     },
-    // Astrophotography pages
+    {
+      url: `${baseUrl}/equipment`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/resources`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/resources/astronomy-astrophotography`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/resources/mindfulness`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    // Astrophotography main pages
     {
       url: `${baseUrl}/astrophotography/deep-sky`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.9,
     },
+    {
+      url: `${baseUrl}/astrophotography/solar-system`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    // Deep sky categories
     {
       url: `${baseUrl}/astrophotography/deep-sky/galaxies`,
       lastModified: new Date(),
@@ -42,11 +73,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/astrophotography/solar-system`,
+      url: `${baseUrl}/astrophotography/deep-sky/wide-field`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
-      priority: 0.8,
+      priority: 0.7,
     },
+    {
+      url: `${baseUrl}/astrophotography/deep-sky/hubble-palette`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    // Solar system categories
     {
       url: `${baseUrl}/astrophotography/solar-system/lunar`,
       lastModified: new Date(),
@@ -89,20 +127,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.6,
-    },
-    // Equipment page
-    {
-      url: `${baseUrl}/equipment`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-    // Wide field page
-    {
-      url: `${baseUrl}/wide-field`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
     },
   ]
 }
