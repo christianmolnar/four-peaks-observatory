@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "node scripts/capture-file-times.js && next build",
+    "build": "bash scripts/production-build.sh",
     "start": "next start",
     "lint": "next lint",
     "capture-timestamps": "node scripts/capture-file-times.js",
