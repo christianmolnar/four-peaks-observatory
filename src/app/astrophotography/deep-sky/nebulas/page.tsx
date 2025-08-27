@@ -16,7 +16,7 @@ export default function NebulasPage() {
   return (
     <GalleryTemplate
       title={nebulasCategory?.title || 'Nebulas'}
-      backgroundImage={nebulasCategory?.backgroundImage || '/images/astrophotography/featured/NGC7000-Pelican-1.jpg'}
+      backgroundImage={nebulasCategory?.backgroundImage || '/images/astrophotography/deep-sky/nebulas/North America and The Pelican.jpg'}
       imageFolder={nebulasCategory?.imageFolder || 'astrophotography/nebulas'}
     />
   );

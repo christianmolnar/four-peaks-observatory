@@ -7,7 +7,7 @@ export const metadata: Metadata = generateAstrophysicsMetadata(
   'galaxies',
   'Galaxy Astrophotography',
   'Deep space galaxy photography from Maple Valley Observatory. Featuring spiral galaxies, elliptical galaxies, and Messier objects including M31 Andromeda, M33 Triangulum, and other distant galactic wonders.',
-  '/images/astrophotography/featured/M33-Done.jpg'
+  '/images/astrophotography/deep-sky/galaxies/M33 - The Triangulum Galaxy.jpg'
 );
 
 export default function GalaxiesPage() {
@@ -16,7 +16,7 @@ export default function GalaxiesPage() {
   return (
     <GalleryTemplate
       title={galaxiesCategory?.title || 'Galaxies'}
-      backgroundImage={galaxiesCategory?.backgroundImage || '/images/astrophotography/featured/M33-Done.jpg'}
+      backgroundImage={galaxiesCategory?.backgroundImage || '/images/astrophotography/deep-sky/galaxies/M33 - The Triangulum Galaxy.jpg'}
       imageFolder={galaxiesCategory?.imageFolder || 'astrophotography/galaxies'}
     />
   );

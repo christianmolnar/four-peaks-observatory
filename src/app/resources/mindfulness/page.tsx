@@ -26,14 +26,9 @@ const resources = [
     category: 'Meditation',
     items: [
       {
-        name: 'Headspace',
-        link: 'https://www.headspace.com/',
-        description: 'Guided meditation and mindfulness app for all levels.'
-      },
-      {
-        name: 'Insight Timer',
-        link: 'https://insighttimer.com/',
-        description: 'Free meditation app with thousands of guided sessions.'
+        name: 'Waking Up',
+        link: 'https://www.wakingup.com/',
+        description: 'The best introduction to mindfulness and meditation I have found, and so much more...'
       }
     ]
   },
@@ -41,14 +36,14 @@ const resources = [
     category: 'Wellbeing',
     items: [
       {
+        name: 'Grateful.org',
+        link: 'https://grateful.org/',
+        description: 'Want to be happy? Be grateful. Never a truer statement. Please enjoy and consider supporting the work of the Grateful.org team and Brother David Steindl-Rast.'
+      },
+      {
         name: 'Mindful.org',
         link: 'https://www.mindful.org/',
         description: 'Articles and resources for living a mindful life.'
-      },
-      {
-        name: 'Calm',
-        link: 'https://www.calm.com/',
-        description: 'App for sleep, meditation, and relaxation.'
       }
     ]
   }

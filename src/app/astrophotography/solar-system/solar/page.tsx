@@ -14,7 +14,7 @@ export default function SolarPage() {
   return (
     <GalleryTemplate
       title="Solar"
-      backgroundImage="/images/astrophotography/featured/NGC7000-Pelican-1.jpg"
+      backgroundImage="/images/astrophotography/solar-system/solar/Sun.jpg"
       imageFolder={globalConfig.imageFolders.solarSystem.solar}
     />
   );

@@ -17,7 +17,7 @@ export const navigationConfig = {
     { label: 'Solar System', href: '/astrophotography/solar-system' },
     { label: 'Terrestrial', href: '/terrestrial' },
     { label: 'Gear', href: '/equipment' },
-    { label: 'Resources', href: '/resources' },
+    { label: 'Mindfulness', href: '/resources' },
     { label: 'Contact', href: '/contact' },
   ]
 };
@@ -70,20 +70,20 @@ export const homepageConfig = {
 // Deep Sky Categories Configuration
 export const deepSkyConfig = {
   title: 'Deep Sky Objects',
-  backgroundImage: '/images/assets/NGC7000-Pelican-1.jpg',
+  backgroundImage: '/images/astrophotography/deep-sky/nebulas/North America and The Pelican.jpg',
   description: 'Explore the distant reaches of space with detailed captures of galaxies, nebulas, star clusters, and wide-field views millions of light-years away.',
   categories: [
     {
       title: 'Galaxies',
       href: '/astrophotography/deep-sky/galaxies',
-      backgroundImage: '/images/astrophotography/featured/M33.jpg',
+      backgroundImage: '/images/astrophotography/deep-sky/galaxies/M33 - The Triangulum Galaxy.jpg',
       description: 'Distant island universes beyond our Milky Way',
       imageFolder: 'astrophotography/deep-sky/galaxies'
     },
     {
       title: 'Nebulas',
       href: '/astrophotography/deep-sky/nebulas',
-      backgroundImage: '/images/astrophotography/featured/NGC7000-Pelican-1.jpg',
+      backgroundImage: '/images/astrophotography/deep-sky/nebulas/North America and The Pelican.jpg',
       description: 'Stellar nurseries and cosmic clouds of gas and dust',
       imageFolder: 'astrophotography/deep-sky/nebulas'
     },
@@ -253,20 +253,20 @@ export const styleConfig = {
 // Resources Configuration
 export const resourcesConfig = {
   title: 'Resources',
-  backgroundImage: '/images/assets/NGC7000-Pelican-1.jpg',
+  backgroundImage: '/images/astrophotography/deep-sky/nebulas/North America and The Pelican.jpg',
   description: 'Curated resources for astronomy, astrophotography, mindfulness, and wellbeing. Discover guides, articles, and tools to enhance your journey.',
   categories: [
     {
       title: 'Astronomy & Astrophotography',
       href: '/resources/astronomy-astrophotography',
-      backgroundImage: '/images/astrophotography/featured/NGC7000-Pelican-1.jpg',
+      backgroundImage: '/images/astrophotography/deep-sky/nebulas/North America and The Pelican.jpg',
       description: 'Guides, tools, and communities for exploring the cosmos',
       imageFolder: 'resources/astronomy-astrophotography'
     },
     {
       title: 'Mindfulness & Wellbeing',
       href: '/resources/mindfulness',
-      backgroundImage: '/images/astrophotography/featured/M33.jpg',
+      backgroundImage: '/images/astrophotography/deep-sky/galaxies/M33 - The Triangulum Galaxy.jpg',
       description: 'Resources for meditation, contemplation, and inner peace',
       imageFolder: 'resources/mindfulness'
     }

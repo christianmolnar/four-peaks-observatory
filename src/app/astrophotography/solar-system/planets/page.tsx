@@ -5,7 +5,7 @@ export default function PlanetsPage() {
   return (
     <GalleryTemplate
       title="Planets"
-      backgroundImage="/images/astrophotography/featured/M33-Done.jpg"
+      backgroundImage="/images/astrophotography/solar-system/planets/Hubble and Me.jpg"
       imageFolder={globalConfig.imageFolders.solarSystem.planets}
     />
   );
