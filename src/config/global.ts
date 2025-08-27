@@ -141,7 +141,7 @@ export const solarSystemConfig = {
     {
       title: 'Celestial Events',
       href: '/astrophotography/solar-system/events',
-      backgroundImage: '/images/astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse1.jpg',
+      backgroundImage: '/images/astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse8.jpg',
       description: 'Eclipses, conjunctions, transits, and rare astronomical events',
       imageFolder: 'astrophotography/solar-system/events'
     }
@@ -151,14 +151,14 @@ export const solarSystemConfig = {
 // Celestial Events Categories Configuration
 export const celestialEventsConfig = {
   title: 'Celestial Events',
-  backgroundImage: '/images/astrophotography/featured/SH2-132-The-LobsterClaw.jpg',
+  backgroundImage: '/images/astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse8.jpg',
   description: 'Capture rare and spectacular astronomical events including eclipses, conjunctions, transits, and other celestial phenomena.',
   categories: [
     {
       title: 'Total Eclipse 2017',
       href: '/astrophotography/solar-system/events/total-eclipse-2017',
-      backgroundImage: '/images/astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse1.jpg',
-      description: 'The Great American Eclipse of August 21, 2017',
+      backgroundImage: '/images/astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse8.jpg',
+      description: 'The Great Eclipse of August 21, 2017',
       imageFolder: 'astrophotography/solar-system/events/total-eclipse-2017'
     }
   ]
