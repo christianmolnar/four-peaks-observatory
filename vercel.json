@@ -1,34 +1,4 @@
 {
-  "functions": {
-    "src/app/api/admin/delete-images/route.ts": {
-      "runtime": "nodejs18.x",
-      "excludeFiles": ["public/images/**"]
-    },
-    "src/app/api/admin/file-scan/route.ts": {
-      "runtime": "nodejs18.x", 
-      "excludeFiles": ["public/images/**"]
-    },
-    "src/app/api/admin/sync-files/route.ts": {
-      "runtime": "nodejs18.x",
-      "excludeFiles": ["public/images/**"]
-    },
-    "src/app/api/admin/metadata-scan/route.ts": {
-      "runtime": "nodejs18.x",
-      "excludeFiles": ["public/images/**"]
-    },
-    "src/app/api/admin/get-metadata/route.ts": {
-      "runtime": "nodejs18.x",
-      "excludeFiles": ["public/images/**"]
-    },
-    "src/app/api/admin/save-metadata/route.ts": {
-      "runtime": "nodejs18.x", 
-      "excludeFiles": ["public/images/**"]
-    },
-    "src/app/api/admin/run-script/route.ts": {
-      "runtime": "nodejs18.x",
-      "excludeFiles": ["public/images/**"]
-    }
-  },
   "redirects": [
     {
       "source": "/admin/:path*",

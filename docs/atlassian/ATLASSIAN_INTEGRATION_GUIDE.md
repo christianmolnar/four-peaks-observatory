@@ -1,7 +1,7 @@
 # Atlassian Integration Guide
 ## Observatory Astro Migration Project
 
-**Created**: December 19, 2024  
+**Created**: August 26, 2025  
 **Purpose**: Use Atlassian tools for the Astro migration project management
 
 ---
@@ -19,8 +19,8 @@ We'll create a new Atlassian project called **"Observatory Astro Migration"** to
 ## Step 1: Create New Jira Project
 
 ### Project Details
-- **Project Name**: Observatory Astro Migration
-- **Project Key**: OAM
+- **Project Name**: Maple Valley Observatory Astro Migration
+- **Project Key**: MVOAM
 - **Project Type**: Software Development (Scrum)
 - **Description**: Migration of Maple Valley Observatory website from Next.js to Astro framework
 

@@ -162,58 +162,51 @@ const terrestrial = defineCollection({
 
 ## Migration Strategy
 
-### Phase 1: Foundation Setup (Weeks 1-2) - Sprint 1-2
-**Jira Epic**: OAM-1 Foundation Setup (21 story points)
+### Phase 1: Foundation Setup (Weeks 1-2)
 ```
-- [ ] Create new Astro project alongside existing Next.js (OAM-3: 5 pts)
-- [ ] Set up content collections for astrophotography, equipment, articles (OAM-5: 5 pts)
-- [ ] Configure image optimization for existing 333MB+ image library (OAM-4: 3 pts)
-- [ ] Establish TypeScript configuration and schemas (OAM-4: 3 pts)
-- [ ] Set up development environment and build pipeline (OAM-6: 5 pts)
-```
-
-### Phase 2: Content Migration (Weeks 3-5) - Sprint 3-5
-**Jira Epic**: OAM-7 Content Migration (34 story points)
-```
-- [ ] Preserve existing public/images/ folder structure (OAM-8: 3 pts)
-- [ ] Create content collection .md files for existing metadata.json entries (OAM-9: 8 pts)
-- [ ] Migrate contemplation-inventory.json to content collection frontmatter (OAM-12: 5 pts)
-- [ ] Update image references to use existing file paths (OAM-10: 8 pts)
-- [ ] Validate contemplative videos integration works correctly (OAM-13: 5 pts)
+- [ ] Create new Astro project alongside existing Next.js
+- [ ] Set up content collections for astrophotography, equipment, articles
+- [ ] Configure image optimization for existing 333MB+ image library
+- [ ] Establish TypeScript configuration and schemas
+- [ ] Set up development environment and build pipeline
 ```
 
-### Phase 3: Component Migration (Weeks 6-8) - Sprint 6-8
-**Jira Epic**: OAM-14 Component Migration (55 story points)
+### Phase 2: Content Migration (Weeks 3-5)
 ```
-- [ ] Convert layout components to Astro format (OAM-15: 8 pts)
-- [ ] Migrate React components to Astro islands (preserve existing functionality) (OAM-16: 8 pts)
-- [ ] Rebuild navigation and footer components (OAM-16: 8 pts)
-- [ ] Port Contemplative Videos player as client-side island (OAM-18: 13 pts)
-- [ ] Maintain current image gallery behavior and styling (OAM-17: 13 pts)
-- [ ] Port SEO components and structured data (minimal changes needed) (OAM-19: 8 pts)
+- [ ] Preserve existing public/images/ folder structure
+- [ ] Create content collection .md files for existing metadata.json entries
+- [ ] Migrate contemplation-inventory.json to content collection frontmatter
+- [ ] Update image references to use existing file paths
+- [ ] Validate contemplative videos integration works correctly
 ```
 
-### Phase 4: Feature Completion (Weeks 9-10) - Sprint 9-10
-**Jira Epic**: OAM-21 Feature Implementation (34 story points)
+### Phase 3: Component Migration (Weeks 6-8)
 ```
-- [ ] Implement search functionality (static or client-side) (OAM-22: 13 pts)
-- [ ] Add RSS feeds for updates (OAM-23: 5 pts)
-- [ ] Configure sitemap generation (OAM-24: 3 pts)
-- [ ] Set up 404 and error pages (OAM-25: 5 pts)
-- [ ] Performance optimization and testing (OAM-26: 8 pts)
+- [ ] Convert layout components to Astro format
+- [ ] Migrate React components to Astro islands (preserve existing functionality)
+- [ ] Rebuild navigation and footer components  
+- [ ] Port Contemplative Videos player as client-side island
+- [ ] Maintain current image gallery behavior and styling
+- [ ] Port SEO components and structured data (minimal changes needed)
 ```
 
-### Phase 5: Deployment & Cutover (Weeks 11-12) - Sprint 11-12
-**Jira Epic**: OAM-27 Deployment & Go-Live (21 story points)
+### Phase 4: Feature Completion (Weeks 9-10)
 ```
-- [ ] Deploy to existing Vercel account (static hosting) (OAM-28: 8 pts)
-- [ ] Configure existing custom domain (OAM-29: 5 pts)
-- [ ] Implement redirects for any URL structure changes (minimal expected) (OAM-30: 3 pts)
-- [ ] Performance testing and Core Web Vitals optimization (OAM-31: 5 pts)
+- [ ] Implement search functionality (static or client-side)
+- [ ] Add RSS feeds for updates
+- [ ] Configure sitemap generation
+- [ ] Set up 404 and error pages
+- [ ] Performance optimization and testing
+```
+
+### Phase 5: Deployment & Cutover (Weeks 11-12)
+```
+- [ ] Deploy to existing Vercel account (static hosting)
+- [ ] Configure existing custom domain 
+- [ ] Implement redirects for any URL structure changes (minimal expected)
+- [ ] Performance testing and Core Web Vitals optimization
 - [ ] Go-live using existing domain and infrastructure
 ```
-
-**Total Project**: 165 story points across 5 epics and 12 weeks
 
 ---
 
@@ -416,48 +409,10 @@ The migration to Astro represents a strategic improvement that aligns perfectly 
 **Recommendation**: Proceed with migration as a planned strategic enhancement, following the phased approach outlined above.
 
 **Next Steps**:
-1. **Create new Atlassian project** "Observatory Astro Migration" (OAM)
-2. **Set up Jira epics and stories** using provided structure
-3. **Create Confluence documentation space** for technical specs
-4. **Test Atlassian AI Assistant** code generation features
-5. **Begin Sprint 1** with foundation setup work
-
-**See Also**: `docs/atlassian/ATLASSIAN_INTEGRATION_GUIDE.md` for complete Atlassian setup instructions.
-
----
-
-## Atlassian Integration & Project Management
-
-### New Project Structure
-**Project Name**: Observatory Astro Migration  
-**Project Key**: OAM  
-**Tools**: Jira (tasks) + Confluence (docs) + Bitbucket (optional)  
-
-### Sprint Planning with Jira
-- **Total Story Points**: 165 across 5 epics
-- **Sprint Velocity Target**: 15-20 points per sprint
-- **Sprint Duration**: 2 weeks
-- **Total Sprints**: 6 sprints over 12 weeks
-
-### Confluence Documentation Strategy
-- **Technical Specifications**: Detailed implementation guides
-- **Architecture Decision Records**: Framework migration rationale
-- **Sprint Retrospectives**: Lessons learned and improvements
-- **Knowledge Base**: Astro best practices and troubleshooting
-
-### Atlassian AI Assistant Testing
-This migration project will serve as a test case for your Atlassian AI extension:
-
-1. **Auto-Generate Sprint Documentation**: Test AI creation of sprint summaries from Jira data
-2. **Code Generation from Stories**: Use AI to generate Astro component templates from Jira story requirements  
-3. **Documentation Sync**: Test automated updates between Jira progress and Confluence pages
-4. **Project Insights**: Leverage AI for migration progress analysis and recommendations
-
-### Integration Benefits
-- **Centralized Tracking**: All migration tasks in Jira with clear sprint planning
-- **Knowledge Management**: Technical decisions and learnings captured in Confluence
-- **AI-Enhanced Workflow**: Test and refine your Atlassian extension capabilities
-- **Professional Portfolio**: Demonstrate Atlassian expertise for your new role
+1. Gain stakeholder approval for migration
+2. Set up development environment for Astro
+3. Begin Phase 1 foundation work
+4. Establish success metrics and monitoring
 
 ---
 

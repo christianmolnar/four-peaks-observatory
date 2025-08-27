@@ -17,7 +17,7 @@ if [ "$VERCEL_ENV" = "production" ] || [ "$NODE_ENV" = "production" ]; then
   fi
   
   # Run the build
-  node scripts/capture-file-times.js && next build
+  node scripts/capture-file-times.js && npx next build
   
   # Restore admin routes after build
   if [ -d ".backup/admin" ]; then
@@ -30,5 +30,5 @@ if [ "$VERCEL_ENV" = "production" ] || [ "$NODE_ENV" = "production" ]; then
   
 else
   echo "Development build - including all routes"
-  node scripts/capture-file-times.js && next build
+  node scripts/capture-file-times.js && npx next build
 fi
