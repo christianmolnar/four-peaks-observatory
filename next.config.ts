@@ -80,6 +80,45 @@ const nextConfig: NextConfig = {
       return config;
     },
   }),
+
+  // Custom webpack configuration for production
+  webpack: (config: any, { dev, isServer }: { dev: boolean; isServer: boolean }) => {
+    // In production, exclude admin routes to prevent large bundle sizes
+    if (!dev && isServer) {
+      // Add alias to prevent bundling large directories with admin APIs
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        // Prevent admin APIs from bundling public directory
+        '@/public': false,
+      };
+      
+      // Exclude filesystem operations in production serverless functions
+      config.externals = config.externals || [];
+      if (typeof config.externals === 'function') {
+        const originalExternals = config.externals;
+        config.externals = (context: any, request: any, callback: any) => {
+          // Exclude problematic admin routes that cause bundle bloat
+          if (request.includes('public/images')) {
+            return callback(null, `commonjs ${request}`);
+          }
+          return originalExternals(context, request, callback);
+        };
+      }
+    }
+    
+    // Bundle analyzer in development
+    if (dev && process.env.ANALYZE === 'true') {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'server',
+          openAnalyzer: true,
+        })
+      );
+    }
+    
+    return config;
+  },
 };
 
 export default nextConfig;

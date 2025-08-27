@@ -1,0 +1,40 @@
+{
+  // TypeScript performance optimizations
+  "typescript.preferences.maxInlayHintLength": 25,
+  "typescript.preferences.includeAutoImports": "off",
+  "typescript.suggest.includeAutomaticOptionalChainCompletions": false,
+  "typescript.suggest.includeCompletionsForImportStatements": false,
+  "typescript.suggest.includeCompletionsWithSnippetText": false,
+  
+  // Reduce file watching overhead
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/public/images/**": true,
+    "**/.vercel/**": true,
+    "**/dist/**": true,
+    "**/build/**": true
+  },
+  
+  // Exclude large image files from search
+  "search.exclude": {
+    "public/images/**": true,
+    ".next": true,
+    "node_modules": true,
+    ".vercel": true
+  },
+  
+  // Reduce memory usage
+  "typescript.tsserver.maxTsServerMemory": 2048,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  
+  // Disable unnecessary features for better performance
+  "editor.semanticHighlighting.enabled": false,
+  "editor.bracketPairColorization.enabled": false,
+  
+  // Reduce Python language server if not needed
+  "python.languageServer": "Pylance",
+  "python.analysis.autoImportCompletions": false
+}
