@@ -4,15 +4,16 @@ import path from 'path';
 
 export async function POST(request: NextRequest) {
   // Disable admin routes in production Vercel builds to prevent bundle size issues
-  if (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production') {
+  if (process.env.VERCEL_ENV === 'production' || (process.env.NODE_ENV as string) === 'production') {
     return NextResponse.json({ 
       error: 'Admin functions disabled in production builds to prevent bundle size issues' 
     }, { status: 503 });
   }
 
   try {
-    // Security check: Require admin token in production
-    if (process.env.NODE_ENV === 'production') {
+    // Security check: Require admin token in production environments
+    const isProduction = process.env.VERCEL_ENV === 'production' || (process.env.NODE_ENV as string) === 'production';
+    if (isProduction) {
       const authHeader = request.headers.get('authorization');
       const adminToken = process.env.ADMIN_API_TOKEN;
       

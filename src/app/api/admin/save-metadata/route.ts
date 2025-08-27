@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function POST(request: NextRequest) {
   // Disable admin routes in production Vercel builds to prevent bundle size issues
-  if (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production') {
+  if (process.env.VERCEL_ENV === 'production' || (process.env.NODE_ENV as string) === 'production') {
     return NextResponse.json({ 
       error: 'Admin functions disabled in production builds to prevent bundle size issues' 
     }, { status: 503 });

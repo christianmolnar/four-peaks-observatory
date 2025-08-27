@@ -450,12 +450,27 @@ From existing Wix site:
 - **ARIA labels** where appropriate
 
 ## Future Enhancements
+
+### Framework Migration Assessment (December 2024)
+A comprehensive **Astro Web Framework Migration Proposal** has been created in `docs/design/ASTRO_MIGRATION_PROPOSAL.md`. Key findings:
+
+- **Recommendation**: ✅ **PROCEED** with migration to Astro
+- **Performance Benefits**: 40% faster loading, 90% less JavaScript
+- **Perfect Fit**: Content-driven architecture ideal for astrophotography portfolio
+- **Timeline**: 8-12 weeks for complete migration
+- **Risk Level**: Low-Medium with well-documented migration path
+
+The proposal outlines a detailed migration strategy that would eliminate current bundle size issues while significantly improving performance and developer experience.
+
+### Planned Feature Enhancements
 - **Blog section** for observing sessions and equipment reviews
 - **Print shop** integration for selling prints
 - **Newsletter signup** for updates
 - **User accounts** for favorites and collections
 - **API** for mobile app development
 - **Social features** for community building
+- **Content Collections** with type safety (Astro migration)
+- **Advanced Image Processing** pipeline
 
 ## Success Metrics
 - **User Engagement:** Time on site, pages per session
