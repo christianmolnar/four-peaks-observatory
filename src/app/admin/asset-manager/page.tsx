@@ -95,6 +95,9 @@ export default function AssetManagerPage() {
   }, [metadata, activeFilter]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
+  // Add state for thumbnail visibility (default: false/hidden)
+  const [showThumbnails, setShowThumbnails] = useState(false);
+
   // Bulk selection handlers
   const toggleImageSelection = (filename: string) => {
     const newSelected = new Set(selectedImages);
@@ -1096,6 +1099,30 @@ export default function AssetManagerPage() {
                     <span>{isScanning ? 'Processing...' : 'Update Metadata'}</span>
                   </button>
                 </div>
+                
+                {/* View Options */}
+                <div className="flex items-center space-x-2 border-l border-white/20 pl-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-white/80 text-sm font-light">Thumbnails</span>
+                    <button
+                      onClick={() => setShowThumbnails(!showThumbnails)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-black ${
+                        showThumbnails 
+                          ? 'bg-amber-400' 
+                          : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-300 ${
+                          showThumbnails ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-white/60 text-xs">
+                      {showThumbnails ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="text-white/60 text-sm">
@@ -1180,7 +1207,10 @@ export default function AssetManagerPage() {
               <div className="overflow-x-auto overflow-y-hidden max-w-full">
                 <div className="min-w-max max-w-none">
                   {/* Table Header */}
-                  <div className="grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(200px,250px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0">
+                  <div className={showThumbnails 
+                    ? "grid grid-cols-[60px_140px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
+                    : "grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
+                  }>
                     <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
                       <input
                         type="checkbox"
@@ -1195,6 +1225,11 @@ export default function AssetManagerPage() {
                         className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
                       />
                     </div>
+                    {showThumbnails && (
+                      <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
+                        Thumbnail
+                      </div>
+                    )}
                     {[
                       { key: 'filename', label: 'Image Name' },
                       { key: 'category', label: 'Category' },
@@ -1204,7 +1239,6 @@ export default function AssetManagerPage() {
                       { key: 'dateTaken', label: 'Date Taken' },
                       { key: 'location', label: 'Location' },
                       { key: 'equipment', label: 'Equipment' },
-                      { key: 'exposure', label: 'Exposure' },
                       { key: 'protected', label: 'Protected' }
                     ].map((column) => (
                       <div 
@@ -1238,7 +1272,10 @@ export default function AssetManagerPage() {
                         );
                       }
                       return filteredImages.map(({ filename, ...imageData }) => (
-                        <div key={filename} className="grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(200px,250px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200">
+                        <div key={filename} className={showThumbnails
+                          ? "grid grid-cols-[60px_140px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
+                          : "grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
+                        }>
                           {/* Checkbox for bulk selection */}
                           <div className="text-white/80 text-sm flex items-center justify-center">
                             <input
@@ -1248,6 +1285,105 @@ export default function AssetManagerPage() {
                               className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
                             />
                           </div>
+                          
+                          {/* Thumbnail - Conditional */}
+                          {showThumbnails && (
+                            <div className="flex items-center justify-center p-2">
+                              {(() => {
+                                const isVideo = filename.toLowerCase().endsWith('.mp4') || 
+                                               filename.toLowerCase().endsWith('.mov') || 
+                                               filename.toLowerCase().endsWith('.avi') ||
+                                               filename.toLowerCase().endsWith('.webm');
+                                
+                                const imagePath = (() => {
+                                  const category = safeGet(imageData, 'category', '');
+                                  const subcategory = safeGet(imageData, 'subcategory', '');
+                                  
+                                  // Construct path based on category and subcategory
+                                  if (category === 'astrophotography') {
+                                    if (subcategory === 'featured') {
+                                      return `/images/astrophotography/featured/${filename}`;
+                                    } else if (subcategory === 'solar-eclipses') {
+                                      // Eclipse images are in a special subfolder
+                                      return `/images/astrophotography/solar-system/events/total-eclipse-2017/${filename}`;
+                                    } else if (subcategory && subcategory.startsWith('solar-system/')) {
+                                      // Solar system subcategories like solar-system/lunar, solar-system/solar, etc.
+                                      return `/images/astrophotography/${subcategory}/${filename}`;
+                                    } else if (subcategory && subcategory.startsWith('deep-sky/')) {
+                                      // Deep sky subcategories like deep-sky/nebulas, deep-sky/galaxies, etc.
+                                      return `/images/astrophotography/${subcategory}/${filename}`;
+                                    } else if (subcategory && subcategory !== '') {
+                                      return `/images/astrophotography/${subcategory}/${filename}`;
+                                    }
+                                    return `/images/astrophotography/featured/${filename}`; // fallback
+                                  } else if (category === 'terrestrial') {
+                                    if (subcategory && subcategory !== '') {
+                                      return `/images/terrestrial/${subcategory}/${filename}`;
+                                    }
+                                    return `/images/terrestrial/${filename}`;
+                                  } else if (category === 'equipment') {
+                                    return `/images/equipment/${filename}`;
+                                  } else if (safeGet(imageData, 'protected')) {
+                                    return `/images/assets/${filename}`;
+                                  }
+                                  
+                                  // Default fallback - try to determine from filename patterns
+                                  return `/images/${filename}`;
+                                })();
+
+                                if (isVideo) {
+                                  return (
+                                    <div className="relative w-[120px] h-[120px] bg-black rounded shadow border border-white/10 flex items-center justify-center">
+                                      <video
+                                        src={imagePath}
+                                        className="w-full h-full object-cover rounded"
+                                        preload="metadata"
+                                        muted
+                                        style={{ objectFit: 'cover' }}
+                                        onError={(e) => {
+                                          // If video fails to load, show a video placeholder
+                                          e.currentTarget.style.display = 'none';
+                                          const parent = e.currentTarget.parentElement;
+                                          if (parent) {
+                                            parent.innerHTML = `
+                                              <div class="w-full h-full bg-gray-800 rounded flex flex-col items-center justify-center text-white/60">
+                                                <div class="text-2xl mb-1">🎬</div>
+                                                <div class="text-xs">VIDEO</div>
+                                              </div>
+                                            `;
+                                          }
+                                        }}
+                                      />
+                                      {/* Video overlay icon */}
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-8 h-8 bg-black/60 rounded-full flex items-center justify-center">
+                                          <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1"></div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <Image
+                                      src={imagePath}
+                                      alt={filename}
+                                      width={120}
+                                      height={120}
+                                      className="rounded shadow border border-white/10 object-cover bg-black"
+                                      style={{ objectFit: 'cover', width: '120px', height: '120px' }}
+                                      unoptimized
+                                      onError={(e) => { 
+                                        const target = e.currentTarget;
+                                        target.src = '/images/logo/Logo.jpg';
+                                        target.style.objectFit = 'contain';
+                                      }}
+                                    />
+                                  );
+                                }
+                              })()}
+                            </div>
+                          )}
+                          
                           {/* Image Name */}
                           <div className="text-white/90 text-sm font-medium truncate" title={filename}>
                             {filename}
@@ -1461,31 +1597,7 @@ export default function AssetManagerPage() {
                               </div>
                             )}
                           </div>
-                          {/* Exposure - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.exposure` ? (
-                              <input
-                                type="text"
-                                value={getCurrentValue(filename, 'exposure', safeGet(imageData, 'exposure'))}
-                                onChange={(e) => handleCellEdit(filename, 'exposure', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'exposure')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'exposure', safeGet(imageData, 'exposure')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'exposure', safeGet(imageData, 'exposure')) || '—'}
-                              </div>
-                            )}
-                          </div>
+                          
                           {/* Protected - Toggle */}
                           <div className="text-white/80 text-sm">
                             <button

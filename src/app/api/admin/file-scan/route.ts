@@ -137,13 +137,22 @@ export async function GET(request: NextRequest) {
     
     // Compare files with metadata
     const filesInMetadata = Object.keys(metadata);
-    const filesInFileSystem = [...new Set(scannedFiles.map(f => f.filename))]; // Deduplicate filenames
-    
+    // Use relativePath for correct asset exclusion
+    const filesInFileSystem = [...new Set(scannedFiles.map(f => f.relativePath))]; // Deduplicate relative paths
+
+    // Compare by base filename for metadata match, but keep relativePath for exclusion logic
+    const filesNotInMetadata = filesInFileSystem.filter(relPath => {
+      // Exclude files in hero/, assets/, or logo/ folders
+      if (relPath.includes('hero/') || relPath.includes('assets/') || relPath.includes('logo/')) return false;
+      const baseName = relPath.split('/').pop() || '';
+      return !filesInMetadata.includes(baseName);
+    });
+
     const analysis = {
       totalFiles: scannedFiles.length,
       totalMetadataEntries: filesInMetadata.length,
-      filesNotInMetadata: filesInFileSystem.filter(f => !filesInMetadata.includes(f)),
-      metadataWithoutFiles: filesInMetadata.filter(f => !filesInFileSystem.includes(f)),
+      filesNotInMetadata: filesNotInMetadata,
+      metadataWithoutFiles: filesInMetadata.filter(f => !filesInFileSystem.map(rp => rp.split('/').pop()).includes(f)),
       categorizedFiles: scannedFiles.filter(f => f.category).length,
       uncategorizedFiles: scannedFiles.filter(f => !f.category).length
     };
