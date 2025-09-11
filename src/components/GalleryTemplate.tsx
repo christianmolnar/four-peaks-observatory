@@ -565,10 +565,10 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
 
           {/* Media Container - Maximized for fullscreen viewing */}
           <div className="flex flex-col items-center justify-center w-full h-full p-2">
-            {/* YouTube Contemplation Control - Enhanced for mobile */}
+            {/* YouTube Contemplation Control - Hidden on mobile */}
             {shouldShowContemplationControls(images[currentImage]) && (
               <div 
-                className="fixed top-4 right-4 md:right-24 z-10 bg-white/10 backdrop-blur-md rounded-lg px-4 py-4 border border-white/20 cursor-pointer hover:bg-white/15 hover:border-white/30 transition-all duration-300 group shadow-2xl touch-manipulation"
+                className="hidden md:block fixed top-4 right-4 md:right-24 z-10 bg-white/10 backdrop-blur-md rounded-lg px-4 py-4 border border-white/20 cursor-pointer hover:bg-white/15 hover:border-white/30 transition-all duration-300 group shadow-2xl touch-manipulation"
                 onClick={openYouTubeOverlay}
                 style={{ minHeight: '44px', minWidth: '44px' }}
               >
@@ -590,9 +590,9 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
               </div>
             )}
 
-            {/* YouTube Video Overlay - Enhanced for mobile */}
+            {/* YouTube Video Overlay - Hidden on mobile */}
             {showYouTubeOverlay && shouldShowContemplationControls(images[currentImage]) && (
-              <div className="fixed top-4 right-4 md:right-20 z-[100001] bg-black/90 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden shadow-2xl">
+              <div className="hidden md:block fixed top-4 right-4 md:right-20 z-[100001] bg-black/90 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden shadow-2xl">
                 <div className="flex items-center justify-between bg-black/60 px-3 py-2 border-b border-white/10">
                   <span className="text-white/90 text-xs">{images[currentImage].youtubeTitle || "Contemplative Sounds"}</span>
                   <button
@@ -760,9 +760,9 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                 })()}
               </div>
               
-              {/* AI Description - Centered on new line */}
+              {/* AI Description - Hidden on mobile, centered on desktop */}
               {images[currentImage].description && (
-                <div className="mt-3 text-center">
+                <div className="hidden md:block mt-3 text-center">
                   <p className="text-white/80 text-sm leading-relaxed max-w-4xl mx-auto px-2">
                     {images[currentImage].description.replace(/^"|"$/g, '')}
                   </p>

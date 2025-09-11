@@ -21,6 +21,12 @@ const OPENAI_CONFIG = {
   temperature: 0.1, // Low temperature for consistent, factual responses
 };
 
+// Configuration for description generation
+const DESCRIPTION_CONFIG = {
+  maxWords: parseInt(process.env.DESCRIPTION_MAX_WORDS) || 60, // Maximum words in descriptions
+  regenerateIfExceeds: true, // Whether to regenerate descriptions that exceed the word limit
+};
+
 // Paths
 const METADATA_FILE = '/Users/christian/Repos/MapleValleyObservatory/src/data/metadata.json';
 const IMAGES_BASE = '/Users/christian/Repos/MapleValleyObservatory/public/images';
@@ -461,6 +467,73 @@ Respond in this exact JSON format:
   }
 }
 
+// Helper function to extract month and year from dateTaken field
+function extractMonthYear(dateTaken) {
+  if (!dateTaken || dateTaken.trim() === '') return '';
+  
+  // dateTaken is already in "Month, Year" format, so return as-is
+  if (dateTaken.match(/^[A-Za-z]+,\s*\d{4}$/)) {
+    return dateTaken;
+  }
+  
+  // If it's in other formats, try to parse and reformat
+  try {
+    const date = new Date(dateTaken);
+    if (!isNaN(date.getTime())) {
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      return `${monthNames[date.getMonth()]}, ${date.getFullYear()}`;
+    }
+  } catch (error) {
+    // If parsing fails, return original
+  }
+  
+  return dateTaken;
+}
+
+// Helper function to check if description exceeds word limit
+function exceedsWordLimit(description) {
+  if (!description) return false;
+  const wordCount = description.trim().split(/\s+/).length;
+  return wordCount > DESCRIPTION_CONFIG.maxWords;
+}
+
+// Helper function to truncate description to word limit
+function truncateDescription(description) {
+  if (!description) return description;
+  const words = description.trim().split(/\s+/);
+  if (words.length <= DESCRIPTION_CONFIG.maxWords) return description;
+  
+  // Truncate to word limit and try to end on a complete sentence
+  let truncated = words.slice(0, DESCRIPTION_CONFIG.maxWords).join(' ');
+  
+  // Look for the last complete sentence within the word limit
+  const sentences = truncated.split(/[.!?]+/);
+  if (sentences.length > 1) {
+    // Remove the incomplete last sentence and keep complete ones
+    const completeSentences = sentences.slice(0, -1);
+    if (completeSentences.length > 0 && completeSentences[0].trim().length > 0) {
+      truncated = completeSentences.join('.') + '.';
+    } else {
+      // If no complete sentences, just truncate at word boundary without ellipsis
+      truncated = words.slice(0, DESCRIPTION_CONFIG.maxWords).join(' ');
+      // Add period if it doesn't end with punctuation
+      if (!/[.!?]$/.test(truncated)) {
+        truncated += '.';
+      }
+    }
+  } else {
+    // Add period if it doesn't end with punctuation
+    if (!/[.!?]$/.test(truncated)) {
+      truncated += '.';
+    }
+  }
+  
+  return truncated;
+}
+
 // Get educational description for deep sky objects using OpenAI
 async function getAstronomicalObjectDescription(objectName, catalogDesignation, category) {
   // Only generate descriptions for deep sky objects
@@ -478,36 +551,46 @@ async function getAstronomicalObjectDescription(objectName, catalogDesignation, 
       `${catalogDesignation} (${objectName})` : 
       objectName || catalogDesignation;
 
-    const prompt = `Write a brief but complete educational description for the astronomical object: ${objectIdentifier}
+    const prompt = `Write a complete, well-formed paragraph describing the astronomical object: ${objectIdentifier}
 
-Please provide:
-- What type of object it is (galaxy, nebula, star cluster, etc.)
-- Key interesting facts about the object
-- Distance from Earth if known
-- Notable features or characteristics
-- Why it's significant or popular for astrophotography
+Requirements:
+- Write exactly one coherent paragraph with complete sentences
+- Include what type of object it is (galaxy, nebula, star cluster, etc.)
+- Mention distance from Earth if known
+- Describe key visual features or characteristics
+- Explain why it's significant for astrophotography
+- Keep to exactly ${DESCRIPTION_CONFIG.maxWords} words or fewer
+- End with a complete sentence (no ellipses or cut-offs)
+- Make it engaging but scientifically accurate
 
-Keep it to 2-3 sentences maximum. Make it accessible but informative.
-
-Example format: "M42, the Orion Nebula, is a stellar nursery located about 1,344 light-years away in the constellation Orion. This bright emission nebula is one of the most photographed deep sky objects due to its vivid colors and intricate structure, caused by young hot stars ionizing the surrounding gas and dust."`;
+Write as a single, flowing paragraph that reads naturally and completely describes the object for both amateur astronomers and the general public.`;
 
     const completion = await openai.chat.completions.create({
       model: OPENAI_CONFIG.model,
       messages: [
         {
           role: "system",
-          content: "You are an expert astronomy educator. Provide accurate, concise, and engaging descriptions of astronomical objects that would interest both amateur astronomers and the general public."
+          content: `You are an expert astronomy educator writing concise but complete descriptions. Always write exactly one paragraph with complete sentences. Never exceed ${DESCRIPTION_CONFIG.maxWords} words. Ensure every description ends with a complete sentence and flows naturally as a cohesive paragraph.`
         },
         {
           role: "user", 
           content: prompt
         }
       ],
-      max_tokens: 200,
+      max_tokens: 200, // Allow more tokens for longer descriptions
       temperature: 0.7,
     });
 
     const description = completion.choices[0].message.content.trim();
+    
+    // Check if the generated description exceeds word limit
+    if (exceedsWordLimit(description)) {
+      console.log(`   ⚠️  Generated description exceeds ${DESCRIPTION_CONFIG.maxWords} words, truncating...`);
+      const truncatedDescription = truncateDescription(description);
+      console.log(`   📝 AI Description generated and truncated for ${objectIdentifier}`);
+      return truncatedDescription;
+    }
+    
     console.log(`   📝 AI Description generated for ${objectIdentifier}`);
     return description;
     
@@ -775,6 +858,7 @@ function getImageType(folder) {
 async function createMetadataEntry(image) {
   const imageType = getImageType(image.folder);
   const dateTaken = await getDateTaken(image.fullPath);
+  const monthYear = extractMonthYear(dateTaken);
   
   // Phase 1: Detect category and subcategory from file path
   const categoryInfo = detectCategoryFromPath(image.folder);
@@ -784,6 +868,8 @@ async function createMetadataEntry(image) {
       return {
         "name": generateCleanName(image.filename),      // e.g., "Mammoth Springs"
         "dateTaken": dateTaken,                         // e.g., "August, 2024"
+        "monthYear": monthYear,                         // e.g., "August, 2024"
+        "location": "Maple Valley, WA",                 // Default location
         "protected": false,
         "youtubeLink": "",
         "youtubeTitle": "",
@@ -795,6 +881,7 @@ async function createMetadataEntry(image) {
       return {
         "equipmentName": generateCleanName(image.filename), // e.g., "SeeStar S50"
         "equipmentInfo": "",  // e.g., "Smart Telescope by ZWO"
+        "location": "Maple Valley, WA",                 // Default location
         "protected": false,
         "youtubeLink": "",
         "youtubeTitle": "",
@@ -806,6 +893,7 @@ async function createMetadataEntry(image) {
       return {
         "name": generateCleanName(image.filename),      // e.g., "Observatory Logo"
         "description": "UI/Logo asset file",           // Description for asset files
+        "location": "Maple Valley, WA",                 // Default location
         "protected": true,                              // AUTOMATICALLY PROTECTED
         "youtubeLink": "",
         "youtubeTitle": "",
@@ -818,6 +906,8 @@ async function createMetadataEntry(image) {
         "catalogDesignation": "",
         "objectName": generateCleanName(image.filename), // e.g., "Total Eclipse" instead of "2017 Total Eclipse1"
         "dateTaken": dateTaken,                         // e.g., "August, 2017"
+        "monthYear": monthYear,                         // e.g., "August, 2017"
+        "location": "Maple Valley, WA",                 // Default location
         "equipment": "",
         "exposure": "",
         "protected": false,
@@ -841,6 +931,8 @@ async function createMetadataEntry(image) {
         "catalogDesignation": parsed.catalogDesignation,
         "objectName": parsed.objectName,
         "dateTaken": dateTaken,                         // e.g., "February, 2024"
+        "monthYear": monthYear,                         // e.g., "February, 2024"
+        "location": "Maple Valley, WA",                 // Default location
         "equipment": "",
         "exposure": "",
         "protected": false,
@@ -925,6 +1017,15 @@ async function updateMetadata() {
         console.log(`📅 Added dateTaken field for: ${image.filename} (${entry.dateTaken})`);
       }
       
+      // Check if monthYear field is missing (for astrophotography and terrestrial)
+      let needsMonthYearUpdate = false;
+      if ((imageType === 'astrophotography' || imageType === 'terrestrial' || imageType === 'celestial-events') && 
+          (!entry.monthYear || entry.monthYear === '')) {
+        entry.monthYear = extractMonthYear(entry.dateTaken);
+        needsMonthYearUpdate = true;
+        console.log(`📆 Added monthYear field for: ${image.filename} (${entry.monthYear})`);
+      }
+      
       // For assets, automatically mark as protected and ensure proper fields
       if (imageType === 'assets') {
         let needsAssetUpdate = false;
@@ -960,12 +1061,14 @@ async function updateMetadata() {
         const needsUpdate = !entry.name || entry.name === '' ||
                            (!entry.protected && entry.protected !== false) || 
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
-                           (!entry.youtubeTitle && entry.youtubeTitle !== '');
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '') ||
+                           (!entry.location || entry.location === '');
         
-        if (needsUpdate || needsDateUpdate || needsCategoryUpdate) {
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate || needsMonthYearUpdate) {
           console.log(`🔄 Updating terrestrial metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           // Note: Location is now managed manually only
           if (!entry.name || entry.name === '') entry.name = generateCleanName(image.filename);
+          if (!entry.location || entry.location === '') entry.location = 'Maple Valley, WA';
           if (entry.protected === undefined) entry.protected = false;
           if (entry.youtubeLink === undefined) entry.youtubeLink = '';
           if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
@@ -976,17 +1079,19 @@ async function updateMetadata() {
       } else if (imageType === 'equipment') {
         // Only update if both equipmentName and equipmentInfo are empty/missing
         // This preserves any manual edits to equipment descriptions
-        const needsUpdate = (!entry.equipmentName || entry.equipmentName === '') && 
-                           (!entry.equipmentInfo || entry.equipmentInfo === '') ||
+        const needsUpdate = ((!entry.equipmentName || entry.equipmentName === '') && 
+                           (!entry.equipmentInfo || entry.equipmentInfo === '')) ||
                            (!entry.protected && entry.protected !== false) || 
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
-                           (!entry.youtubeTitle && entry.youtubeTitle !== '');
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '') ||
+                           (!entry.location || entry.location === '');
         
         if (needsUpdate || needsCategoryUpdate) {
           console.log(`🔄 Updating equipment metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           if (!entry.equipmentName || entry.equipmentName === '') entry.equipmentName = generateCleanName(image.filename);
           // Don't overwrite equipmentInfo if it already has content
           if (!entry.equipmentInfo) entry.equipmentInfo = '';
+          if (!entry.location || entry.location === '') entry.location = 'Maple Valley, WA';
           if (entry.protected === undefined) entry.protected = false;
           if (entry.youtubeLink === undefined) entry.youtubeLink = '';
           if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
@@ -998,7 +1103,8 @@ async function updateMetadata() {
         // For astrophotography and celestial events, check if required fields are missing
         const needsUpdate = (!entry.protected && entry.protected !== false) || 
                            (!entry.youtubeLink && entry.youtubeLink !== '') || 
-                           (!entry.youtubeTitle && entry.youtubeTitle !== '');
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '') ||
+                           (!entry.location || entry.location === '');
         
         // Check if this is a deep-sky object without a description
         const needsDescription = entry.category === 'astrophotography' && 
@@ -1006,11 +1112,18 @@ async function updateMetadata() {
                                  entry.subcategory.includes('deep-sky') && 
                                  !entry.description;
         
-        if (needsUpdate || needsDateUpdate || needsCategoryUpdate || needsDescription) {
+        // Check if existing description exceeds word limit and needs regeneration
+        const needsDescriptionRegeneration = DESCRIPTION_CONFIG.regenerateIfExceeds &&
+                                             entry.category === 'astrophotography' && 
+                                             entry.description && 
+                                             (exceedsWordLimit(entry.description) || entry.description.trim().endsWith('...'));
+        
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate || needsDescription || needsDescriptionRegeneration || needsMonthYearUpdate) {
           console.log(`🔄 Updating ${imageType} metadata for: ${image.filename} (${imageType} in ${image.folder})`);
           if (entry.protected === undefined) entry.protected = false;
           if (entry.youtubeLink === undefined) entry.youtubeLink = '';
           if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+          if (!entry.location || entry.location === '') entry.location = 'Maple Valley, WA';
           
           // Generate description for deep-sky objects that don't have one
           if (needsDescription) {
@@ -1023,6 +1136,30 @@ async function updateMetadata() {
             if (description) {
               entry.description = description;
               console.log(`   ✅ Description added: ${description.substring(0, 50)}...`);
+            }
+          }
+          
+          // Regenerate description if it exceeds word limit
+          if (needsDescriptionRegeneration) {
+            const currentWordCount = entry.description.trim().split(/\s+/).length;
+            const hasEllipses = entry.description.trim().endsWith('...');
+            console.log(`   📏 Current description has ${currentWordCount} words (max: ${DESCRIPTION_CONFIG.maxWords})${hasEllipses ? ' and ends with ellipses' : ''}`);
+            console.log(`   🤖 Regenerating AI description for: ${entry.objectName || entry.catalogDesignation}`);
+            
+            const newDescription = await getAstronomicalObjectDescription(
+              entry.objectName, 
+              entry.catalogDesignation, 
+              entry.subcategory
+            );
+            
+            if (newDescription) {
+              const newWordCount = newDescription.trim().split(/\s+/).length;
+              entry.description = newDescription;
+              console.log(`   ✅ Description regenerated (${newWordCount} words): ${newDescription.substring(0, 50)}...`);
+            } else {
+              // Fallback: truncate existing description
+              entry.description = truncateDescription(entry.description);
+              console.log(`   ⚠️  AI regeneration failed, truncated existing description`);
             }
           }
           

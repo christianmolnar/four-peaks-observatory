@@ -55,13 +55,6 @@
     "ctimeMs": 1755240677578.9077,
     "filename": "NGC7000 and IC5070-2.jpg"
   },
-  "astrophotography/deep-sky/galaxies/M104.jpg": {
-    "mtime": "2025-08-26T14:47:58.547Z",
-    "mtimeMs": 1756219678547.0503,
-    "ctime": "2025-08-26T15:13:22.286Z",
-    "ctimeMs": 1756221202286.4084,
-    "filename": "M104.jpg"
-  },
   "astrophotography/deep-sky/galaxies/M31-25x300sec-Tight-1600x1131.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
@@ -244,6 +237,13 @@
     "ctimeMs": 1754020923192.7256,
     "filename": "NGC7000.jpg"
   },
+  "astrophotography/deep-sky/nebulas/NGC7538.jpg": {
+    "mtime": "2025-09-04T22:20:13.140Z",
+    "mtimeMs": 1757024413140.1213,
+    "ctime": "2025-09-04T22:21:01.340Z",
+    "ctimeMs": 1757024461339.6877,
+    "filename": "NGC7538.jpg"
+  },
   "astrophotography/deep-sky/nebulas/NGC7635 - The Bubble Nebula - Tight.jpg": {
     "mtime": "2025-07-31T21:35:51.918Z",
     "mtimeMs": 1753997751918.1357,
@@ -264,6 +264,13 @@
     "ctime": "2025-08-25T00:59:26.054Z",
     "ctimeMs": 1756083566054.3245,
     "filename": "North America and The Pelican.jpg"
+  },
+  "astrophotography/deep-sky/nebulas/SH2-101-1.jpg": {
+    "mtime": "2025-09-04T22:32:41.993Z",
+    "mtimeMs": 1757025161992.8545,
+    "ctime": "2025-09-04T22:32:41.993Z",
+    "ctimeMs": 1757025161992.8545,
+    "filename": "SH2-101-1.jpg"
   },
   "astrophotography/deep-sky/nebulas/SH2-132-The-LobsterClaw.jpg": {
     "mtime": "2025-08-01T05:03:24.806Z",
@@ -467,6 +474,20 @@
     "ctime": "2025-08-24T18:07:29.758Z",
     "ctimeMs": 1756058849758.2678,
     "filename": "NGC 7635 - M52.jpg"
+  },
+  "astrophotography/featured/NGC7538.jpg": {
+    "mtime": "2025-09-04T22:20:32.800Z",
+    "mtimeMs": 1757024432799.6755,
+    "ctime": "2025-09-04T22:21:13.473Z",
+    "ctimeMs": 1757024473473.4895,
+    "filename": "NGC7538.jpg"
+  },
+  "astrophotography/featured/SH2-101-1.jpg": {
+    "mtime": "2025-09-04T22:32:28.031Z",
+    "mtimeMs": 1757025148031.1362,
+    "ctime": "2025-09-04T22:32:28.031Z",
+    "ctimeMs": 1757025148031.1362,
+    "filename": "SH2-101-1.jpg"
   },
   "astrophotography/solar-system/events/total-eclipse-2017/2017 Total Eclipse10.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
