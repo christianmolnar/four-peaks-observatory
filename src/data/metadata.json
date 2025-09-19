@@ -1206,21 +1206,6 @@
     "location": "Ravensdale., WA",
     "monthYear": "August, 2024"
   },
-  "NGC6635-Hubble-1.jpg": {
-    "catalogDesignation": "NGC6635",
-    "objectName": "NGC6635",
-    "dateTaken": "August, 2025",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "category": "astrophotography",
-    "subcategory": "deep-sky/hubble-palette",
-    "description": "\"NGC6635 is a globular cluster found 26,000 light-years away in the constellation Sagittarius. Its dense center and ancient stars make it a favored target for astrophotographers, showcasing the history and evolution of the universe.\"",
-    "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
-  },
   "NGC7000 and IC5070-2.jpg": {
     "catalogDesignation": "NGC7000",
     "objectName": "North America Nebula",
@@ -1304,6 +1289,21 @@
     "description": "The Bubble Nebula, or NGC7635, is a beautiful emission nebula situated approximately 7,100 light years away in the constellation Cassiopeia. It gets its name from the spherical gas bubble surrounding a central massive star, created by stellar winds. Its vibrant colors and unique shape make it a captivating target for astrophotographers, showcasing the dynamic and colorful nature of our universe.",
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
+  },
+  "NGC7635.jpg": {
+    "catalogDesignation": "NGC7635",
+    "objectName": "Bubble Nebula",
+    "dateTaken": "August, 2025",
+    "monthYear": "August, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/hubble-palette",
+    "description": "The Bubble Nebula, or NGC 7635, is an emission nebula located 7,100 light-years away in the constellation Cassiopeia. Its defining feature is a stunning, bubble-like cloud of gas created by the stellar wind from a massive, central star. This nebula's vibrant colors and unique structure make it a captivating subject for astrophotographers across the globe."
   },
   "NGC869 and NGC884 - The Double Cluster.jpg": {
     "catalogDesignation": "NGC869",
