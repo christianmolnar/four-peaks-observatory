@@ -374,21 +374,47 @@ export default function AssetManagerPage() {
   // Helper: fuzzy search functionality
   const fuzzySearch = (query: string, text: string): boolean => {
     if (!query) return true;
-    
-    const queryLower = query.toLowerCase();
-    const textLower = text.toLowerCase();
-    
-    // Exact match gets highest priority
+
+    const queryLower = query.toLowerCase().trim();
+    const textLower = (text || '').toLowerCase();
+
+    // Fast path: exact substring anywhere
     if (textLower.includes(queryLower)) return true;
-    
-    // Fuzzy match - check if all characters in query appear in order in text
-    let queryIndex = 0;
-    for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
-      if (textLower[i] === queryLower[queryIndex]) {
-        queryIndex++;
+
+    // Token-level substring: check each token/word for a substring match
+    const tokens = textLower.split(/[^a-z0-9]+/).filter(Boolean);
+    for (const token of tokens) {
+      if (token.includes(queryLower)) return true;
+    }
+
+    // More conservative fuzzy subsequence match:
+    // Only apply for queries of length >= 3 to avoid matching too broadly for short queries
+    if (queryLower.length < 3) {
+      // fallback to simple subsequence check for very short queries
+      let qi = 0;
+      for (let i = 0; i < textLower.length && qi < queryLower.length; i++) {
+        if (textLower[i] === queryLower[qi]) qi++;
+      }
+      return qi === queryLower.length;
+    }
+
+    // For longer queries, require that the matched characters occur within a reasonable window
+    // This reduces false positives where characters appear scattered across unrelated words
+    let matchIndices: number[] = [];
+    let qIndex = 0;
+    for (let i = 0; i < textLower.length && qIndex < queryLower.length; i++) {
+      if (textLower[i] === queryLower[qIndex]) {
+        matchIndices.push(i);
+        qIndex++;
       }
     }
-    return queryIndex === queryLower.length;
+
+    if (matchIndices.length !== queryLower.length) return false;
+
+    const span = matchIndices[matchIndices.length - 1] - matchIndices[0] + 1;
+    const maxSpan = Math.max(queryLower.length * 4, 12); // tunable
+
+    return span <= maxSpan;
   };
 
   // Helper: table sorting functionality
@@ -1551,32 +1577,6 @@ export default function AssetManagerPage() {
                           <div className="text-white/80 text-sm">
                             {editingCell === `${filename}.location` ? (
                               <input
-                                type="text"
-                                value={getCurrentValue(filename, 'location', safeGet(imageData, 'location'))}
-                                onChange={(e) => handleCellEdit(filename, 'location', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'location')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'location', safeGet(imageData, 'location')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'location', safeGet(imageData, 'location')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          {/* Equipment - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.equipment` ? (
-                              <input
-                                type="text"
                                 value={getCurrentValue(filename, 'equipment', safeGet(imageData, 'equipment'))}
                                 onChange={(e) => handleCellEdit(filename, 'equipment', e.target.value)}
                                 onBlur={handleCellBlur}

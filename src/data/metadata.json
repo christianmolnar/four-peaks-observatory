@@ -595,20 +595,6 @@
     "location": "Ravensdale., WA",
     "monthYear": "August, 2025"
   },
-  "M45.jpg": {
-    "catalogDesignation": "M45",
-    "objectName": "Pleiades",
-    "dateTaken": "August, 2025",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "category": "astrophotography",
-    "subcategory": "featured",
-    "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
-  },
   "M56.jpg": {
     "catalogDesignation": "M56",
     "objectName": "Messier 56",
@@ -1275,6 +1261,21 @@
     "location": "Ravensdale., WA",
     "monthYear": "July, 2023"
   },
+  "NGC7331.jpg": {
+    "catalogDesignation": "NGC7331",
+    "objectName": "Deer Lick Group",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies",
+    "description": "NGC7331, often referred to as the Deer Lick Group, is a spiral galaxy located approximately 40 million light-years away from Earth. Its clear spiral structure, bright core, and surrounding fainter galaxies make it a compelling target for astrophotographers. Its relative brightness and large size provide an intriguing glimpse into the complexity and beauty of distant galaxies."
+  },
   "NGC7538.jpg": {
     "catalogDesignation": "NGC7538",
     "objectName": "The Northern Lagoon Nebula",
@@ -1467,21 +1468,6 @@
     "description": "The Orion Nebula, or M42, is a diffuse nebula situated in the Milky Way, around 1,344 light years from Earth. Known for its bright, swirling clouds of gas and dust, it's one of the most observed and photographed objects in the night sky.",
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
-  },
-  "SH2-101-1.jpg": {
-    "catalogDesignation": "Sh2-101",
-    "objectName": "Tulip Nebula",
-    "dateTaken": "September, 2025",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "",
-    "youtubeTitle": "",
-    "category": "astrophotography",
-    "subcategory": "deep-sky/nebulas",
-    "description": "Sh2-101, the Tulip Nebula, is an emission nebula located 6,000 light-years away in Cygnus. Famous for its flower shape, it provides a stunning backdrop for the microquasar Cygnus X-1, making it a favorite for astrophotographers.",
-    "location": "Ravensdale., WA",
-    "monthYear": "September, 2025"
   },
   "SH2-132-The-LobsterClaw.jpg": {
     "catalogDesignation": "Sh2-132",
