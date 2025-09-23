@@ -179,6 +179,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
   const [modalOpen, setModalOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
   const [showYouTubeOverlay, setShowYouTubeOverlay] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   let images = getGalleryImages(imageFolder);
 
   // Sort ALL galleries by newest first based on metadata dateTaken field
@@ -258,6 +259,37 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
     setShowYouTubeOverlay(false);
   };
 
+  // Full-screen functions
+  const toggleFullScreen = async () => {
+    if (!document.fullscreenElement) {
+      // Enter full-screen
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullScreen(true);
+      } catch (err) {
+        console.error('Error attempting to enable fullscreen:', err);
+      }
+    } else {
+      // Exit full-screen
+      try {
+        await document.exitFullscreen();
+        setIsFullScreen(false);
+      } catch (err) {
+        console.error('Error attempting to exit fullscreen:', err);
+      }
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   const nextImage = useCallback(() => {
     setCurrentImage((prev) => (prev + 1) % images.length);
     setShowYouTubeOverlay(false); // Close YouTube overlay when changing images
@@ -314,12 +346,16 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
         case 'ArrowRight':
           nextImage();
           break;
+        case 'f':
+        case 'F':
+          toggleFullScreen();
+          break;
       }
     };
 
     document.addEventListener('keydown', handleKeydown);
     return () => document.removeEventListener('keydown', handleKeydown);
-  }, [modalOpen, nextImage, prevImage]);
+  }, [modalOpen, nextImage, prevImage, toggleFullScreen]);
 
   // Generate structured data for SEO
   const galleryImages = images.map(image => ({
@@ -517,6 +553,38 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
             ✕
           </button>
 
+          {/* Full-screen button */}
+          <button
+            onClick={toggleFullScreen}
+            className="absolute top-3 right-16 md:top-2 md:right-16 text-white/90 hover:text-white text-xl md:text-2xl font-light bg-black/60 hover:bg-black/80 backdrop-blur-sm transition-all duration-300 ease-out touch-manipulation"
+            aria-label={isFullScreen ? "Exit full screen" : "Enter full screen"}
+            style={{ 
+              zIndex: 100000,
+              position: 'absolute',
+              width: '44px',
+              height: '44px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              fontSize: '16px',
+              fontWeight: 300
+            }}
+          >
+            {isFullScreen ? (
+              // Exit full-screen icon
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+              </svg>
+            ) : (
+              // Enter full-screen icon
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+              </svg>
+            )}
+          </button>
+
           {/* Previous Image Button - Enhanced for mobile */}
           {images.length > 1 && (
             <button
@@ -617,7 +685,11 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
             )}
             
             <div 
-              className="relative max-w-[98vw] max-h-[92vh] rounded-lg overflow-hidden shadow-2xl bg-black"
+              className={`relative rounded-lg overflow-hidden shadow-2xl bg-black ${
+                isFullScreen 
+                  ? 'max-w-[100vw] max-h-[100vh]' 
+                  : 'max-w-[98vw] max-h-[92vh]'
+              }`}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={onTouchEnd}
@@ -630,8 +702,8 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                   style={{ 
                     width: 'auto', 
                     height: 'auto',
-                    maxWidth: '98vw',
-                    maxHeight: '92vh',
+                    maxWidth: isFullScreen ? '100vw' : '98vw',
+                    maxHeight: isFullScreen ? '100vh' : '92vh',
                     minWidth: '300px'
                   }}
                   preload="metadata"
@@ -657,16 +729,17 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                   style={{ 
                     width: 'auto', 
                     height: 'auto',
-                    maxWidth: '98vw',
-                    maxHeight: '92vh',
+                    maxWidth: isFullScreen ? '100vw' : '98vw',
+                    maxHeight: isFullScreen ? '100vh' : '92vh',
                     minWidth: '300px'
                   }}
                 />
               )}
             </div>
             
-            {/* Compact Metadata Overlay */}
-            <div className="mt-2 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/10 max-w-[98vw] mx-auto">
+            {/* Compact Metadata Overlay - Hidden in full-screen */}
+            {!isFullScreen && (
+              <div className="mt-2 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/10 max-w-[98vw] mx-auto">
               <div className="flex flex-wrap items-center justify-center gap-2 text-white/90 text-xs">
                 {(() => {
                   const metadataItems = [];
@@ -769,9 +842,10 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                 </div>
               )}
             </div>
+            )}
 
-            {/* Image Counter */}
-            {images.length > 1 && (
+            {/* Image Counter - Hidden in full-screen */}
+            {images.length > 1 && !isFullScreen && (
               <div className="mt-3 text-center">
                 <span className="text-white/60 text-sm font-light tracking-wide">
                   {currentImage + 1} of {images.length}

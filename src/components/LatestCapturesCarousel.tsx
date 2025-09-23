@@ -44,6 +44,7 @@ export default function LatestCapturesCarousel() {
   const goTo = (idx: number) => setCurrent(idx);
   const [current, setCurrent] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const length = images.length;
 
   useEffect(() => {
@@ -65,6 +66,37 @@ export default function LatestCapturesCarousel() {
     setCurrent((prev) => (prev - 1 + length) % length);
   }, [length]);
 
+  // Full-screen functions
+  const toggleFullScreen = async () => {
+    if (!document.fullscreenElement) {
+      // Enter full-screen
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullScreen(true);
+      } catch (err) {
+        console.error('Error attempting to enable fullscreen:', err);
+      }
+    } else {
+      // Exit full-screen
+      try {
+        await document.exitFullscreen();
+        setIsFullScreen(false);
+      } catch (err) {
+        console.error('Error attempting to exit fullscreen:', err);
+      }
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   // Keyboard navigation for modal
   useEffect(() => {
     if (!modalOpen) return;
@@ -80,12 +112,16 @@ export default function LatestCapturesCarousel() {
         case 'ArrowRight':
           nextImage();
           break;
+        case 'f':
+        case 'F':
+          toggleFullScreen();
+          break;
       }
     };
 
     document.addEventListener('keydown', handleKeydown);
     return () => document.removeEventListener('keydown', handleKeydown);
-  }, [modalOpen, nextImage, prevImage]);
+  }, [modalOpen, nextImage, prevImage, toggleFullScreen]);
 
   return (
     <section className="w-full flex flex-col items-center py-2">
@@ -214,6 +250,40 @@ export default function LatestCapturesCarousel() {
             ✕
           </button>
 
+          {/* Full-screen button */}
+          <button
+            onClick={toggleFullScreen}
+            className="absolute top-2 right-12 text-white/80 hover:text-white text-2xl font-light bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-all duration-300 ease-out"
+            aria-label={isFullScreen ? "Exit full screen" : "Enter full screen"}
+            style={{ 
+              zIndex: 100000,
+              position: 'absolute',
+              top: '8px',
+              right: '52px',
+              width: '32px',
+              height: '32px',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              fontSize: '14px',
+              fontWeight: 300
+            }}
+          >
+            {isFullScreen ? (
+              // Exit full-screen icon
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+              </svg>
+            ) : (
+              // Enter full-screen icon
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+              </svg>
+            )}
+          </button>
+
           {/* Previous Image Button */}
           {images.length > 1 && (
             <button
@@ -261,7 +331,11 @@ export default function LatestCapturesCarousel() {
           )}
           {/* Image and Metadata Container */}
           <div className="flex flex-col items-center justify-center w-full h-full p-6">
-            <div className="relative max-w-[85vw] max-h-[70vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+            <div className={`relative rounded-2xl overflow-hidden shadow-2xl bg-black ${
+              isFullScreen 
+                ? 'max-w-[100vw] max-h-[100vh]' 
+                : 'max-w-[85vw] max-h-[70vh]'
+            }`}>
               <Image
                 src={images[current].src}
                 alt={images[current].alt}
@@ -272,15 +346,16 @@ export default function LatestCapturesCarousel() {
                 style={{ 
                   width: 'auto', 
                   height: 'auto',
-                  maxWidth: '85vw',
-                  maxHeight: '70vh',
+                  maxWidth: isFullScreen ? '100vw' : '85vw',
+                  maxHeight: isFullScreen ? '100vh' : '70vh',
                   minWidth: '300px'
                 }}
               />
             </div>
             
-            {/* Metadata Bar */}
-            <div className="mt-6 bg-black/60 backdrop-blur-sm rounded-lg px-6 py-3 border border-white/10">
+            {/* Metadata Bar - Hidden in full-screen */}
+            {!isFullScreen && (
+              <div className="mt-6 bg-black/60 backdrop-blur-sm rounded-lg px-6 py-3 border border-white/10">
               <div className="flex flex-wrap items-center justify-center gap-2 text-white/90 text-sm">
                 {(() => {
                   const metadataItems = [];
@@ -340,9 +415,10 @@ export default function LatestCapturesCarousel() {
                 </div>
               )}
             </div>
+            )}
 
-            {/* Image Counter */}
-            {images.length > 1 && (
+            {/* Image Counter - Hidden in full-screen */}
+            {images.length > 1 && !isFullScreen && (
               <div className="mt-3 text-center">
                 <span className="text-white/60 text-sm font-light tracking-wide">
                   {current + 1} of {images.length}
