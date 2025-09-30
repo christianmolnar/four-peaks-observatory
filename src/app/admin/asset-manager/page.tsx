@@ -288,17 +288,26 @@ export default function AssetManagerPage() {
       const isAstrophysicsCandidate = !safeGet(data, 'name') && !safeGet(data, 'equipmentName');
       if (!isAstrophysicsCandidate) return false;
       
+      // Exclude protected images from "new" count
+      const isProtected = safeGet(data, 'protected') === true;
+      if (isProtected) return false;
+      
       const objectName = safeGet(data, 'objectName') || '';
       const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
+      const category = safeGet(data, 'category') || '';
+      const subcategory = safeGet(data, 'subcategory') || '';
       
       // Check if it's a solar system object using improved detection
       const isSolarSystemObject = isSolarSystemImage(filename) || 
-                                  isSolarSystemImage(objectName);
+                                  isSolarSystemImage(objectName) ||
+                                  (category === 'astrophotography' && (
+                                    subcategory.includes('solar') || 
+                                    subcategory.includes('lunar') || 
+                                    subcategory.includes('planets')
+                                  ));
       
-      // If it's a solar system object, it's only "new" if it's missing objectName
-      if (isSolarSystemObject) {
-        return !objectName;
-      }
+      // Exclude solar system objects from "new" count
+      if (isSolarSystemObject) return false;
       
       // For deep sky and wide field objects, they need both catalogDesignation AND objectName
       return (!catalogDesignation || !objectName);
@@ -466,25 +475,33 @@ export default function AssetManagerPage() {
         const isAstrophysicsCandidate = !safeGet(data, 'name') && !safeGet(data, 'equipmentName');
         if (!isAstrophysicsCandidate) return false;
         
+        // Exclude protected images from "new" filter
+        const isProtected = safeGet(data, 'protected') === true;
+        if (isProtected) return false;
+        
         const objectName = safeGet(data, 'objectName') || '';
         const catalogDesignation = safeGet(data, 'catalogDesignation') || '';
         const category = safeGet(data, 'category') || '';
         const subcategory = safeGet(data, 'subcategory') || '';
         
+        // Check if it's a solar system object
+        const isSolarSystemObject = isSolarSystemImage(filename) || 
+                                    isSolarSystemImage(objectName) ||
+                                    (category === 'astrophotography' && (
+                                      subcategory.includes('solar') || 
+                                      subcategory.includes('lunar') || 
+                                      subcategory.includes('planets')
+                                    ));
+        
+        // Exclude solar system objects from "new" filter
+        if (isSolarSystemObject) return false;
+        
         // If we have category info, use it to determine if it's complete
         if (category === 'astrophotography') {
-          // Check completeness based on subcategory
-          if (subcategory.includes('solar') || subcategory.includes('lunar') || subcategory.includes('planets')) {
-            return !objectName; // Solar system objects just need objectName
-          }
           return (!catalogDesignation || !objectName); // Deep sky objects need both
         }
         
-        // Fallback to old logic if no category info
-        const isSolarSystemObject = isSolarSystemImage(filename) || isSolarSystemImage(objectName);
-        if (isSolarSystemObject) {
-          return !objectName;
-        }
+        // Fallback to old logic if no category info - but still exclude solar system
         return (!catalogDesignation || !objectName);
       });
     } else if (activeFilter === 'astrophotography') {
@@ -1576,6 +1593,31 @@ export default function AssetManagerPage() {
                           {/* Location - Editable */}
                           <div className="text-white/80 text-sm">
                             {editingCell === `${filename}.location` ? (
+                              <input
+                                value={getCurrentValue(filename, 'location', safeGet(imageData, 'location'))}
+                                onChange={(e) => handleCellEdit(filename, 'location', e.target.value)}
+                                onBlur={handleCellBlur}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCellBlur();
+                                  if (e.key === 'Escape') handleCellBlur();
+                                }}
+                                autoFocus
+                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
+                              />
+                            ) : (
+                              <div
+                                onClick={() => handleCellClick(filename, 'location')}
+                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
+                                title={getCurrentValue(filename, 'location', safeGet(imageData, 'location')) || 'Click to edit'}
+                              >
+                                {getCurrentValue(filename, 'location', safeGet(imageData, 'location')) || '—'}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Equipment - Editable */}
+                          <div className="text-white/80 text-sm">
+                            {editingCell === `${filename}.equipment` ? (
                               <input
                                 value={getCurrentValue(filename, 'equipment', safeGet(imageData, 'equipment'))}
                                 onChange={(e) => handleCellEdit(filename, 'equipment', e.target.value)}
