@@ -83,15 +83,16 @@ describe('Image and Metadata Consistency', () => {
   });
 
   test('catalog designations follow standard patterns', () => {
-    const imageEntries = Object.values(metadata);
     const catalogPatterns = [
-      /^M\d+$/,          // Messier objects: M31, M42, etc.
       /^NGC\d+$/,        // NGC catalog: NGC7000, etc.
+      /^NGC\s+\d+$/,     // NGC catalog with space: NGC 7000, etc.
+      /^M\d+$/,          // Messier catalog: M42, etc.
       /^IC\d+$/,         // IC catalog: IC1396, etc.
       /^IC\s+\d+$/,      // IC catalog with space: IC 63, etc.
       /^Sh2-\d+$/,       // Sharpless catalog: Sh2-155, etc.
       /^B\d+$/,          // Barnard catalog: B33, etc.
       /^LDN\d+$/,        // Lynds Dark Nebula: LDN1622, etc.
+      /^LBN\s+\d+$/,     // Lynds Bright Nebula: LBN 438, etc.
       /^IC\d+\s+and\s+IC\d+$/, // Multiple IC objects: IC1805 and IC1848
       /^NGC\d+\s+and\s+IC\d+$/, // NGC and IC mixed: NGC7000 and IC5070
       /^NGC\d+\s+and\s+NGC\d+$/, // Multiple NGC objects
@@ -101,14 +102,15 @@ describe('Image and Metadata Consistency', () => {
       /^$/               // Empty string is allowed
     ];
     
-    imageEntries.forEach((entry: any) => {
+    Object.entries(metadata).forEach(([filename, entry]: [string, any]) => {
       if (entry.catalogDesignation !== undefined) {
         const isValidPattern = catalogPatterns.some(pattern => 
           pattern.test(entry.catalogDesignation)
         );
         
         if (!isValidPattern) {
-          console.warn('Invalid catalog designation:', entry.catalogDesignation);
+          console.warn(`Invalid catalog designation in "${filename}":`, entry.catalogDesignation);
+          throw new Error(`Image "${filename}" has invalid catalog designation: "${entry.catalogDesignation}" - must follow standard patterns (NGC, IC, M, Sh2, etc.) or be empty string`);
         }
         
         expect(isValidPattern).toBe(true);

@@ -112,6 +112,36 @@
     "subcategory": "deep-sky/wide-field",
     "description": "Star trails, not an outer space entity but a fascinating visual phenomenon, are created by the Earth's rotation during long-exposure astrophotography. The camera captures stars as streaks of light, forming beautiful circular patterns centered around the celestial poles. These trails, showcasing the apparent motion of stars in the night sky, provide an engaging way to visualize our planet's rotation."
   },
+  "C13.jpg": {
+    "catalogDesignation": "NGC457",
+    "objectName": "Owl Cluster",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/star-clusters",
+    "description": "NGC457, also known as the Owl Cluster, is an open star cluster located about 7,900 light-years away in the Cassiopeia constellation. Known for its distinctive owl-like shape, it features two bright stars as the 'eyes' and a scattering of fainter stars forming the 'body'. Its unique shape, combined with its accessibility, makes it a popular target for astrophotographers."
+  },
+  "Cepheus Large Emmission Nebula.jpg": {
+    "catalogDesignation": "",
+    "objectName": "Cepheus Large Emmission Nebula",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": true,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "The Cepheus Large Emission Nebula is a spectacular interstellar cloud of gas and dust located about 2,400 light-years away from Earth. Characterized by its radiant red glow from ionized hydrogen, it presents a stunning visual contrast against surrounding star clusters. Its vibrant hues and vast expanse make it a captivating subject for astrophotographers seeking to capture the universe's infinite beauty."
+  },
   "Cocoon Nebula Tight.jpg": {
     "catalogDesignation": "IC5146",
     "objectName": "Cocoon Nebula",
@@ -332,6 +362,21 @@
     "location": "Ravensdale., WA",
     "monthYear": "February, 2024"
   },
+  "IC5146.jpg": {
+    "catalogDesignation": "IC 5146",
+    "objectName": "Cocoon Nebula",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "IC 5146, known as the Cocoon Nebula, is an emission and reflection nebula approximately 4,000 light-years away in the constellation Cygnus. This mesmerizing cosmic object, resembling a silken cocoon, houses a newly formed star cluster. Its stunning interplay of light and dark matter makes it a favorite target for astrophotographers, who capture the nebula's intricate structures and radiant glow."
+  },
   "IC63.jpg": {
     "catalogDesignation": "IC63",
     "objectName": "Ghost of Cassiopeia",
@@ -346,6 +391,21 @@
     "description": "\"IC63, the Ghost of Cassiopeia, is a bright emission and reflection nebula. Located 550 light-years away, it's shaped by radiation from a nearby supergiant star. Its ghostly appearance makes it a popular astrophotography target.\"",
     "location": "Ravensdale., WA",
     "monthYear": "August, 2025"
+  },
+  "LBN-438.jpg": {
+    "catalogDesignation": "LBN 438",
+    "objectName": "LBN-438",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "LBN 438, a faint nebula, is a celestial wonder situated 2,000 light-years away in the Lyra constellation. Characterized by its unique, irregular shape, this dark nebula is a dense cloud of dust and gas, obscuring the stars behind it. Its striking contrast against the surrounding bright star field makes LBN 438 an intriguing subject for astrophotographers."
   },
   "M1 - The Crab Nebula.jpg": {
     "catalogDesignation": "M1",
@@ -595,10 +655,12 @@
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
   },
-  "M45 --1.jpg": {
+  "M45.jpg": {
     "catalogDesignation": "M45",
     "objectName": "Pleiades",
     "dateTaken": "August, 2025",
+    "monthYear": "August, 2025",
+    "location": "Maple Valley, WA",
     "equipment": "",
     "exposure": "",
     "protected": false,
@@ -606,9 +668,7 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/star-clusters",
-    "description": "M45, or Pleiades, is an open star cluster located approximately 444 light-years away from Earth. This cluster is visible to the naked eye and features seven prominently bright stars, often referred to as the \"Seven Sisters.",
-    "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "description": "The Pleiades, or M45, is a captivating open star cluster located approximately 444 light-years from Earth. This cluster is most notable for its seven brightest stars, often called the \"Seven Sisters,\" which form a subtle dipper shape in the night sky."
   },
   "M56.jpg": {
     "catalogDesignation": "M56",
@@ -1484,6 +1544,36 @@
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
   },
+  "SH2-115.jpg": {
+    "catalogDesignation": "Sh2-115",
+    "objectName": "",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": true,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "Sh2-115 is a breathtaking emission nebula located approximately 7,500 light-years away from Earth. It's distinguished by its intricate, filamentous clouds of ionized gas, producing a visually stunning spectacle of red and pink hues. Its vast, complex structure, richly detailed patterns, and vibrant palette make Sh2-115 an ideal subject for astrophotography, offering endless opportunities for exploration and artistic representation."
+  },
+  "SH2-124.jpg": {
+    "catalogDesignation": "Sh2-124",
+    "objectName": "",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": true,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "Sh2-124 is a large emission nebula located approximately 18,000 light-years away from Earth. This celestial object is special for its complex structures and intense reddish color, which is the result of ionized hydrogen atoms. Its dense, intricate formations and luminosity make it a popular target for astrophotographers seeking to capture the remarkably vibrant and dynamic beauty of the universe."
+  },
   "SH2-132-The-LobsterClaw.jpg": {
     "catalogDesignation": "Sh2-132",
     "objectName": "Lion Nebula",
@@ -1498,6 +1588,36 @@
     "description": "Sh2-132, the Lion Nebula, is an emission nebula approximately 10,000 light-years away. Famous for its lion-like shape, it showcases an intricate mix of ionized gas, making it a popular target for astrophotographers.",
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
+  },
+  "SH2-173.jpg": {
+    "catalogDesignation": "Sh2-173",
+    "objectName": "Phantom Nebula",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "Sh2-173, known as the Phantom Nebula, is a faint emission nebula located approximately 2,400 light-years away from Earth. Its ghostly shape, akin to a specter in the night sky, is formed by interstellar dust and gas illuminated by nearby stars. The nebula's elusive visibility and intriguing structure make it a challenging but rewarding target for astrophotographers."
+  },
+  "SH2-86.jpg": {
+    "catalogDesignation": "Sh2-86",
+    "objectName": "",
+    "dateTaken": "September, 2025",
+    "monthYear": "September, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": true,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "Sh2-86 is a captivating emission nebula located 4,200 light-years away in the constellation Vulpecula. Known for its vibrant red and pink gas clouds surrounding a cluster of hot young stars, it's a sight to behold. Its high surface brightness and large angular size make it a significant target for astrophotographers, showcasing the beauty and complexity of stellar evolution."
   },
   "Sadr Region.jpg": {
     "catalogDesignation": "IC 1318",

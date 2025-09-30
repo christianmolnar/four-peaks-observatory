@@ -42,8 +42,11 @@ describe('Image Metadata', () => {
       expect(image).toHaveProperty('protected');
       expect(typeof image.protected).toBe('boolean');
       
-      // Must have at least one type of name
-      const hasName = image.objectName || image.name || image.equipmentName;
+      // Must have at least one type of name (including catalog designation)
+      const hasName = image.objectName || image.name || image.equipmentName || image.catalogDesignation;
+      if (!hasName) {
+        throw new Error(`Image "${imageKey}" is missing all name fields (objectName, name, equipmentName, catalogDesignation). Current values: objectName=${image.objectName}, name=${image.name}, equipmentName=${image.equipmentName}, catalogDesignation=${image.catalogDesignation}`);
+      }
       expect(hasName).toBeTruthy();
       
       // If it has objectName, it should be non-empty string
