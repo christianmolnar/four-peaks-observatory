@@ -260,7 +260,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
   };
 
   // Full-screen functions
-  const toggleFullScreen = async () => {
+  const toggleFullScreen = useCallback(async () => {
     if (!document.fullscreenElement) {
       // Enter full-screen
       try {
@@ -278,7 +278,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
         console.error('Error attempting to exit fullscreen:', err);
       }
     }
-  };
+  }, []);
 
   // Listen for fullscreen changes
   useEffect(() => {

@@ -67,7 +67,7 @@ export default function LatestCapturesCarousel() {
   }, [length]);
 
   // Full-screen functions
-  const toggleFullScreen = async () => {
+  const toggleFullScreen = useCallback(async () => {
     if (!document.fullscreenElement) {
       // Enter full-screen
       try {
@@ -85,7 +85,7 @@ export default function LatestCapturesCarousel() {
         console.error('Error attempting to exit fullscreen:', err);
       }
     }
-  };
+  }, []);
 
   // Listen for fullscreen changes
   useEffect(() => {
