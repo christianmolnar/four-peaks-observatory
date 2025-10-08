@@ -1,0 +1,61 @@
+{
+  "location": {
+    "name": "Maple Valley Observatory, WA",
+    "latitude": 47.3668,
+    "longitude": -122.0432,
+    "timezone": "America/Los_Angeles",
+    "clearSkyChartUrl": "https://www.cleardarksky.com/c/MplVllyObWAkey.html",
+    "clearSkyChartImageUrl": "https://www.cleardarksky.com/c/MplVllyObWAcsk.gif"
+  },
+  "observingWindow": {
+    "startOffset": 60,
+    "endOffset": 60,
+    "description": "1 hour after sunset to 1 hour before sunrise"
+  },
+  "moonPhase": {
+    "goodPhases": ["new", "waxing_crescent_25", "waning_crescent_25"],
+    "dubiousPhases": ["first_quarter", "third_quarter", "waxing_gibbous_50-75"],
+    "poorPhases": ["full", "waxing_gibbous_75-100", "waning_gibbous_75-100"],
+    "altitudeThreshold": 45
+  },
+  "moonTiming": {
+    "observingWindowStart": "sunset",
+    "observingWindowEnd": "03:00",
+    "moonImpactRule": "sets_before_session"
+  },
+  "cloudCover": {
+    "excellent": { "threshold": 10, "required": true },
+    "good": { "threshold": 25, "acceptable": true },
+    "dubious": { "threshold": 50, "mark": true },
+    "poor": { "threshold": 75, "mark": true },
+    "overcast": { "threshold": 90, "automatic_poor": true },
+    "consecutiveHours": 2
+  },
+  "transparency": {
+    "excellent": ["above_average", "transparent"],
+    "good": ["average"],
+    "dubious": ["below_average"],
+    "poor": ["poor", "too_cloudy"]
+  },
+  "seeing": {
+    "excellent": ["excellent_5", "good_4"],
+    "good": ["average_3"],
+    "dubious": ["poor_2"],
+    "poor": ["bad_1", "too_cloudy"],
+    "observationType": "balanced"
+  },
+  "weather": {
+    "rainAutomatic": true,
+    "rainProbabilityThreshold": 30,
+    "humidityThreshold": 85,
+    "windSpeedThreshold": 15
+  },
+  "temperature": {
+    "goodMinTemp": 35,
+    "dubiousMinTemp": 20,
+    "considerMirrorCooling": true,
+    "warnBatteryPerformance": true
+  },
+  "customInstructions": "I primarily observe deep sky objects with a 10-inch telescope. I'm comfortable with moderate cold but prefer clear, stable skies for long exposure astrophotography.",
+  "observationPriority": "deep_sky"
+}

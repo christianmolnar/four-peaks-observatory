@@ -74,7 +74,7 @@ export default function AssetManagerPage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
-  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation'>('metadata');
+  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation'>('metadata');
   
   // Bulk selection state
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -821,6 +821,16 @@ export default function AssetManagerPage() {
               }`}
             >
               🎵 Contemplation Videos
+            </button>
+            <button
+              onClick={() => setActiveTab('observation')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
+                activeTab === 'observation'
+                  ? 'bg-amber-400/20 border border-amber-400 text-amber-400'
+                  : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              🌟 Observation Criteria
             </button>
           </div>
         </header>
@@ -1856,6 +1866,68 @@ export default function AssetManagerPage() {
                   </div>
                 </section>
               </main>
+            </>
+          )}
+
+          {/* Tab 3: Observation Criteria */}
+          {activeTab === 'observation' && (
+            <>
+              {/* Observation Criteria Configuration */}
+              <section className="relative z-10 w-full px-6 py-6">
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                  <h2 className="text-white text-2xl font-semibold mb-6">Observation Criteria Configuration</h2>
+                  <p className="text-white/70 text-sm mb-8">
+                    Configure the criteria for the "Let's Get Out There Tonight!" forecast module. 
+                    These settings determine how observation conditions are evaluated and displayed on the site.
+                  </p>
+                  
+                  <div className="bg-amber-400/10 border border-amber-400/30 rounded-lg p-4 mb-6">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-amber-400">🚧</span>
+                      <span className="text-amber-400 font-medium">Under Development</span>
+                    </div>
+                    <p className="text-white/70 text-sm">
+                      The observation criteria configuration interface is currently being developed. 
+                      This will allow you to customize moon phase tolerances, weather thresholds, 
+                      and other parameters for the observation forecast module.
+                    </p>
+                  </div>
+
+                  {/* Placeholder for configuration form */}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-white font-medium mb-3">🌙 Moon Configuration</h3>
+                        <p className="text-white/60 text-sm">Configure moon phase and timing preferences</p>
+                      </div>
+                      
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-white font-medium mb-3">☁️ Weather Thresholds</h3>
+                        <p className="text-white/60 text-sm">Set cloud cover, transparency, and seeing criteria</p>
+                      </div>
+                      
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-white font-medium mb-3">🌡️ Environmental Factors</h3>
+                        <p className="text-white/60 text-sm">Configure temperature, humidity, and wind limits</p>
+                      </div>
+                      
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-white font-medium mb-3">🤖 AI Preferences</h3>
+                        <p className="text-white/60 text-sm">Customize observation priority and AI instructions</p>
+                      </div>
+                    </div>
+
+                    <div className="text-center pt-4">
+                      <button
+                        disabled
+                        className="bg-white/5 border border-white/20 text-white/50 px-6 py-3 rounded-lg font-medium cursor-not-allowed"
+                      >
+                        Configuration Interface Coming Soon
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </>
           )}
         </div>

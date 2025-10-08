@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Navigation from '@/components/Navigation';
 import LatestCapturesCarousel from '@/components/LatestCapturesCarousel';
 import ClearSkyClockEmbed from '@/components/ClearSkyClockEmbed';
+import ObservationModule from '@/components/ObservationModule';
 import { globalConfig } from '@/config/global';
 
 export default function Home() {
@@ -83,6 +84,7 @@ export default function Home() {
           {homepage.latestCaptures.showClearSkyClock && (
             <div className="mt-12">
               <ClearSkyClockEmbed />
+              <ObservationModule />
             </div>
           )}
         </div>

@@ -1,0 +1,436 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { ObservationRecommendation } from '@/types/observation';
+
+interface ObservationModuleProps {
+  className?: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  recommendation: ObservationRecommendation;
+  timestamp: string;
+  location: string;
+  observingWindow: {
+    start: string;
+    end: string;
+    totalHours: number;
+  };
+  sunTimes: {
+    sunset: string;
+    sunrise: string;
+  };
+  error?: string;
+}
+
+export default function ObservationModule({ className = '' }: ObservationModuleProps) {
+  const [data, setData] = useState<ApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    fetchRecommendation();
+  }, []);
+
+  const fetchRecommendation = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/observation-evaluate');
+      const responseData = await response.json();
+      
+      if (responseData.success) {
+        setData(responseData);
+      } else {
+        setError(responseData.error || 'Failed to get recommendation');
+      }
+    } catch (err) {
+      setError('Failed to fetch observation conditions');
+      console.error('Error fetching recommendation:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'excellent': return '#10b981'; // emerald-500
+      case 'good': return '#3b82f6'; // blue-500
+      case 'dubious': return '#f59e0b'; // amber-500
+      case 'poor': return '#ef4444'; // red-500
+      default: return '#6b7280'; // gray-500
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'excellent': return "Yes, it's an excellent night!";
+      case 'good': return "Yes, it's a good night!";
+      case 'dubious': return "Dubious - check conditions";
+      case 'poor': return "Not a good night";
+      default: return "Checking conditions...";
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className={className} style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '12px',
+        padding: '24px',
+        marginTop: '16px',
+        color: '#ffffff',
+        fontFamily: 'var(--font-primary)',
+        fontWeight: '200'
+      }}>
+        <h2 style={{
+          fontSize: '1.5rem',
+          fontWeight: '300',
+          textAlign: 'center',
+          marginBottom: '16px',
+          letterSpacing: '0.05em'
+        }}>
+          "Let's Get Out There Tonight!" Forecast
+        </h2>
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          color: 'rgba(255, 255, 255, 0.7)'
+        }}>
+          <div style={{
+            display: 'inline-block',
+            width: '20px',
+            height: '20px',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '2px solid #ffffff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <style jsx>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <p style={{ marginTop: '12px', fontSize: '0.9rem' }}>
+            Checking sky conditions...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={className} style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(239, 68, 68, 0.3)',
+        borderRadius: '12px',
+        padding: '24px',
+        marginTop: '16px',
+        color: '#ffffff',
+        fontFamily: 'var(--font-primary)',
+        fontWeight: '200'
+      }}>
+        <h2 style={{
+          fontSize: '1.5rem',
+          fontWeight: '300',
+          textAlign: 'center',
+          marginBottom: '16px',
+          letterSpacing: '0.05em'
+        }}>
+          "Let's Get Out There Tonight!" Forecast
+        </h2>
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          color: '#ef4444'
+        }}>
+          <p style={{ marginBottom: '12px' }}>Unable to get forecast</p>
+          <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+            {error}
+          </p>
+          <button
+            onClick={fetchRecommendation}
+            style={{
+              marginTop: '16px',
+              padding: '8px 16px',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '6px',
+              color: '#ffffff',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: '200',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || !data.recommendation) {
+    return null;
+  }
+
+  const recommendation = data.recommendation;
+
+  return (
+    <div className={className} style={{
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      borderRadius: '12px',
+      padding: '24px',
+      marginTop: '16px',
+      color: '#ffffff',
+      fontFamily: 'var(--font-primary)',
+      fontWeight: '200'
+    }}>
+      <h2 style={{
+        fontSize: '1.5rem',
+        fontWeight: '300',
+        textAlign: 'center',
+        marginBottom: '20px',
+        letterSpacing: '0.05em'
+      }}>
+        "Let's Get Out There Tonight!" Forecast
+      </h2>
+
+      {/* Main Recommendation */}
+      <div style={{
+        textAlign: 'center',
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: '8px',
+        border: `2px solid ${getStatusColor(recommendation.overall)}`
+      }}>
+        <div style={{
+          fontSize: '1.25rem',
+          fontWeight: '300',
+          color: getStatusColor(recommendation.overall),
+          marginBottom: '8px'
+        }}>
+          {getStatusText(recommendation.overall)}
+        </div>
+        <p style={{
+          fontSize: '0.95rem',
+          color: 'rgba(255, 255, 255, 0.8)',
+          lineHeight: '1.5',
+          margin: '0'
+        }}>
+          {recommendation.summary}
+        </p>
+      </div>
+
+      {/* Observing Window Info */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '12px',
+        marginBottom: '16px',
+        fontSize: '0.85rem'
+      }}>
+        <div style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          textAlign: 'center'
+        }}>
+          <div style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '2px' }}>Good Observing Time</div>
+          <div style={{ color: '#ffffff', fontWeight: '300' }}>
+            {data.observingWindow.start} - {data.observingWindow.end}
+          </div>
+          <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.75rem' }}>
+            ({data.observingWindow.totalHours} hours)
+          </div>
+        </div>
+        
+        <div style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          textAlign: 'center'
+        }}>
+          <div style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '2px' }}>Location</div>
+          <div style={{ color: '#ffffff', fontWeight: '300' }}>
+            {data.location}
+          </div>
+        </div>
+        
+        <div style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          textAlign: 'center'
+        }}>
+          <div style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '2px' }}>Sun Times</div>
+          <div style={{ color: '#ffffff', fontWeight: '300', fontSize: '0.8rem' }}>
+            ↓ {data.sunTimes.sunset} | ↑ {data.sunTimes.sunrise}
+          </div>
+        </div>
+      </div>
+
+      {/* Time Windows */}
+      {recommendation.timeWindows && recommendation.timeWindows.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <h3 style={{
+            fontSize: '1rem',
+            fontWeight: '300',
+            marginBottom: '12px',
+            color: 'rgba(255, 255, 255, 0.9)'
+          }}>
+            Optimal Time Windows:
+          </h3>
+          {recommendation.timeWindows.map((window, index) => (
+            <div key={index} style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '8px 12px',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '6px',
+              marginBottom: '8px',
+              fontSize: '0.9rem'
+            }}>
+              <span style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                {window.start} - {window.end}
+              </span>
+              <span style={{ 
+                color: getStatusColor(window.quality),
+                fontWeight: '300'
+              }}>
+                {window.quality.charAt(0).toUpperCase() + window.quality.slice(1)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Expand/Collapse Details */}
+      <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '6px',
+            color: '#ffffff',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            fontWeight: '200',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+          }}
+        >
+          {expanded ? 'Hide Details' : 'Show Details'}
+        </button>
+      </div>
+
+      {/* Detailed Conditions */}
+      {expanded && (
+        <div style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '8px',
+          padding: '16px',
+          fontSize: '0.9rem'
+        }}>
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Cloud Cover:</strong>
+            <span style={{ marginLeft: '8px', color: 'rgba(255, 255, 255, 0.7)' }}>
+              {recommendation.details.cloudCover}
+            </span>
+          </div>
+          
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Transparency:</strong>
+            <span style={{ marginLeft: '8px', color: 'rgba(255, 255, 255, 0.7)' }}>
+              {recommendation.details.transparency}
+            </span>
+          </div>
+          
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Seeing:</strong>
+            <span style={{ marginLeft: '8px', color: 'rgba(255, 255, 255, 0.7)' }}>
+              {recommendation.details.seeing}
+            </span>
+          </div>
+          
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Moon Impact:</strong>
+            <span style={{ marginLeft: '8px', color: 'rgba(255, 255, 255, 0.7)' }}>
+              {recommendation.details.moonImpact}
+            </span>
+          </div>
+
+          {recommendation.details.weatherWarnings.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <strong style={{ color: '#f59e0b' }}>Weather Warnings:</strong>
+              <ul style={{ 
+                margin: '8px 0 0 0', 
+                paddingLeft: '20px',
+                color: 'rgba(255, 255, 255, 0.7)'
+              }}>
+                {recommendation.details.weatherWarnings.map((warning, index) => (
+                  <li key={index} style={{ marginBottom: '4px' }}>
+                    {warning}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Refresh Button */}
+      <div style={{ textAlign: 'center', marginTop: '16px' }}>
+        <button
+          onClick={fetchRecommendation}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: 'transparent',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '6px',
+            color: 'rgba(255, 255, 255, 0.7)',
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+            fontWeight: '200',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+          }}
+        >
+          Refresh Forecast
+        </button>
+      </div>
+    </div>
+  );
+}
