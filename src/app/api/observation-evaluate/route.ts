@@ -1,9 +1,41 @@
 import { NextResponse } from 'next/server';
 import { ObservationRecommendation, ObservationCriteria } from '@/types/observation';
 import { calculateSunTimes, calculateObservingWindow, formatTime, calculateMoonData } from '@/lib/astronomical-calculations';
-import { fetchClearSkyChartData, analyzeObservingConditions } from '@/lib/clear-sky-parser';
+import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
+import { evaluateObservingCondition, convertLegacyCondition } from '@/lib/observation-evaluator';
 import fs from 'fs';
 import path from 'path';
+
+interface TimeWindow {
+  start: string;
+  end: string;
+  quality: "excellent" | "good" | "dubious" | "poor";
+  reason: string;
+  count?: number;
+}
+
+interface ObservingWindowData {
+  start: Date;
+  end: Date;
+  totalHours: number;
+}
+
+interface MoonData {
+  phase: number;
+  rise: Date | null;
+  set: Date | null;
+  altitude: number;
+  illumination: number;
+}
+
+interface ConditionData {
+  time: string;
+  quality: "excellent" | "good" | "dubious" | "poor";
+  reason: string;
+  cloudCover: number;
+  transparency: number;
+  seeingRating: number;
+}
 
 export async function GET() {
   try {
@@ -30,15 +62,51 @@ export async function GET() {
     // Fetch Clear Sky Chart data
     const chartData = await fetchClearSkyChartData(criteria.location.clearSkyChartUrl);
     
-    // Analyze conditions for the observing window
-    const conditions = analyzeObservingConditions(
-      chartData, 
-      formatTime(observingWindow.start),
-      formatTime(observingWindow.end)
-    );
+    // Convert legacy format and analyze conditions for the observing window
+    const conditions = chartData.forecast.map(condition => {
+      const newFormat = convertLegacyCondition(condition);
+      const evaluation = evaluateObservingCondition(newFormat);
+      
+      return {
+        time: condition.time,
+        quality: evaluation.overall,
+        reason: evaluation.reason,
+        cloudCover: condition.cloudCover,
+        transparency: condition.transparency,
+        seeingRating: condition.seeingRating
+      };
+    });
+
+    const filteredConditions = conditions.filter(condition => {
+      // Filter to observing window
+      const [hours] = condition.time.split(':').map(Number);
+      
+      // Create condition time for today
+      const conditionTimeToday = new Date(today);
+      conditionTimeToday.setHours(hours, 0, 0, 0);
+      
+      // Create condition time for tomorrow (in case observing window spans midnight)
+      const conditionTimeTomorrow = new Date(today);
+      conditionTimeTomorrow.setDate(conditionTimeTomorrow.getDate() + 1);
+      conditionTimeTomorrow.setHours(hours, 0, 0, 0);
+      
+      // For edge conditions, we need to be more flexible with partial hours
+      // If the condition hour overlaps with the observing window, include it
+      const conditionEndToday = new Date(conditionTimeToday);
+      conditionEndToday.setHours(hours + 1, 0, 0, 0);
+      
+      const conditionEndTomorrow = new Date(conditionTimeTomorrow);
+      conditionEndTomorrow.setHours(hours + 1, 0, 0, 0);
+      
+      // Check for overlap with observing window
+      const overlapToday = (conditionTimeToday < observingWindow.end) && (conditionEndToday > observingWindow.start);
+      const overlapTomorrow = (conditionTimeTomorrow < observingWindow.end) && (conditionEndTomorrow > observingWindow.start);
+      
+      return overlapToday || overlapTomorrow;
+    });
     
     // Group consecutive periods of same quality
-    const timeWindows = groupConsecutiveConditions(conditions, observingWindow);
+    const timeWindows = groupConsecutiveConditions(filteredConditions, observingWindow);
     
     // Determine overall rating
     const overallRating = determineOverallRating(timeWindows);
@@ -93,9 +161,9 @@ export async function GET() {
   }
 }
 
-function groupConsecutiveConditions(conditions: any[], observingWindow: any) {
-  const windows = [];
-  let currentWindow = null;
+function groupConsecutiveConditions(conditions: ConditionData[], _observingWindow: ObservingWindowData): TimeWindow[] {
+  const windows: TimeWindow[] = [];
+  let currentWindow: TimeWindow | null = null;
   
   for (const condition of conditions) {
     if (!currentWindow || currentWindow.quality !== condition.quality) {
@@ -111,7 +179,7 @@ function groupConsecutiveConditions(conditions: any[], observingWindow: any) {
       };
     } else {
       currentWindow.end = condition.time;
-      currentWindow.count++;
+      currentWindow.count = (currentWindow.count || 0) + 1;
     }
   }
   
@@ -122,12 +190,12 @@ function groupConsecutiveConditions(conditions: any[], observingWindow: any) {
   return windows;
 }
 
-function determineOverallRating(timeWindows: any[]): 'excellent' | 'good' | 'dubious' | 'poor' {
+function determineOverallRating(timeWindows: TimeWindow[]): 'excellent' | 'good' | 'dubious' | 'poor' {
   if (timeWindows.length === 0) return 'poor';
   
-  const excellentHours = timeWindows.filter(w => w.quality === 'excellent').reduce((sum, w) => sum + w.count, 0);
-  const goodHours = timeWindows.filter(w => w.quality === 'good').reduce((sum, w) => sum + w.count, 0);
-  const totalHours = timeWindows.reduce((sum, w) => sum + w.count, 0);
+  const excellentHours = timeWindows.filter(w => w.quality === 'excellent').reduce((sum, w) => sum + (w.count || 1), 0);
+  const goodHours = timeWindows.filter(w => w.quality === 'good').reduce((sum, w) => sum + (w.count || 1), 0);
+  const totalHours = timeWindows.reduce((sum, w) => sum + (w.count || 1), 0);
   
   const goodRatio = (excellentHours + goodHours) / totalHours;
   
@@ -137,7 +205,7 @@ function determineOverallRating(timeWindows: any[]): 'excellent' | 'good' | 'dub
   return 'poor';
 }
 
-function generateSummary(timeWindows: any[], observingWindow: any, moonData: any): string {
+function generateSummary(timeWindows: TimeWindow[], observingWindow: ObservingWindowData, moonData: MoonData): string {
   const totalHours = observingWindow.totalHours;
   const bestWindow = timeWindows.find(w => w.quality === 'excellent') || timeWindows.find(w => w.quality === 'good');
   
@@ -154,8 +222,8 @@ function generateSummary(timeWindows: any[], observingWindow: any, moonData: any
   }
 }
 
-function generateWeatherWarnings(conditions: any[], moonData: any): string[] {
-  const warnings = [];
+function generateWeatherWarnings(conditions: ConditionData[], moonData: MoonData): string[] {
+  const warnings: string[] = [];
   
   const poorPeriods = conditions.filter(c => c.quality === 'poor');
   if (poorPeriods.length > 0) {

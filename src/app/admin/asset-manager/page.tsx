@@ -49,6 +49,571 @@ const safeGet = (obj: any, key: string, defaultValue: any = "") => {
   return obj && typeof obj === "object" && key in obj ? obj[key] : defaultValue;
 };
 
+// Observation Criteria Configuration Component
+interface RangeConfig {
+  excellentMax: number;  // Boundary between excellent and dubious
+  dubiousMax: number;    // Boundary between dubious and poor
+}
+
+interface ObservationCriteriaConfig {
+  cloudCover: RangeConfig & { min: 0; max: 100 };
+  transparency: RangeConfig & { 
+    min: 0; 
+    max: 4; 
+    labels: string[];
+  };
+  seeing: RangeConfig & { 
+    min: 0; 
+    max: 4; 
+    labels: string[];
+  };
+  ecmwfCloud: RangeConfig & { 
+    min: 0; 
+    max: 4; 
+    labels: string[];
+  };
+  darkness: {
+    enabled: boolean;
+  } & RangeConfig & { min: -10; max: 6.4 };
+  smoke: RangeConfig & { min: 0; max: 500 };
+  wind: RangeConfig & { min: 0; max: 100 };
+  humidity: RangeConfig & { min: 0; max: 100 };
+  temperature: RangeConfig & { min: -50; max: 120 };
+  heuristic: 'floor' | 'average' | 'weighted';
+}
+
+const defaultObservationConfig: ObservationCriteriaConfig = {
+  cloudCover: {
+    min: 0,
+    max: 100,
+    excellentMax: 10,    // 0-10% = Excellent
+    dubiousMax: 40       // 11-40% = Dubious, 41-100% = Poor
+  },
+  transparency: {
+    min: 0,
+    max: 4,
+    excellentMax: 2,     // 0-2 = Excellent (Transparent, Above Avg, Average)
+    dubiousMax: 3,       // 3 = Dubious (Below Average), 4 = Poor
+    labels: ['Transparent', 'Above average', 'Average', 'Below Average', 'Poor']
+  },
+  seeing: {
+    min: 0,
+    max: 4,
+    excellentMax: 2,     // 0-2 = Excellent (5/5, 4/5, 3/5)
+    dubiousMax: 3,       // 3 = Dubious (2/5), 4 = Poor (1/5)
+    labels: ['Excellent 5/5', 'Good 4/5', 'Average 3/5', 'Poor 2/5', 'Bad 1/5']
+  },
+  ecmwfCloud: {
+    min: 0,
+    max: 4,
+    excellentMax: 0,     // 0 = Excellent (Clear Sky)
+    dubiousMax: 1,       // 1 = Dubious (Cloud 25%), 2-4 = Poor
+    labels: ['Clear Sky', 'Cloud 25%', 'Cloud 50%', 'Cloud 75%', 'Overcast']
+  },
+  darkness: {
+    enabled: false,
+    min: -10,
+    max: 6.4,
+    excellentMax: -4,    // -10 to -4 = Excellent
+    dubiousMax: -6       // -6 to -4.1 = Dubious, -6 to 6.4 = Poor
+  },
+  smoke: {
+    min: 0,
+    max: 500,
+    excellentMax: 20,    // 0-20 = Excellent
+    dubiousMax: 100      // 21-100 = Dubious, 101-500 = Poor
+  },
+  wind: {
+    min: 0,
+    max: 100,
+    excellentMax: 11,    // 0-11 = Excellent
+    dubiousMax: 16       // 12-16 = Dubious, 17-100 = Poor
+  },
+  humidity: {
+    min: 0,
+    max: 100,
+    excellentMax: 100,   // 0-100 = Excellent (no humidity restrictions)
+    dubiousMax: 100      // No dubious or poor ranges
+  },
+  temperature: {
+    min: -50,
+    max: 120,
+    excellentMax: 120,   // -50 to 120 = Excellent (no temp restrictions)
+    dubiousMax: 120      // No dubious or poor ranges
+  },
+  heuristic: 'floor'
+};
+
+// Reusable Range Slider Component
+interface RangeSliderProps {
+  title: string;
+  description: string;
+  config: RangeConfig & { min: number; max: number };
+  labels?: string[];
+  unit?: string;
+  onChange: (newConfig: RangeConfig) => void;
+}
+
+function RangeSlider({ title, description, config, labels, unit = '', onChange }: RangeSliderProps) {
+  const { min, max, excellentMax, dubiousMax } = config;
+  
+  const handleExcellentMaxChange = (value: number) => {
+    const newExcellentMax = Math.max(min, Math.min(value, dubiousMax));
+    onChange({
+      excellentMax: newExcellentMax,
+      dubiousMax: dubiousMax
+    });
+  };
+  
+  const handleDubiousMaxChange = (value: number) => {
+    const newDubiousMax = Math.max(excellentMax, Math.min(value, max));
+    onChange({
+      excellentMax: excellentMax,
+      dubiousMax: newDubiousMax
+    });
+  };
+  
+  const getExcellentWidth = () => ((excellentMax - min) / (max - min)) * 100;
+  const getDubiousWidth = () => ((dubiousMax - excellentMax) / (max - min)) * 100;
+  const getPoorWidth = () => ((max - dubiousMax) / (max - min)) * 100;
+  
+  const formatValue = (value: number) => {
+    if (labels) {
+      return labels[Math.round(value)] || value.toString();
+    }
+    return `${value}${unit}`;
+  };
+  
+  return (
+    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+      <h3 className="text-white font-semibold mb-2">{title}</h3>
+      <p className="text-white/60 text-sm mb-4">{description}</p>
+      
+      {/* Visual Range Display */}
+      <div className="mb-4">
+        <div className="flex h-8 rounded-lg overflow-hidden border border-white/20">
+          <div 
+            className="bg-blue-500/70 flex items-center justify-center text-white text-xs font-medium"
+            style={{ width: `${getExcellentWidth()}%` }}
+          >
+            Excellent
+          </div>
+          <div 
+            className="bg-green-500/70 flex items-center justify-center text-white text-xs font-medium"
+            style={{ width: `${getDubiousWidth()}%` }}
+          >
+            Dubious
+          </div>
+          <div 
+            className="bg-red-500/70 flex items-center justify-center text-white text-xs font-medium"
+            style={{ width: `${getPoorWidth()}%` }}
+          >
+            Poor
+          </div>
+        </div>
+        
+        {/* Range Labels */}
+        <div className="flex justify-between text-xs text-white/60 mt-1">
+          <span>{formatValue(min)}</span>
+          <span>{formatValue(max)}</span>
+        </div>
+      </div>
+      
+      {/* Controls */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <label className="text-blue-300 font-medium w-24 text-sm">Excellent:</label>
+          <span className="text-white/70 text-sm w-20">{formatValue(min)} to</span>
+          <input
+            type="range"
+            min={min}
+            max={dubiousMax}
+            step={labels ? 1 : (max - min) / 100}
+            value={excellentMax}
+            onChange={(e) => handleExcellentMaxChange(parseFloat(e.target.value))}
+            className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+          />
+          <span className="text-blue-300 font-medium w-20 text-sm">{formatValue(excellentMax)}</span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <label className="text-green-300 font-medium w-24 text-sm">Dubious:</label>
+          <span className="text-white/70 text-sm w-20">{formatValue(excellentMax + (labels ? 1 : 0.1))} to</span>
+          <input
+            type="range"
+            min={excellentMax}
+            max={max}
+            step={labels ? 1 : (max - min) / 100}
+            value={dubiousMax}
+            onChange={(e) => handleDubiousMaxChange(parseFloat(e.target.value))}
+            className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+          />
+          <span className="text-green-300 font-medium w-20 text-sm">{formatValue(dubiousMax)}</span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <label className="text-red-300 font-medium w-24 text-sm">Poor:</label>
+          <span className="text-white/70 text-sm w-20">{formatValue(dubiousMax + (labels ? 1 : 0.1))} to</span>
+          <div className="flex-1"></div>
+          <span className="text-red-300 font-medium w-20 text-sm">{formatValue(max)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ObservationCriteriaTab() {
+  const [config, setConfig] = useState<ObservationCriteriaConfig>(defaultObservationConfig);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    try {
+      const response = await fetch('/api/admin/observation-criteria');
+      if (response.ok) {
+        const data = await response.json();
+        // Convert old format to new format if needed
+        const oldConfig = data.config;
+        if (oldConfig && oldConfig.cloudCover && oldConfig.cloudCover.excellent) {
+          // Convert from old format
+          const newConfig: ObservationCriteriaConfig = {
+            ...defaultObservationConfig,
+            heuristic: oldConfig.heuristic || 'floor'
+          };
+          setConfig(newConfig);
+        } else {
+          setConfig(data.config || defaultObservationConfig);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load config:', error);
+      setMessage('Failed to load configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveConfig = async () => {
+    setSaving(true);
+    try {
+      // Convert new format to old format for API compatibility
+      const legacyConfig = {
+        cloudCover: {
+          excellent: { min: config.cloudCover.min, max: config.cloudCover.excellentMax },
+          dubious: { min: config.cloudCover.excellentMax + 1, max: config.cloudCover.dubiousMax },
+          poor: { min: config.cloudCover.dubiousMax + 1, max: config.cloudCover.max }
+        },
+        transparency: {
+          excellent: { values: config.transparency.labels.slice(0, config.transparency.excellentMax + 1) },
+          dubious: { values: config.transparency.labels.slice(config.transparency.excellentMax + 1, config.transparency.dubiousMax + 1) },
+          poor: { values: config.transparency.labels.slice(config.transparency.dubiousMax + 1) }
+        },
+        seeing: {
+          excellent: { values: config.seeing.labels.slice(0, config.seeing.excellentMax + 1) },
+          dubious: { values: config.seeing.labels.slice(config.seeing.excellentMax + 1, config.seeing.dubiousMax + 1) },
+          poor: { values: config.seeing.labels.slice(config.seeing.dubiousMax + 1) }
+        },
+        ecmwfCloud: {
+          excellent: { values: config.ecmwfCloud.labels.slice(0, config.ecmwfCloud.excellentMax + 1) },
+          dubious: { values: config.ecmwfCloud.labels.slice(config.ecmwfCloud.excellentMax + 1, config.ecmwfCloud.dubiousMax + 1) },
+          poor: { values: config.ecmwfCloud.labels.slice(config.ecmwfCloud.dubiousMax + 1) }
+        },
+        smoke: {
+          excellent: { min: config.smoke.min, max: config.smoke.excellentMax },
+          dubious: { min: config.smoke.excellentMax + 1, max: config.smoke.dubiousMax },
+          poor: { min: config.smoke.dubiousMax + 1, max: config.smoke.max }
+        },
+        wind: {
+          excellent: { min: config.wind.min, max: config.wind.excellentMax },
+          dubious: { min: config.wind.excellentMax + 1, max: config.wind.dubiousMax },
+          poor: { min: config.wind.dubiousMax + 1, max: config.wind.max }
+        },
+        humidity: {
+          excellent: { min: config.humidity.min, max: config.humidity.excellentMax },
+          dubious: { min: config.humidity.excellentMax + 1, max: config.humidity.dubiousMax },
+          poor: { min: config.humidity.dubiousMax + 1, max: config.humidity.max }
+        },
+        temperature: {
+          excellent: { min: config.temperature.min, max: config.temperature.excellentMax },
+          dubious: { min: config.temperature.excellentMax + 1, max: config.temperature.dubiousMax },
+          poor: { min: config.temperature.dubiousMax + 1, max: config.temperature.max }
+        },
+        darkness: {
+          enabled: config.darkness.enabled,
+          excellent: { min: config.darkness.min, max: config.darkness.excellentMax },
+          dubious: { min: config.darkness.excellentMax + 0.1, max: config.darkness.dubiousMax },
+          poor: { min: config.darkness.dubiousMax + 0.1, max: config.darkness.max }
+        },
+        heuristic: config.heuristic
+      };
+
+      const response = await fetch('/api/admin/observation-criteria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: legacyConfig })
+      });
+      
+      if (response.ok) {
+        setMessage('Configuration saved successfully!');
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setMessage('Failed to save configuration');
+      }
+    } catch (error) {
+      console.error('Failed to save config:', error);
+      setMessage('Failed to save configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefaults = () => {
+    setConfig(defaultObservationConfig);
+    setMessage('Reset to Clear Sky Chart standards');
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  if (loading) {
+    return (
+      <section className="relative z-10 w-full px-6 py-6">
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+          <div className="text-white text-center">Loading configuration...</div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="relative z-10 w-full px-6 py-6">
+      {/* Custom CSS for range sliders */}
+      <style jsx>{`
+        .slider {
+          background: linear-gradient(to right, #3b82f6 0%, #3b82f6 100%);
+        }
+        .slider::-webkit-slider-thumb {
+          appearance: none;
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 2px solid #3b82f6;
+          cursor: pointer;
+        }
+        .slider::-moz-range-thumb {
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 2px solid #3b82f6;
+          cursor: pointer;
+        }
+      `}</style>
+      
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+        <div className="mb-6">
+          <h2 className="text-white text-2xl font-semibold mb-2">Observation Criteria Configuration</h2>
+          <p className="text-white/70 text-sm mb-4">
+            Configure the criteria used to evaluate observing conditions based on Clear Sky Chart parameters.
+            These settings determine how the "Let's Get Out There Tonight!" forecast module evaluates conditions.
+          </p>
+          
+          {message && (
+            <div className={`p-3 rounded mb-4 ${
+              message.includes('success') || message.includes('Reset') 
+                ? 'bg-green-900/30 border border-green-500/30 text-green-400' 
+                : 'bg-red-900/30 border border-red-500/30 text-red-400'
+            }`}>
+              {message}
+            </div>
+          )}
+
+          {/* Control Buttons */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={saveConfig}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              {saving ? 'Saving...' : 'Save Configuration'}
+            </button>
+            <button
+              onClick={resetToDefaults}
+              className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              Reset to CSC Defaults
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {/* Heuristic Selection */}
+          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+            <h3 className="text-white font-semibold mb-3">🧮 Evaluation Heuristic</h3>
+            <p className="text-white/60 text-sm mb-3">
+              Choose how multiple criteria are combined to determine overall observing quality.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { value: 'floor', label: 'Floor (Worst Wins)', desc: 'Overall quality = worst individual criterion' },
+                { value: 'average', label: 'Average', desc: 'Overall quality = average of all criteria' },
+                { value: 'weighted', label: 'Weighted Average', desc: 'Overall quality = weighted average with customizable weights' }
+              ].map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => setConfig({ ...config, heuristic: option.value as any })}
+                  className={`p-3 rounded-lg border text-left transition-colors ${
+                    config.heuristic === option.value
+                      ? 'bg-blue-600/30 border-blue-400/50 text-blue-300'
+                      : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="font-medium text-sm">{option.label}</div>
+                  <div className="text-xs mt-1 opacity-70">{option.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cloud Cover */}
+          <RangeSlider
+            title="☁️ Cloud Cover"
+            description="Clear Sky Chart Scale: Blue=0-10% (Excellent), Green=11-40% (Dubious), Yellow/Red=41%+ (Poor)"
+            config={config.cloudCover}
+            unit="%"
+            onChange={(newRange) => setConfig({
+              ...config,
+              cloudCover: { ...config.cloudCover, ...newRange }
+            })}
+          />
+
+          {/* Transparency */}
+          <RangeSlider
+            title="👁️ Transparency"
+            description="Clear Sky Chart Scale: Blue=Transparent/Above Avg/Average (Excellent), Green=Below Average (Dubious), Yellow/Red=Poor (Poor)"
+            config={config.transparency}
+            labels={config.transparency.labels}
+            onChange={(newRange) => setConfig({
+              ...config,
+              transparency: { ...config.transparency, ...newRange }
+            })}
+          />
+
+          {/* Seeing */}
+          <RangeSlider
+            title="🔭 Seeing"
+            description="Clear Sky Chart Scale: Blue=Excellent/Good/Average (5/5, 4/5, 3/5), Green=Poor (2/5), Yellow/Red=Bad (1/5)"
+            config={config.seeing}
+            labels={config.seeing.labels}
+            onChange={(newRange) => setConfig({
+              ...config,
+              seeing: { ...config.seeing, ...newRange }
+            })}
+          />
+
+          {/* ECMWF Cloud Model */}
+          <RangeSlider
+            title="🌥️ ECMWF Cloud Model"
+            description="European weather model cloud predictions: Clear Sky (Excellent), Cloud 25% (Dubious), 50%+ (Poor)"
+            config={config.ecmwfCloud}
+            labels={config.ecmwfCloud.labels}
+            onChange={(newRange) => setConfig({
+              ...config,
+              ecmwfCloud: { ...config.ecmwfCloud, ...newRange }
+            })}
+          />
+
+          {/* Wind Speed */}
+          <RangeSlider
+            title="💨 Wind Speed"
+            description="Clear Sky Chart Scale: Blue=0-11 mph (Excellent), Green=12-16 mph (Dubious), Yellow/Red=17+ mph (Poor)"
+            config={config.wind}
+            unit=" mph"
+            onChange={(newRange) => setConfig({
+              ...config,
+              wind: { ...config.wind, ...newRange }
+            })}
+          />
+
+          {/* Smoke */}
+          <RangeSlider
+            title="🔥 Smoke"
+            description="Clear Sky Chart Scale: Blue=0-20 μg/m³ (Excellent), Green=21-100 μg/m³ (Dubious), Yellow/Red=101+ μg/m³ (Poor)"
+            config={config.smoke}
+            unit=" μg/m³"
+            onChange={(newRange) => setConfig({
+              ...config,
+              smoke: { ...config.smoke, ...newRange }
+            })}
+          />
+
+          {/* Humidity */}
+          <RangeSlider
+            title="💧 Humidity"
+            description="Currently configured as excellent across full range (humidity has minimal observing impact for most targets)"
+            config={config.humidity}
+            unit="%"
+            onChange={(newRange) => setConfig({
+              ...config,
+              humidity: { ...config.humidity, ...newRange }
+            })}
+          />
+
+          {/* Temperature */}
+          <RangeSlider
+            title="🌡️ Temperature"
+            description="Currently configured as excellent across full range (temperature has minimal observing impact for most targets)"
+            config={config.temperature}
+            unit="°F"
+            onChange={(newRange) => setConfig({
+              ...config,
+              temperature: { ...config.temperature, ...newRange }
+            })}
+          />
+
+          {/* Darkness (optional) */}
+          <div className={`bg-white/5 rounded-lg p-4 border border-white/10 ${!config.darkness.enabled ? 'opacity-50' : ''}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold">🌙 Darkness/Light Pollution</h3>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={config.darkness.enabled}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    darkness: { ...config.darkness, enabled: e.target.checked }
+                  })}
+                  className="text-blue-500 bg-white/10 border-white/30 rounded"
+                />
+                <span className="text-white/70 text-sm">Enable</span>
+              </label>
+            </div>
+            <p className="text-white/60 text-sm mb-3">
+              <strong>Note:</strong> Disabled by default as most observations are done from light-polluted locations. 
+              Enable if you want to factor in SQM readings or Bortle scale considerations.
+            </p>
+            {config.darkness.enabled && (
+              <RangeSlider
+                title=""
+                description="SQM readings or Bortle scale values"
+                config={config.darkness}
+                onChange={(newRange) => setConfig({
+                  ...config,
+                  darkness: { ...config.darkness, ...newRange }
+                })}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DevelopmentGuard({ children }: { children: React.ReactNode }) {
   // Developer mode restriction removed. Always render children.
   return <>{children}</>;
@@ -1872,62 +2437,7 @@ export default function AssetManagerPage() {
           {/* Tab 3: Observation Criteria */}
           {activeTab === 'observation' && (
             <>
-              {/* Observation Criteria Configuration */}
-              <section className="relative z-10 w-full px-6 py-6">
-                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-                  <h2 className="text-white text-2xl font-semibold mb-6">Observation Criteria Configuration</h2>
-                  <p className="text-white/70 text-sm mb-8">
-                    Configure the criteria for the "Let's Get Out There Tonight!" forecast module. 
-                    These settings determine how observation conditions are evaluated and displayed on the site.
-                  </p>
-                  
-                  <div className="bg-amber-400/10 border border-amber-400/30 rounded-lg p-4 mb-6">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-amber-400">🚧</span>
-                      <span className="text-amber-400 font-medium">Under Development</span>
-                    </div>
-                    <p className="text-white/70 text-sm">
-                      The observation criteria configuration interface is currently being developed. 
-                      This will allow you to customize moon phase tolerances, weather thresholds, 
-                      and other parameters for the observation forecast module.
-                    </p>
-                  </div>
-
-                  {/* Placeholder for configuration form */}
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                        <h3 className="text-white font-medium mb-3">🌙 Moon Configuration</h3>
-                        <p className="text-white/60 text-sm">Configure moon phase and timing preferences</p>
-                      </div>
-                      
-                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                        <h3 className="text-white font-medium mb-3">☁️ Weather Thresholds</h3>
-                        <p className="text-white/60 text-sm">Set cloud cover, transparency, and seeing criteria</p>
-                      </div>
-                      
-                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                        <h3 className="text-white font-medium mb-3">🌡️ Environmental Factors</h3>
-                        <p className="text-white/60 text-sm">Configure temperature, humidity, and wind limits</p>
-                      </div>
-                      
-                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                        <h3 className="text-white font-medium mb-3">🤖 AI Preferences</h3>
-                        <p className="text-white/60 text-sm">Customize observation priority and AI instructions</p>
-                      </div>
-                    </div>
-
-                    <div className="text-center pt-4">
-                      <button
-                        disabled
-                        className="bg-white/5 border border-white/20 text-white/50 px-6 py-3 rounded-lg font-medium cursor-not-allowed"
-                      >
-                        Configuration Interface Coming Soon
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </section>
+              <ObservationCriteriaTab />
             </>
           )}
         </div>

@@ -9,6 +9,7 @@ export default function AdminDashboard() {
       <ul>
         <li><a href="/admin/asset-manager">Asset Manager</a></li>
         <li><a href="/admin/location-manager">Location Manager</a></li>
+        <li><a href="/admin/observation-criteria">Observation Criteria Configuration</a></li>
       </ul>
     </div>
   );

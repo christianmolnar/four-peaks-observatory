@@ -28,6 +28,7 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     fetchRecommendation();
@@ -295,7 +296,7 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
             marginBottom: '12px',
             color: 'rgba(255, 255, 255, 0.9)'
           }}>
-            Tonight:
+            Optimal Time Windows:
           </h3>
           {recommendation.timeWindows.map((window, index) => (
             <div key={index} style={{
@@ -322,8 +323,35 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
         </div>
       )}
 
+      {/* Expand/Collapse Details */}
+      <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '6px',
+            color: '#ffffff',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            fontWeight: '200',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+          }}
+        >
+          {expanded ? 'Hide Details' : 'Show Details'}
+        </button>
+      </div>
+
       {/* Detailed Conditions */}
-      <div style={{
+      {expanded && (
+        <div style={{
           backgroundColor: 'rgba(255, 255, 255, 0.05)',
           borderRadius: '8px',
           padding: '16px',
@@ -374,6 +402,7 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
             </div>
           )}
         </div>
+      )}
 
       {/* Refresh Button */}
       <div style={{ textAlign: 'center', marginTop: '16px' }}>
