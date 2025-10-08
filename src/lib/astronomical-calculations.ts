@@ -177,14 +177,14 @@ export async function calculateMoonData(date: Date, location: LocationConfig): P
     };
   } catch (error) {
     console.warn('Failed to fetch USNO moon data, falling back to simplified calculation:', error);
-    return calculateSimplifiedMoonData(date, location);
+    return calculateSimplifiedMoonData(date);
   }
 }
 
 /**
  * Fallback simplified moon data calculation
  */
-function calculateSimplifiedMoonData(date: Date, _location: LocationConfig): MoonData {
+function calculateSimplifiedMoonData(date: Date): MoonData {
   const daysSince2000 = (date.getTime() - new Date(2000, 0, 1).getTime()) / (1000 * 60 * 60 * 24);
   
   // Simplified moon phase calculation

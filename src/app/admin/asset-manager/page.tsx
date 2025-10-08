@@ -639,7 +639,7 @@ export default function AssetManagerPage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
-  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation'>('metadata');
+  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation' | 'email'>('metadata');
   
   // Bulk selection state
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -1396,6 +1396,16 @@ export default function AssetManagerPage() {
               }`}
             >
               🌟 Observation Criteria
+            </button>
+            <button
+              onClick={() => setActiveTab('email')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
+                activeTab === 'email'
+                  ? 'bg-amber-400/20 border border-amber-400 text-amber-400'
+                  : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              📧 Email Reports
             </button>
           </div>
         </header>
@@ -2439,6 +2449,99 @@ export default function AssetManagerPage() {
             <>
               <ObservationCriteriaTab />
             </>
+          )}
+
+          {/* Tab 4: Email Reports */}
+          {activeTab === 'email' && (
+            <section className="relative z-10 w-full px-6 py-6">
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                <div className="mb-6">
+                  <h2 className="text-white text-2xl font-semibold mb-2">📧 Daily Email Reports</h2>
+                  <p className="text-white/70 text-sm mb-4">
+                    Configure automated daily observation reports sent via email. This system uses Formspree.io 
+                    to send professional observation forecasts every morning.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Setup Instructions */}
+                  <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                    <h3 className="text-blue-300 font-semibold mb-3">🚀 Setup Instructions</h3>
+                    <ol className="text-white/70 text-sm space-y-2 list-decimal list-inside">
+                      <li>✅ Sign up for a free account at <a href="https://formspree.io" target="_blank" className="text-blue-400 hover:text-blue-300">formspree.io</a></li>
+                      <li>✅ Create a new form in your Formspree dashboard</li>
+                      <li>✅ Copy your form ID (yours: <code className="bg-white/10 px-1 rounded">mrbyadzk</code>)</li>
+                      <li>⏳ Add your form ID and recipient email to your <code className="bg-white/10 px-1 rounded">.env.local</code> file:</li>
+                    </ol>
+                    <pre className="bg-black/30 p-3 rounded mt-3 text-green-400 text-xs overflow-x-auto">
+{`FORMSPREE_FORM_ID=mrbyadzk
+DAILY_REPORT_EMAIL=chrismolhome@hotmail.com`}
+                    </pre>
+                  </div>
+
+                  {/* Manual Test */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">🧪 Test Email Report</h3>
+                    <p className="text-white/60 text-sm mb-4">
+                      Send a test email report to verify your Formspree configuration is working correctly.
+                      You can trigger this manually from the main observation forecast as well.
+                    </p>
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                      Send Test Report
+                    </button>
+                  </div>
+
+                  {/* Scheduling Info */}
+                  <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
+                    <h3 className="text-amber-300 font-semibold mb-3">⏰ Automated Scheduling</h3>
+                    <p className="text-white/70 text-sm mb-3">
+                      For automated daily reports, you'll need to set up a cron job or scheduled task. 
+                      The system is designed to send reports at 10:00 AM local time.
+                    </p>
+                    <div className="bg-black/30 p-3 rounded text-green-400 text-xs">
+                      <div className="mb-2 text-white/70"># Example cron job (runs daily at 10:00 AM):</div>
+                      <div>0 10 * * * curl -X POST https://yourdomain.com/api/send-daily-report</div>
+                    </div>
+                  </div>
+
+                  {/* Email Preview */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">📋 Email Preview</h3>
+                    <p className="text-white/60 text-sm mb-4">
+                      Daily reports include a comprehensive forecast with observing windows, moon conditions, 
+                      and time-by-time quality assessments.
+                    </p>
+                    <div className="bg-black/30 p-4 rounded text-green-400 text-sm font-mono">
+                      <div className="text-white">🌟 MAPLE VALLEY OBSERVATORY DAILY OBSERVATION REPORT</div>
+                      <div className="text-white/70 mt-1">Tuesday, October 8, 2024</div>
+                      <div className="mt-3 text-blue-400">OVERALL ASSESSMENT: ⚠️ DUBIOUS</div>
+                      <div className="mt-2 text-white/70">OBSERVING WINDOW: 6:24 PM to 5:25 AM</div>
+                      <div className="text-white/70">Total observing time: 11 hours</div>
+                      <div className="mt-2 text-white/70">...</div>
+                    </div>
+                  </div>
+
+                  {/* Current Status */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">📊 Current Configuration</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-white/60">Formspree Form ID:</span>
+                        <div className="text-white font-mono bg-black/30 px-2 py-1 rounded mt-1">
+                          Not available in client-side
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-white/60">Default Recipient:</span>
+                        <div className="text-white font-mono bg-black/30 px-2 py-1 rounded mt-1">
+                          Not available in client-side
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
           )}
         </div>
         

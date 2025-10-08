@@ -106,7 +106,7 @@ export async function GET() {
     });
     
     // Group consecutive periods of same quality
-    const timeWindows = groupConsecutiveConditions(filteredConditions, observingWindow);
+    const timeWindows = groupConsecutiveConditions(filteredConditions);
     
     // Determine overall rating
     const overallRating = determineOverallRating(timeWindows);
@@ -161,7 +161,7 @@ export async function GET() {
   }
 }
 
-function groupConsecutiveConditions(conditions: ConditionData[], _observingWindow: ObservingWindowData): TimeWindow[] {
+function groupConsecutiveConditions(conditions: ConditionData[]): TimeWindow[] {
   const windows: TimeWindow[] = [];
   let currentWindow: TimeWindow | null = null;
   

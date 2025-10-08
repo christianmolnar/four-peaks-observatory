@@ -1,0 +1,15 @@
+{
+  "email": {
+    "formspreeId": "",
+    "defaultRecipient": "",
+    "enabled": true,
+    "scheduledTime": "10:00",
+    "timezone": "America/Los_Angeles"
+  },
+  "notification": {
+    "subject": "🔭 Daily Observatory Report",
+    "fromName": "Maple Valley Observatory",
+    "includeTimestamp": true,
+    "includeWeatherWarnings": true
+  }
+}
