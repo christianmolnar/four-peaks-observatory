@@ -42,10 +42,10 @@ function formatEmailContent(
     sunrise: string;
   },
   moonData: {
-    phase: string;
+    phase: number;
     illumination: number;
-    rise?: string;
-    set?: string;
+    rise?: Date | null;
+    set?: Date | null;
   },
   location: string
 ): string {
@@ -88,8 +88,12 @@ function formatEmailContent(
     timeWindowsText = 'No observing conditions data available.';
   }
 
-  const moonPhaseText = moonData.phase !== undefined ? `${(moonData.phase * 100).toFixed(0)}%` : 'Unknown';
-  const moonIllumination = moonData.illumination !== undefined ? `${(moonData.illumination * 100).toFixed(0)}%` : 'Unknown';
+  const moonPhaseText = moonData.phase !== undefined 
+    ? `${(moonData.phase * 100).toFixed(0)}%` 
+    : 'Unknown';
+  const moonIllumination = moonData.illumination !== undefined 
+    ? `${(moonData.illumination * 100).toFixed(0)}%` 
+    : 'Unknown';
 
   return `🌟 MAPLE VALLEY OBSERVATORY DAILY OBSERVATION REPORT
 ${date}
