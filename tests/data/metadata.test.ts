@@ -23,6 +23,8 @@ type MetadataEntry = {
   youtubeLink?: string;
   youtubeTitle?: string;
   dateTaken?: string;
+  category?: string;
+  subcategory?: string;
 };
 
 describe('Image Metadata', () => {

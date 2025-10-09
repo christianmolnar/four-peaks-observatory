@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react'],
+    turbo: {
+      rules: {
+        // Add any custom Turbopack rules here if needed
+      }
+    }
   },
   
   // Compiler optimizations
