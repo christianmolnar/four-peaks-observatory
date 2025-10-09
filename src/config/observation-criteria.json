@@ -5,7 +5,7 @@
     "longitude": -122.0432,
     "timezone": "America/Los_Angeles",
     "clearSkyChartUrl": "https://www.cleardarksky.com/c/MplVllyObWAkey.html",
-    "clearSkyChartImageUrl": "https://www.cleardarksky.com/c/MplVllyObWAcsk.gif"
+    "clearSkyChartImageUrl": "https://www.cleardarksky.com/c/MplVllyObWAcsk.gif?c=774043"
   },
   "observingWindow": {
     "startOffset": 60,

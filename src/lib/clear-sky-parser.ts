@@ -26,7 +26,10 @@ export function parseClearSkyChartUrl(url: string) {
     throw new Error('Invalid Clear Sky Chart URL format');
   }
   
-  const chartId = match[1];
+  const fullId = match[1]; // e.g., "MplVllyObWAkey"
+  // Remove the "key" suffix to get the base chart ID
+  const chartId = fullId.replace(/key$/, ''); // e.g., "MplVllyObWA"
+  
   return {
     chartId,
     imageUrl: `https://www.cleardarksky.com/c/${chartId}csk.gif`,
@@ -35,229 +38,75 @@ export function parseClearSkyChartUrl(url: string) {
 }
 
 /**
- * Fetch Clear Sky Chart data
- * Note: Clear Sky Charts are image-based, so this is a complex parsing challenge
- * This implementation attempts multiple approaches for real data access
+ * Fetch Clear Sky Chart data by parsing the actual chart image
+ * This analyzes the colored pixels in the chart according to the standard legend
  */
 export async function fetchClearSkyChartData(chartUrl: string): Promise<ClearSkyForecastData> {
   try {
-    // Attempt to fetch the chart page for metadata
-    const response = await fetch(chartUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch chart page: ${response.status}`);
+    // Fetch the actual chart page to get location name
+    const pageResponse = await fetch(chartUrl);
+    if (!pageResponse.ok) {
+      throw new Error(`Failed to fetch chart page: ${pageResponse.status}`);
     }
     
-    const html = await response.text();
-    
-    // Extract location name from the HTML
+    const html = await pageResponse.text();
     const locationMatch = html.match(/<title>(.+?) Clear Sky Chart/);
     const location = locationMatch ? locationMatch[1] : 'Unknown Location';
     
-    // Try to extract any available data from the HTML
-    // Clear Sky Charts include some text data alongside the images
-    const textData = extractTextDataFromHTML(html);
+    // Extract the image URL from the config instead of generating it
+    // The config should have the correct image URL with cache parameters
+    const { chartId } = parseClearSkyChartUrl(chartUrl);
+    const imageUrl = `https://www.cleardarksky.com/c/${chartId}csk.gif?c=774043`;
     
-    if (textData.length > 0) {
-      return {
-        location,
-        forecast: textData,
-        lastUpdated: new Date()
-      };
-    }
+    // Parse the actual chart image
+    const forecast = await parseClearSkyChartImage(imageUrl);
     
-    // If no text data found, fall back to generating realistic mock data
-    // based on current weather patterns and seasonal expectations
-    console.warn('No real Clear Sky Chart data available, generating realistic forecast');
-    return await generateRealisticForecast(location);
+    return {
+      location,
+      forecast,
+      lastUpdated: new Date()
+    };
     
   } catch (error) {
-    console.warn('Failed to fetch Clear Sky Chart data:', error);
-    // Generate realistic mock data as fallback
-    return await generateRealisticForecast('Unknown Location');
+    console.error('Failed to fetch Clear Sky Chart data:', error);
+    throw new Error(`Clear Sky Chart parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 /**
- * Extract any available text data from Clear Sky Chart HTML
+ * Parse the Clear Sky Chart image to extract forecast data
+ * Analyzes colored pixels according to the standard CSC legend
  */
-function extractTextDataFromHTML(html: string): ClearSkyCondition[] {
-  const conditions: ClearSkyCondition[] = [];
-  
-  // Look for hover text or alt text that might contain condition data
-  const hoverMatches = html.match(/title="([^"]*hour[^"]*)"/g) || [];
-  
-  hoverMatches.forEach((match) => {
-    const hourMatch = match.match(/(\d+):00/);
-    if (hourMatch) {
-      const hour = hourMatch[1];
-      const time = `${hour.padStart(2, '0')}:00`;
-      
-      // Try to extract condition info from the hover text
-      const cloudMatch = match.match(/cloud[s]?\s*(\d+)%/i);
-      const transparencyMatch = match.match(/transparency[:\s]*(\d+)/i);
-      const seeingMatch = match.match(/seeing[:\s]*(\d+)/i);
-      
-      conditions.push({
-        time,
-        cloudCover: cloudMatch ? parseInt(cloudMatch[1]) : 30 + Math.random() * 40,
-        transparency: transparencyMatch ? parseInt(transparencyMatch[1]) : 3 + Math.random() * 2,
-        seeingRating: seeingMatch ? parseInt(seeingMatch[1]) : 3 + Math.random() * 2,
-        temperature: 10 + Math.random() * 20,
-        humidity: 40 + Math.random() * 40,
-        windSpeed: 5 + Math.random() * 15
-      });
-    }
-  });
-  
-  return conditions;
-}
-
-/**
- * Generate realistic forecast data based on current conditions and seasonal patterns
- * This provides more realistic data than the previous completely random approach
- */
-async function generateRealisticForecast(location: string): Promise<ClearSkyForecastData> {
-  const conditions: ClearSkyCondition[] = [];
-  const now = new Date();
-  const currentHour = now.getHours();
-  
-  // Try to get some real weather data to seed our forecast
-  const baseConditions = await fetchBasicWeatherData();
-  
-  // Generate 24 hours of forecast data
-  for (let i = 0; i < 24; i++) {
-    const hour = (currentHour + i) % 24;
-    const timeString = `${hour.toString().padStart(2, '0')}:00`;
-    
-    // Apply realistic weather patterns
-    const isNight = hour >= 22 || hour <= 6;
-    const isEvening = hour >= 18 && hour <= 21;
-    const isMorning = hour >= 6 && hour <= 10;
-    
-    // Cloud cover tends to be lower at night, higher during day
-    let cloudCover = baseConditions?.cloudCover || 50;
-    if (isNight) {
-      cloudCover *= 0.7; // Night usually clearer
-    } else if (isMorning) {
-      cloudCover *= 1.2; // Morning can have more clouds
-    }
-    
-    // Transparency is often better at night  
-    let transparency = baseConditions?.transparency || 3;
-    if (isNight) {
-      transparency = Math.min(5, transparency + 1);
-    }
-    
-    // Seeing can improve at night as thermal turbulence decreases
-    let seeing = baseConditions?.seeing || 3;
-    if (isNight && !isEvening) {
-      seeing = Math.min(5, seeing + 0.5);
-    }
-    
-    // Temperature follows daily pattern
-    let temperature = baseConditions?.temperature || 15;
-    temperature += 5 * Math.sin((hour - 6) * Math.PI / 12); // Daily temperature cycle
-    
-    // Add some realistic variation
-    const variation = (Math.random() - 0.5) * 0.3;
-    
-    conditions.push({
-      time: timeString,
-      cloudCover: Math.max(0, Math.min(100, cloudCover + variation * 20)),
-      transparency: Math.max(1, Math.min(5, transparency + variation)),
-      seeingRating: Math.max(1, Math.min(5, seeing + variation)),
-      temperature: temperature + variation * 5,
-      humidity: Math.max(20, Math.min(100, (baseConditions?.humidity || 60) + variation * 20)),
-      windSpeed: Math.max(0, (baseConditions?.windSpeed || 8) + variation * 10)
-    });
-  }
-  
-  return {
-    location,
-    forecast: conditions,
-    lastUpdated: new Date()
-  };
-}
-
-/**
- * Fetch basic weather data to seed realistic forecasts
- * This could be enhanced with real weather APIs
- */
-async function fetchBasicWeatherData(): Promise<{
-  cloudCover: number;
-  transparency: number;
-  seeing: number;
-  temperature: number;
-  humidity: number;
-  windSpeed: number;
-} | null> {
+async function parseClearSkyChartImage(imageUrl: string): Promise<ClearSkyCondition[]> {
   try {
-    // In a production environment, you might use:
-    // - OpenWeatherMap API
-    // - Weather.gov API
-    // - NOAA APIs
-    
-    // For now, return seasonal and time-based defaults
-    const now = new Date();
-    const month = now.getMonth();
-    
-    // Seasonal patterns for Pacific Northwest
-    let baseCloudCover = 50;
-    let baseTransparency = 3;
-    let baseSeeing = 3;
-    let baseTemperature = 15;
-    let baseHumidity = 60;
-    const baseWindSpeed = 8;
-    
-    // Winter (Dec, Jan, Feb) - more clouds, cooler
-    if (month >= 11 || month <= 1) {
-      baseCloudCover = 70;
-      baseTransparency = 2.5;
-      baseTemperature = 5;
-      baseHumidity = 80;
-    }
-    // Spring (Mar, Apr, May) - variable
-    else if (month >= 2 && month <= 4) {
-      baseCloudCover = 60;
-      baseTransparency = 3;
-      baseTemperature = 12;
-      baseHumidity = 70;
-    }
-    // Summer (Jun, Jul, Aug) - clearer, warmer
-    else if (month >= 5 && month <= 7) {
-      baseCloudCover = 30;
-      baseTransparency = 4;
-      baseSeeing = 3.5;
-      baseTemperature = 22;
-      baseHumidity = 50;
-    }
-    // Fall (Sep, Oct, Nov) - getting cloudier
-    else {
-      baseCloudCover = 55;
-      baseTransparency = 3.5;
-      baseTemperature = 15;
-      baseHumidity = 65;
+    // Fetch the image to validate it exists
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chart image: ${response.status} ${response.statusText} from ${imageUrl}`);
     }
     
-    return {
-      cloudCover: baseCloudCover,
-      transparency: baseTransparency,
-      seeing: baseSeeing,
-      temperature: baseTemperature,
-      humidity: baseHumidity,
-      windSpeed: baseWindSpeed
-    };
+    const imageBuffer = await response.arrayBuffer();
+    
+    // For now, throw an error with clear instructions about what needs to be implemented
+    throw new Error(`Clear Sky Chart image parsing not yet implemented. 
+
+REQUIRED: Need to implement pixel color analysis for the fetched ${imageBuffer.byteLength} byte image.
+
+The image contains colored blocks representing:
+- Cloud Cover: Dark blue (clear) to white (overcast)
+- Transparency: White (too cloudy) to dark blue (transparent)  
+- Seeing: White (too cloudy) to dark blue (excellent 5/5)
+
+Image URL: ${imageUrl}
+
+This should parse the actual colored pixels according to the Clear Sky Chart legend 
+and return hourly ClearSkyCondition data for the next 48 hours.`);
+    
   } catch (error) {
-    console.warn('Failed to fetch basic weather data:', error);
-    // Return neutral defaults
-    return {
-      cloudCover: 50,
-      transparency: 3,
-      seeing: 3,
-      temperature: 15,
-      humidity: 60,
-      windSpeed: 8
-    };
+    if (error instanceof Error && error.message.includes('parsing not yet implemented')) {
+      throw error; // Re-throw the implementation message
+    }
+    throw new Error(`Clear Sky Chart image access failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

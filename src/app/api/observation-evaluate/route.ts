@@ -162,11 +162,21 @@ export async function GET() {
 }
 
 function groupConsecutiveConditions(conditions: ConditionData[]): TimeWindow[] {
-  // Sort conditions by time first to ensure proper ordering
+  // Sort conditions for nighttime observing chronology
+  // Evening hours (18, 19, 20, 21, 22, 23) come before early morning hours (0, 1, 2, 3, 4, 5)
   conditions.sort((a, b) => {
     const hourA = parseInt(a.time.split(':')[0]);
     const hourB = parseInt(b.time.split(':')[0]);
-    return hourA - hourB;
+    
+    // Convert hours to observing sequence order
+    // Evening hours (18-23) get priority, then early morning hours (0-11)
+    const getObservingOrder = (hour: number) => {
+      if (hour >= 18) return hour - 18; // 18->0, 19->1, 20->2, 21->3, 22->4, 23->5
+      if (hour <= 11) return hour + 6;  // 0->6, 1->7, 2->8, 3->9, 4->10, 5->11
+      return hour + 12; // Afternoon hours (12-17) go last: 12->24, 13->25, etc.
+    };
+    
+    return getObservingOrder(hourA) - getObservingOrder(hourB);
   });
 
   const windows: TimeWindow[] = [];
