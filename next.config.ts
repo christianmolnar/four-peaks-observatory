@@ -18,10 +18,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react'],
-    turbo: {
-      rules: {
-        // Add any custom Turbopack rules here if needed
-      }
+  },
+  
+  // Turbopack configuration (now stable)
+  turbopack: {
+    rules: {
+      // Add any custom Turbopack rules here if needed
     }
   },
   
@@ -70,8 +72,8 @@ const nextConfig: NextConfig = {
     ];
   },
   
-  // Bundle analyzer in development
-  ...(process.env.ANALYZE === 'true' && {
+  // Bundle analyzer in development - disabled when using Turbopack
+  ...(process.env.ANALYZE === 'true' && !process.argv.includes('--turbopack') && {
     webpack: (config: any, { dev }: { dev: boolean }) => {
       if (dev) {
         const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
@@ -85,22 +87,6 @@ const nextConfig: NextConfig = {
       return config;
     },
   }),
-
-    // Custom webpack configuration - simplified
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }) => {
-    // Bundle analyzer in development
-    if (dev && process.env.ANALYZE === 'true') {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-      config.plugins.push(
-        new BundleAnalyzerPlugin({
-          analyzerMode: 'server',
-          openAnalyzer: true,
-        })
-      );
-    }
-    
-    return config;
-  },
 };
 
 export default nextConfig;
