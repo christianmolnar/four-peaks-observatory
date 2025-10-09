@@ -28,25 +28,27 @@ interface TimeWindow {
   count?: number;
 }
 
+interface ObservingWindowData {
+  start: Date;
+  end: Date;
+  totalHours: number;
+}
+
+// Helper function to calculate end time for a time window
+function calculateEndTime(startTime: string): string {
+  const [hours] = startTime.split(':').map(Number);
+  const endHour = (hours + 1) % 24;
+  return `${endHour.toString().padStart(2, '0')}:00`;
+}
+
+// Enhanced email formatting function
 function formatEmailContent(
-  observingWindow: {
-    start: string;
-    end: string;
-    totalHours: number;
-  },
-  timeWindows: TimeWindow[],
-  overallRating: string,
+  overallRating: string, 
+  timeWindows: TimeWindow[], 
+  observingWindow: ObservingWindowData, 
+  sunTimes: { sunset: Date; sunrise: Date }, 
+  moonData: { phase?: number; illumination?: number; rise?: Date; set?: Date },
   summary: string,
-  sunTimes: {
-    sunset: string;
-    sunrise: string;
-  },
-  moonData: {
-    phase: number;
-    illumination: number;
-    rise?: Date | null;
-    set?: Date | null;
-  },
   location: string
 ): string {
   const date = new Date().toLocaleDateString('en-US', {
@@ -100,12 +102,12 @@ ${date}
 
 OVERALL ASSESSMENT: ${getStatusEmoji(overallRating)}
 
-OBSERVING WINDOW: ${observingWindow.start} to ${observingWindow.end}
+OBSERVING WINDOW: ${formatTime(observingWindow.start)} to ${formatTime(observingWindow.end)}
 Total observing time: ${observingWindow.totalHours} hours
 
 SUN TIMES:
-🌅 Sunset: ${sunTimes.sunset}
-🌄 Sunrise: ${sunTimes.sunrise}
+🌅 Sunset: ${formatTime(sunTimes.sunset)}
+🌄 Sunrise: ${formatTime(sunTimes.sunrise)}
 
 MOON CONDITIONS:
 🌙 Phase: ${moonPhaseText} illuminated
@@ -214,24 +216,34 @@ export async function POST(request: NextRequest) {
       return overlapToday || overlapTomorrow;
     });
 
-    // Group consecutive conditions
+    // Sort conditions by time first to ensure proper ordering
+    filteredConditions.sort((a, b) => {
+      const hourA = parseInt(a.time.split(':')[0]);
+      const hourB = parseInt(b.time.split(':')[0]);
+      return hourA - hourB;
+    });
+
+    // Group consecutive conditions with proper time ranges
     const timeWindows: TimeWindow[] = [];
     let currentWindow: TimeWindow | null = null;
     
-    for (const condition of filteredConditions) {
+    for (let i = 0; i < filteredConditions.length; i++) {
+      const condition = filteredConditions[i];
+      
       if (!currentWindow || currentWindow.quality !== condition.quality) {
         if (currentWindow) {
           timeWindows.push(currentWindow);
         }
         currentWindow = {
           start: condition.time,
-          end: condition.time,
+          end: calculateEndTime(condition.time),
           quality: condition.quality,
           reason: condition.reason,
           count: 1
         };
       } else {
-        currentWindow.end = condition.time;
+        // Extend the current window
+        currentWindow.end = calculateEndTime(condition.time);
         currentWindow.count = (currentWindow.count || 0) + 1;
       }
     }
@@ -282,19 +294,17 @@ export async function POST(request: NextRequest) {
     // Format email content
     const emailSubject = `🔭 Observatory Report ${new Date().toLocaleDateString()} - ${overallRating.toUpperCase()}`;
     const emailBody = formatEmailContent(
-      {
-        start: formatTime(observingWindow.start),
-        end: formatTime(observingWindow.end),
-        totalHours
-      },
-      timeWindows,
       overallRating,
-      summary,
+      timeWindows,
+      observingWindow,
+      sunTimes,
       {
-        sunset: formatTime(sunTimes.sunset),
-        sunrise: formatTime(sunTimes.sunrise)
+        phase: moonData.phase,
+        illumination: moonData.illumination,
+        rise: moonData.rise || undefined,
+        set: moonData.set || undefined
       },
-      moonData,
+      summary,
       criteria.location.name
     );
 

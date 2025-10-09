@@ -162,23 +162,33 @@ export async function GET() {
 }
 
 function groupConsecutiveConditions(conditions: ConditionData[]): TimeWindow[] {
+  // Sort conditions by time first to ensure proper ordering
+  conditions.sort((a, b) => {
+    const hourA = parseInt(a.time.split(':')[0]);
+    const hourB = parseInt(b.time.split(':')[0]);
+    return hourA - hourB;
+  });
+
   const windows: TimeWindow[] = [];
   let currentWindow: TimeWindow | null = null;
   
-  for (const condition of conditions) {
+  for (let i = 0; i < conditions.length; i++) {
+    const condition = conditions[i];
+    
     if (!currentWindow || currentWindow.quality !== condition.quality) {
       if (currentWindow) {
         windows.push(currentWindow);
       }
       currentWindow = {
         start: condition.time,
-        end: condition.time,
+        end: calculateEndTime(condition.time),
         quality: condition.quality,
         reason: condition.reason,
         count: 1
       };
     } else {
-      currentWindow.end = condition.time;
+      // Extend the current window
+      currentWindow.end = calculateEndTime(condition.time);
       currentWindow.count = (currentWindow.count || 0) + 1;
     }
   }
@@ -188,6 +198,13 @@ function groupConsecutiveConditions(conditions: ConditionData[]): TimeWindow[] {
   }
   
   return windows;
+}
+
+// Helper function to calculate end time for a time window
+function calculateEndTime(startTime: string): string {
+  const [hours] = startTime.split(':').map(Number);
+  const endHour = (hours + 1) % 24;
+  return `${endHour.toString().padStart(2, '0')}:00`;
 }
 
 function determineOverallRating(timeWindows: TimeWindow[]): 'excellent' | 'good' | 'dubious' | 'poor' {
