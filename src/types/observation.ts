@@ -137,6 +137,12 @@ export interface ObservationRecommendation {
     weatherWarnings: string[];
   };
   aiReasoning: string;
+  aiConfidence?: number;
+  aiSuggestions?: {
+    bestTimeWindows: string[];
+    warnings: string[];
+    opportunities: string[];
+  };
 }
 
 export interface EvaluationPayload {

@@ -3,6 +3,7 @@ import { ObservationRecommendation, ObservationCriteria } from '@/types/observat
 import { calculateSunTimes, calculateObservingWindow, formatTime, calculateMoonData } from '@/lib/astronomical-calculations';
 import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
 import { evaluateObservingCondition, convertLegacyCondition } from '@/lib/observation-evaluator';
+import { getAIObservingRecommendation, formatAIRecommendation } from '@/lib/ai-recommendations';
 import fs from 'fs';
 import path from 'path';
 
@@ -114,6 +115,26 @@ export async function GET() {
     // Generate summary
     const summary = generateSummary(timeWindows, observingWindow, moonData);
     
+    // Get AI-powered recommendation (fallback to rule-based if AI unavailable)
+    let aiRecommendation;
+    try {
+      console.log('[API] Requesting AI recommendation...');
+      aiRecommendation = await getAIObservingRecommendation(
+        chartData.forecast,
+        criteria,
+        moonData,
+        {
+          start: formatTime(observingWindow.start),
+          end: formatTime(observingWindow.end),
+          totalHours: observingWindow.totalHours
+        }
+      );
+      console.log(`[API] AI recommendation received: ${aiRecommendation.overall} (${Math.round(aiRecommendation.confidence * 100)}% confidence)`);
+    } catch (error) {
+      console.error('[API] AI recommendation failed:', error);
+      aiRecommendation = null;
+    }
+    
     const recommendation: ObservationRecommendation = {
       overall: overallRating,
       timeWindows: timeWindows.map(window => ({
@@ -130,7 +151,15 @@ export async function GET() {
         moonImpact: `${Math.round(moonData.illumination * 100)}% illuminated, rises at ${moonData.rise ? formatTime(moonData.rise) : 'N/A'}`,
         weatherWarnings: generateWeatherWarnings(conditions, moonData)
       },
-      aiReasoning: `Analysis based on Clear Sky Chart data for ${criteria.location.name}. Observing window: ${formatTime(observingWindow.start)} to ${formatTime(observingWindow.end)} (${observingWindow.totalHours} hours total). Conditions vary throughout the night with ${timeWindows.length} distinct periods.`
+      aiReasoning: aiRecommendation ? 
+        formatAIRecommendation(aiRecommendation) : 
+        `Analysis based on Clear Sky Chart data for ${criteria.location.name}. Observing window: ${formatTime(observingWindow.start)} to ${formatTime(observingWindow.end)} (${observingWindow.totalHours} hours total). Conditions vary throughout the night with ${timeWindows.length} distinct periods.`,
+      aiConfidence: aiRecommendation?.confidence,
+      aiSuggestions: aiRecommendation ? {
+        bestTimeWindows: aiRecommendation.bestTimeWindows,
+        warnings: aiRecommendation.warnings,
+        opportunities: aiRecommendation.opportunities
+      } : undefined
     };
 
     return NextResponse.json({
@@ -185,36 +214,172 @@ function groupConsecutiveConditions(conditions: ConditionData[]): TimeWindow[] {
   for (let i = 0; i < conditions.length; i++) {
     const condition = conditions[i];
     
-    if (!currentWindow || currentWindow.quality !== condition.quality) {
+    // Start new window if:
+    // 1. No current window
+    // 2. Quality changes
+    // 3. Time gap detected (more than 1 hour difference in sequence)
+    const shouldStartNewWindow = !currentWindow || 
+      currentWindow.quality !== condition.quality ||
+      (currentWindow && isTimeGap(currentWindow, condition, conditions, i));
+    
+    if (shouldStartNewWindow) {
       if (currentWindow) {
+        // Enhance window with duration and quality score
+        enhanceTimeWindow(currentWindow);
         windows.push(currentWindow);
       }
+      
       currentWindow = {
         start: condition.time,
-        end: calculateEndTime(condition.time),
+        end: condition.time, // Will be updated as window grows
         quality: condition.quality,
-        reason: condition.reason,
+        reason: generateWindowReason(condition, 1),
         count: 1
       };
-    } else {
-      // Extend the current window
-      currentWindow.end = calculateEndTime(condition.time);
+    } else if (currentWindow) {
+      // Extend the current window (only if currentWindow exists)
+      currentWindow.end = condition.time;
       currentWindow.count = (currentWindow.count || 0) + 1;
+      currentWindow.reason = generateWindowReason(condition, currentWindow.count);
     }
   }
   
   if (currentWindow) {
+    enhanceTimeWindow(currentWindow);
     windows.push(currentWindow);
   }
   
-  return windows;
+  // Filter out single-hour windows for very poor conditions (too brief for practical observing)
+  const filteredWindows = windows.filter(window => {
+    if (window.quality === 'poor' && (window.count || 1) === 1) {
+      return false; // Remove single-hour poor windows
+    }
+    return true;
+  });
+  
+  // Merge adjacent windows with similar quality levels
+  return mergeAdjacentWindows(filteredWindows);
 }
 
-// Helper function to calculate end time for a time window
-function calculateEndTime(startTime: string): string {
-  const [hours] = startTime.split(':').map(Number);
-  const endHour = (hours + 1) % 24;
-  return `${endHour.toString().padStart(2, '0')}:00`;
+/**
+ * Check if there's a time gap between current window and next condition
+ */
+function isTimeGap(currentWindow: TimeWindow, condition: ConditionData, allConditions: ConditionData[], currentIndex: number): boolean {
+  if (currentIndex === 0) return false;
+  
+  const prevCondition = allConditions[currentIndex - 1];
+  const prevHour = parseInt(prevCondition.time.split(':')[0]);
+  const currentHour = parseInt(condition.time.split(':')[0]);
+  
+  // Check for non-consecutive hours in observing sequence
+  const getSequencePosition = (hour: number) => {
+    if (hour >= 18) return hour - 18;
+    if (hour <= 11) return hour + 6;
+    return hour + 12;
+  };
+  
+  const prevPos = getSequencePosition(prevHour);
+  const currentPos = getSequencePosition(currentHour);
+  
+  // Gap if difference is more than 1 (allowing for 23->0 transition)
+  return Math.abs(currentPos - prevPos) > 1;
+}
+
+/**
+ * Generate appropriate reason text for time windows
+ */
+function generateWindowReason(condition: ConditionData, hourCount: number): string {
+  const duration = hourCount === 1 ? '1 hour' : `${hourCount} hours`;
+  const qualityAdjective = {
+    excellent: 'outstanding',
+    good: 'favorable', 
+    dubious: 'marginal',
+    poor: 'challenging'
+  }[condition.quality];
+  
+  if (hourCount === 1) {
+    return condition.reason;
+  }
+  
+  return `${duration} of ${qualityAdjective} conditions - ${condition.reason}`;
+}
+
+/**
+ * Enhance time window with calculated end time and additional metadata
+ */
+function enhanceTimeWindow(window: TimeWindow): void {
+  // Calculate proper end time (add 1 hour to last condition time)
+  const endHour = parseInt(window.end.split(':')[0]);
+  const finalEndHour = (endHour + 1) % 24;
+  window.end = `${finalEndHour.toString().padStart(2, '0')}:00`;
+  
+  // Add duration info to reason if window spans multiple hours
+  if ((window.count || 1) > 1) {
+    const hours = window.count || 1;
+    const timeRange = window.start === window.end ? window.start : `${window.start}-${window.end}`;
+    window.reason = `${hours}h window (${timeRange}): ${window.reason}`;
+  }
+}
+
+/**
+ * Merge adjacent windows with compatible quality levels
+ */
+function mergeAdjacentWindows(windows: TimeWindow[]): TimeWindow[] {
+  if (windows.length <= 1) return windows;
+  
+  const merged: TimeWindow[] = [];
+  let current = { ...windows[0] };
+  
+  for (let i = 1; i < windows.length; i++) {
+    const next = windows[i];
+    
+    // Check if windows can be merged (adjacent times + compatible quality)
+    const canMerge = shouldMergeWindows(current, next);
+    
+    if (canMerge) {
+      // Merge windows
+      current.end = next.end;
+      current.count = (current.count || 1) + (next.count || 1);
+      
+      // Update quality to better of the two
+      const qualityRanking = { excellent: 4, good: 3, dubious: 2, poor: 1 };
+      if (qualityRanking[next.quality] > qualityRanking[current.quality]) {
+        current.quality = next.quality;
+      }
+      
+      current.reason = `Combined ${current.count}h period with ${current.quality} conditions`;
+    } else {
+      // Can't merge, add current and start new
+      merged.push(current);
+      current = { ...next };
+    }
+  }
+  
+  merged.push(current);
+  return merged;
+}
+
+/**
+ * Determine if two adjacent windows should be merged
+ */
+function shouldMergeWindows(first: TimeWindow, second: TimeWindow): boolean {
+  // Only merge if qualities are similar (within one tier)
+  const qualityRanking = { excellent: 4, good: 3, dubious: 2, poor: 1 };
+  const qualityDiff = Math.abs(qualityRanking[first.quality] - qualityRanking[second.quality]);
+  
+  // Can merge excellent+good, good+dubious, but not excellent+dubious or anything+poor
+  if (qualityDiff <= 1 && first.quality !== 'poor' && second.quality !== 'poor') {
+    // Check if times are adjacent
+    const firstEndHour = parseInt(first.end.split(':')[0]);
+    const secondStartHour = parseInt(second.start.split(':')[0]);
+    
+    // Adjacent if end of first == start of second, accounting for midnight wrap
+    return firstEndHour === secondStartHour || 
+           (firstEndHour === 23 && secondStartHour === 0) ||
+           (firstEndHour === 0 && secondStartHour === 1);
+  }
+  
+  return false;
 }
 
 function determineOverallRating(timeWindows: TimeWindow[]): 'excellent' | 'good' | 'dubious' | 'poor' {
