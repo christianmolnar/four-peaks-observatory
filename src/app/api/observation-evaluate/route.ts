@@ -419,12 +419,16 @@ function generateWeatherWarnings(conditions: ConditionData[], moonData: MoonData
   
   const poorPeriods = conditions.filter(c => c.quality === 'poor');
   if (poorPeriods.length > 0) {
-    warnings.push(`Poor conditions expected during ${poorPeriods.length} hour(s) of the night`);
+    const hourText = poorPeriods.length === 1 ? 'hour' : 'hours';
+    const timeframe = poorPeriods.length > 24 ? 'next 48 hours' : `night (${poorPeriods.length} ${hourText})`;
+    warnings.push(`Poor conditions expected during the ${timeframe}`);
   }
   
   const overcastPeriods = conditions.filter(c => c.cloudCover > 75);
   if (overcastPeriods.length > 0) {
-    warnings.push(`Overcast conditions during ${overcastPeriods.length} hour(s) - no observation possible`);
+    const hourText = overcastPeriods.length === 1 ? 'hour' : 'hours';
+    const timeframe = overcastPeriods.length > 24 ? 'next 48 hours' : `${overcastPeriods.length} ${hourText}`;
+    warnings.push(`Overcast conditions during ${timeframe} - no observation possible`);
   }
   
   if (moonData.illumination > 0.8) {
