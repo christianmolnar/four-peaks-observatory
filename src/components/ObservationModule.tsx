@@ -29,8 +29,6 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRecommendation();
@@ -54,68 +52,6 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
       console.error('Error fetching recommendation:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const sendDailyReport = async () => {
-    setSendingEmail(true);
-    setEmailStatus(null);
-
-    try {
-      // First try to use environment variables (if configured)
-      let response = await fetch('/api/send-daily-report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          triggerSource: 'manual'
-        })
-      });
-
-      let result = await response.json();
-
-      // If environment variables are not configured, prompt for values
-      if (!result.success && result.hint && result.hint.includes('environment')) {
-        const recipient = prompt('Enter email address to send the daily report to:');
-        if (!recipient) {
-          setSendingEmail(false);
-          return;
-        }
-
-        const formspreeId = prompt('Enter your Formspree form ID (get this from formspree.io dashboard):');
-        if (!formspreeId) {
-          setSendingEmail(false);
-          return;
-        }
-
-        // Try again with user-provided values
-        response = await fetch('/api/send-daily-report', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            recipient,
-            formspreeId,
-            triggerSource: 'manual'
-          })
-        });
-
-        result = await response.json();
-      }
-
-      if (result.success) {
-        setEmailStatus(`✅ Daily report sent successfully to ${result.recipient}!`);
-      } else {
-        setEmailStatus(`❌ Failed to send report: ${result.error}`);
-      }
-    } catch (error) {
-      setEmailStatus('❌ Network error while sending report');
-      console.error('Error sending daily report:', error);
-    } finally {
-      setSendingEmail(false);
-      setTimeout(() => setEmailStatus(null), 5000);
     }
   };
 
@@ -472,53 +408,7 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
         >
           Refresh Forecast
         </button>
-
-        <button
-          onClick={sendDailyReport}
-          disabled={sendingEmail}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: sendingEmail ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
-            border: '1px solid rgba(59, 130, 246, 0.5)',
-            borderRadius: '6px',
-            color: sendingEmail ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.9)',
-            cursor: sendingEmail ? 'not-allowed' : 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: '200',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseOver={(e) => {
-            if (!sendingEmail) {
-              e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.7)';
-            }
-          }}
-          onMouseOut={(e) => {
-            if (!sendingEmail) {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
-            }
-          }}
-        >
-          {sendingEmail ? '📧 Sending...' : '📧 Send Daily Report'}
-        </button>
       </div>
-
-      {/* Email Status */}
-      {emailStatus && (
-        <div style={{ 
-          textAlign: 'center', 
-          marginTop: '12px',
-          padding: '8px',
-          borderRadius: '6px',
-          backgroundColor: emailStatus.includes('✅') ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          border: `1px solid ${emailStatus.includes('✅') ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-          fontSize: '0.85rem',
-          color: emailStatus.includes('✅') ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)'
-        }}>
-          {emailStatus}
-        </div>
-      )}
     </div>
   );
 }

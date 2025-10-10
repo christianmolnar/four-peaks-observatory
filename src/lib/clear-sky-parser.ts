@@ -21,21 +21,34 @@ export interface ClearSkyForecastData {
  * Parse Clear Sky Chart URL to extract location info
  */
 export function parseClearSkyChartUrl(url: string) {
-  // Extract chart ID from URL like https://www.cleardarksky.com/c/MplVllyObWAkey.html
-  const match = url.match(/\/c\/([^\/]+)\.html/);
-  if (!match) {
-    throw new Error('Invalid Clear Sky Chart URL format');
+  // Handle both HTML page URLs and direct GIF URLs
+  
+  // Check if it's a direct GIF URL first
+  const gifMatch = url.match(/\/c\/([^\/\?]+)csk\.gif/);
+  if (gifMatch) {
+    const chartId = gifMatch[1]; // e.g., "BgNstObTN" from BgNstObTNcsk.gif
+    return {
+      chartId,
+      imageUrl: url, // Use the provided GIF URL directly
+      dataUrl: `https://www.cleardarksky.com/c/${chartId}key.html` // Generate corresponding HTML URL
+    };
   }
   
-  const fullId = match[1]; // e.g., "MplVllyObWAkey"
-  // Remove the "key" suffix to get the base chart ID
-  const chartId = fullId.replace(/key$/, ''); // e.g., "MplVllyObWA"
+  // Fall back to HTML URL parsing
+  const htmlMatch = url.match(/\/c\/([^\/]+)\.html/);
+  if (htmlMatch) {
+    const fullId = htmlMatch[1]; // e.g., "MplVllyObWAkey"
+    // Remove the "key" suffix to get the base chart ID
+    const chartId = fullId.replace(/key$/, ''); // e.g., "MplVllyObWA"
+    
+    return {
+      chartId,
+      imageUrl: `https://www.cleardarksky.com/c/${chartId}csk.gif`,
+      dataUrl: url // We'll scrape this for data
+    };
+  }
   
-  return {
-    chartId,
-    imageUrl: `https://www.cleardarksky.com/c/${chartId}csk.gif`,
-    dataUrl: url // We'll scrape this for data
-  };
+  throw new Error('Invalid Clear Sky Chart URL format - must be either .html page or .gif image URL');
 }
 
 /**

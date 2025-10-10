@@ -650,7 +650,7 @@ export default function AssetManagerPage() {
   const [fileSystemData, setFileSystemData] = useState<any>(null);
   
   // Clear Sky Analysis state
-  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/DvFrkSPSCcsk.gif');
+  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/DvFrkSPSCcsk.html');
   const [clearSkyAnalysis, setClearSkyAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -772,14 +772,14 @@ export default function AssetManagerPage() {
       if (response.ok) {
         const data = await response.json();
         
-        // Extract the analysis data
+        // Extract the analysis data properly
         setClearSkyAnalysis({
           overall: data.overall || 'unknown',
           confidence: data.aiConfidence || 0.8,
-          reasoning: data.summary || data.aiSuggestions || 'Analysis completed',
-          bestTimeWindows: data.timeWindows?.filter((w: any) => w.quality === 'excellent' || w.quality === 'good')?.map((w: any) => w.period) || [],
-          opportunities: data.aiSuggestions ? [data.aiSuggestions] : [],
-          warnings: data.overall === 'poor' || data.overall === 'dubious' ? ['Poor observing conditions detected'] : [],
+          reasoning: data.summary || data.aiReasoning || 'Analysis completed',
+          bestTimeWindows: data.timeWindows?.filter((w: any) => w.quality === 'excellent' || w.quality === 'good')?.map((w: any) => `${w.start} - ${w.end}: ${w.reason}`) || [],
+          opportunities: data.aiSuggestions?.opportunities || [],
+          warnings: data.aiSuggestions?.warnings || (data.overall === 'poor' || data.overall === 'dubious' ? ['Poor observing conditions detected'] : []),
           conditions: data.conditions || []
         });
       } else {
@@ -2602,13 +2602,13 @@ export default function AssetManagerPage() {
                     <div className="space-y-3">
                       <div>
                         <label className="text-white/70 text-sm block mb-2">
-                          Enter Clear Sky Chart GIF URL:
+                          Enter Clear Sky Chart URL:
                         </label>
                         <input
                           type="url"
                           value={clearSkyUrl}
                           onChange={(e) => setClearSkyUrl(e.target.value)}
-                          placeholder="https://www.cleardarksky.com/c/YourLocation.gif"
+                          placeholder="https://www.cleardarksky.com/c/YourLocation.html"
                           className="w-full bg-black/30 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-purple-400"
                         />
                       </div>
@@ -2624,7 +2624,7 @@ export default function AssetManagerPage() {
                           <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Chart'}</span>
                         </button>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.gif')}
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.html')}
                           className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
                         >
                           Use Demo URL
@@ -2638,17 +2638,9 @@ export default function AssetManagerPage() {
                     <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                       <h3 className="text-white font-semibold mb-3">📊 Clear Sky Chart</h3>
                       <div className="bg-black/30 rounded-lg p-4">
-                        <img
-                          src={clearSkyUrl}
-                          alt="Clear Sky Chart"
-                          className="w-full max-w-4xl mx-auto rounded border border-white/20"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            setAnalysisError('Unable to load image from this URL');
-                          }}
-                          onLoad={() => setAnalysisError(null)}
-                        />
+                        <div className="text-white/70 text-sm mb-3">
+                          Chart will be displayed here after analysis. The parser will extract the GIF from the HTML page.
+                        </div>
                         {analysisError && (
                           <div className="text-red-400 text-center mt-4">
                             ⚠️ {analysisError}
@@ -2773,7 +2765,7 @@ export default function AssetManagerPage() {
                     <div className="space-y-2 text-sm">
                       <div>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.gif')}
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.html')}
                           className="text-blue-400 hover:text-blue-300 underline text-left"
                         >
                           David Fork State Park, SC
@@ -2782,7 +2774,7 @@ export default function AssetManagerPage() {
                       </div>
                       <div>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/CnyAstObcsk.gif')}
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/CnyAstObcsk.html')}
                           className="text-blue-400 hover:text-blue-300 underline text-left"
                         >
                           Canyon of the Eagles Observatory, TX
@@ -2791,7 +2783,7 @@ export default function AssetManagerPage() {
                       </div>
                       <div>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/MTWcsk.gif')}
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/MTWcsk.html')}
                           className="text-blue-400 hover:text-blue-300 underline text-left"
                         >
                           Mt. Wilson Observatory, CA
