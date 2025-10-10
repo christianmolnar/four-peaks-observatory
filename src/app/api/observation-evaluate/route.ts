@@ -437,3 +437,159 @@ function generateWeatherWarnings(conditions: ConditionData[], moonData: MoonData
 function capitalizeFirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { customClearSkyUrl, location } = body;
+    
+    if (!customClearSkyUrl) {
+      return NextResponse.json({ error: 'customClearSkyUrl is required' }, { status: 400 });
+    }
+    
+    // Load default observation criteria
+    const configPath = path.join(process.cwd(), 'src/config/observation-criteria.json');
+    const configData = fs.readFileSync(configPath, 'utf8');
+    const criteria: ObservationCriteria = JSON.parse(configData);
+    
+    // Override the Clear Sky Chart URL with the custom one
+    const customCriteria = {
+      ...criteria,
+      location: {
+        ...criteria.location,
+        ...location,
+        clearSkyChartUrl: customClearSkyUrl
+      }
+    };
+    
+    const today = new Date();
+    
+    // Calculate sun times and observing window
+    const sunTimes = calculateSunTimes(today, customCriteria.location);
+    
+    // Calculate observing window based on user preferences
+    const observingWindow = calculateObservingWindow(
+      sunTimes, 
+      customCriteria.observingWindow.startOffset, 
+      customCriteria.observingWindow.endOffset
+    );
+    
+    // Calculate moon data
+    const moonData = await calculateMoonData(today, customCriteria.location);
+    
+    // Fetch Clear Sky Chart data using the custom URL
+    const chartData = await fetchClearSkyChartData(customClearSkyUrl);
+    
+    if (!chartData || !chartData.forecast || chartData.forecast.length === 0) {
+      return NextResponse.json({ error: 'Failed to fetch or parse Clear Sky Chart data' }, { status: 500 });
+    }
+    
+    // Convert legacy format and analyze conditions for the observing window
+    const conditions = chartData.forecast.map(condition => {
+      const newFormat = convertLegacyCondition(condition);
+      const evaluation = evaluateObservingCondition(newFormat);
+      
+      return {
+        time: condition.time,
+        quality: evaluation.overall,
+        reason: evaluation.reason,
+        cloudCover: condition.cloudCover,
+        transparency: condition.transparency,
+        seeingRating: condition.seeingRating
+      };
+    });
+
+    // Filter conditions to observing window (same logic as GET)
+    const filteredConditions = conditions.filter(condition => {
+      const [hours] = condition.time.split(':').map(Number);
+      
+      const conditionTimeToday = new Date(today);
+      conditionTimeToday.setHours(hours, 0, 0, 0);
+      
+      const conditionTimeTomorrow = new Date(today);
+      conditionTimeTomorrow.setDate(conditionTimeTomorrow.getDate() + 1);
+      conditionTimeTomorrow.setHours(hours, 0, 0, 0);
+      
+      const conditionEndToday = new Date(conditionTimeToday);
+      conditionEndToday.setHours(hours + 1, 0, 0, 0);
+      
+      const conditionEndTomorrow = new Date(conditionTimeTomorrow);
+      conditionEndTomorrow.setHours(hours + 1, 0, 0, 0);
+      
+      const overlapToday = (conditionTimeToday < observingWindow.end) && (conditionEndToday > observingWindow.start);
+      const overlapTomorrow = (conditionTimeTomorrow < observingWindow.end) && (conditionEndTomorrow > observingWindow.start);
+      
+      return overlapToday || overlapTomorrow;
+    });
+    
+    // Group consecutive good conditions into time windows
+    const timeWindows = groupConsecutiveConditions(filteredConditions);
+    
+    // Determine overall rating
+    const overall = determineOverallRating(timeWindows);
+    
+    // Generate summary
+    const summary = generateSummary(timeWindows, observingWindow, moonData);
+    
+    // Generate AI recommendation
+    let aiResult = null;
+    let finalOverall = overall; // Default to rule-based assessment
+    
+    try {
+      aiResult = await getAIObservingRecommendation(
+        chartData.forecast, // Use the forecast array from chartData
+        customCriteria,
+        moonData,
+        {
+          start: formatTime(observingWindow.start),
+          end: formatTime(observingWindow.end),
+          totalHours: observingWindow.totalHours
+        }
+      );
+      
+      // Use AI assessment if available and confident
+      if (aiResult.confidence >= 0.8) {
+        finalOverall = aiResult.overall;
+      }
+    } catch (error) {
+      console.warn('AI recommendation failed, continuing with rule-based analysis:', error);
+    }
+    
+    // Build response with all the analysis data
+    const response: ObservationRecommendation = {
+      overall: finalOverall,
+      timeWindows: timeWindows.map(window => ({
+        start: window.start,
+        end: window.end,
+        quality: window.quality,
+        reason: window.reason
+      })),
+      summary,
+      details: {
+        cloudCover: `Varies throughout night - see time windows for details`,
+        transparency: `Based on Clear Sky Chart analysis`,
+        seeing: `Ranges from ${Math.min(...filteredConditions.map(c => c.seeingRating))}/5 to ${Math.max(...filteredConditions.map(c => c.seeingRating))}/5`,
+        moonImpact: `${Math.round(moonData.illumination * 100)}% illuminated, rises at ${moonData.rise ? formatTime(moonData.rise) : 'N/A'}`,
+        weatherWarnings: generateWeatherWarnings(filteredConditions, moonData)
+      },
+      aiReasoning: aiResult ? 
+        formatAIRecommendation(aiResult) : 
+        `Analysis based on Clear Sky Chart data for custom location. Observing window: ${formatTime(observingWindow.start)} to ${formatTime(observingWindow.end)} (${observingWindow.totalHours} hours total). Conditions vary throughout the night with ${timeWindows.length} distinct periods.`,
+      aiConfidence: aiResult?.confidence,
+      aiSuggestions: aiResult ? {
+        bestTimeWindows: aiResult.bestTimeWindows,
+        warnings: aiResult.warnings,
+        opportunities: aiResult.opportunities
+      } : undefined
+    };
+    
+    return NextResponse.json(response);
+    
+  } catch (error) {
+    console.error('Error in POST observation-evaluate:', error);
+    return NextResponse.json(
+      { error: 'Failed to analyze Clear Sky Chart' },
+      { status: 500 }
+    );
+  }
+}

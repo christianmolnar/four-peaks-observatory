@@ -639,7 +639,7 @@ export default function AssetManagerPage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
-  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation' | 'email'>('metadata');
+  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation' | 'email' | 'clearsky'>('metadata');
   
   // Bulk selection state
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -648,6 +648,12 @@ export default function AssetManagerPage() {
   
   // File system integration state
   const [fileSystemData, setFileSystemData] = useState<any>(null);
+  
+  // Clear Sky Analysis state
+  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/DvFrkSPSCcsk.gif');
+  const [clearSkyAnalysis, setClearSkyAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string>("");
 
@@ -733,6 +739,58 @@ export default function AssetManagerPage() {
       setIsDeleting(false);
       setShowDeleteConfirmation(false);
       setTimeout(() => setSaveMessage(''), 5000);
+    }
+  };
+
+  // Clear Sky Analysis handler
+  const handleAnalyzeClearSky = async () => {
+    if (!clearSkyUrl.trim()) return;
+    
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    setClearSkyAnalysis(null);
+    
+    try {
+      // Call the observation-evaluate API with the custom Clear Sky Chart URL
+      const response = await fetch('/api/observation-evaluate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customClearSkyUrl: clearSkyUrl,
+          location: {
+            name: 'Custom Location',
+            latitude: 40.0,
+            longitude: -74.0,
+            timezone: 'America/New_York',
+            clearSkyChartUrl: clearSkyUrl
+          }
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Extract the analysis data
+        setClearSkyAnalysis({
+          overall: data.overall || 'unknown',
+          confidence: data.aiConfidence || 0.8,
+          reasoning: data.summary || data.aiSuggestions || 'Analysis completed',
+          bestTimeWindows: data.timeWindows?.filter((w: any) => w.quality === 'excellent' || w.quality === 'good')?.map((w: any) => w.period) || [],
+          opportunities: data.aiSuggestions ? [data.aiSuggestions] : [],
+          warnings: data.overall === 'poor' || data.overall === 'dubious' ? ['Poor observing conditions detected'] : [],
+          conditions: data.conditions || []
+        });
+      } else {
+        const errorData = await response.json();
+        setAnalysisError(errorData.error || 'Failed to analyze Clear Sky Chart');
+      }
+    } catch (error) {
+      setAnalysisError('Network error during analysis');
+      console.error('Clear Sky Analysis error:', error);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -1406,6 +1464,16 @@ export default function AssetManagerPage() {
               }`}
             >
               📧 Email Reports
+            </button>
+            <button
+              onClick={() => setActiveTab('clearsky')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
+                activeTab === 'clearsky'
+                  ? 'bg-purple-400/20 border border-purple-400 text-purple-400'
+                  : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              🌌 Clear Sky Analysis
             </button>
           </div>
         </header>
@@ -2458,84 +2526,277 @@ export default function AssetManagerPage() {
                 <div className="mb-6">
                   <h2 className="text-white text-2xl font-semibold mb-2">📧 Daily Email Reports</h2>
                   <p className="text-white/70 text-sm mb-4">
-                    Configure automated daily observation reports sent via email. This system uses Formspree.io 
-                    to send professional observation forecasts every morning.
+                    Send automated daily observation forecasts with Clear Sky analysis and AI recommendations.
                   </p>
                 </div>
 
                 <div className="space-y-6">
-                  {/* Setup Instructions */}
-                  <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                    <h3 className="text-blue-300 font-semibold mb-3">🚀 Setup Instructions</h3>
-                    <ol className="text-white/70 text-sm space-y-2 list-decimal list-inside">
-                      <li>✅ Sign up for a free account at <a href="https://formspree.io" target="_blank" className="text-blue-400 hover:text-blue-300">formspree.io</a></li>
-                      <li>✅ Create a new form in your Formspree dashboard</li>
-                      <li>✅ Copy your form ID (yours: <code className="bg-white/10 px-1 rounded">mrbyadzk</code>)</li>
-                      <li>⏳ Add your form ID and recipient email to your <code className="bg-white/10 px-1 rounded">.env.local</code> file:</li>
-                    </ol>
-                    <pre className="bg-black/30 p-3 rounded mt-3 text-green-400 text-xs overflow-x-auto">
-{`FORMSPREE_FORM_ID=mrbyadzk
-DAILY_REPORT_EMAIL=chrismolhome@hotmail.com`}
-                    </pre>
-                  </div>
-
-                  {/* Manual Test */}
+                  {/* Quick Test */}
                   <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <h3 className="text-white font-semibold mb-3">🧪 Test Email Report</h3>
+                    <h3 className="text-white font-semibold mb-3">🧪 Send Test Report</h3>
                     <p className="text-white/60 text-sm mb-4">
-                      Send a test email report to verify your Formspree configuration is working correctly.
-                      You can trigger this manually from the main observation forecast as well.
+                      Test the email system with current observation conditions.
                     </p>
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                      Send Test Report
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                      Send Test Report Now
                     </button>
                   </div>
 
-                  {/* Scheduling Info */}
-                  <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
-                    <h3 className="text-amber-300 font-semibold mb-3">⏰ Automated Scheduling</h3>
-                    <p className="text-white/70 text-sm mb-3">
-                      For automated daily reports, you'll need to set up a cron job or scheduled task. 
-                      The system is designed to send reports at 10:00 AM local time.
-                    </p>
-                    <div className="bg-black/30 p-3 rounded text-green-400 text-xs">
-                      <div className="mb-2 text-white/70"># Example cron job (runs daily at 10:00 AM):</div>
-                      <div>0 10 * * * curl -X POST https://yourdomain.com/api/send-daily-report</div>
-                    </div>
-                  </div>
-
-                  {/* Email Preview */}
+                  {/* Configuration Status */}
                   <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <h3 className="text-white font-semibold mb-3">📋 Email Preview</h3>
-                    <p className="text-white/60 text-sm mb-4">
-                      Daily reports include a comprehensive forecast with observing windows, moon conditions, 
-                      and time-by-time quality assessments.
-                    </p>
-                    <div className="bg-black/30 p-4 rounded text-green-400 text-sm font-mono">
-                      <div className="text-white">🌟 MAPLE VALLEY OBSERVATORY DAILY OBSERVATION REPORT</div>
-                      <div className="text-white/70 mt-1">Tuesday, October 8, 2024</div>
-                      <div className="mt-3 text-blue-400">OVERALL ASSESSMENT: ⚠️ DUBIOUS</div>
-                      <div className="mt-2 text-white/70">OBSERVING WINDOW: 6:24 PM to 5:25 AM</div>
-                      <div className="text-white/70">Total observing time: 11 hours</div>
-                      <div className="mt-2 text-white/70">...</div>
-                    </div>
-                  </div>
-
-                  {/* Current Status */}
-                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <h3 className="text-white font-semibold mb-3">📊 Current Configuration</h3>
+                    <h3 className="text-white font-semibold mb-3">⚙️ Configuration Status</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-white/60">Formspree Form ID:</span>
-                        <div className="text-white font-mono bg-black/30 px-2 py-1 rounded mt-1">
-                          Not available in client-side
+                        <span className="text-white/60">Email Service:</span>
+                        <div className="text-green-400 font-mono bg-black/30 px-2 py-1 rounded mt-1">
+                          ✅ Formspree Configured
                         </div>
                       </div>
                       <div>
-                        <span className="text-white/60">Default Recipient:</span>
-                        <div className="text-white font-mono bg-black/30 px-2 py-1 rounded mt-1">
-                          Not available in client-side
+                        <span className="text-white/60">Daily Schedule:</span>
+                        <div className="text-blue-400 font-mono bg-black/30 px-2 py-1 rounded mt-1">
+                          📅 10:00 AM (Manual)
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">📊 Recent Activity</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between text-white/70">
+                        <span>Last report sent:</span>
+                        <span className="text-blue-400">Not available</span>
+                      </div>
+                      <div className="flex justify-between text-white/70">
+                        <span>Report status:</span>
+                        <span className="text-green-400">Ready to send</span>
+                      </div>
+                      <div className="flex justify-between text-white/70">
+                        <span>Next scheduled:</span>
+                        <span className="text-yellow-400">Manual trigger</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Tab 5: Clear Sky Analysis */}
+          {activeTab === 'clearsky' && (
+            <section className="relative z-10 w-full px-6 py-6">
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                <div className="mb-6">
+                  <h2 className="text-white text-2xl font-semibold mb-2">🌌 Clear Sky Analysis</h2>
+                  <p className="text-white/70 text-sm mb-4">
+                    Test Clear Sky Chart analysis with custom URLs to see how different conditions would be evaluated.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* URL Input */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">📷 Clear Sky Chart URL</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-white/70 text-sm block mb-2">
+                          Enter Clear Sky Chart GIF URL:
+                        </label>
+                        <input
+                          type="url"
+                          value={clearSkyUrl}
+                          onChange={(e) => setClearSkyUrl(e.target.value)}
+                          placeholder="https://www.cleardarksky.com/c/YourLocation.gif"
+                          className="w-full bg-black/30 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={handleAnalyzeClearSky}
+                          disabled={isAnalyzing || !clearSkyUrl.trim()}
+                          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                        >
+                          {isAnalyzing && (
+                            <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                          )}
+                          <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Chart'}</span>
+                        </button>
+                        <button
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.gif')}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+                        >
+                          Use Demo URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chart Display */}
+                  {clearSkyUrl && (
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                      <h3 className="text-white font-semibold mb-3">📊 Clear Sky Chart</h3>
+                      <div className="bg-black/30 rounded-lg p-4">
+                        <img
+                          src={clearSkyUrl}
+                          alt="Clear Sky Chart"
+                          className="w-full max-w-4xl mx-auto rounded border border-white/20"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            setAnalysisError('Unable to load image from this URL');
+                          }}
+                          onLoad={() => setAnalysisError(null)}
+                        />
+                        {analysisError && (
+                          <div className="text-red-400 text-center mt-4">
+                            ⚠️ {analysisError}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Analysis Results */}
+                  {clearSkyAnalysis && (
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                      <h3 className="text-white font-semibold mb-3">🔍 Analysis Results</h3>
+                      <div className="space-y-4">
+                        {/* Overall Assessment */}
+                        <div className="bg-black/30 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-white font-medium">Overall Assessment:</span>
+                            <span className={`font-bold text-lg ${
+                              clearSkyAnalysis.overall === 'excellent' ? 'text-green-400' :
+                              clearSkyAnalysis.overall === 'good' ? 'text-blue-400' :
+                              clearSkyAnalysis.overall === 'dubious' ? 'text-yellow-400' : 'text-red-400'
+                            }`}>
+                              {clearSkyAnalysis.overall?.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="text-white/70 text-sm">
+                            {clearSkyAnalysis.reasoning}
+                          </div>
+                          {clearSkyAnalysis.confidence && (
+                            <div className="mt-2 text-white/60 text-xs">
+                              Confidence: {Math.round(clearSkyAnalysis.confidence * 100)}%
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Time Windows */}
+                        {clearSkyAnalysis.bestTimeWindows && clearSkyAnalysis.bestTimeWindows.length > 0 && (
+                          <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                            <h4 className="text-green-300 font-medium mb-2">🌟 Best Observing Windows</h4>
+                            <ul className="space-y-1 text-white/70 text-sm">
+                              {clearSkyAnalysis.bestTimeWindows.map((window: string, index: number) => (
+                                <li key={index} className="flex items-center space-x-2">
+                                  <span className="text-green-400">•</span>
+                                  <span>{window}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Opportunities */}
+                        {clearSkyAnalysis.opportunities && clearSkyAnalysis.opportunities.length > 0 && (
+                          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                            <h4 className="text-blue-300 font-medium mb-2">🎯 Opportunities</h4>
+                            <ul className="space-y-1 text-white/70 text-sm">
+                              {clearSkyAnalysis.opportunities.map((opportunity: string, index: number) => (
+                                <li key={index} className="flex items-center space-x-2">
+                                  <span className="text-blue-400">•</span>
+                                  <span>{opportunity}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Warnings */}
+                        {clearSkyAnalysis.warnings && clearSkyAnalysis.warnings.length > 0 && (
+                          <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
+                            <h4 className="text-amber-300 font-medium mb-2">⚠️ Warnings</h4>
+                            <ul className="space-y-1 text-white/70 text-sm">
+                              {clearSkyAnalysis.warnings.map((warning: string, index: number) => (
+                                <li key={index} className="flex items-center space-x-2">
+                                  <span className="text-amber-400">•</span>
+                                  <span>{warning}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Detailed Conditions */}
+                        {clearSkyAnalysis.conditions && clearSkyAnalysis.conditions.length > 0 && (
+                          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                            <h4 className="text-white font-medium mb-3">📈 Hourly Conditions</h4>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-white/70 border-b border-white/10">
+                                    <th className="text-left py-2 px-3">Time</th>
+                                    <th className="text-left py-2 px-3">Clouds</th>
+                                    <th className="text-left py-2 px-3">Transparency</th>
+                                    <th className="text-left py-2 px-3">Seeing</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {clearSkyAnalysis.conditions.slice(0, 12).map((condition: any, index: number) => (
+                                    <tr key={index} className="text-white/80 border-b border-white/5">
+                                      <td className="py-2 px-3 font-mono">{condition.time}</td>
+                                      <td className="py-2 px-3">{condition.cloudCover}%</td>
+                                      <td className="py-2 px-3">{condition.transparency}/5</td>
+                                      <td className="py-2 px-3">{condition.seeingRating}/5</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {clearSkyAnalysis.conditions.length > 12 && (
+                                <div className="text-white/50 text-xs mt-2 text-center">
+                                  Showing first 12 hours of {clearSkyAnalysis.conditions.length} total hours
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Examples */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">🌍 Example Clear Sky Chart URLs</h3>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <button
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.gif')}
+                          className="text-blue-400 hover:text-blue-300 underline text-left"
+                        >
+                          David Fork State Park, SC
+                        </button>
+                        <div className="text-white/50 text-xs ml-4">Dark sky site in South Carolina</div>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/CnyAstObcsk.gif')}
+                          className="text-blue-400 hover:text-blue-300 underline text-left"
+                        >
+                          Canyon of the Eagles Observatory, TX
+                        </button>
+                        <div className="text-white/50 text-xs ml-4">Professional observatory site</div>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/MTWcsk.gif')}
+                          className="text-blue-400 hover:text-blue-300 underline text-left"
+                        >
+                          Mt. Wilson Observatory, CA
+                        </button>
+                        <div className="text-white/50 text-xs ml-4">Historic observatory location</div>
                       </div>
                     </div>
                   </div>

@@ -28,8 +28,10 @@ interface AIRecommendationPayload {
     observationType: string;
     sessionDuration: string;
     moonTolerances: {
-      maxPhase?: number;
-      allowFullMoon?: boolean;
+      goodPhases: string[];
+      dubiousPhases: string[];
+      poorPhases: string[];
+      altitudeThreshold: number;
     };
     weatherTolerances: {
       minTransparency?: number;
@@ -131,9 +133,9 @@ function prepareAIPayload(
       sessionDuration: `${observingWindow.totalHours} hours`,
       moonTolerances: criteria.moonPhase,
       weatherTolerances: {
-        cloudCover: criteria.cloudCover,
-        transparency: criteria.transparency,
-        seeing: criteria.seeing
+        minTransparency: typeof criteria.transparency?.good?.[0] === 'number' ? criteria.transparency.good[0] : 3,
+        maxCloudCover: criteria.cloudCover?.excellent?.threshold || 20,
+        minSeeing: typeof criteria.seeing?.good?.[0] === 'number' ? criteria.seeing.good[0] : 3
       }
     },
     currentConditions: {
@@ -216,9 +218,9 @@ MOON INFORMATION:
 
 USER PREFERENCES:
 - Observation Type: ${payload.userPreferences.observationType}
-- Cloud Cover Tolerance: Excellent ≤${payload.userPreferences.weatherTolerances.cloudCover.excellent.threshold}%, Good ≤${payload.userPreferences.weatherTolerances.cloudCover.good.threshold}%
-- Minimum Transparency: ${payload.userPreferences.weatherTolerances.transparency.good.join(', ')}
-- Minimum Seeing: ${payload.userPreferences.weatherTolerances.seeing.good.join(', ')}
+- Maximum Cloud Cover: ${payload.userPreferences.weatherTolerances.maxCloudCover}%
+- Minimum Transparency: ${payload.userPreferences.weatherTolerances.minTransparency}/5
+- Minimum Seeing: ${payload.userPreferences.weatherTolerances.minSeeing}/5
 
 Please provide your expert analysis considering:
 1. Overall observing quality for the planned session
