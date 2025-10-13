@@ -24,38 +24,36 @@
     "moonImpactRule": "sets_before_session"
   },
   "cloudCover": {
-    "excellent": { "threshold": 10, "required": true },
-    "good": { "threshold": 25, "acceptable": true },
-    "dubious": { "threshold": 50, "mark": true },
-    "poor": { "threshold": 75, "mark": true },
-    "overcast": { "threshold": 90, "automatic_poor": true },
-    "consecutiveHours": 2
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "transparency": {
-    "excellent": ["above_average", "transparent"],
-    "good": ["average"],
-    "dubious": ["below_average"],
-    "poor": ["poor", "too_cloudy"]
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "seeing": {
-    "excellent": ["excellent_5", "good_4"],
-    "good": ["average_3"],
-    "dubious": ["poor_2"],
-    "poor": ["bad_1", "too_cloudy"],
-    "observationType": "balanced"
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
-  "weather": {
-    "rainAutomatic": true,
-    "rainProbabilityThreshold": 30,
-    "humidityThreshold": 85,
-    "windSpeedThreshold": 15
+  "smoke": {
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
-  "temperature": {
-    "goodMinTemp": 35,
-    "dubiousMinTemp": 20,
-    "considerMirrorCooling": true,
-    "warnBatteryPerformance": true
+  "wind": {
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "customInstructions": "I primarily observe deep sky objects with a 10-inch telescope. I'm comfortable with moderate cold but prefer clear, stable skies for long exposure astrophotography.",
-  "observationPriority": "deep_sky"
+  "observationPriority": "deep_sky",
+  "heuristic": "weighted"
 }

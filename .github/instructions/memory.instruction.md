@@ -4,6 +4,22 @@ applyTo: '**'
 
 # Arizona Observatory Project
 
+## CRITICAL AGENT INSTRUCTIONS
+
+### Server Management Rules:
+- **NEVER start development servers automatically** (npm run dev, npm start, etc.)
+- **NEVER restart servers** without explicit user permission
+- **ALWAYS notify user when changes are complete** and let them restart the server
+- **User prefers to control server lifecycle** due to port conflicts and system management
+- When work is finished, simply state: "Changes complete. Please restart your server to see the updates."
+
+### Code Complexity Rules:
+- **NEVER add complexity when you see unnecessary steps**
+- **ALWAYS opt for simplifying and removing unnecessary complexity**
+- **NEVER stack conversions on top of existing conversions**
+- **Question every data transformation - eliminate intermediate steps**
+- **Use the simplest, most direct approach possible**
+
 ## User's Vision: ASIAir Controlled Observatory
 - **Primary Goal**: Fully automated nightly operations without physical intervention
 - **Current Challenge**: Meade LX75 mount requires manual alignment each session

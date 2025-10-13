@@ -1,145 +1,33 @@
 {
   "cloudCover": {
-    "excellent": {
-      "min": 0,
-      "max": 10
-    },
-    "dubious": {
-      "min": 11,
-      "max": 40
-    },
-    "poor": {
-      "min": 41,
-      "max": 100
-    }
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "transparency": {
-    "excellent": {
-      "values": [
-        "Transparent",
-        "Above average",
-        "Average"
-      ]
-    },
-    "dubious": {
-      "values": [
-        "Below Average"
-      ]
-    },
-    "poor": {
-      "values": [
-        "Poor"
-      ]
-    }
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "seeing": {
-    "excellent": {
-      "values": [
-        "Excellent 5/5",
-        "Good 4/5",
-        "Average 3/5"
-      ]
-    },
-    "dubious": {
-      "values": [
-        "Poor 2/5"
-      ]
-    },
-    "poor": {
-      "values": [
-        "Bad 1/5"
-      ]
-    }
-  },
-  "ecmwfCloud": {
-    "excellent": {
-      "values": [
-        "Clear Sky"
-      ]
-    },
-    "dubious": {
-      "values": [
-        "Cloud 25%"
-      ]
-    },
-    "poor": {
-      "values": [
-        "Cloud 50%",
-        "Cloud 75%",
-        "Overcast"
-      ]
-    }
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "smoke": {
-    "excellent": {
-      "min": 0,
-      "max": 20
-    },
-    "dubious": {
-      "min": 21,
-      "max": 100
-    },
-    "poor": {
-      "min": 101,
-      "max": 500
-    }
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
   "wind": {
-    "excellent": {
-      "min": 0,
-      "max": 11
-    },
-    "dubious": {
-      "min": 12,
-      "max": 16
-    },
-    "poor": {
-      "min": 17,
-      "max": 100
-    }
+    "excellent": { "min": 4, "max": 5 },
+    "good": { "min": 3, "max": 3 },
+    "dubious": { "min": 2, "max": 2 },
+    "poor": { "min": 1, "max": 1 }
   },
-  "humidity": {
-    "excellent": {
-      "min": 0,
-      "max": 100
-    },
-    "dubious": {
-      "min": 101,
-      "max": 100
-    },
-    "poor": {
-      "min": 101,
-      "max": 100
-    }
-  },
-  "temperature": {
-    "excellent": {
-      "min": -50,
-      "max": 120
-    },
-    "dubious": {
-      "min": 121,
-      "max": 120
-    },
-    "poor": {
-      "min": 121,
-      "max": 120
-    }
-  },
-  "darkness": {
-    "enabled": false,
-    "excellent": {
-      "min": -10,
-      "max": -4
-    },
-    "dubious": {
-      "min": -3.9,
-      "max": -6
-    },
-    "poor": {
-      "min": -5.9,
-      "max": 6.4
-    }
-  },
-  "heuristic": "floor"
+  "heuristic": "weighted"
 }

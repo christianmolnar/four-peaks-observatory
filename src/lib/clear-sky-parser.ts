@@ -1,14 +1,18 @@
 // Clear Sky Chart parser for real astronomical weather data
 import sharp from 'sharp';
+import { mapRgbToSeeingRating } from './clear-sky-color-scale';
+import { DEFAULT_CHART_CONFIG } from './chart-config';
 
 export interface ClearSkyCondition {
   time: string;
-  cloudCover: number; // 0-100%
-  transparency: number; // 1-5 scale
-  seeingRating: number; // 1-5 scale
-  temperature: number; // Celsius
-  humidity: number; // 0-100%
-  windSpeed: number; // mph
+  cloudCover: number; // 1-5 scale (5=excellent, 1=poor)
+  transparency: number; // 1-5 scale (5=excellent, 1=poor)
+  seeingRating: number; // 1-5 scale (5=excellent, 1=poor)
+  smoke: number; // 1-5 scale (5=excellent, 1=poor)
+  windSpeed: number; // 1-5 scale (5=excellent, 1=poor)
+  // Legacy fields for compatibility
+  temperature: number;
+  humidity: number;
 }
 
 export interface ClearSkyForecastData {
@@ -26,10 +30,10 @@ export function parseClearSkyChartUrl(url: string) {
   // Check if it's a direct GIF URL first
   const gifMatch = url.match(/\/c\/([^\/\?]+)csk\.gif/);
   if (gifMatch) {
-    const chartId = gifMatch[1]; // e.g., "BgNstObTN" from BgNstObTNcsk.gif
+    const chartId = gifMatch[1]; // e.g., "DyrsbrgTN" from DyrsbrgTNcsk.gif
     return {
       chartId,
-      imageUrl: url, // Use the provided GIF URL directly
+      imageUrl: url.split('?')[0], // Remove query parameters for clean URL
       dataUrl: `https://www.cleardarksky.com/c/${chartId}key.html` // Generate corresponding HTML URL
     };
   }
@@ -57,22 +61,27 @@ export function parseClearSkyChartUrl(url: string) {
  */
 export async function fetchClearSkyChartData(chartUrl: string): Promise<ClearSkyForecastData> {
   try {
-    // Fetch the actual chart page to get location name
-    const pageResponse = await fetch(chartUrl);
-    if (!pageResponse.ok) {
-      throw new Error(`Failed to fetch chart page: ${pageResponse.status}`);
+    const { chartId, imageUrl, dataUrl } = parseClearSkyChartUrl(chartUrl);
+    
+    let location = 'Unknown Location';
+    
+    // Try to get location name from HTML page if available
+    try {
+      const pageResponse = await fetch(dataUrl);
+      if (pageResponse.ok) {
+        const html = await pageResponse.text();
+        const locationMatch = html.match(/<title>(.+?) Clear Sky Chart/);
+        if (locationMatch) {
+          location = locationMatch[1];
+        }
+      }
+    } catch (error) {
+      console.warn('Could not fetch location name from HTML page:', error);
+      // Extract location from chart ID if possible
+      location = chartId.replace(/([A-Z])/g, ' $1').trim() || 'Observatory Location';
     }
     
-    const html = await pageResponse.text();
-    const locationMatch = html.match(/<title>(.+?) Clear Sky Chart/);
-    const location = locationMatch ? locationMatch[1] : 'Unknown Location';
-    
-    // Extract the image URL from the config instead of generating it
-    // The config should have the correct image URL with cache parameters
-    const { chartId } = parseClearSkyChartUrl(chartUrl);
-    const imageUrl = `https://www.cleardarksky.com/c/${chartId}csk.gif?c=774043`;
-    
-    // Parse the actual chart image
+    // Parse the actual chart image (use the clean imageUrl without query params)
     const forecast = await parseClearSkyChartImage(imageUrl);
     
     return {
@@ -121,14 +130,36 @@ async function parseClearSkyChartImage(imageUrl: string): Promise<ClearSkyCondit
  */
 async function analyzeImageWithSharp(imageBuffer: Buffer): Promise<ClearSkyCondition[]> {
   try {
+    // Add color mapping test for debugging
+    console.log("\n=== TESTING COLOR MAPPINGS ===");
+    testColorMappings();
+    console.log("=== END COLOR MAPPING TEST ===\n");
+    
     // Get image metadata and pixel data
     const image = sharp(imageBuffer);
     const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
     
     console.log(`[Sharp] Image dimensions: ${info.width}x${info.height}, channels: ${info.channels}`);
     
-    // Clear Sky Chart standard layout analysis
-    const chartLayout = analyzeChartLayout(info.width, info.height);
+    // Create a debug image with markers showing where we sample pixels
+    await createDebugImageWithMarkers(imageBuffer, info);
+    
+    // DEBUGGING: Test specific pixel sampling to verify we're reading the right areas
+    console.log("=== PIXEL SAMPLING DEBUG ===");
+    const testX = Math.floor(info.width * 0.5); // Middle of image
+    const testRows = [
+      { name: "Row at 30%", y: Math.floor(info.height * 0.30) },
+      { name: "Row at 35%", y: Math.floor(info.height * 0.35) },
+      { name: "Row at 40%", y: Math.floor(info.height * 0.40) },
+      { name: "Row at 45%", y: Math.floor(info.height * 0.45) },
+    ];
+    
+    testRows.forEach(row => {
+      const pixel = analyzePixelRow(data, info, testX, row.y, 5);
+      const cloudRating = mapRgbToSeeingRating(pixel);
+      console.log(`${row.name} (y=${row.y}): RGB(${pixel.r},${pixel.g},${pixel.b}) → ${cloudRating}/5 rating`);
+    });
+    console.log("=== END PIXEL DEBUG ===");
     
     // Extract hourly forecast data
     const forecast: ClearSkyCondition[] = [];
@@ -139,22 +170,59 @@ async function analyzeImageWithSharp(imageBuffer: Buffer): Promise<ClearSkyCondi
       const time = new Date(currentTime.getTime() + (hour * 60 * 60 * 1000));
       const hourString = formatTime(time);
       
-      // Calculate column position for this hour
-      const columnX = chartLayout.dataStartX + (hour * chartLayout.columnWidth);
+      // Use precise coordinates from DEFAULT_CHART_CONFIG for each hour
+      const config = DEFAULT_CHART_CONFIG;
       
-      // Sample pixels from each parameter row
-      const cloudCover = analyzePixelRow(data, info, columnX, chartLayout.cloudCoverRow, chartLayout.rowHeight);
-      const transparency = analyzePixelRow(data, info, columnX, chartLayout.transparencyRow, chartLayout.rowHeight);
-      const seeing = analyzePixelRow(data, info, columnX, chartLayout.seeingRow, chartLayout.rowHeight);
+      // Calculate precise X coordinate for this hour
+      const hourX = config.parameters.cloudCover.x + (hour * config.hourlySpacing);
+      
+      // Sample pixels using precise coordinates for each parameter
+      const cloudCover = analyzePixelRow(data, info, hourX, config.parameters.cloudCover.y, 3);
+      const transparency = analyzePixelRow(data, info, hourX, config.parameters.transparency.y, 3);
+      const seeing = analyzePixelRow(data, info, hourX, config.parameters.seeing.y, 3);
+      
+      // DEBUG: Log RGB values being sampled
+      if (hour <= 2) {
+        console.log(`[Hour ${hour}] Sampling coordinates:`);
+        console.log(`  CloudCover at (${hourX}, ${config.parameters.cloudCover.y}): RGB(${cloudCover.r},${cloudCover.g},${cloudCover.b})`);
+        console.log(`  Transparency at (${hourX}, ${config.parameters.transparency.y}): RGB(${transparency.r},${transparency.g},${transparency.b})`);
+        console.log(`  Seeing at (${hourX}, ${config.parameters.seeing.y}): RGB(${seeing.r},${seeing.g},${seeing.b})`);
+        console.log(`  Image dimensions: ${info.width}x${info.height}`);
+      }
+      const smoke = analyzePixelRow(data, info, hourX, config.parameters.smoke.y, 3);
+      const wind = analyzePixelRow(data, info, hourX, config.parameters.wind.y, 3);
+      
+      // Map colors to 1-5 ratings using unified RGB color scale (dark blue = excellent, white = poor)
+      const cloudRating = mapRgbToSeeingRating(cloudCover);
+      const transparencyRating = mapRgbToSeeingRating(transparency);
+      const seeingRating = mapRgbToSeeingRating(seeing);
+      const smokeRating = mapRgbToSeeingRating(smoke);
+      const windRating = mapRgbToSeeingRating(wind);
+      
+      // DEBUG: Log direct 1-5 ratings
+      if (hour <= 3) {
+        console.log(`[Hour ${hour}] Direct 1-5 Ratings:`);
+        console.log(`  Cloud: RGB(${cloudCover.r},${cloudCover.g},${cloudCover.b}) → ${cloudRating}/5`);
+        console.log(`  Transparency: RGB(${transparency.r},${transparency.g},${transparency.b}) → ${transparencyRating}/5`);
+        console.log(`  Seeing: RGB(${seeing.r},${seeing.g},${seeing.b}) → ${seeingRating}/5`);
+        console.log(`  Smoke: RGB(${smoke.r},${smoke.g},${smoke.b}) → ${smokeRating}/5`);
+        console.log(`  Wind: RGB(${wind.r},${wind.g},${wind.b}) → ${windRating}/5`);
+      }
+      
+      // Log mapped values for first few hours
+      if (hour < 5) {
+        console.log(`[Sharp] Hour ${hour} - All 1-5 scale: Cloud=${cloudRating}/5, Trans=${transparencyRating}/5, Seeing=${seeingRating}/5`);
+      }
       
       forecast.push({
         time: hourString,
-        cloudCover: mapCloudCoverColor(cloudCover),
-        transparency: mapTransparencyColor(transparency),
-        seeingRating: mapSeeingColor(seeing),
-        temperature: 10, // Default value - not available in chart
-        humidity: 50,    // Default value - not available in chart  
-        windSpeed: 5     // Default value - not available in chart
+        cloudCover: cloudRating,        // 1-5 scale (5=excellent, 1=poor)
+        transparency: transparencyRating, // 1-5 scale (5=excellent, 1=poor)
+        seeingRating: seeingRating,     // 1-5 scale (5=excellent, 1=poor)
+        smoke: smokeRating,             // 1-5 scale (5=excellent, 1=poor)
+        windSpeed: windRating,          // 1-5 scale (5=excellent, 1=poor)
+        temperature: 4,                 // Default good temperature (legacy compatibility)
+        humidity: 4                     // Default good humidity (legacy compatibility)
       });
     }
     
@@ -166,27 +234,10 @@ async function analyzeImageWithSharp(imageBuffer: Buffer): Promise<ClearSkyCondi
 }
 
 /**
- * Analyze the layout structure of a Clear Sky Chart
- */
-function analyzeChartLayout(width: number, height: number) {
-  // Standard Clear Sky Chart layout (approximate values)
-  return {
-    dataStartX: Math.floor(width * 0.08),        // ~8% from left edge
-    dataWidth: Math.floor(width * 0.84),         // ~84% of total width  
-    columnWidth: Math.floor(width * 0.84 / 48),  // 48 columns for 48 hours
-    
-    cloudCoverRow: Math.floor(height * 0.32),    // ~32% from top
-    transparencyRow: Math.floor(height * 0.42),  // ~42% from top
-    seeingRow: Math.floor(height * 0.52),        // ~52% from top
-    rowHeight: Math.floor(height * 0.08),        // ~8% row height
-  };
-}
-
-/**
  * Analyze pixel colors in a specific row and column
  */
 function analyzePixelRow(
-  pixelData: Buffer, 
+  data: Buffer, 
   info: { width: number; height: number; channels: number }, 
   columnX: number, 
   rowY: number, 
@@ -195,21 +246,29 @@ function analyzePixelRow(
   
   // Sample multiple pixels in the cell and average the color
   const samples: { r: number; g: number; b: number }[] = [];
-  const sampleCount = 5;
   
-  for (let i = 0; i < sampleCount; i++) {
-    const x = Math.floor(columnX + (i * 2)); // Sample across column width
-    const y = Math.floor(rowY + (rowHeight / 2)); // Sample middle of row
-    
-    // Ensure we don't go out of bounds
-    if (x >= 0 && x < info.width && y >= 0 && y < info.height) {
-      const pixelIndex = (y * info.width + x) * info.channels;
+  // Sample a grid of pixels within the cell for better accuracy
+  const gridSize = 3; // 3x3 sampling grid
+  const halfGrid = Math.floor(gridSize / 2);
+  
+  for (let dy = -halfGrid; dy <= halfGrid; dy++) {
+    for (let dx = -halfGrid; dx <= halfGrid; dx++) {
+      const x = Math.floor(columnX + dx * 2); // Spread out samples
+      const y = Math.floor(rowY + (rowHeight / 2) + dy); // Center on row middle
       
-      samples.push({
-        r: pixelData[pixelIndex] || 0,
-        g: pixelData[pixelIndex + 1] || 0,
-        b: pixelData[pixelIndex + 2] || 0
-      });
+      // Ensure we don't go out of bounds
+      if (x >= 0 && x < info.width && y >= 0 && y < info.height) {
+        const pixelIndex = (y * info.width + x) * info.channels;
+        
+        // Ensure pixel index is valid
+        if (pixelIndex + 2 < data.length) {
+          samples.push({
+            r: data[pixelIndex] || 0,
+            g: data[pixelIndex + 1] || 0,
+            b: data[pixelIndex + 2] || 0
+          });
+        }
+      }
     }
   }
   
@@ -226,70 +285,10 @@ function analyzePixelRow(
 }
 
 /**
- * Map cloud cover pixel color to percentage (0-100%)
+ * NOTE: All color mapping now uses the unified RGB color scale from clear-sky-color-scale.ts
+ * The scale follows the Clear Sky Chart standard: Dark Blue = Excellent, White = Poor
+ * Individual mapping functions have been removed in favor of mapRgbToSeeingRating()
  */
-export function mapCloudCoverColor(color: { r: number; g: number; b: number }): number {
-  const { r, g, b } = color;
-  
-  // Clear Sky Chart cloud cover color mapping
-  if (isColorMatch(r, g, b, 0, 0, 128)) return 0;      // Dark blue = clear (0%)
-  if (isColorMatch(r, g, b, 64, 128, 255)) return 15;  // Light blue = 10-25%
-  if (isColorMatch(r, g, b, 128, 192, 255)) return 35; // Lighter blue = 25-50%
-  if (isColorMatch(r, g, b, 255, 255, 255)) return 65; // White = 50-75%
-  if (isColorMatch(r, g, b, 192, 192, 192)) return 85; // Light gray = 75-90%
-  if (isColorMatch(r, g, b, 128, 128, 128)) return 95; // Dark gray = 90-100%
-  
-  // Default based on brightness
-  const brightness = (r + g + b) / 3;
-  return Math.round((brightness / 255) * 100);
-}
-
-/**
- * Map transparency pixel color to 1-5 scale
- */
-export function mapTransparencyColor(color: { r: number; g: number; b: number }): number {
-  const { r, g, b } = color;
-  
-  // Clear Sky Chart transparency color mapping (reverse of cloud cover)
-  if (isColorMatch(r, g, b, 255, 255, 255)) return 1;  // White = too cloudy (1)
-  if (isColorMatch(r, g, b, 224, 224, 224)) return 2;  // Light gray = poor (2)
-  if (isColorMatch(r, g, b, 160, 160, 160)) return 2;  // Med gray = below avg (2)
-  if (isColorMatch(r, g, b, 64, 128, 255)) return 3;   // Light blue = average (3)
-  if (isColorMatch(r, g, b, 0, 64, 255)) return 4;     // Med blue = above avg (4)
-  if (isColorMatch(r, g, b, 0, 0, 128)) return 5;      // Dark blue = excellent (5)
-  
-  // Default based on blue intensity (more blue = better transparency)
-  const blueRatio = b / Math.max(r + g + b, 1);
-  return Math.max(1, Math.min(5, Math.round(1 + (blueRatio * 4))));
-}
-
-/**
- * Map seeing pixel color to 1-5 scale
- */
-export function mapSeeingColor(color: { r: number; g: number; b: number }): number {
-  const { r, g, b } = color;
-  
-  // Clear Sky Chart seeing color mapping (same as transparency)
-  if (isColorMatch(r, g, b, 255, 255, 255)) return 1;  // White = too cloudy (1)
-  if (isColorMatch(r, g, b, 224, 224, 224)) return 1;  // Light gray = bad (1)
-  if (isColorMatch(r, g, b, 160, 160, 160)) return 2;  // Med gray = poor (2)
-  if (isColorMatch(r, g, b, 64, 128, 255)) return 3;   // Light blue = average (3)
-  if (isColorMatch(r, g, b, 0, 64, 255)) return 4;     // Med blue = good (4)
-  if (isColorMatch(r, g, b, 0, 0, 128)) return 5;      // Dark blue = excellent (5)
-  
-  // Default based on blue intensity
-  const blueRatio = b / Math.max(r + g + b, 1);
-  return Math.max(1, Math.min(5, Math.round(1 + (blueRatio * 4))));
-}
-
-/**
- * Check if color matches target with tolerance
- */
-function isColorMatch(r: number, g: number, b: number, targetR: number, targetG: number, targetB: number, tolerance: number = 30): boolean {
-  return Math.abs(r - targetR) <= tolerance && 
-         Math.abs(g - targetG) <= tolerance && 
-         Math.abs(b - targetB) <= tolerance;
-}
 
 /**
  * Format time as HH:MM string
@@ -388,4 +387,95 @@ function generateConditionReason(condition: ClearSkyCondition, quality: string):
     return 'Marginal conditions, some observations possible';
   }
   return 'Clear skies with good transparency and seeing';
+}
+
+/**
+ * Test color mappings for debugging
+ */
+export function testColorMappings() {
+  // Test exact colors that should appear in white/gray areas
+  const testColors = [
+    { name: "Pure White", r: 255, g: 255, b: 255 },
+    { name: "Light Gray", r: 245, g: 245, b: 245 },
+    { name: "Medium Gray", r: 224, g: 224, b: 224 },
+    { name: "Dark Gray", r: 192, g: 192, b: 192 },
+    { name: "Off White", r: 248, g: 248, b: 248 },
+    { name: "Very Light Gray", r: 240, g: 240, b: 240 },
+    { name: "Dark Blue", r: 0, g: 0, b: 128 },
+    { name: "Medium Blue", r: 64, g: 128, b: 255 },
+  ];
+  
+  console.log("=== COLOR MAPPING TEST ===");
+  testColors.forEach(color => {
+    const cloudRating = mapRgbToSeeingRating(color);
+    const transRating = mapRgbToSeeingRating(color);
+    const seeingRating = mapRgbToSeeingRating(color);
+    console.log(`${color.name} (${color.r},${color.g},${color.b}): Cloud=${cloudRating}/5, Trans=${transRating}/5, Seeing=${seeingRating}/5`);
+  });
+  console.log("=== END TEST ===");
+}
+
+/**
+ * Create a debug image with markers showing where pixels are sampled
+ */
+async function createDebugImageWithMarkers(imageBuffer: Buffer, info: { width: number; height: number }): Promise<void> {
+  try {
+    // Create a copy of the original image
+    const debugImage = sharp(imageBuffer);
+    
+    // Standard row positions based on image analysis
+    const dataStartX = Math.floor(info.width * 0.12);
+    const dataWidth = Math.floor(info.width * 0.75);
+    
+    // Test positions for each factor row - CORRECTED based on actual chart
+    const rowPositions = [
+      { name: "Cloud Cover", y: Math.floor(info.height * 0.19), color: "#FF0000" },      // 1st row - WHITE/GRAY
+      { name: "ECMWF Cloud", y: Math.floor(info.height * 0.26), color: "#FF8800" },      // 2nd row - BLUE
+      { name: "Transparency", y: Math.floor(info.height * 0.33), color: "#00FF00" },     // 3rd row - WHITE
+      { name: "Seeing", y: Math.floor(info.height * 0.40), color: "#0000FF" },           // 4th row - WHITE/BLUE
+      { name: "Darkness", y: Math.floor(info.height * 0.47), color: "#FF00FF" },         // 5th row - BLUE (varies day/night)
+      { name: "Smoke", y: Math.floor(info.height * 0.54), color: "#FFFF00" },            // 6th row - BLUE
+      { name: "Wind", y: Math.floor(info.height * 0.61), color: "#00FFFF" },             // 7th row - BLUE (varies)
+      { name: "Humidity", y: Math.floor(info.height * 0.68), color: "#FFA500" },         // 8th row - RED!!!
+      { name: "Temperature", y: Math.floor(info.height * 0.75), color: "#800080" }       // 9th row - GREEN/YELLOW/RED
+    ];
+    
+    // Create SVG overlay with markers
+    let svgOverlay = `<svg width="${info.width}" height="${info.height}">`;
+    
+    rowPositions.forEach(row => {
+      // Add horizontal line across the row
+      svgOverlay += `<line x1="${dataStartX}" y1="${row.y}" x2="${dataStartX + dataWidth}" y2="${row.y}" stroke="${row.color}" stroke-width="2" opacity="0.7"/>`;
+      
+      // Add label
+      svgOverlay += `<text x="${dataStartX - 10}" y="${row.y + 5}" fill="${row.color}" font-size="12" font-weight="bold" text-anchor="end">${row.name}</text>`;
+      
+      // Add sample points every few columns
+      for (let col = 0; col < 12; col++) {
+        const x = dataStartX + (col * Math.floor(dataWidth / 12));
+        svgOverlay += `<circle cx="${x}" cy="${row.y}" r="3" fill="${row.color}" opacity="0.8"/>`;
+      }
+    });
+    
+    svgOverlay += '</svg>';
+    
+    // Composite the markers onto the image
+    await debugImage
+      .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
+      .png()
+      .toBuffer();
+    
+    // Save debug image (you can save this to inspect visually)
+    console.log("[DEBUG] Debug image with sampling markers created");
+    
+    // Log the row positions being used
+    console.log("=== ROW SAMPLING POSITIONS ===");
+    rowPositions.forEach(row => {
+      console.log(`${row.name}: y=${row.y} (${Math.round((row.y / info.height) * 100)}% from top)`);
+    });
+    console.log("=== END ROW POSITIONS ===");
+    
+  } catch (error) {
+    console.error("[DEBUG] Failed to create debug image:", error);
+  }
 }

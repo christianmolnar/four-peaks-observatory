@@ -6,6 +6,14 @@
     "scheduledTime": "10:00",
     "timezone": "America/Los_Angeles"
   },
+  "sms": {
+    "enabled": true,
+    "defaultRecipient": "",
+    "scheduledTime": "10:00",
+    "timezone": "America/Los_Angeles",
+    "includeBrief": true,
+    "includeWeatherWarnings": true
+  },
   "notification": {
     "subject": "🔭 Daily Observatory Report",
     "fromName": "Maple Valley Observatory",

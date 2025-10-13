@@ -105,7 +105,7 @@ describe('Observation Evaluation API', () => {
   
   it('should return successful observation recommendation', async () => {
     const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
-    const response = await GET();
+    const response = await GET(request);
     
     expect(response.status).toBe(200);
     
@@ -126,7 +126,8 @@ describe('Observation Evaluation API', () => {
   });
   
   it('should include AI recommendation data when available', async () => {
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     const data = await response.json();
     
     expect(data.recommendation.aiConfidence).toBe(0.85);
@@ -141,7 +142,8 @@ describe('Observation Evaluation API', () => {
     const { fetchClearSkyChartData } = require('../src/lib/clear-sky-parser');
     fetchClearSkyChartData.mockRejectedValueOnce(new Error('Chart parsing failed'));
     
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     
     expect(response.status).toBe(500);
     
@@ -156,7 +158,8 @@ describe('Observation Evaluation API', () => {
     const { getAIObservingRecommendation } = require('../src/lib/ai-recommendations');
     getAIObservingRecommendation.mockRejectedValueOnce(new Error('AI service unavailable'));
     
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     const data = await response.json();
     
     // Should still succeed with rule-based analysis
@@ -167,7 +170,8 @@ describe('Observation Evaluation API', () => {
   });
   
   it('should properly group consecutive time windows', async () => {
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     const data = await response.json();
     
     const timeWindows = data.recommendation.timeWindows;
@@ -184,7 +188,8 @@ describe('Observation Evaluation API', () => {
   });
   
   it('should return valid overall rating', async () => {
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     const data = await response.json();
     
     const overall = data.recommendation.overall;
@@ -192,7 +197,8 @@ describe('Observation Evaluation API', () => {
   });
   
   it('should include proper observing window information', async () => {
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     const data = await response.json();
     
     expect(data.observingWindow).toHaveProperty('start');
@@ -202,7 +208,8 @@ describe('Observation Evaluation API', () => {
   });
   
   it('should include sun times information', async () => {
-    const response = await GET();
+    const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+    const response = await GET(request);
     const data = await response.json();
     
     expect(data.sunTimes).toHaveProperty('sunset');
@@ -217,7 +224,8 @@ describe('Observation Evaluation API', () => {
         throw new Error('ENOENT: no such file or directory');
       });
       
-      const response = await GET();
+      const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+      const response = await GET(request);
       
       expect(response.status).toBe(500);
       const data = await response.json();
@@ -228,7 +236,8 @@ describe('Observation Evaluation API', () => {
       const fs = require('fs');
       fs.readFileSync.mockReturnValue('invalid json');
       
-      const response = await GET();
+      const request = new NextRequest('http://localhost:3000/api/observation-evaluate');
+      const response = await GET(request);
       
       expect(response.status).toBe(500);
       const data = await response.json();

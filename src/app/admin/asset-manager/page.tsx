@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { globalConfig } from "@/config/global";
+import ObservationModuleCustom from "@/components/ObservationModuleCustom";
 
 // Type definitions for different image schemas
 interface BaseImageData {
@@ -67,18 +68,8 @@ interface ObservationCriteriaConfig {
     max: 4; 
     labels: string[];
   };
-  ecmwfCloud: RangeConfig & { 
-    min: 0; 
-    max: 4; 
-    labels: string[];
-  };
-  darkness: {
-    enabled: boolean;
-  } & RangeConfig & { min: -10; max: 6.4 };
   smoke: RangeConfig & { min: 0; max: 500 };
   wind: RangeConfig & { min: 0; max: 100 };
-  humidity: RangeConfig & { min: 0; max: 100 };
-  temperature: RangeConfig & { min: -50; max: 120 };
   heuristic: 'floor' | 'average' | 'weighted';
 }
 
@@ -103,20 +94,6 @@ const defaultObservationConfig: ObservationCriteriaConfig = {
     dubiousMax: 3,       // 3 = Dubious (2/5), 4 = Poor (1/5)
     labels: ['Excellent 5/5', 'Good 4/5', 'Average 3/5', 'Poor 2/5', 'Bad 1/5']
   },
-  ecmwfCloud: {
-    min: 0,
-    max: 4,
-    excellentMax: 0,     // 0 = Excellent (Clear Sky)
-    dubiousMax: 1,       // 1 = Dubious (Cloud 25%), 2-4 = Poor
-    labels: ['Clear Sky', 'Cloud 25%', 'Cloud 50%', 'Cloud 75%', 'Overcast']
-  },
-  darkness: {
-    enabled: false,
-    min: -10,
-    max: 6.4,
-    excellentMax: -4,    // -10 to -4 = Excellent
-    dubiousMax: -6       // -6 to -4.1 = Dubious, -6 to 6.4 = Poor
-  },
   smoke: {
     min: 0,
     max: 500,
@@ -128,18 +105,6 @@ const defaultObservationConfig: ObservationCriteriaConfig = {
     max: 100,
     excellentMax: 11,    // 0-11 = Excellent
     dubiousMax: 16       // 12-16 = Dubious, 17-100 = Poor
-  },
-  humidity: {
-    min: 0,
-    max: 100,
-    excellentMax: 100,   // 0-100 = Excellent (no humidity restrictions)
-    dubiousMax: 100      // No dubious or poor ranges
-  },
-  temperature: {
-    min: -50,
-    max: 120,
-    excellentMax: 120,   // -50 to 120 = Excellent (no temp restrictions)
-    dubiousMax: 120      // No dubious or poor ranges
   },
   heuristic: 'floor'
 };
@@ -301,7 +266,7 @@ function ObservationCriteriaTab() {
   const saveConfig = async () => {
     setSaving(true);
     try {
-      // Convert new format to old format for API compatibility
+      // Convert new format to old format for API compatibility - 5 key factors only
       const legacyConfig = {
         cloudCover: {
           excellent: { min: config.cloudCover.min, max: config.cloudCover.excellentMax },
@@ -318,11 +283,6 @@ function ObservationCriteriaTab() {
           dubious: { values: config.seeing.labels.slice(config.seeing.excellentMax + 1, config.seeing.dubiousMax + 1) },
           poor: { values: config.seeing.labels.slice(config.seeing.dubiousMax + 1) }
         },
-        ecmwfCloud: {
-          excellent: { values: config.ecmwfCloud.labels.slice(0, config.ecmwfCloud.excellentMax + 1) },
-          dubious: { values: config.ecmwfCloud.labels.slice(config.ecmwfCloud.excellentMax + 1, config.ecmwfCloud.dubiousMax + 1) },
-          poor: { values: config.ecmwfCloud.labels.slice(config.ecmwfCloud.dubiousMax + 1) }
-        },
         smoke: {
           excellent: { min: config.smoke.min, max: config.smoke.excellentMax },
           dubious: { min: config.smoke.excellentMax + 1, max: config.smoke.dubiousMax },
@@ -332,22 +292,6 @@ function ObservationCriteriaTab() {
           excellent: { min: config.wind.min, max: config.wind.excellentMax },
           dubious: { min: config.wind.excellentMax + 1, max: config.wind.dubiousMax },
           poor: { min: config.wind.dubiousMax + 1, max: config.wind.max }
-        },
-        humidity: {
-          excellent: { min: config.humidity.min, max: config.humidity.excellentMax },
-          dubious: { min: config.humidity.excellentMax + 1, max: config.humidity.dubiousMax },
-          poor: { min: config.humidity.dubiousMax + 1, max: config.humidity.max }
-        },
-        temperature: {
-          excellent: { min: config.temperature.min, max: config.temperature.excellentMax },
-          dubious: { min: config.temperature.excellentMax + 1, max: config.temperature.dubiousMax },
-          poor: { min: config.temperature.dubiousMax + 1, max: config.temperature.max }
-        },
-        darkness: {
-          enabled: config.darkness.enabled,
-          excellent: { min: config.darkness.min, max: config.darkness.excellentMax },
-          dubious: { min: config.darkness.excellentMax + 0.1, max: config.darkness.dubiousMax },
-          poor: { min: config.darkness.dubiousMax + 0.1, max: config.darkness.max }
         },
         heuristic: config.heuristic
       };
@@ -515,33 +459,9 @@ function ObservationCriteriaTab() {
             })}
           />
 
-          {/* ECMWF Cloud Model */}
-          <RangeSlider
-            title="🌥️ ECMWF Cloud Model"
-            description="European weather model cloud predictions: Clear Sky (Excellent), Cloud 25% (Dubious), 50%+ (Poor)"
-            config={config.ecmwfCloud}
-            labels={config.ecmwfCloud.labels}
-            onChange={(newRange) => setConfig({
-              ...config,
-              ecmwfCloud: { ...config.ecmwfCloud, ...newRange }
-            })}
-          />
-
-          {/* Wind Speed */}
-          <RangeSlider
-            title="💨 Wind Speed"
-            description="Clear Sky Chart Scale: Blue=0-11 mph (Excellent), Green=12-16 mph (Dubious), Yellow/Red=17+ mph (Poor)"
-            config={config.wind}
-            unit=" mph"
-            onChange={(newRange) => setConfig({
-              ...config,
-              wind: { ...config.wind, ...newRange }
-            })}
-          />
-
           {/* Smoke */}
           <RangeSlider
-            title="🔥 Smoke"
+            title="� Smoke"
             description="Clear Sky Chart Scale: Blue=0-20 μg/m³ (Excellent), Green=21-100 μg/m³ (Dubious), Yellow/Red=101+ μg/m³ (Poor)"
             config={config.smoke}
             unit=" μg/m³"
@@ -551,62 +471,28 @@ function ObservationCriteriaTab() {
             })}
           />
 
-          {/* Humidity */}
+          {/* Wind Speed */}
           <RangeSlider
-            title="💧 Humidity"
-            description="Currently configured as excellent across full range (humidity has minimal observing impact for most targets)"
-            config={config.humidity}
-            unit="%"
+            title="� Wind Speed"
+            description="Clear Sky Chart Scale: Blue=0-11 mph (Excellent), Green=12-16 mph (Dubious), Yellow/Red=17+ mph (Poor)"
+            config={config.wind}
+            unit=" mph"
             onChange={(newRange) => setConfig({
               ...config,
-              humidity: { ...config.humidity, ...newRange }
+              wind: { ...config.wind, ...newRange }
             })}
           />
-
-          {/* Temperature */}
-          <RangeSlider
-            title="🌡️ Temperature"
-            description="Currently configured as excellent across full range (temperature has minimal observing impact for most targets)"
-            config={config.temperature}
-            unit="°F"
-            onChange={(newRange) => setConfig({
-              ...config,
-              temperature: { ...config.temperature, ...newRange }
-            })}
-          />
-
-          {/* Darkness (optional) */}
-          <div className={`bg-white/5 rounded-lg p-4 border border-white/10 ${!config.darkness.enabled ? 'opacity-50' : ''}`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">🌙 Darkness/Light Pollution</h3>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={config.darkness.enabled}
-                  onChange={(e) => setConfig({
-                    ...config,
-                    darkness: { ...config.darkness, enabled: e.target.checked }
-                  })}
-                  className="text-blue-500 bg-white/10 border-white/30 rounded"
-                />
-                <span className="text-white/70 text-sm">Enable</span>
-              </label>
+          
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mt-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-blue-400">ℹ️</span>
+              <h4 className="text-blue-300 font-semibold">Simplified Configuration</h4>
             </div>
-            <p className="text-white/60 text-sm mb-3">
-              <strong>Note:</strong> Disabled by default as most observations are done from light-polluted locations. 
-              Enable if you want to factor in SQM readings or Bortle scale considerations.
+            <p className="text-blue-200/80 text-sm">
+              Configuration simplified to 5 key factors that share the same color scale. 
+              Removed: ECMWF Cloud, Darkness, Humidity, Temperature (as requested).
+              Weight defaults: Cloud Cover 50%, Transparency 25%, Seeing 25%, Smoke/Wind 0%.
             </p>
-            {config.darkness.enabled && (
-              <RangeSlider
-                title=""
-                description="SQM readings or Bortle scale values"
-                config={config.darkness}
-                onChange={(newRange) => setConfig({
-                  ...config,
-                  darkness: { ...config.darkness, ...newRange }
-                })}
-              />
-            )}
           </div>
         </div>
       </div>
@@ -639,7 +525,7 @@ export default function AssetManagerPage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
-  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation' | 'email' | 'clearsky'>('metadata');
+  const [activeTab, setActiveTab] = useState<'metadata' | 'contemplation' | 'observation' | 'email' | 'sms' | 'clearsky'>('metadata');
   
   // Bulk selection state
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -650,12 +536,19 @@ export default function AssetManagerPage() {
   const [fileSystemData, setFileSystemData] = useState<any>(null);
   
   // Clear Sky Analysis state
-  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/DvFrkSPSCcsk.html');
+  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/MplVllyObWAkey.html');
   const [clearSkyAnalysis, setClearSkyAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string>("");
+
+  // SMS state
+  const [sendingSMS, setSendingSMS] = useState<boolean>(false);
+  const [smsStatus, setSmsStatus] = useState<string>('');
+  const [smsError, setSmsError] = useState<string | null>(null);
+  const [customSMSRecipient, setCustomSMSRecipient] = useState<string>('');
+  const [customSMSMessage, setCustomSMSMessage] = useState<string>('');
 
   // Set default filter based on new images count
   useEffect(() => {
@@ -742,6 +635,60 @@ export default function AssetManagerPage() {
     }
   };
 
+  // Helper function to group consecutive time windows with same quality
+  const groupConsecutiveTimeWindows = (conditions: any[]) => {
+    if (!conditions || conditions.length === 0) return [];
+    
+    const grouped: string[] = [];
+    let currentGroup: any = null;
+    
+    conditions.forEach((condition, index) => {
+      if (!currentGroup || currentGroup.quality !== condition.quality) {
+        // Start new group
+        if (currentGroup) {
+          // Finish previous group
+          const startTime = currentGroup.startTime;
+          const endTime = currentGroup.endTime;
+          const duration = currentGroup.count;
+          grouped.push(`${startTime}-${endTime}: ${currentGroup.quality} (${duration}h) - ${currentGroup.reason}`);
+        }
+        
+        // Start new group
+        currentGroup = {
+          quality: condition.quality,
+          reason: condition.reason || `${condition.quality} conditions`,
+          startTime: condition.time,
+          endTime: condition.time,
+          count: 1
+        };
+      } else {
+        // Continue current group
+        currentGroup.endTime = condition.time;
+        currentGroup.count++;
+      }
+    });
+    
+    // Add final group
+    if (currentGroup) {
+      const startTime = currentGroup.startTime;
+      const endTime = currentGroup.endTime;
+      const duration = currentGroup.count;
+      grouped.push(`${startTime}-${endTime}: ${currentGroup.quality} (${duration}h) - ${currentGroup.reason}`);
+    }
+    
+    return grouped;
+  };
+
+  // Helper function to calculate quality counts
+  const calculateQualityCounts = (conditions: any[]) => {
+    if (!conditions) return {};
+    
+    return conditions.reduce((counts: any, condition: any) => {
+      counts[condition.quality] = (counts[condition.quality] || 0) + 1;
+      return counts;
+    }, {});
+  };
+
   // Clear Sky Analysis handler
   const handleAnalyzeClearSky = async () => {
     if (!clearSkyUrl.trim()) return;
@@ -751,46 +698,145 @@ export default function AssetManagerPage() {
     setClearSkyAnalysis(null);
     
     try {
-      // Call the observation-evaluate API with the custom Clear Sky Chart URL
-      const response = await fetch('/api/observation-evaluate', {
+      // Use the exact same GET endpoint as the main website, just with custom URL parameter
+      const url = clearSkyUrl.trim() 
+        ? `/api/observation-evaluate?customClearSkyUrl=${encodeURIComponent(clearSkyUrl)}`
+        : `/api/observation-evaluate`;
+      
+      const response = await fetch(url, {
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      console.log('API Response:', data); // Debug logging
+      
+      // Transform the data to match our display format
+      const analysisResult = {
+        success: data.success,
+        location: data.location || 'Unknown Location',
+        overall: data.recommendation?.overall || 'poor',
+        reasoning: data.recommendation?.summary || 'No analysis available',
+        confidence: data.recommendation?.aiConfidence || 0.5,
+        
+        // Group consecutive time windows with same quality
+        bestTimeWindows: groupConsecutiveTimeWindows(data.analysisData?.conditions || []),
+        
+        warnings: data.recommendation?.details?.weatherWarnings || [],
+        opportunities: data.recommendation?.timeWindows?.map((tw: any) => 
+          `${tw.start}-${tw.end}: ${tw.reason}`) || [],
+        
+        conditions: data.analysisData?.conditions || [],
+        
+        analysis: {
+          totalHours: data.analysisData?.conditions?.length || 0,
+          excellentHours: data.analysisData?.conditions?.filter((c: any) => c.quality === 'excellent')?.length || 0,
+          goodHours: data.analysisData?.conditions?.filter((c: any) => c.quality === 'good')?.length || 0,
+          dubiousHours: data.analysisData?.conditions?.filter((c: any) => c.quality === 'dubious')?.length || 0,
+          poorHours: data.analysisData?.conditions?.filter((c: any) => c.quality === 'poor')?.length || 0,
+          averageCloudCover: Math.round(data.analysisData?.conditions?.reduce((sum: number, c: any) => sum + (c.cloudCover || 0), 0) / (data.analysisData?.conditions?.length || 1) || 0),
+          averageSeeing: Math.round(data.analysisData?.conditions?.reduce((sum: number, c: any) => sum + (c.seeingRating || 0), 0) / (data.analysisData?.conditions?.length || 1) * 10) / 10 || 0
+        }
+      };
+      
+      setClearSkyAnalysis(analysisResult);
+      
+    } catch (error) {
+      console.error('Clear Sky analysis failed:', error);
+      setAnalysisError(error instanceof Error ? error.message : 'Analysis failed');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // SMS handler functions
+  const sendTestSMS = async () => {
+    setSendingSMS(true);
+    setSmsError(null);
+    setSmsStatus('Sending SMS...');
+    
+    try {
+      const response = await fetch('/api/send-sms-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          customClearSkyUrl: clearSkyUrl,
-          location: {
-            name: 'Custom Location',
-            latitude: 40.0,
-            longitude: -74.0,
-            timezone: 'America/New_York',
-            clearSkyChartUrl: clearSkyUrl
-          }
+          recipient: customSMSRecipient || undefined,
+          includeDetails: true
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Extract the analysis data properly
-        setClearSkyAnalysis({
-          overall: data.overall || 'unknown',
-          confidence: data.aiConfidence || 0.8,
-          reasoning: data.summary || data.aiReasoning || 'Analysis completed',
-          bestTimeWindows: data.timeWindows?.filter((w: any) => w.quality === 'excellent' || w.quality === 'good')?.map((w: any) => `${w.start} - ${w.end}: ${w.reason}`) || [],
-          opportunities: data.aiSuggestions?.opportunities || [],
-          warnings: data.aiSuggestions?.warnings || (data.overall === 'poor' || data.overall === 'dubious' ? ['Poor observing conditions detected'] : []),
-          conditions: data.conditions || []
-        });
+        setSmsStatus(`✅ SMS sent successfully! Message ID: ${data.messageSid}`);
       } else {
         const errorData = await response.json();
-        setAnalysisError(errorData.error || 'Failed to analyze Clear Sky Chart');
+        setSmsError(errorData.error || 'Failed to send SMS');
+        setSmsStatus('❌ SMS failed to send');
       }
     } catch (error) {
-      setAnalysisError('Network error during analysis');
-      console.error('Clear Sky Analysis error:', error);
+      setSmsError('Network error during SMS send');
+      setSmsStatus('❌ SMS failed to send');
+      console.error('SMS send error:', error);
     } finally {
-      setIsAnalyzing(false);
+      setSendingSMS(false);
+      
+      // Clear status after 5 seconds
+      setTimeout(() => {
+        setSmsStatus('');
+        setSmsError(null);
+      }, 5000);
+    }
+  };
+
+  const sendCustomSMS = async () => {
+    if (!customSMSMessage.trim()) {
+      setSmsError('Please enter a message to send');
+      return;
+    }
+    
+    setSendingSMS(true);
+    setSmsError(null);
+    setSmsStatus('Sending custom SMS...');
+    
+    try {
+      const response = await fetch('/api/send-sms-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: customSMSRecipient || undefined,
+          customMessage: customSMSMessage
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSmsStatus(`✅ Custom SMS sent! Message ID: ${data.messageSid}`);
+        setCustomSMSMessage(''); // Clear the message after sending
+      } else {
+        const errorData = await response.json();
+        setSmsError(errorData.error || 'Failed to send custom SMS');
+        setSmsStatus('❌ Custom SMS failed to send');
+      }
+    } catch (error) {
+      setSmsError('Network error during custom SMS send');
+      setSmsStatus('❌ Custom SMS failed to send');
+      console.error('Custom SMS send error:', error);
+    } finally {
+      setSendingSMS(false);
+      
+      // Clear status after 5 seconds
+      setTimeout(() => {
+        setSmsStatus('');
+        setSmsError(null);
+      }, 5000);
     }
   };
 
@@ -1464,6 +1510,16 @@ export default function AssetManagerPage() {
               }`}
             >
               📧 Email Reports
+            </button>
+            <button
+              onClick={() => setActiveTab('sms')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
+                activeTab === 'sms'
+                  ? 'bg-green-400/20 border border-green-400 text-green-400'
+                  : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              📱 SMS Alerts
             </button>
             <button
               onClick={() => setActiveTab('clearsky')}
@@ -2584,7 +2640,172 @@ export default function AssetManagerPage() {
             </section>
           )}
 
-          {/* Tab 5: Clear Sky Analysis */}
+          {/* Tab 5: SMS Alerts */}
+          {activeTab === 'sms' && (
+            <section className="relative z-10 w-full px-6 py-6">
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                <div className="mb-6">
+                  <h2 className="text-white text-2xl font-semibold mb-2">📱 SMS Alerts</h2>
+                  <p className="text-white/70 text-sm mb-4">
+                    Send automated text message alerts with observatory forecasts using Twilio.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Quick Test */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">🧪 Send Test SMS</h3>
+                    <p className="text-white/60 text-sm mb-4">
+                      Test the SMS system with current observation conditions.
+                    </p>
+                    
+                    <div className="space-y-3 mb-4">
+                      <div>
+                        <label className="text-white/70 text-sm block mb-2">
+                          Custom Recipient (optional):
+                        </label>
+                        <input
+                          type="tel"
+                          value={customSMSRecipient}
+                          onChange={(e) => setCustomSMSRecipient(e.target.value)}
+                          placeholder="+1234567890 (leave empty to use default)"
+                          className="w-full bg-black/30 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-green-400"
+                        />
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={sendTestSMS}
+                      disabled={sendingSMS}
+                      className="bg-green-600 hover:bg-green-700 disabled:bg-green-600/50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                    >
+                      {sendingSMS && (
+                        <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                      )}
+                      <span>{sendingSMS ? 'Sending...' : 'Send Test SMS'}</span>
+                    </button>
+                    
+                    {smsStatus && (
+                      <div className={`mt-3 text-sm ${smsStatus.includes('✅') ? 'text-green-400' : 'text-red-400'}`}>
+                        {smsStatus}
+                      </div>
+                    )}
+                    
+                    {smsError && (
+                      <div className="mt-3 text-red-400 text-sm">
+                        ⚠️ {smsError}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Message */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">✍️ Send Custom Message</h3>
+                    <p className="text-white/60 text-sm mb-4">
+                      Send a custom text message for testing or manual alerts.
+                    </p>
+                    
+                    <div className="space-y-3 mb-4">
+                      <div>
+                        <label className="text-white/70 text-sm block mb-2">
+                          Message (160 characters max for single SMS):
+                        </label>
+                        <textarea
+                          value={customSMSMessage}
+                          onChange={(e) => setCustomSMSMessage(e.target.value)}
+                          placeholder="Enter your custom message here..."
+                          rows={3}
+                          maxLength={320}
+                          className="w-full bg-black/30 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-green-400 resize-none"
+                        />
+                        <div className="text-white/50 text-xs mt-1">
+                          {customSMSMessage.length}/320 characters ({Math.ceil(customSMSMessage.length / 160)} SMS segments)
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={sendCustomSMS}
+                      disabled={sendingSMS || !customSMSMessage.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                    >
+                      {sendingSMS && (
+                        <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                      )}
+                      <span>{sendingSMS ? 'Sending...' : 'Send Custom SMS'}</span>
+                    </button>
+                  </div>
+
+                  {/* Configuration Status */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">⚙️ Configuration Status</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-white/60">SMS Service:</span>
+                        <div className="text-green-400 font-mono bg-black/30 px-2 py-1 rounded mt-1">
+                          📱 Twilio (Check env vars)
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-white/60">Required Variables:</span>
+                        <div className="text-yellow-400 font-mono bg-black/30 px-2 py-1 rounded mt-1 text-xs">
+                          TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, TWILIO_TO_NUMBER
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SMS Features */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">🌟 SMS Features</h3>
+                    <div className="space-y-2 text-sm text-white/70">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-400">✅</span>
+                        <span>Concise observing condition summaries with emojis</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-400">✅</span>
+                        <span>Best observing time windows highlighted</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-400">✅</span>
+                        <span>Critical weather warnings for overcast/moon interference</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-400">✅</span>
+                        <span>AI confidence indicators when available</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-400">✅</span>
+                        <span>160-character optimization for single SMS delivery</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-3">📊 Recent Activity</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between text-white/70">
+                        <span>Last SMS sent:</span>
+                        <span className="text-blue-400">Not available</span>
+                      </div>
+                      <div className="flex justify-between text-white/70">
+                        <span>SMS status:</span>
+                        <span className="text-green-400">Ready to send</span>
+                      </div>
+                      <div className="flex justify-between text-white/70">
+                        <span>Message format:</span>
+                        <span className="text-yellow-400">Emoji + Brief summary</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Tab 6: Clear Sky Analysis */}
           {activeTab === 'clearsky' && (
             <section className="relative z-10 w-full px-6 py-6">
               <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
@@ -2605,199 +2826,100 @@ export default function AssetManagerPage() {
                           Enter Clear Sky Chart URL:
                         </label>
                         <input
-                          type="url"
+                          type="text"
                           value={clearSkyUrl}
                           onChange={(e) => setClearSkyUrl(e.target.value)}
-                          placeholder="https://www.cleardarksky.com/c/YourLocation.html"
-                          className="w-full bg-black/30 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-purple-400"
+                          placeholder="https://www.cleardarksky.com/c/..."
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                         />
                       </div>
                       <div className="flex space-x-3">
                         <button
-                          onClick={handleAnalyzeClearSky}
-                          disabled={isAnalyzing || !clearSkyUrl.trim()}
-                          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                          onClick={() => {
+                            // Force a refetch by slightly modifying the URL and then setting it back
+                            const currentUrl = clearSkyUrl;
+                            setClearSkyUrl('');
+                            setTimeout(() => setClearSkyUrl(currentUrl), 100);
+                          }}
+                          className="px-4 py-2 bg-blue-600/50 hover:bg-blue-600/70 text-white rounded text-sm transition-colors font-medium"
                         >
-                          {isAnalyzing && (
-                            <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                          )}
-                          <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Chart'}</span>
+                          Perform Analysis
                         </button>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.html')}
-                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/MplVllyObWAkey.html')}
+                          className="px-3 py-1 bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 rounded text-sm transition-colors"
                         >
-                          Use Demo URL
+                          Reset to Maple Valley
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Chart Display */}
+                  {/* Clear Sky Chart Image */}
                   {clearSkyUrl && (
                     <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                       <h3 className="text-white font-semibold mb-3">📊 Clear Sky Chart</h3>
                       <div className="bg-black/30 rounded-lg p-4">
-                        <div className="text-white/70 text-sm mb-3">
-                          Chart will be displayed here after analysis. The parser will extract the GIF from the HTML page.
-                        </div>
-                        {analysisError && (
-                          <div className="text-red-400 text-center mt-4">
-                            ⚠️ {analysisError}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Analysis Results */}
-                  {clearSkyAnalysis && (
-                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                      <h3 className="text-white font-semibold mb-3">🔍 Analysis Results</h3>
-                      <div className="space-y-4">
-                        {/* Overall Assessment */}
-                        <div className="bg-black/30 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-white font-medium">Overall Assessment:</span>
-                            <span className={`font-bold text-lg ${
-                              clearSkyAnalysis.overall === 'excellent' ? 'text-green-400' :
-                              clearSkyAnalysis.overall === 'good' ? 'text-blue-400' :
-                              clearSkyAnalysis.overall === 'dubious' ? 'text-yellow-400' : 'text-red-400'
-                            }`}>
-                              {clearSkyAnalysis.overall?.toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="text-white/70 text-sm">
-                            {clearSkyAnalysis.reasoning}
-                          </div>
-                          {clearSkyAnalysis.confidence && (
-                            <div className="mt-2 text-white/60 text-xs">
-                              Confidence: {Math.round(clearSkyAnalysis.confidence * 100)}%
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Time Windows */}
-                        {clearSkyAnalysis.bestTimeWindows && clearSkyAnalysis.bestTimeWindows.length > 0 && (
-                          <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
-                            <h4 className="text-green-300 font-medium mb-2">🌟 Best Observing Windows</h4>
-                            <ul className="space-y-1 text-white/70 text-sm">
-                              {clearSkyAnalysis.bestTimeWindows.map((window: string, index: number) => (
-                                <li key={index} className="flex items-center space-x-2">
-                                  <span className="text-green-400">•</span>
-                                  <span>{window}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Opportunities */}
-                        {clearSkyAnalysis.opportunities && clearSkyAnalysis.opportunities.length > 0 && (
-                          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                            <h4 className="text-blue-300 font-medium mb-2">🎯 Opportunities</h4>
-                            <ul className="space-y-1 text-white/70 text-sm">
-                              {clearSkyAnalysis.opportunities.map((opportunity: string, index: number) => (
-                                <li key={index} className="flex items-center space-x-2">
-                                  <span className="text-blue-400">•</span>
-                                  <span>{opportunity}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Warnings */}
-                        {clearSkyAnalysis.warnings && clearSkyAnalysis.warnings.length > 0 && (
-                          <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
-                            <h4 className="text-amber-300 font-medium mb-2">⚠️ Warnings</h4>
-                            <ul className="space-y-1 text-white/70 text-sm">
-                              {clearSkyAnalysis.warnings.map((warning: string, index: number) => (
-                                <li key={index} className="flex items-center space-x-2">
-                                  <span className="text-amber-400">•</span>
-                                  <span>{warning}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Detailed Conditions */}
-                        {clearSkyAnalysis.conditions && clearSkyAnalysis.conditions.length > 0 && (
-                          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                            <h4 className="text-white font-medium mb-3">📈 Hourly Conditions</h4>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="text-white/70 border-b border-white/10">
-                                    <th className="text-left py-2 px-3">Time</th>
-                                    <th className="text-left py-2 px-3">Clouds</th>
-                                    <th className="text-left py-2 px-3">Transparency</th>
-                                    <th className="text-left py-2 px-3">Seeing</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {clearSkyAnalysis.conditions.slice(0, 12).map((condition: any, index: number) => (
-                                    <tr key={index} className="text-white/80 border-b border-white/5">
-                                      <td className="py-2 px-3 font-mono">{condition.time}</td>
-                                      <td className="py-2 px-3">{condition.cloudCover}%</td>
-                                      <td className="py-2 px-3">{condition.transparency}/5</td>
-                                      <td className="py-2 px-3">{condition.seeingRating}/5</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              {clearSkyAnalysis.conditions.length > 12 && (
-                                <div className="text-white/50 text-xs mt-2 text-center">
-                                  Showing first 12 hours of {clearSkyAnalysis.conditions.length} total hours
+                        {(() => {
+                          try {
+                            // Extract image URL from the provided URL
+                            let imageUrl = clearSkyUrl;
+                            
+                            // If it's an HTML URL, convert to GIF URL
+                            if (clearSkyUrl.includes('.html')) {
+                              const match = clearSkyUrl.match(/\/c\/([^\/]+)\.html/);
+                              if (match) {
+                                const fullId = match[1];
+                                // Remove the "key" suffix to get the base chart ID (standard format)
+                                const chartId = fullId.replace(/key$/, '');
+                                imageUrl = `https://www.cleardarksky.com/c/${chartId}csk.gif`;
+                              }
+                            }
+                            
+                            // If it's already a GIF URL, clean it up
+                            if (clearSkyUrl.includes('.gif')) {
+                              imageUrl = clearSkyUrl.split('?')[0]; // Remove query parameters
+                            }
+                            
+                            return (
+                              <div className="space-y-3">
+                                <div className="text-white/70 text-sm">
+                                  Chart URL: <span className="text-blue-400 break-all">{imageUrl}</span>
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                                <img
+                                  src={imageUrl}
+                                  alt="Clear Dark Sky Chart"
+                                  className="w-full rounded-lg border border-white/10"
+                                  onError={(e) => {
+                                    e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNvdWxkIG5vdCBsb2FkIGNoYXJ0IGltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                                  }}
+                                />
+                              </div>
+                            );
+                          } catch (error) {
+                            return (
+                              <div className="text-red-400 text-sm">
+                                Error parsing chart URL: {error instanceof Error ? error.message : 'Unknown error'}
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                   )}
 
-                  {/* Quick Examples */}
-                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <h3 className="text-white font-semibold mb-3">🌍 Example Clear Sky Chart URLs</h3>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/DvFrkSPSCcsk.html')}
-                          className="text-blue-400 hover:text-blue-300 underline text-left"
-                        >
-                          David Fork State Park, SC
-                        </button>
-                        <div className="text-white/50 text-xs ml-4">Dark sky site in South Carolina</div>
-                      </div>
-                      <div>
-                        <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/CnyAstObcsk.html')}
-                          className="text-blue-400 hover:text-blue-300 underline text-left"
-                        >
-                          Canyon of the Eagles Observatory, TX
-                        </button>
-                        <div className="text-white/50 text-xs ml-4">Professional observatory site</div>
-                      </div>
-                      <div>
-                        <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/MTWcsk.html')}
-                          className="text-blue-400 hover:text-blue-300 underline text-left"
-                        >
-                          Mt. Wilson Observatory, CA
-                        </button>
-                        <div className="text-white/50 text-xs ml-4">Historic observatory location</div>
-                      </div>
+                  {/* Observation Module */}
+                  {clearSkyUrl && (
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                      <h3 className="text-white font-semibold mb-3">📊 Analysis Results</h3>
+                      <ObservationModuleCustom customClearSkyUrl={clearSkyUrl} />
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </section>
           )}
         </div>
-        
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirmation && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">

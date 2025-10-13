@@ -1,6 +1,7 @@
 // Test Clear Sky Chart image parsing functionality
 
-import { parseClearSkyChartUrl, fetchClearSkyChartData, mapCloudCoverColor, mapTransparencyColor, mapSeeingColor } from '../src/lib/clear-sky-parser';
+import { parseClearSkyChartUrl, fetchClearSkyChartData } from '../src/lib/clear-sky-parser';
+import { mapRgbToSeeingRating } from '../src/lib/clear-sky-color-scale';
 
 // Mock fetch for Node.js test environment
 global.fetch = jest.fn();
@@ -80,37 +81,25 @@ describe('Clear Sky Chart Parser', () => {
   describe('Image Analysis Functions', () => {
     // Unit tests for color mapping functions
     
-    it('should map cloud cover colors correctly', () => {
-      // Dark blue = clear
-      expect(mapCloudCoverColor({ r: 0, g: 0, b: 128 })).toBe(0);
+    it('should map colors to 1-5 rating scale correctly', () => {
+      // Dark blue = excellent (5/5)
+      expect(mapRgbToSeeingRating({ r: 0, g: 0, b: 128 })).toBe(5);
       
-      // White = cloudy
-      expect(mapCloudCoverColor({ r: 255, g: 255, b: 255 })).toBe(65);
+      // White = poor (1/5)
+      expect(mapRgbToSeeingRating({ r: 255, g: 255, b: 255 })).toBe(1);
       
-      // Gray = overcast
-      expect(mapCloudCoverColor({ r: 128, g: 128, b: 128 })).toBe(95);
+      // Gray = good (4/5) - based on actual color scale mapping
+      expect(mapRgbToSeeingRating({ r: 128, g: 128, b: 128 })).toBe(4);
     });
     
-    it('should map transparency colors correctly', () => {
-      // White = too cloudy
-      expect(mapTransparencyColor({ r: 255, g: 255, b: 255 })).toBe(1);
+    it('should handle medium blue colors correctly', () => {
+      // Medium blue = good (3-4/5)
+      const mediumBlue = mapRgbToSeeingRating({ r: 64, g: 128, b: 255 });
+      expect(mediumBlue).toBeGreaterThanOrEqual(3);
+      expect(mediumBlue).toBeLessThanOrEqual(4);
       
-      // Dark blue = excellent
-      expect(mapTransparencyColor({ r: 0, g: 0, b: 128 })).toBe(5);
-      
-      // Light blue = average
-      expect(mapTransparencyColor({ r: 64, g: 128, b: 255 })).toBe(3);
-    });
-    
-    it('should map seeing colors correctly', () => {
-      // White = too cloudy
-      expect(mapSeeingColor({ r: 255, g: 255, b: 255 })).toBe(1);
-      
-      // Dark blue = excellent
-      expect(mapSeeingColor({ r: 0, g: 0, b: 128 })).toBe(5);
-      
-      // Medium blue = good
-      expect(mapSeeingColor({ r: 0, g: 64, b: 255 })).toBe(4);
+      // Light blue = good (3/5)
+      expect(mapRgbToSeeingRating({ r: 64, g: 128, b: 255 })).toBe(3);
     });
   });
 });

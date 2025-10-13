@@ -41,6 +41,20 @@
     "ctimeMs": 1753929810288.838,
     "filename": "NGC7000-Pelican-1.jpg"
   },
+  "assets/SampleCSC.png": {
+    "mtime": "2025-10-13T22:39:19.839Z",
+    "mtimeMs": 1760395159838.678,
+    "ctime": "2025-10-13T22:39:19.839Z",
+    "ctimeMs": 1760395159838.678,
+    "filename": "SampleCSC.png"
+  },
+  "assets/conf.png": {
+    "mtime": "2025-10-13T22:39:19.859Z",
+    "mtimeMs": 1760395159859.013,
+    "ctime": "2025-10-13T22:39:19.859Z",
+    "ctimeMs": 1760395159859.013,
+    "filename": "conf.png"
+  },
   "astrophotography/deep-sky/Hubble-Palette/NGC7000 and IC5070-2.jpg": {
     "mtime": "2025-08-15T06:51:17.579Z",
     "mtimeMs": 1755240677578.828,

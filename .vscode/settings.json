@@ -6,6 +6,12 @@
   "typescript.suggest.includeCompletionsForImportStatements": false,
   "typescript.suggest.includeCompletionsWithSnippetText": false,
   
+  // Additional TypeScript optimizations
+  "typescript.suggest.autoImports": false,
+  "typescript.updateImportsOnFileMove.enabled": "never",
+  "typescript.suggest.completeFunctionCalls": false,
+  "typescript.preferences.experimentalDecorators": false,
+  
   // Reduce file watching overhead
   "files.watcherExclude": {
     "**/.git/objects/**": true,

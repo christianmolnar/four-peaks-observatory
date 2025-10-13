@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Sky Chart - Sampling Point Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .chart-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f9f9f9;
+        }
+
+        .chart-image {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .sampling-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .sampling-point {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .legend {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .legend h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .info-section {
+            background: #e0f2fe;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .info-section h3 {
+            color: #0277bd;
+            margin-bottom: 10px;
+        }
+
+        .coordinates {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌌 Clear Sky Chart Analysis</h1>
+            <p>Sampling Point Visualization for Weather Parameters</p>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <h3>Loading Clear Sky Chart...</h3>
+                <p>Retrieving latest weather data visualization</p>
+            </div>
+
+            <div id="error" class="error">
+                Chart loading failed. Please try refreshing the page.
+            </div>
+
+            <div id="main-content" style="display: none;">
+                <div class="chart-container">
+                    <img id="chartImage" class="chart-image" alt="Clear Sky Chart with Sampling Points" />
+                    <div id="samplingOverlay" class="sampling-overlay"></div>
+                </div>
+
+                <div class="legend">
+                    <h3>🎯 Sampling Points Legend</h3>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff4444;"></div>
+                        <span><strong>Cloud Cover</strong> - Y: 80px from top</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #44ff44;"></div>
+                        <span><strong>Transparency</strong> - Y: 112px from top</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #4444ff;"></div>
+                        <span><strong>Seeing</strong> - Y: 128px from top</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff8800;"></div>
+                        <span><strong>Smoke</strong> - Y: 192px from top</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #8844ff;"></div>
+                        <span><strong>Wind</strong> - Y: 208px from top</span>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>📍 Coordinate Information</h3>
+                    <p>Each dot represents the exact center point where the analysis algorithm samples weather data for each hour and parameter.</p>
+                    
+                    <div class="coordinates">
+                        <strong>Sampling Configuration:</strong><br>
+                        • X-axis: Starting at 137px, 14px spacing per hour<br>
+                        • Y-axis: Fixed positions for each weather parameter<br>
+                        • Area: 6×6 pixel sampling window centered on each dot
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sampling configuration
+        const config = {
+            factors: [
+                { name: 'Cloud Cover', color: '#ff4444', yPosition: 80 },
+                { name: 'Transparency', color: '#44ff44', yPosition: 112 },
+                { name: 'Seeing', color: '#4444ff', yPosition: 128 },
+                { name: 'Smoke', color: '#ff8800', yPosition: 192 },
+                { name: 'Wind', color: '#8844ff', yPosition: 208 }
+            ],
+            xStart: 137,
+            hourSpacing: 14,
+            totalHours: 24
+        };
+
+        function addSamplingPoints() {
+            const overlay = document.getElementById('samplingOverlay');
+            const img = document.getElementById('chartImage');
+            
+            if (!img.complete || img.naturalWidth === 0) {
+                console.log('Image not ready yet, retrying...');
+                setTimeout(addSamplingPoints, 100);
+                return;
+            }
+
+            // Clear existing points
+            overlay.innerHTML = '';
+
+            // Calculate scale factor
+            const scaleX = img.offsetWidth / img.naturalWidth;
+            const scaleY = img.offsetHeight / img.naturalHeight;
+
+            console.log(`Image dimensions: ${img.naturalWidth}×${img.naturalHeight}`);
+            console.log(`Display dimensions: ${img.offsetWidth}×${img.offsetHeight}`);
+            console.log(`Scale factors: X=${scaleX.toFixed(3)}, Y=${scaleY.toFixed(3)}`);
+
+            // Add points for each hour and factor
+            for (let hour = 0; hour < config.totalHours; hour++) {
+                for (const factor of config.factors) {
+                    const xPos = (config.xStart + (hour * config.hourSpacing)) * scaleX;
+                    const yPos = factor.yPosition * scaleY;
+
+                    const point = document.createElement('div');
+                    point.className = 'sampling-point';
+                    point.style.left = `${xPos}px`;
+                    point.style.top = `${yPos}px`;
+                    point.style.backgroundColor = factor.color;
+                    point.title = `${factor.name} - Hour ${hour} (${Math.round(xPos)}, ${Math.round(yPos)})`;
+
+                    overlay.appendChild(point);
+                }
+            }
+
+            console.log(`Added ${config.totalHours * config.factors.length} sampling points`);
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = message;
+        }
+
+        function showChart() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+        }
+
+        async function loadChart() {
+            try {
+                // Multiple possible URLs for Maple Valley Observatory
+                const chartUrls = [
+                    'https://www.cleardarksky.com/c/MplVllyObWAcsk.gif?c=1141246',
+                    'https://www.cleardarksky.com/c/MplVllyObWAcsk.gif',
+                    'https://www.cleardarksky.com/c/MplVllyOcsk.gif',
+                    'https://www.cleardarksky.com/c/MplVllykey.gif'
+                ];
+
+                const chartImage = document.getElementById('chartImage');
+                let currentUrlIndex = 0;
+
+                function tryNextUrl() {
+                    if (currentUrlIndex >= chartUrls.length) {
+                        showError('Could not load Clear Sky Chart. The chart may be temporarily unavailable or the URL may have changed. Please check https://www.cleardarksky.com directly.');
+                        return;
+                    }
+
+                    const url = chartUrls[currentUrlIndex];
+                    console.log(`Trying URL ${currentUrlIndex + 1}/${chartUrls.length}:`, url);
+
+                    // Set up success handler
+                    chartImage.onload = function() {
+                        console.log('Chart loaded successfully from:', url);
+                        addSamplingPoints();
+                        showChart();
+                    };
+
+                    // Set up error handler
+                    chartImage.onerror = function() {
+                        console.warn(`Failed to load from URL ${currentUrlIndex + 1}:`, url);
+                        currentUrlIndex++;
+                        setTimeout(tryNextUrl, 500); // Small delay before trying next URL
+                    };
+
+                    // Set timeout for each URL attempt
+                    const timeout = setTimeout(() => {
+                        console.warn(`Timeout for URL ${currentUrlIndex + 1}:`, url);
+                        chartImage.src = ''; // Cancel current load
+                        currentUrlIndex++;
+                        tryNextUrl();
+                    }, 10000); // 10 second timeout per URL
+
+                    // Clear timeout on successful load
+                    const originalOnload = chartImage.onload;
+                    chartImage.onload = function() {
+                        clearTimeout(timeout);
+                        originalOnload.call(this);
+                    };
+
+                    // Start loading
+                    chartImage.src = url;
+                }
+
+                // Add resize handler
+                window.addEventListener('resize', () => {
+                    setTimeout(addSamplingPoints, 100);
+                });
+
+                // Start trying URLs
+                tryNextUrl();
+
+            } catch (error) {
+                console.error('Failed to load chart:', error);
+                showError(`Failed to load chart: ${error.message}`);
+            }
+        }
+
+        // Start loading when page is ready
+        window.addEventListener('load', loadChart);
+    </script>
+</body>
+</html>

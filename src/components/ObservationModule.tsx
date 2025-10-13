@@ -39,7 +39,23 @@ export default function ObservationModule({ className = '' }: ObservationModuleP
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/observation-evaluate');
+      // Load factor weights from localStorage (same as test interface)
+      const savedWeights = localStorage.getItem('factorWeights');
+      const factorWeights = savedWeights ? JSON.parse(savedWeights) : {
+        cloudCover: 100,
+        transparency: 0,
+        seeing: 0,
+        smoke: 0,
+        wind: 0
+      };
+      
+      // Build query parameters including factor weights (same as test interface)
+      const params = new URLSearchParams();
+      Object.entries(factorWeights).forEach(([key, value]) => {
+        params.append(`factorWeight_${key}`, (value as number).toString());
+      });
+      
+      const response = await fetch(`/api/observation-evaluate?${params.toString()}`);
       const responseData = await response.json();
       
       if (responseData.success) {
