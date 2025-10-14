@@ -1,10 +1,10 @@
 {
   "chartBoundaries": {
     "left": 0,
-    "right": 1279,
+    "right": 1265,
     "top": 33,
     "bottom": 291,
-    "width": 1279,
+    "width": 1265,
     "height": 258
   },
   "estimatedSquareWidth": 14,
