@@ -6,7 +6,7 @@ const path = require('path');
 
 async function analyzeChart() {
   try {
-    const imagePath = './public/images/assets/SampleCSC.png';
+    const imagePath = './public/images/assets/AlbuquerqueCSC.gif';
     
     // Check if file exists
     if (!fs.existsSync(imagePath)) {

@@ -924,7 +924,12 @@ export default function AssetManagerPage() {
   };
 
   // Helper: detect if image is a solar system object by its file path
-  const isSolarSystemImage = (filename: string) => {
+  const isSolarSystemImage = (filename: string | undefined | null) => {
+    // Type safety check
+    if (!filename || typeof filename !== 'string') {
+      return false;
+    }
+    
     // Check if the file exists in the solar-system directory structure
     const solarSystemPaths = [
       'solar-system/lunar/',

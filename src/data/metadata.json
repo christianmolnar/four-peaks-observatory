@@ -685,6 +685,35 @@
     "location": "Ravensdale., WA",
     "monthYear": "August, 2025"
   },
+  "M57-1.jpg": {
+    "catalogDesignation": "M57",
+    "objectName": "Ring Nebula",
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "M57, also known as the Ring Nebula, is a planetary nebula situated approximately 2,283 light-years away from Earth. Resembling a colorful cosmic smoke ring in the Lyra constellation, its distinct shape, vivid hues of red, blue, and green, and moderate brightness make it a highly coveted target for astrophotographers. Its ethereal beauty offers a glimpse of our Sun's potential future."
+  },
+  "M57.jpg": {
+    "catalogDesignation": "M57",
+    "objectName": "Ring Nebula",
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "featured"
+  },
   "M71.jpg": {
     "catalogDesignation": "M71",
     "objectName": "Messier 71",
@@ -699,6 +728,62 @@
     "description": "\"M71, a globular cluster in Sagitta constellation, is about 12,000 light-years away. Known for its loosely concentrated stars, it was long mistaken for an open cluster. Its dense core makes it a popular astrophotography target.\"",
     "location": "Ravensdale., WA",
     "monthYear": "August, 2025"
+  },
+  "M81 and M82 Tight-1.jpg": {
+    "catalogDesignation": "M81, M82",
+    "objectName": "Bode's Galaxy, Cigar Galaxy",
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies",
+    "description": "M81 and M82, also known as Bode's and Cigar Galaxy respectively, are spiral and starburst galaxies about 12 million light-years away. Their close proximity and contrasting nature—M81 with its grand design spiral structure and M82 with its explosive star formation—make them fascinating subjects for astrophotography. These galaxies showcase the dynamic and diverse universe we inhabit."
+  },
+  "M81 and M82-1.jpg": {
+    "catalogDesignation": [
+      "M81",
+      "M82"
+    ],
+    "objectName": [
+      "Bode's Galaxy",
+      "Cigar Galaxy"
+    ],
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies",
+    "description": "M81 and M82, known as Bode's and Cigar Galaxies respectively, are spiral and starburst galaxies located about 12 million light-years away. Visually, M81 is a grand spiral, while M82 exhibits red-hued explosive gas clouds due to intense star formation. Their proximity and contrasting features make them a highly sought pair for astrophotography."
+  },
+  "M81 and M82.jpg": {
+    "catalogDesignation": [
+      "M81",
+      "M82"
+    ],
+    "objectName": [
+      "Bode's Galaxy",
+      "Cigar Galaxy"
+    ],
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "featured"
   },
   "M92-1.jpg": {
     "catalogDesignation": "M92",
@@ -1426,6 +1511,35 @@
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
   },
+  "NGC891-1.jpg": {
+    "catalogDesignation": "NGC 891",
+    "objectName": "Silver Sliver Galaxy",
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/galaxies",
+    "description": "NGC 891, also known as the Silver Sliver Galaxy, is a captivating spiral galaxy situated about 30 million light-years away in the constellation Andromeda. Its edge-on orientation from our perspective on Earth provides a unique view of the galaxy's dust lane bisecting its luminous core."
+  },
+  "NGC891.jpg": {
+    "catalogDesignation": "NGC891",
+    "objectName": "Silver Sliver Galaxy",
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "featured"
+  },
   "North America and The Pelican.jpg": {
     "catalogDesignation": "NGC7000",
     "objectName": "North America Nebula",
@@ -1589,6 +1703,21 @@
     "location": "Ravensdale., WA",
     "monthYear": "July, 2025"
   },
+  "SH2-140-1.jpg": {
+    "catalogDesignation": "Sh2-140",
+    "objectName": "SH2-140-1",
+    "dateTaken": "October, 2025",
+    "monthYear": "October, 2025",
+    "location": "Maple Valley, WA",
+    "equipment": "",
+    "exposure": "",
+    "protected": false,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "astrophotography",
+    "subcategory": "deep-sky/nebulas",
+    "description": "Sh2-140 is an emission nebula, located approximately 3,000 light-years away in the Cepheus constellation. Known for its vibrant red hues, it showcases the process of star formation, making it a popular target for astrophotographers. The nebula's intricate structure, shaped by stellar winds and radiation, provides a stunning view into the complexity of our universe."
+  },
   "SH2-173.jpg": {
     "catalogDesignation": "Sh2-173",
     "objectName": "Phantom Nebula",
@@ -1633,6 +1762,16 @@
     "description": "IC 1318, also known as the Sadr Region, is a vast emission nebula situated approximately 1,800 light-years away from Earth. Located in the constellation Cygnus, it is distinguished by its intricate formations of glowing gas and dust illuminated by the bright star Gamma Cygni. Its vibrant colors and detailed structure make it a prized target for astrophotographers.",
     "location": "Death Valley, CA",
     "monthYear": "July, 2025"
+  },
+  "SampleCSC.png": {
+    "name": "Sample Csc",
+    "description": "UI/Logo asset file",
+    "location": "Maple Valley, WA",
+    "protected": true,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "assets",
+    "subcategory": "assets"
   },
   "Sun .jpg": {
     "catalogDesignation": "",
@@ -2119,5 +2258,15 @@
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
     "monthYear": "July, 2021"
+  },
+  "conf.png": {
+    "name": "Conf",
+    "description": "UI/Logo asset file",
+    "location": "Maple Valley, WA",
+    "protected": true,
+    "youtubeLink": "",
+    "youtubeTitle": "",
+    "category": "assets",
+    "subcategory": "assets"
   }
 }

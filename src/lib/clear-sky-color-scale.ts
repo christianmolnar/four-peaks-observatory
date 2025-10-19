@@ -116,14 +116,15 @@ export function getValueDescription(value: number): string {
 /**
  * Convert RGB to seeing rating (1-5 scale) using actual Clear Sky Chart values
  */
-export function mapRgbToSeeingRating(rgb: { r: number; g: number; b: number }): number {
+export function mapRgbToSeeingRating(rgb: RgbColor): number {
   const value = mapRgbToValue(rgb);
-  // Convert Clear Sky Chart scale to 1-5 seeing rating
-  if (value >= 60) return 5;  // Exceptional/Excellent seeing
-  if (value >= 45) return 4;  // Very Good/Good seeing
-  if (value >= 30) return 3;  // Fair/Below Average seeing
-  if (value >= 15) return 2;  // Poor/Very Poor seeing
-  return 1;  // Bad/Worst seeing
+  
+  // Convert 0-100 scale to 1-5 seeing rating scale based on visual analysis
+  if (value >= 80) return 5; // Excellent - darkest blues (64.1 and above)
+  if (value >= 65) return 4; // Good - medium blues (43.3 range)
+  if (value >= 55) return 3; // Fair - light blues (39.5 range) 
+  if (value >= 45) return 2; // Below Average - cyan colors (37.6 range)
+  return 1; // Poor - light cyan to white (35.8 and below)
 }
 
 /**
