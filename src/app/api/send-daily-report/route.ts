@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateSunTimes, calculateObservingWindow, formatTime, calculateMoonData } from '@/lib/astronomical-calculations';
 import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
-import { evaluateObservingCondition, convertLegacyCondition } from '@/lib/observation-evaluator';
+import { evaluateObservingCondition } from '@/lib/observation-evaluator';
 import fs from 'fs';
 import path from 'path';
 
@@ -180,8 +180,7 @@ export async function POST(request: NextRequest) {
 
     // Process conditions for the observing window
     const conditions = chartData.forecast.map(condition => {
-      const newFormat = convertLegacyCondition(condition);
-      const evaluation = evaluateObservingCondition(newFormat);
+      const evaluation = evaluateObservingCondition(condition);
       
       return {
         time: condition.time,

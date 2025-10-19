@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
-import { evaluateObservingCondition, convertLegacyCondition } from '@/lib/observation-evaluator';
+import { evaluateObservingCondition } from '@/lib/observation-evaluator';
 
 /**
  * Test Clear Sky Chart Analysis API
@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
     
     // Analyze each condition
     const analyzedConditions = chartData.forecast.map(condition => {
-      const converted = convertLegacyCondition(condition);
-      const evaluation = evaluateObservingCondition(converted);
+      const evaluation = evaluateObservingCondition(condition);
       
       return {
         time: condition.time,

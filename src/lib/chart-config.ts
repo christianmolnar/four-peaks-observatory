@@ -61,8 +61,9 @@ export function createChartConfig(
 }
 
 /**
- * Default Clear Sky Chart coordinate configuration
- * Based on user measurements - only the 5 key factors
+ * Universal Clear Sky Chart coordinate configuration
+ * These coordinates work for ALL Clear Sky Charts (generic, not location-specific)
+ * Based on standardized chart layout - the 5 key factors
  */
 export const DEFAULT_CHART_CONFIG = createChartConfig({
   cloudCover: { x: 142, y: 85 },

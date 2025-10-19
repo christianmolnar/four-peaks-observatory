@@ -87,21 +87,13 @@ export async function GET(request: Request) {
     // Fetch Clear Sky Chart data
     const chartData = await fetchClearSkyChartData(clearSkyChartUrl);
     
-    // Convert legacy parser output to 1-5 scale
+    // Convert parser output for evaluation (already 1-5 scale)
     const conditions = chartData.forecast.map(condition => {
-      // Convert cloudCover from percentage (0-100) to 1-5 scale
-      const cloudCover1to5 = condition.cloudCover <= 20 ? 5 :  // 0-20% = excellent (5)
-                            condition.cloudCover <= 40 ? 4 :   // 21-40% = good (4)  
-                            condition.cloudCover <= 60 ? 3 :   // 41-60% = average (3)
-                            condition.cloudCover <= 80 ? 2 : 1; // 61-80% = poor (2), 81-100% = bad (1)
-      
       const clearSkyCondition = {
         time: condition.time,
-        cloudCover: cloudCover1to5,           // Converted to 1-5 scale
-        transparency: condition.transparency,  // Already 1-5 scale
-        seeing: condition.seeingRating,       // Already 1-5 scale
-        smoke: 5,                             // Default excellent (legacy parser doesn't have smoke)
-        windSpeed: Math.min(5, Math.max(1, Math.round(6 - (condition.windSpeed || 0) / 5))) // Convert mph to 1-5 scale roughly
+        cloudCover: condition.cloudCover,     // Already 1-5 scale from parser
+        transparency: condition.transparency, // Already 1-5 scale from parser
+        seeingRating: condition.seeingRating  // Already 1-5 scale from parser
       };
       const evaluation = evaluateObservingCondition(clearSkyCondition, factorWeights);
       

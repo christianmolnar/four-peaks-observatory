@@ -5,36 +5,48 @@
  * Maps RGB colors to condition quality values (0-100 scale where 100 = best conditions).
  */
 
+export interface RgbColor {
+  r: number;
+  g: number;
+  b: number;
+}
+
 export interface ColorScaleEntry {
-  rgb: { r: number; g: number; b: number };
-  value: number;  // Quality value (0-100, where 100 = best)
+  rgb: RgbColor;
+  rating: number;  // Direct 1-5 scale (5 = best, 1 = worst)
   description: string;
 }
 
 /**
- * Clear Sky Chart color scale entries based on actual user-provided scale
- * IMPORTANT: Dark blue = BEST conditions, White = WORST conditions
- * Values are from the actual Clear Sky Chart scale
+ * Clear Sky Chart color scale entries - DIRECT 1-5 rating mapping
+ * IMPORTANT: Dark blue = BEST conditions (rating 5), White = WORST conditions (rating 1)
  */
 export const CLEAR_SKY_COLOR_SCALE: ColorScaleEntry[] = [
-  // Best conditions (darkest blue) - highest values
-  { rgb: { r: 0, g: 60, b: 127 }, value: 70.9, description: "Exceptional" },
-  { rgb: { r: 16, g: 86, b: 152 }, value: 64.1, description: "Excellent" },
-  { rgb: { r: 39, g: 107, b: 173 }, value: 52.4, description: "Very Good" },
-  { rgb: { r: 78, g: 144, b: 208 }, value: 43.3, description: "Good" },
-  { rgb: { r: 99, g: 165, b: 228 }, value: 39.5, description: "Fair" },
+  // Best conditions (darkest blue) - rating 5
+  { rgb: { r: 0, g: 60, b: 127 }, rating: 5, description: "Excellent" },
+  { rgb: { r: 16, g: 86, b: 152 }, rating: 5, description: "Excellent" },
+  { rgb: { r: 39, g: 107, b: 173 }, rating: 4, description: "Good" },
+  { rgb: { r: 78, g: 144, b: 208 }, rating: 4, description: "Good" },
+  { rgb: { r: 99, g: 165, b: 228 }, rating: 3, description: "Fair" },
   
-  // Transitional blues/cyans
-  { rgb: { r: 149, g: 213, b: 213 }, value: 37.6, description: "Below Average" },
-  { rgb: { r: 154, g: 218, b: 218 }, value: 35.8, description: "Poor" },
+  // Transitional blues/cyans - should be rating 3, not 1!
+  { rgb: { r: 149, g: 213, b: 213 }, rating: 3, description: "Fair" },
+  { rgb: { r: 154, g: 218, b: 218 }, rating: 2, description: "Dubious" },
   
-  // Grays to white (worst conditions) - lowest values
-  { rgb: { r: 199, g: 199, b: 199 }, value: 19.1, description: "Very Poor" },
-  { rgb: { r: 224, g: 224, b: 224 }, value: 15.8, description: "Bad" },
-  { rgb: { r: 235, g: 235, b: 235 }, value: 12.1, description: "Very Bad" },
-  { rgb: { r: 239, g: 239, b: 239 }, value: 8.7, description: "Terrible" },
-  { rgb: { r: 248, g: 248, b: 248 }, value: 6.9, description: "Awful" },
-  { rgb: { r: 255, g: 255, b: 255 }, value: 0.0, description: "Worst" }
+  // Dark grays (these should be better than white!)
+  { rgb: { r: 32, g: 32, b: 32 }, rating: 2, description: "Dubious" },
+  { rgb: { r: 48, g: 48, b: 48 }, rating: 2, description: "Dubious" },
+  { rgb: { r: 64, g: 64, b: 64 }, rating: 2, description: "Dubious" },
+  { rgb: { r: 80, g: 80, b: 80 }, rating: 2, description: "Dubious" },
+  { rgb: { r: 128, g: 128, b: 128 }, rating: 2, description: "Dubious" },
+  
+  // Light grays to white (worst conditions) - rating 1
+  { rgb: { r: 199, g: 199, b: 199 }, rating: 1, description: "Poor" },
+  { rgb: { r: 224, g: 224, b: 224 }, rating: 1, description: "Poor" },
+  { rgb: { r: 235, g: 235, b: 235 }, rating: 1, description: "Poor" },
+  { rgb: { r: 239, g: 239, b: 239 }, rating: 1, description: "Poor" },
+  { rgb: { r: 248, g: 248, b: 248 }, rating: 1, description: "Poor" },
+  { rgb: { r: 255, g: 255, b: 255 }, rating: 1, description: "Poor" }
 ];
 
 /**
@@ -48,9 +60,9 @@ function calculateColorDistance(rgb1: { r: number; g: number; b: number }, rgb2:
 }
 
 /**
- * Find the closest color in the scale and return its value
+ * Find the closest color in the scale and return its rating directly
  */
-export function mapRgbToValue(rgb: { r: number; g: number; b: number }): number {
+export function mapRgbToSeeingRating(rgb: { r: number; g: number; b: number }): number {
   let closestEntry = CLEAR_SKY_COLOR_SCALE[0];
   let minDistance = calculateColorDistance(rgb, closestEntry.rgb);
   
@@ -62,69 +74,9 @@ export function mapRgbToValue(rgb: { r: number; g: number; b: number }): number 
     }
   }
   
-  // If the distance is very large, interpolate between closest colors
-  if (minDistance > 50) {
-    return interpolateValue(rgb);
-  }
+  console.log(`[Color Scale] RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) → Rating ${closestEntry.rating} (${closestEntry.description}), Distance: ${Math.round(minDistance)}`);
   
-  return closestEntry.value;
-}
-
-/**
- * Interpolate value between closest color scale entries
- */
-function interpolateValue(rgb: { r: number; g: number; b: number }): number {
-  // Find two closest colors
-  const distances = CLEAR_SKY_COLOR_SCALE.map(entry => ({
-    entry,
-    distance: calculateColorDistance(rgb, entry.rgb)
-  })).sort((a, b) => a.distance - b.distance);
-  
-  const closest = distances[0];
-  const secondClosest = distances[1];
-  
-  // If first color is very close, use it directly
-  if (closest.distance < 10) {
-    return closest.entry.value;
-  }
-  
-  // Interpolate between the two closest colors
-  const totalDistance = closest.distance + secondClosest.distance;
-  const weight1 = secondClosest.distance / totalDistance;
-  const weight2 = closest.distance / totalDistance;
-  
-  const interpolatedValue = (closest.entry.value * weight1) + (secondClosest.entry.value * weight2);
-  return Math.round(Math.max(0, Math.min(100, interpolatedValue)));
-}
-
-/**
- * Get description for a value (using actual Clear Sky Chart scale)
- */
-export function getValueDescription(value: number): string {
-  if (value >= 65) return "Exceptional";
-  if (value >= 50) return "Excellent";
-  if (value >= 40) return "Very Good";
-  if (value >= 35) return "Good";
-  if (value >= 30) return "Fair";
-  if (value >= 20) return "Below Average";
-  if (value >= 15) return "Poor";
-  if (value >= 10) return "Very Poor";
-  if (value >= 5) return "Bad";
-  return "Worst";
-}
-
-/**
- * Convert RGB to seeing rating (1-5 scale) using actual Clear Sky Chart values
- */
-export function mapRgbToSeeingRating(rgb: RgbColor): number {
-  const value = mapRgbToValue(rgb);
-  
-  // Convert 0-100 scale to 1-5 seeing rating scale based on visual analysis
-  if (value >= 80) return 5; // Excellent - darkest blues (64.1 and above)
-  if (value >= 65) return 4; // Good - medium blues (43.3 range)
-  if (value >= 55) return 3; // Fair - light blues (39.5 range) 
-  if (value >= 45) return 2; // Below Average - cyan colors (37.6 range)
-  return 1; // Poor - light cyan to white (35.8 and below)
+  return closestEntry.rating;
 }
 
 /**
@@ -139,7 +91,7 @@ export function debugColorMatch(rgb: { r: number; g: number; b: number }): void 
   console.log(`[Color Scale] Input RGB(${rgb.r}, ${rgb.g}, ${rgb.b})`);
   console.log(`[Color Scale] Closest matches:`);
   distances.slice(0, 3).forEach((item, index) => {
-    console.log(`  ${index + 1}. RGB(${item.entry.rgb.r}, ${item.entry.rgb.g}, ${item.entry.rgb.b}) - Value: ${item.entry.value}, Distance: ${Math.round(item.distance)}, Desc: ${item.entry.description}`);
+    console.log(`  ${index + 1}. RGB(${item.entry.rgb.r}, ${item.entry.rgb.g}, ${item.entry.rgb.b}) - Rating: ${item.entry.rating}, Distance: ${Math.round(item.distance)}, Desc: ${item.entry.description}`);
   });
-  console.log(`[Color Scale] Final mapped value: ${mapRgbToValue(rgb)}`);
+  console.log(`[Color Scale] Final rating: ${mapRgbToSeeingRating(rgb)}`);
 }

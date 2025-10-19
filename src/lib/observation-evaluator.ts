@@ -41,12 +41,7 @@ interface ClearSkyCondition {
   time: string;
   cloudCover: number;     // 1-5 scale (5=excellent, 1=poor)
   transparency: number;   // 1-5 scale (5=excellent, 1=poor)
-  seeing: number;         // 1-5 scale (5=excellent, 1=poor)
-  smoke: number;          // 1-5 scale (5=excellent, 1=poor)
-  windSpeed: number;      // 1-5 scale (5=excellent, 1=poor)
-  // Optional legacy fields for compatibility
-  temperature?: number;
-  humidity?: number;
+  seeingRating: number;   // 1-5 scale (5=excellent, 1=poor)
 }
 
 type QualityRating = 'excellent' | 'good' | 'dubious' | 'poor';
@@ -143,15 +138,13 @@ export function evaluateObservingCondition(
   const config = loadObservationCriteria();
   const details: { [key: string]: QualityRating } = {};
 
-  // Evaluate each parameter using simple 1-5 scale
+  // Evaluate each parameter using simple 1-5 scale (3-factor system)
   details.cloudCover = evaluateParameter(condition.cloudCover, config.cloudCover);
   details.transparency = evaluateParameter(condition.transparency, config.transparency);
-  details.seeing = evaluateParameter(condition.seeing, config.seeing);
-  details.smoke = evaluateParameter(condition.smoke, config.smoke);
-  details.wind = evaluateParameter(condition.windSpeed, config.wind);
-
-  // Apply heuristic to determine overall rating
-  const ratings = Object.values(details);
+  details.seeing = evaluateParameter(condition.seeingRating, config.seeing);
+  
+  // Apply heuristic to determine overall rating using only 3 factors
+  const ratings = [details.cloudCover, details.transparency, details.seeing];
   let overall: QualityRating;
   
   console.log(`[Evaluator] Using heuristic: ${config.heuristic}`);
@@ -177,39 +170,33 @@ export function evaluateObservingCondition(
       break;
 
     case 'weighted':
-      // 5-factor weighted average using dynamic factor weights if provided, otherwise equal weights
-      const defaultWeights = {
-        cloudCover: 20,
-        transparency: 20,
-        seeing: 20,
-        smoke: 20,
-        wind: 20
+      // 3-factor weighted average using factor weights from UI
+      // Use provided factor weights - no hardcoded defaults
+      const weights = {
+        cloudCover: factorWeights?.cloudCover || 0,
+        transparency: factorWeights?.transparency || 0,
+        seeingRating: factorWeights?.seeing || factorWeights?.seeingRating || 0  // Handle both 'seeing' and 'seeingRating' parameter names
       };
-      
-      // Use provided factor weights or fallback to defaults
-      // Check if we actually have valid weights (not all zeros)
-      const hasValidWeights = factorWeights && Object.values(factorWeights).some(w => w > 0);
-      
-      const weights = hasValidWeights ? {
-        cloudCover: factorWeights!.cloudCover || 0,
-        transparency: factorWeights!.transparency || 0,
-        seeing: factorWeights!.seeing || 0,
-        smoke: factorWeights!.smoke || 0,
-        wind: factorWeights!.wind || 0
-      } : defaultWeights;
       
       console.log('[Evaluator] Using factor weights:', weights);
       
       let weightedSum = 0;
       let totalWeight = 0;
-      Object.entries(details).forEach(([param, rating]) => {
+      
+      // Calculate for 3 factors only
+      const score3f = {
+        cloudCover: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.cloudCover],
+        transparency: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.transparency],
+        seeingRating: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.seeing]  // Note: details uses 'seeing' key
+      };
+      
+      ['cloudCover', 'transparency', 'seeingRating'].forEach(param => {
         const weight = weights[param as keyof typeof weights] || 0;
-        const score = { excellent: 4, good: 3, dubious: 2, poor: 1 }[rating];
-        weightedSum += score * weight;
-        totalWeight += weight;
-        
-        if (weight > 0) {
-          console.log(`[Evaluator] ${param}: ${rating} (score: ${score}, weight: ${weight}, contribution: ${score * weight})`);
+        const score = score3f[param as keyof typeof score3f];
+        if (weight > 0 && score) {
+          weightedSum += score * weight;
+          totalWeight += weight;
+          console.log(`[Evaluator] ${param}: ${details[param === 'seeingRating' ? 'seeing' : param]} (score: ${score}, weight: ${weight}, contribution: ${score * weight})`);
         }
       });
       
@@ -263,19 +250,11 @@ export function convertLegacyCondition(legacyCondition: {
   cloudCover: number;
   transparency: number;
   seeingRating: number;
-  temperature?: number;
-  humidity?: number;
-  windSpeed: number;
-  smoke?: number;
 }): ClearSkyCondition {
   return {
     time: legacyCondition.time,
     cloudCover: legacyCondition.cloudCover,
     transparency: legacyCondition.transparency,
-    seeing: legacyCondition.seeingRating,
-    smoke: legacyCondition.smoke || 5, // Default to excellent if not provided
-    windSpeed: legacyCondition.windSpeed,
-    temperature: legacyCondition.temperature,
-    humidity: legacyCondition.humidity
+    seeingRating: legacyCondition.seeingRating
   };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ObservationRecommendation } from '@/types/observation';
 import { observatoryConfig } from '@/config/observatory';
 
@@ -49,22 +49,17 @@ export default function ObservationModuleCustom({
   
   // Factor weights configuration state
   const [factorWeights, setFactorWeights] = useState({
-    cloudCover: 40,
-    transparency: 20,
-    seeing: 20,
-    darkness: 5,
-    smoke: 5,
-    wind: 5,
-    humidity: 3,
-    temperature: 2
+    cloudCover: 0,
+    transparency: 0,
+    seeing: 0
   });
 
-  // Save factor weights to localStorage
+  // Save factor weights to localStorage with debouncing for performance
   useEffect(() => {
     // Only auto-save if we're not in the middle of editing
     const timeoutId = setTimeout(() => {
       localStorage.setItem('factorWeights', JSON.stringify(factorWeights));
-    }, 500); // Debounce auto-save by 500ms
+    }, 1000); // Increased debounce to 1 second to reduce writes
     
     return () => clearTimeout(timeoutId);
   }, [factorWeights]);
@@ -74,7 +69,10 @@ export default function ObservationModuleCustom({
     const saved = localStorage.getItem('factorWeights');
     if (saved) {
       try {
-        setFactorWeights(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        console.log('[FactorWeights] Loaded from localStorage:', parsed);
+        console.log('[FactorWeights] seeingRating value:', parsed.seeingRating);
+        setFactorWeights(parsed);
       } catch (error) {
         console.error('Failed to load saved factor weights:', error);
       }
@@ -85,7 +83,7 @@ export default function ObservationModuleCustom({
     fetchRecommendation();
   }, [customClearSkyUrl]);
 
-  const fetchRecommendation = async () => {
+  const fetchRecommendation = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -111,11 +109,13 @@ export default function ObservationModuleCustom({
       }
     } catch (err) {
       setError('Failed to fetch observation conditions');
-      console.error('Error fetching recommendation:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching recommendation:', err);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [factorWeights, customClearSkyUrl]); // Add dependencies
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -137,59 +137,59 @@ export default function ObservationModuleCustom({
     }
   };
 
-  // Helper function to calculate weighted score
-  const calculateWeightedScore = (condition: any) => {
-    // Convert cloudCover percentage to 1-5 scale (inverted - lower percentage = higher score)
-    const cloudScore = condition.cloudCover <= 10 ? 5 :
-                      condition.cloudCover <= 25 ? 4 :
-                      condition.cloudCover <= 50 ? 3 :
-                      condition.cloudCover <= 75 ? 2 : 1;
+  // Helper function to calculate weighted score - memoized for performance
+  const calculateWeightedScore = useCallback((condition: any) => {
+    // Debug: log the entire condition object
+    console.log(`[WeightedScore] Full condition object:`, condition);
     
+    // cloudCover is already on 1-5 scale from parser (5=excellent, 1=poor)
+    const cloudScore = condition.cloudCover;
     const transparencyScore = Math.round(condition.transparency);
     const seeingScore = condition.seeingRating;
     
-    // Default scores for factors not available in current data
-    const darknessScore = 4; // Default good darkness
-    const smokeScore = 4;    // Default low smoke
-    const windScore = 4;     // Default light wind
-    const humidityScore = 3; // Default moderate humidity
-    const temperatureScore = 4; // Default good temperature
+    // Debug logging for NaN issue
+    console.log(`[WeightedScore] Scores: cloud=${cloudScore}, trans=${transparencyScore}, seeing=${seeingScore}`);
+    console.log(`[WeightedScore] Weights: cloud=${factorWeights.cloudCover}, trans=${factorWeights.transparency}, seeing=${factorWeights.seeing}`);
     
-    // Calculate weighted average
-    const totalWeight = Object.values(factorWeights).reduce((sum, weight) => sum + weight, 0);
+    // Check for undefined values
+    if (cloudScore === undefined || transparencyScore === undefined || seeingScore === undefined) {
+      console.error(`[WeightedScore] Undefined scores detected!`);
+      return 0;
+    }
+    
+    // Only use the 3 factors actually available from Clear Sky Chart data
+    const totalWeight = factorWeights.cloudCover + factorWeights.transparency + factorWeights.seeing;
+    
+    console.log(`[WeightedScore] TotalWeight: ${totalWeight}`);
+    
+    // If weights are not configured (0,0,0) or don't add to 100, return a basic average
+    if (totalWeight === 0) {
+      console.log(`[WeightedScore] Weights not configured, returning simple average`);
+      return Math.round(((cloudScore + transparencyScore + seeingScore) / 3) * 100) / 100;
+    }
+    
+    if (totalWeight !== 100) {
+      console.log(`[WeightedScore] Invalid total weight (${totalWeight}), returning simple average`);
+      return Math.round(((cloudScore + transparencyScore + seeingScore) / 3) * 100) / 100;
+    }
     
     const weightedSum = (
       (cloudScore * factorWeights.cloudCover) +
       (transparencyScore * factorWeights.transparency) +
-      (seeingScore * factorWeights.seeing) +
-      (darknessScore * factorWeights.darkness) +
-      (smokeScore * factorWeights.smoke) +
-      (windScore * factorWeights.wind) +
-      (humidityScore * factorWeights.humidity) +
-      (temperatureScore * factorWeights.temperature)
+      (seeingScore * factorWeights.seeing)
     );
+    
+    console.log(`[WeightedScore] WeightedSum: ${weightedSum}`);
     
     const finalScore = Math.round((weightedSum / totalWeight) * 100) / 100; // Round to 2 decimals
     
-    // Debug logging for first calculation
-    if (condition.time && condition.time.includes('18:')) {
-      console.log('🔍 Score Calculation Debug:', {
-        time: condition.time,
-        cloudScore,
-        transparencyScore, 
-        seeingScore,
-        weights: factorWeights,
-        weightedSum,
-        totalWeight,
-        finalScore
-      });
-    }
+    console.log(`[WeightedScore] FinalScore: ${finalScore}`);
     
     return finalScore;
-  };
+  }, [factorWeights]); // Only recalculate when weights change
 
-  // Helper function to filter conditions to observing window
-  const getObservingWindowConditions = () => {
+  // Helper function to filter conditions to observing window - memoized for performance
+  const getObservingWindowConditions = useMemo(() => {
     if (!data?.analysisData?.conditions || !data?.observingWindow) {
       return [];
     }
@@ -206,19 +206,18 @@ export default function ObservationModuleCustom({
       
       // Handle case where observing window spans midnight
       if (endHour < startHour) {
-        // Spans midnight: include hours from start to 23, and 0 to end
+        // Spans midnight: include hours >= startHour OR hours <= endHour
         return conditionHour >= startHour || conditionHour <= endHour;
       } else {
-        // Same day: include hours from start to end
+        // Same day: include hours between start and end
         return conditionHour >= startHour && conditionHour <= endHour;
       }
     });
-  };
-
-  // FactorWeightConfiguration component
+  }, [data?.analysisData?.conditions, data?.observingWindow]); // Only recalculate when data changes  // FactorWeightConfiguration component
   const FactorWeightConfiguration = () => {
     const totalWeight = Object.values(factorWeights).reduce((sum, weight) => sum + weight, 0);
-    const isValid = totalWeight === 100;
+    const isUnset = totalWeight === 0;  // User hasn't configured weights yet
+    const isValid = totalWeight === 100;  // Weights are properly configured
     
     // Temporary state for editing individual fields
     const [tempValues, setTempValues] = useState<{[key: string]: string}>({});
@@ -275,14 +274,9 @@ export default function ObservationModuleCustom({
 
     const resetToDefaults = () => {
       const defaults = {
-        cloudCover: 40,
-        transparency: 20,
-        seeing: 20,
-        darkness: 5,
-        smoke: 5,
-        wind: 5,
-        humidity: 3,
-        temperature: 2
+        cloudCover: 0,
+        transparency: 0,
+        seeing: 0
       };
       setFactorWeights(defaults);
       setTempValues({});
@@ -395,7 +389,7 @@ export default function ObservationModuleCustom({
           <div style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1rem' }}>TOTAL:</div>
           <div style={{ 
             textAlign: 'center',
-            color: isValid ? '#10b981' : '#ef4444',
+            color: isUnset ? '#f59e0b' : isValid ? '#10b981' : '#ef4444',
             fontSize: '1.1rem'
           }}>
             {totalWeight}%
@@ -403,11 +397,34 @@ export default function ObservationModuleCustom({
           <div style={{ 
             textAlign: 'center',
             fontSize: '0.9rem',
-            color: isValid ? '#10b981' : '#ef4444'
+            color: isUnset ? '#f59e0b' : isValid ? '#10b981' : '#ef4444'
           }}>
-            {isValid ? '✓ Valid' : '✗ Must = 100%'}
+            {isUnset ? '⚠ Not Set' : isValid ? '✓ Valid' : '✗ Must = 100%'}
           </div>
         </div>
+
+        {/* Configuration Status Message */}
+        {isUnset && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: '6px',
+            color: '#f59e0b',
+            fontSize: '0.9rem',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontWeight: '500', marginBottom: '8px' }}>
+              ⚠️ Factor weights not configured
+            </div>
+            <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.85rem' }}>
+              Please set weights for each factor. They must add up to exactly 100%.
+              <br />
+              Example: Cloud Cover 40%, Transparency 30%, Seeing 30%
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div style={{
@@ -482,6 +499,30 @@ export default function ObservationModuleCustom({
       </div>
     );
   };
+
+  // Memoize display conditions calculation for performance
+  const { displayConditions, maxColumns } = useMemo(() => {
+    const allConditions = data?.analysisData?.conditions || [];
+    const observingConditions = getObservingWindowConditions;
+    
+    if (observingConditions.length === 0 || allConditions.length === 0) {
+      return { displayConditions: [], maxColumns: 0 };
+    }
+    
+    // Find the start and end indices in the full conditions array
+    const firstObservingTime = observingConditions[0].time;
+    const lastObservingTime = observingConditions[observingConditions.length - 1].time;
+    
+    const firstIndex = allConditions.findIndex(c => c.time === firstObservingTime);
+    const lastIndex = allConditions.findIndex(c => c.time === lastObservingTime);
+    
+    // Extend by ±1 hour, but stay within bounds
+    const startIndex = Math.max(0, firstIndex - 1);
+    const endIndex = Math.min(allConditions.length - 1, lastIndex + 1);
+    
+    const conditions = allConditions.slice(startIndex, endIndex + 1);
+    return { displayConditions: conditions, maxColumns: conditions.length };
+  }, [data?.analysisData?.conditions, getObservingWindowConditions]);
 
   if (loading) {
     return (
@@ -869,27 +910,9 @@ export default function ObservationModuleCustom({
           </h3>
           
           {(() => {
-            // Get observing window conditions and extend by ±1 hour
-            const allConditions = data.analysisData?.conditions || [];
-            const observingConditions = getObservingWindowConditions();
-            
-            if (observingConditions.length === 0 || allConditions.length === 0) {
+            if (displayConditions.length === 0) {
               return null;
             }
-            
-            // Find the start and end indices in the full conditions array
-            const firstObservingTime = observingConditions[0].time;
-            const lastObservingTime = observingConditions[observingConditions.length - 1].time;
-            
-            const firstIndex = allConditions.findIndex(c => c.time === firstObservingTime);
-            const lastIndex = allConditions.findIndex(c => c.time === lastObservingTime);
-            
-            // Extend by ±1 hour, but stay within bounds
-            const startIndex = Math.max(0, firstIndex - 1);
-            const endIndex = Math.min(allConditions.length - 1, lastIndex + 1);
-            
-            const displayConditions = allConditions.slice(startIndex, endIndex + 1);
-            const maxColumns = displayConditions.length;
             
             return (
               <>
@@ -922,11 +945,8 @@ export default function ObservationModuleCustom({
                     Cloud Cover:
                   </div>
                   {displayConditions.map((condition, i) => {
-                    // Convert cloudCover percentage to 1-5 scale (inverted - lower percentage = higher score)
-                    const score = condition.cloudCover <= 10 ? 5 :
-                                 condition.cloudCover <= 25 ? 4 :
-                                 condition.cloudCover <= 50 ? 3 :
-                                 condition.cloudCover <= 75 ? 2 : 1;
+                    // cloudCover is already on 1-5 scale from parser (5=excellent, 1=poor)
+                    const score = condition.cloudCover;
                     const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
                     return (
                       <div key={i} style={{
@@ -1005,156 +1025,6 @@ export default function ObservationModuleCustom({
                   })}
                 </div>
                 
-                {/* Darkness row */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `100px repeat(${maxColumns}, 1fr)`,
-                  gap: '4px',
-                  marginBottom: '4px',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: '300' }}>
-                    Darkness:
-                  </div>
-                  {displayConditions.map((condition, i) => {
-                    const score = 4; // Default good darkness during observing hours
-                    const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
-                    return (
-                      <div key={i} style={{
-                        textAlign: 'center',
-                        padding: '4px 2px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '4px',
-                        color: color,
-                        fontWeight: '500',
-                        fontSize: '0.8rem'
-                      }}>
-                        {score}
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Smoke row */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `100px repeat(${maxColumns}, 1fr)`,
-                  gap: '4px',
-                  marginBottom: '4px',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: '300' }}>
-                    Smoke:
-                  </div>
-                  {displayConditions.map((condition, i) => {
-                    const score = 4; // Default low smoke
-                    const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
-                    return (
-                      <div key={i} style={{
-                        textAlign: 'center',
-                        padding: '4px 2px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '4px',
-                        color: color,
-                        fontWeight: '500',
-                        fontSize: '0.8rem'
-                      }}>
-                        {score}
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Wind row */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `100px repeat(${maxColumns}, 1fr)`,
-                  gap: '4px',
-                  marginBottom: '4px',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: '300' }}>
-                    Wind:
-                  </div>
-                  {displayConditions.map((condition, i) => {
-                    const score = 4; // Default light wind
-                    const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
-                    return (
-                      <div key={i} style={{
-                        textAlign: 'center',
-                        padding: '4px 2px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '4px',
-                        color: color,
-                        fontWeight: '500',
-                        fontSize: '0.8rem'
-                      }}>
-                        {score}
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Humidity row */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `100px repeat(${maxColumns}, 1fr)`,
-                  gap: '4px',
-                  marginBottom: '4px',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: '300' }}>
-                    Humidity:
-                  </div>
-                  {displayConditions.map((condition, i) => {
-                    const score = 3; // Default moderate humidity
-                    const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
-                    return (
-                      <div key={i} style={{
-                        textAlign: 'center',
-                        padding: '4px 2px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '4px',
-                        color: color,
-                        fontWeight: '500',
-                        fontSize: '0.8rem'
-                      }}>
-                        {score}
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Temperature row */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `100px repeat(${maxColumns}, 1fr)`,
-                  gap: '4px',
-                  marginBottom: '4px',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: '300' }}>
-                    Temperature:
-                  </div>
-                  {displayConditions.map((condition, i) => {
-                    const score = 4; // Default good temperature
-                    const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
-                    return (
-                      <div key={i} style={{
-                        textAlign: 'center',
-                        padding: '4px 2px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '4px',
-                        color: color,
-                        fontWeight: '500',
-                        fontSize: '0.8rem'
-                      }}>
-                        {score}
-                      </div>
-                    );
-                  })}
-                </div>
-                
                 {/* Weighted Score row */}
                 <div style={{
                   display: 'grid',
@@ -1197,7 +1067,7 @@ export default function ObservationModuleCustom({
                 }}>
                   Weighted Score = Cloud Cover ({factorWeights.cloudCover}%) + Transparency ({factorWeights.transparency}%) + Seeing ({factorWeights.seeing}%) + other factors
                   <br />
-                  Showing observing window: {data.observingWindow.start} - {data.observingWindow.end} ({observingConditions.length} hours total)
+                  Showing observing window: {data.observingWindow.start} - {data.observingWindow.end} ({getObservingWindowConditions.length} hours total)
                 </div>
               </>
             );

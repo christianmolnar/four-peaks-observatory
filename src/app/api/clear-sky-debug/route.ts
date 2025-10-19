@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
-import { evaluateObservingCondition, convertLegacyCondition } from '@/lib/observation-evaluator';
+import { evaluateObservingCondition } from '@/lib/observation-evaluator';
 import fs from 'fs';
 import path from 'path';
 
@@ -40,11 +40,10 @@ export async function GET(request: Request) {
     const transparencyWeight = 15;
     const seeingWeight = 15;
 
-    // Analyze each hour in detail
+        // Analyze each hour in detail
     for (let i = 0; i < Math.min(12, chartData.forecast.length); i++) {
       const condition = chartData.forecast[i];
-      const newFormat = convertLegacyCondition(condition);
-      const evaluation = evaluateObservingCondition(newFormat);
+      const evaluation = evaluateObservingCondition(condition);
       
       // Calculate weighted score manually to verify
       // cloudCover is percentage (0-100%) where 0=clear, 100=overcast
@@ -67,10 +66,7 @@ export async function GET(request: Request) {
         rawData: {
           cloudCover: condition.cloudCover,
           transparency: condition.transparency,
-          seeingRating: condition.seeingRating,
-          temperature: condition.temperature,
-          humidity: condition.humidity,
-          windSpeed: condition.windSpeed
+          seeingRating: condition.seeingRating
         },
         normalizedScores: {
           cloud: cloudScore,

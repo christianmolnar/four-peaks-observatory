@@ -1,11 +1,12 @@
 /**
- * Test Script for Enhanced Clear Sky Chart Parser
+ * const { fetchClearSkyChartData } = require('./src/lib/clear-sky-parser');
+const { DEFAULT_CHART_CONFIG } = require('./src/lib/chart-config');st Script for Enhanced Clear Sky Chart Parser
  * 
  * This script tests the new coordinate system and time synchronization features.
  * It uses the user-provided measurements for Maple Valley Observatory.
  */
 
-const { fetchClearSkyChartDataEnhanced } = require('../src/lib/enhanced-clear-sky-parser');
+const { fetchClearSkyChartData } = require('../src/lib/clear-sky-parser');
 const { MAPLE_VALLEY_CONFIG } = require('../src/lib/chart-config');
 
 async function testEnhancedParser() {
@@ -24,28 +25,21 @@ async function testEnhancedParser() {
   
   console.log('📍 Location:', location.name);
   console.log('🌐 Chart URL:', chartUrl);
-  console.log('📐 Using User Coordinates (5 Key Factors):');
-  console.log('   • Cloud Cover:', MAPLE_VALLEY_CONFIG.parameters.cloudCover);
-  console.log('   • Transparency:', MAPLE_VALLEY_CONFIG.parameters.transparency);
-  console.log('   • Seeing:', MAPLE_VALLEY_CONFIG.parameters.seeing);
-  console.log('   • Smoke:', MAPLE_VALLEY_CONFIG.parameters.smoke);
-  console.log('   • Wind:', MAPLE_VALLEY_CONFIG.parameters.wind);
-  console.log('   • Hourly Spacing:', MAPLE_VALLEY_CONFIG.hourlySpacing + 'px');
-  console.log('   • Max Hours:', MAPLE_VALLEY_CONFIG.maxHours);
+  console.log('📐 Using Universal Coordinates (5 Key Factors):');
+  console.log('   • Cloud Cover:', DEFAULT_CHART_CONFIG.parameters.cloudCover);
+  console.log('   • Transparency:', DEFAULT_CHART_CONFIG.parameters.transparency);
+  console.log('   • Seeing:', DEFAULT_CHART_CONFIG.parameters.seeing);
+  console.log('   • Smoke:', DEFAULT_CHART_CONFIG.parameters.smoke);
+  console.log('   • Wind:', DEFAULT_CHART_CONFIG.parameters.wind);
+  console.log('   • Hourly Spacing:', DEFAULT_CHART_CONFIG.hourlySpacing + 'px');
+  console.log('   • Max Hours:', DEFAULT_CHART_CONFIG.maxHours);
   console.log('   • Skipped: ECMWF, Darkness, Humidity, Temperature');
   console.log('');
   
   try {
     // Test the enhanced parser
     console.log('🚀 Fetching Clear Sky Chart data...');
-    const result = await fetchClearSkyChartDataEnhanced(
-      chartUrl,
-      location,
-      MAPLE_VALLEY_CONFIG,
-      new Date(),
-      60, // Start offset
-      60  // End offset
-    );
+    const result = await fetchClearSkyChartData(chartUrl);
     
     console.log('✅ Success! Parser completed successfully');
     console.log('');

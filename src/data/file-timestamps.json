@@ -1,4 +1,11 @@
 {
+  "assets/AlbuquerqueCSC.gif": {
+    "mtime": "2025-10-13T23:43:07.428Z",
+    "mtimeMs": 1760398987427.5305,
+    "ctime": "2025-10-13T23:43:07.428Z",
+    "ctimeMs": 1760398987427.5305,
+    "filename": "AlbuquerqueCSC.gif"
+  },
   "assets/M33.jpg": {
     "mtime": "2025-07-31T23:08:40.258Z",
     "mtimeMs": 1754003320258.4426,
@@ -42,17 +49,17 @@
     "filename": "NGC7000-Pelican-1.jpg"
   },
   "assets/SampleCSC.png": {
-    "mtime": "2025-10-13T22:39:19.839Z",
-    "mtimeMs": 1760395159838.678,
-    "ctime": "2025-10-13T22:39:19.839Z",
-    "ctimeMs": 1760395159838.678,
+    "mtime": "2025-10-13T22:59:49.630Z",
+    "mtimeMs": 1760396389629.6316,
+    "ctime": "2025-10-13T22:59:49.630Z",
+    "ctimeMs": 1760396389629.6316,
     "filename": "SampleCSC.png"
   },
   "assets/conf.png": {
-    "mtime": "2025-10-13T22:39:19.859Z",
-    "mtimeMs": 1760395159859.013,
-    "ctime": "2025-10-13T22:39:19.859Z",
-    "ctimeMs": 1760395159859.013,
+    "mtime": "2025-10-13T22:59:49.632Z",
+    "mtimeMs": 1760396389632.2373,
+    "ctime": "2025-10-13T22:59:49.632Z",
+    "ctimeMs": 1760396389632.2373,
     "filename": "conf.png"
   },
   "astrophotography/deep-sky/Hubble-Palette/NGC7000 and IC5070-2.jpg": {
@@ -97,6 +104,20 @@
     "ctimeMs": 1754003204433.8103,
     "filename": "M33 - The Triangulum Galaxy.jpg"
   },
+  "astrophotography/deep-sky/galaxies/M81 and M82 Tight-1.jpg": {
+    "mtime": "2025-10-15T05:12:09.840Z",
+    "mtimeMs": 1760505129840.4927,
+    "ctime": "2025-10-15T05:12:09.840Z",
+    "ctimeMs": 1760505129840.4927,
+    "filename": "M81 and M82 Tight-1.jpg"
+  },
+  "astrophotography/deep-sky/galaxies/M81 and M82-1.jpg": {
+    "mtime": "2025-10-15T05:10:34.184Z",
+    "mtimeMs": 1760505034183.8677,
+    "ctime": "2025-10-15T05:10:34.184Z",
+    "ctimeMs": 1760505034183.8677,
+    "filename": "M81 and M82-1.jpg"
+  },
   "astrophotography/deep-sky/galaxies/NGC6946.jpg": {
     "mtime": "2025-09-19T06:05:39.614Z",
     "mtimeMs": 1758261939614.3591,
@@ -110,6 +131,13 @@
     "ctime": "2025-09-20T01:17:08.354Z",
     "ctimeMs": 1758331028353.836,
     "filename": "NGC7331.jpg"
+  },
+  "astrophotography/deep-sky/galaxies/NGC891-1.jpg": {
+    "mtime": "2025-10-15T17:13:46.613Z",
+    "mtimeMs": 1760548426613.1013,
+    "ctime": "2025-10-15T17:13:46.613Z",
+    "ctimeMs": 1760548426613.1013,
+    "filename": "NGC891-1.jpg"
   },
   "astrophotography/deep-sky/galaxies/The Leo Trio.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
@@ -188,6 +216,13 @@
     "ctimeMs": 1755058392695.534,
     "filename": "IC63.jpg"
   },
+  "astrophotography/deep-sky/nebulas/LBN 437-1.jpg": {
+    "mtime": "2025-10-16T18:54:42.120Z",
+    "mtimeMs": 1760640882119.5825,
+    "ctime": "2025-10-16T18:54:42.120Z",
+    "ctimeMs": 1760640882119.5825,
+    "filename": "LBN 437-1.jpg"
+  },
   "astrophotography/deep-sky/nebulas/LBN-438.jpg": {
     "mtime": "2025-09-30T04:53:31.359Z",
     "mtimeMs": 1759208011359.0332,
@@ -244,12 +279,26 @@
     "ctimeMs": 1754020534309.8357,
     "filename": "M42 The Orion Nebula.jpg"
   },
+  "astrophotography/deep-sky/nebulas/M57-1.jpg": {
+    "mtime": "2025-10-15T06:27:04.886Z",
+    "mtimeMs": 1760509624885.851,
+    "ctime": "2025-10-15T06:27:04.886Z",
+    "ctimeMs": 1760509624885.851,
+    "filename": "M57-1.jpg"
+  },
   "astrophotography/deep-sky/nebulas/M97.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
     "mtimeMs": 312796800000,
     "ctime": "2025-08-25T00:59:26.054Z",
     "ctimeMs": 1756083566054.0793,
     "filename": "M97.jpg"
+  },
+  "astrophotography/deep-sky/nebulas/NGC 7635 and Sh2-157-1.jpg": {
+    "mtime": "2025-10-16T18:58:42.818Z",
+    "mtimeMs": 1760641122818.069,
+    "ctime": "2025-10-16T18:58:42.818Z",
+    "ctimeMs": 1760641122818.069,
+    "filename": "NGC 7635 and Sh2-157-1.jpg"
   },
   "astrophotography/deep-sky/nebulas/NGC1499.jpg": {
     "mtime": "1979-11-30T08:00:00.000Z",
@@ -314,6 +363,13 @@
     "ctimeMs": 1754020607821.5586,
     "filename": "NGC7635 - The Bubble Nebula-Wide.jpg"
   },
+  "astrophotography/deep-sky/nebulas/NY Cephei.jpg": {
+    "mtime": "2025-10-16T18:49:23.707Z",
+    "mtimeMs": 1760640563706.592,
+    "ctime": "2025-10-16T18:49:23.707Z",
+    "ctimeMs": 1760640563706.592,
+    "filename": "NY Cephei.jpg"
+  },
   "astrophotography/deep-sky/nebulas/North America and The Pelican.jpg": {
     "mtime": "2025-07-30T21:12:58.691Z",
     "mtimeMs": 1753909978690.7815,
@@ -341,6 +397,13 @@
     "ctime": "2025-09-29T01:47:18.875Z",
     "ctimeMs": 1759110438874.9937,
     "filename": "SH2-132-The-LobsterClaw.jpg"
+  },
+  "astrophotography/deep-sky/nebulas/SH2-140-1.jpg": {
+    "mtime": "2025-10-15T06:33:05.423Z",
+    "mtimeMs": 1760509985422.5361,
+    "ctime": "2025-10-15T06:33:05.423Z",
+    "ctimeMs": 1760509985422.5361,
+    "filename": "SH2-140-1.jpg"
   },
   "astrophotography/deep-sky/nebulas/SH2-173.jpg": {
     "mtime": "2025-09-30T04:01:41.455Z",
@@ -468,6 +531,13 @@
     "ctimeMs": 1756067881602.391,
     "filename": "Double Cluster.jpg"
   },
+  "astrophotography/deep-sky/wide-field/M31 Wide-1.jpg": {
+    "mtime": "2025-10-16T20:58:49.673Z",
+    "mtimeMs": 1760648329672.6538,
+    "ctime": "2025-10-16T20:58:49.673Z",
+    "ctimeMs": 1760648329672.6538,
+    "filename": "M31 Wide-1.jpg"
+  },
   "astrophotography/deep-sky/wide-field/NGC 7635 - M52.jpg": {
     "mtime": "2025-08-24T18:05:36.027Z",
     "mtimeMs": 1756058736027.1592,
@@ -524,6 +594,13 @@
     "ctimeMs": 1759110313672.5615,
     "filename": "IC5146.jpg"
   },
+  "astrophotography/featured/LBN 437.jpg": {
+    "mtime": "2025-10-16T18:54:29.333Z",
+    "mtimeMs": 1760640869333.3064,
+    "ctime": "2025-10-16T18:54:29.333Z",
+    "ctimeMs": 1760640869333.3064,
+    "filename": "LBN 437.jpg"
+  },
   "astrophotography/featured/LBN-438.jpg": {
     "mtime": "2025-09-30T04:53:46.903Z",
     "mtimeMs": 1759208026903.2754,
@@ -538,6 +615,13 @@
     "ctimeMs": 1756060882111.7632,
     "filename": "M103-1.jpg"
   },
+  "astrophotography/featured/M31 Wide.jpg": {
+    "mtime": "2025-10-16T20:58:35.382Z",
+    "mtimeMs": 1760648315381.516,
+    "ctime": "2025-10-16T20:58:35.382Z",
+    "ctimeMs": 1760648315381.516,
+    "filename": "M31 Wide.jpg"
+  },
   "astrophotography/featured/M56.jpg": {
     "mtime": "2025-08-24T19:07:53.865Z",
     "mtimeMs": 1756062473864.9329,
@@ -545,12 +629,40 @@
     "ctimeMs": 1756062473864.9329,
     "filename": "M56.jpg"
   },
+  "astrophotography/featured/M57.jpg": {
+    "mtime": "2025-10-15T06:26:45.372Z",
+    "mtimeMs": 1760509605371.9795,
+    "ctime": "2025-10-15T06:26:45.372Z",
+    "ctimeMs": 1760509605371.9795,
+    "filename": "M57.jpg"
+  },
+  "astrophotography/featured/M81 and M82 Tight-1.jpg": {
+    "mtime": "2025-10-15T05:12:40.569Z",
+    "mtimeMs": 1760505160569.2292,
+    "ctime": "2025-10-15T05:12:40.569Z",
+    "ctimeMs": 1760505160569.2292,
+    "filename": "M81 and M82 Tight-1.jpg"
+  },
+  "astrophotography/featured/M81 and M82.jpg": {
+    "mtime": "2025-10-15T05:10:10.465Z",
+    "mtimeMs": 1760505010465.3062,
+    "ctime": "2025-10-15T05:10:10.465Z",
+    "ctimeMs": 1760505010465.3062,
+    "filename": "M81 and M82.jpg"
+  },
   "astrophotography/featured/M92-1.jpg": {
     "mtime": "2025-08-24T18:52:08.782Z",
     "mtimeMs": 1756061528782.4165,
     "ctime": "2025-08-24T18:52:08.782Z",
     "ctimeMs": 1756061528782.4165,
     "filename": "M92-1.jpg"
+  },
+  "astrophotography/featured/NGC 7635 and Sh2-157-1.jpg": {
+    "mtime": "2025-10-16T18:59:00.565Z",
+    "mtimeMs": 1760641140564.9553,
+    "ctime": "2025-10-16T18:59:00.565Z",
+    "ctimeMs": 1760641140564.9553,
+    "filename": "NGC 7635 and Sh2-157-1.jpg"
   },
   "astrophotography/featured/NGC6871-1.jpg": {
     "mtime": "2025-09-19T06:24:26.928Z",
@@ -580,6 +692,20 @@
     "ctimeMs": 1757024473473.4895,
     "filename": "NGC7538.jpg"
   },
+  "astrophotography/featured/NGC891.jpg": {
+    "mtime": "2025-10-15T17:13:18.311Z",
+    "mtimeMs": 1760548398310.6897,
+    "ctime": "2025-10-15T17:13:18.311Z",
+    "ctimeMs": 1760548398310.6897,
+    "filename": "NGC891.jpg"
+  },
+  "astrophotography/featured/NY Cephei-1.jpg": {
+    "mtime": "2025-10-16T18:49:51.498Z",
+    "mtimeMs": 1760640591498.0178,
+    "ctime": "2025-10-16T18:49:51.498Z",
+    "ctimeMs": 1760640591498.0178,
+    "filename": "NY Cephei-1.jpg"
+  },
   "astrophotography/featured/SH2-115.jpg": {
     "mtime": "2025-09-30T04:31:37.805Z",
     "mtimeMs": 1759206697804.941,
@@ -593,6 +719,13 @@
     "ctime": "2025-09-30T04:14:51.318Z",
     "ctimeMs": 1759205691318.2012,
     "filename": "SH2-124.jpg"
+  },
+  "astrophotography/featured/SH2-140-1.jpg": {
+    "mtime": "2025-10-15T06:33:20.765Z",
+    "mtimeMs": 1760510000764.9907,
+    "ctime": "2025-10-15T06:33:20.765Z",
+    "ctimeMs": 1760510000764.9907,
+    "filename": "SH2-140-1.jpg"
   },
   "astrophotography/featured/SH2-173.jpg": {
     "mtime": "2025-09-30T04:02:18.282Z",

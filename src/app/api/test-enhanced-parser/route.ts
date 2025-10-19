@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchClearSkyChartDataEnhanced } from '@/lib/enhanced-clear-sky-parser';
-import { DEFAULT_CHART_CONFIG } from '@/lib/chart-config';
+import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
 import fs from 'fs';
 import path from 'path';
 
@@ -20,22 +19,17 @@ export async function GET(request: Request) {
     
     console.log(`[Enhanced Parser Test] Testing at: ${currentTime.toISOString()}`);
     
-    // Test the enhanced parser
-    const result = await fetchClearSkyChartDataEnhanced(
-      criteria.location.clearSkyChartUrl,
-      criteria.location,
-      DEFAULT_CHART_CONFIG, // Use user-provided coordinate measurements
-      currentTime,
-      criteria.observingWindow.startOffset,
-      criteria.observingWindow.endOffset
+    // Test the regular parser (enhanced parser removed)
+    const result = await fetchClearSkyChartData(
+      criteria.location.clearSkyChartUrl
     );
     
     return NextResponse.json({
       success: true,
       testTime: currentTime.toISOString(),
       result: {
-        timing: result.timing,
-        metadata: result.metadata,
+        location: result.location,
+        lastUpdated: result.lastUpdated,
         forecastSample: result.forecast.slice(0, 3), // First 3 conditions for brevity
         totalConditions: result.forecast.length
       }

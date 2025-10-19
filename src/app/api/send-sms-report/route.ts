@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ObservationRecommendation, ObservationCriteria } from '@/types/observation';
 import { calculateSunTimes, calculateObservingWindow, formatTime, calculateMoonData } from '@/lib/astronomical-calculations';
 import { fetchClearSkyChartData } from '@/lib/clear-sky-parser';
-import { evaluateObservingCondition, convertLegacyCondition } from '@/lib/observation-evaluator';
+import { evaluateObservingCondition } from '@/lib/observation-evaluator';
 import { getAIObservingRecommendation, formatAIRecommendation } from '@/lib/ai-recommendations';
 import { sendObservatoryForecastSMS, getSMSConfigFromEnv, validateSMSConfig } from '@/lib/sms-service';
 import fs from 'fs';
@@ -110,8 +110,7 @@ export async function POST(request: Request) {
     
     // Convert legacy format and analyze conditions
     const conditions = chartData.forecast.map(condition => {
-      const newFormat = convertLegacyCondition(condition);
-      const evaluation = evaluateObservingCondition(newFormat);
+      const evaluation = evaluateObservingCondition(condition);
       
       return {
         time: condition.time,

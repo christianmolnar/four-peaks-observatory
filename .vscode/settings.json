@@ -42,5 +42,8 @@
   
   // Reduce Python language server if not needed
   "python.languageServer": "Pylance",
-  "python.analysis.autoImportCompletions": false
+  "python.analysis.autoImportCompletions": false,
+  
+  // Enable GitHub Copilot custom instructions
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true
 }

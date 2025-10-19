@@ -1,0 +1,395 @@
+{
+  "timestamp": "2025-10-19T22:38:09.248Z",
+  "url": "https://www.cleardarksky.com/c/MplVllyObWAcsk.gif",
+  "location": "Maple Valley Observatory",
+  "totalHours": 24,
+  "analysis": {
+    "hourlyBreakdown": [
+      {
+        "hour": 0,
+        "time": "14:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 1,
+        "time": "15:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 2,
+        "time": "16:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 3,
+        "time": "17:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 4,
+        "time": "18:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 5,
+        "time": "19:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 6,
+        "time": "20:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 7,
+        "time": "21:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 8,
+        "time": "22:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 9,
+        "time": "23:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 10,
+        "time": "00:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      },
+      {
+        "hour": 11,
+        "time": "01:00",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "poor",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor"
+          }
+        }
+      }
+    ],
+    "colorMappingIssues": [],
+    "scoringBreakdown": [],
+    "weightingAnalysis": {
+      "configuredWeights": {
+        "cloudCover": 70,
+        "transparency": 15,
+        "seeing": 15
+      },
+      "explanation": "Score calculation: ((100-cloudCover)/100 * cloudWeight + transparency/5 * transWeight + seeing/5 * seeingWeight) / totalWeights * 100",
+      "example": "For cloudCover=5%, transparency=4, seeing=3: ((100-5)/100 * 70 + 4/5 * 15 + 3/5 * 15) / 100 = (0.95*70 + 0.8*15 + 0.6*15) / 100 = (66.5+12+9)/100 = 87.5"
+    },
+    "recommendations": [],
+    "rawColorData": []
+  }
+}
