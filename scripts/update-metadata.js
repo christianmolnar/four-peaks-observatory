@@ -1,0 +1,1196 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+const exifr = require('exifr');
+const { promptForLocation } = require('./scripts/manage-locations');
+
+// Load environment variables for OpenAI API
+require('dotenv').config();
+const OpenAI = require('openai');
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Configuration for OpenAI requests
+const OPENAI_CONFIG = {
+  model: process.env.OPENAI_MODEL || 'gpt-4',
+  maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS) || 1000,
+  temperature: 0.1, // Low temperature for consistent, factual responses
+};
+
+// Configuration for description generation
+const DESCRIPTION_CONFIG = {
+  maxWords: parseInt(process.env.DESCRIPTION_MAX_WORDS) || 60, // Maximum words in descriptions
+  regenerateIfExceeds: true, // Whether to regenerate descriptions that exceed the word limit
+};
+
+// Paths
+const METADATA_FILE = '/Users/christian/Repos/MapleValleyObservatory/src/data/metadata.json';
+const IMAGES_BASE = '/Users/christian/Repos/MapleValleyObservatory/public/images';
+
+// Image folders to scan (matches the global config structure)
+const SCAN_FOLDERS = [
+  'astrophotography/featured',
+  'astrophotography/deep-sky/galaxies',
+  'astrophotography/deep-sky/nebulas',
+  'astrophotography/deep-sky/star-clusters',
+  'astrophotography/deep-sky/wide-field',
+  'astrophotography/deep-sky/Hubble-Palette',
+  'astrophotography/solar-system/solar',
+  'astrophotography/solar-system/lunar',
+  'astrophotography/solar-system/planets',
+  'astrophotography/solar-system/events',
+  'astrophotography/solar-system/events/total-eclipse-2017',
+  'terrestrial/yellowstone',
+  'terrestrial/grand-tetons',
+  'equipment',
+  'assets'  // UI/logo files that should be protected
+];
+
+// ===== PHASE 1: ENHANCED CATEGORIZATION SYSTEM =====
+// Category mapping for automatic detection from file paths
+const CATEGORY_MAPPINGS = {
+  // Astrophotography categories
+  'astrophotography/deep-sky/nebulas': { category: 'astrophotography', subcategory: 'deep-sky/nebulas' },
+  'astrophotography/deep-sky/galaxies': { category: 'astrophotography', subcategory: 'deep-sky/galaxies' },
+  'astrophotography/deep-sky/star-clusters': { category: 'astrophotography', subcategory: 'deep-sky/star-clusters' },
+  'astrophotography/deep-sky/wide-field': { category: 'astrophotography', subcategory: 'deep-sky/wide-field' },
+  'astrophotography/deep-sky/hubble-palette': { category: 'astrophotography', subcategory: 'deep-sky/hubble-palette' },
+  'astrophotography/solar-system/solar': { category: 'astrophotography', subcategory: 'solar-system/solar' },
+  'astrophotography/solar-system/lunar': { category: 'astrophotography', subcategory: 'solar-system/lunar' },
+  'astrophotography/solar-system/planets': { category: 'astrophotography', subcategory: 'solar-system/planets' },
+  // Solar system events - specific events first, then general pattern
+  'astrophotography/solar-system/events/total-eclipse-2017': { category: 'astrophotography', subcategory: 'solar-eclipses' },
+  'astrophotography/solar-system/events': { category: 'astrophotography', subcategory: 'solar-system/events' },
+  'astrophotography/featured': { category: 'astrophotography', subcategory: 'featured' },
+  
+  // Terrestrial categories
+  'terrestrial/yellowstone': { category: 'terrestrial', subcategory: 'yellowstone' },
+  'terrestrial/grand-tetons': { category: 'terrestrial', subcategory: 'grand-tetons' },
+  
+  // Equipment category
+  'equipment': { category: 'equipment', subcategory: 'equipment' },
+  
+  // Assets category - UI/logo files that should be protected
+  'assets': { category: 'assets', subcategory: 'assets' }
+};
+
+// Helper function to detect category from file path
+function detectCategoryFromPath(folderPath) {
+  const normalizedPath = folderPath.replace(/\\/g, '/').toLowerCase();
+  
+  for (const [pathPattern, categoryInfo] of Object.entries(CATEGORY_MAPPINGS)) {
+    if (normalizedPath === pathPattern.toLowerCase()) {
+      return {
+        category: categoryInfo.category,
+        subcategory: categoryInfo.subcategory
+      };
+    }
+  }
+  
+  // Fallback for unmapped paths
+  console.log(`Warning: Unmapped folder path: ${folderPath}`);
+  return {
+    category: 'astrophotography', // default
+    subcategory: 'uncategorized'
+  };
+}
+
+// Supported image and video extensions
+const MEDIA_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.avif', '.webp', '.mp4', '.mov', '.avi', '.webm'];
+
+function findImages() {
+  const allImages = [];
+  
+  SCAN_FOLDERS.forEach(folder => {
+    const fullPath = path.join(IMAGES_BASE, folder);
+    
+    if (fs.existsSync(fullPath)) {
+      const files = fs.readdirSync(fullPath);
+      
+      files.forEach(file => {
+        const ext = path.extname(file).toLowerCase();
+        if (MEDIA_EXTENSIONS.includes(ext)) {
+          allImages.push({
+            filename: file,
+            folder: folder,
+            fullPath: path.join(fullPath, file)
+          });
+        }
+      });
+    }
+  });
+  
+  return allImages;
+}
+
+function loadExistingMetadata() {
+  try {
+    const content = fs.readFileSync(METADATA_FILE, 'utf8');
+    return JSON.parse(content);
+  } catch (error) {
+    console.log('Could not load existing metadata, starting fresh');
+    return {};
+  }
+}
+
+// Comprehensive Astronomical Object Catalog Database
+// Includes major catalogs: Messier, NGC, IC, Caldwell, Sharpless, Barnard, Abell, vdB
+const ASTRONOMICAL_OBJECTS = {
+  // ===== MESSIER CATALOG (M) - Most Popular Objects =====
+  'M1': { catalog: 'M1', name: 'Crab Nebula', type: 'nebula' },
+  'M2': { catalog: 'M2', name: 'Globular Cluster M2', type: 'star cluster' },
+  'M3': { catalog: 'M3', name: 'Globular Cluster M3', type: 'star cluster' },
+  'M4': { catalog: 'M4', name: 'Globular Cluster M4', type: 'star cluster' },
+  'M5': { catalog: 'M5', name: 'Globular Cluster M5', type: 'star cluster' },
+  'M6': { catalog: 'M6', name: 'Butterfly Cluster', type: 'star cluster' },
+  'M7': { catalog: 'M7', name: 'Ptolemy Cluster', type: 'star cluster' },
+  'M8': { catalog: 'M8', name: 'Lagoon Nebula', type: 'nebula' },
+  'M11': { catalog: 'M11', name: 'Wild Duck Cluster', type: 'star cluster' },
+  'M13': { catalog: 'M13', name: 'Great Globular Cluster in Hercules', type: 'star cluster' },
+  'M15': { catalog: 'M15', name: 'Globular Cluster M15', type: 'star cluster' },
+  'M16': { catalog: 'M16', name: 'Eagle Nebula', type: 'nebula' },
+  'M17': { catalog: 'M17', name: 'Omega Nebula', type: 'nebula' },
+  'M20': { catalog: 'M20', name: 'Trifid Nebula', type: 'nebula' },
+  'M22': { catalog: 'M22', name: 'Sagittarius Cluster', type: 'star cluster' },
+  'M27': { catalog: 'M27', name: 'Dumbbell Nebula', type: 'nebula' },
+  'M31': { catalog: 'M31', name: 'Andromeda Galaxy', type: 'galaxy' },
+  'M32': { catalog: 'M32', name: 'Elliptical Galaxy M32', type: 'galaxy' },
+  'M33': { catalog: 'M33', name: 'Triangulum Galaxy', type: 'galaxy' },
+  'M35': { catalog: 'M35', name: 'Open Cluster M35', type: 'star cluster' },
+  'M36': { catalog: 'M36', name: 'Pinwheel Cluster', type: 'star cluster' },
+  'M37': { catalog: 'M37', name: 'Open Cluster M37', type: 'star cluster' },
+  'M38': { catalog: 'M38', name: 'Starfish Cluster', type: 'star cluster' },
+  'M42': { catalog: 'M42', name: 'Orion Nebula', type: 'nebula' },
+  'M43': { catalog: 'M43', name: 'De Mairan\'s Nebula', type: 'nebula' },
+  'M44': { catalog: 'M44', name: 'Beehive Cluster', type: 'star cluster' },
+  'M45': { catalog: 'M45', name: 'Pleiades', type: 'star cluster' },
+  'M46': { catalog: 'M46', name: 'Open Cluster M46', type: 'star cluster' },
+  'M47': { catalog: 'M47', name: 'Open Cluster M47', type: 'star cluster' },
+  'M50': { catalog: 'M50', name: 'Open Cluster M50', type: 'star cluster' },
+  'M51': { catalog: 'M51', name: 'Whirlpool Galaxy', type: 'galaxy' },
+  'M52': { catalog: 'M52', name: 'Open Cluster M52', type: 'star cluster' },
+  'M57': { catalog: 'M57', name: 'Ring Nebula', type: 'nebula' },
+  'M63': { catalog: 'M63', name: 'Sunflower Galaxy', type: 'galaxy' },
+  'M64': { catalog: 'M64', name: 'Black Eye Galaxy', type: 'galaxy' },
+  'M65': { catalog: 'M65', name: 'Leo Triplet Galaxy', type: 'galaxy' },
+  'M66': { catalog: 'M66', name: 'Leo Triplet Galaxy', type: 'galaxy' },
+  'M67': { catalog: 'M67', name: 'King Cobra Cluster', type: 'star cluster' },
+  'M78': { catalog: 'M78', name: 'Reflection Nebula M78', type: 'nebula' },
+  'M81': { catalog: 'M81', name: 'Bode\'s Galaxy', type: 'galaxy' },
+  'M82': { catalog: 'M82', name: 'Cigar Galaxy', type: 'galaxy' },
+  'M92': { catalog: 'M92', name: 'Globular Cluster M92', type: 'star cluster' },
+  'M94': { catalog: 'M94', name: 'Cat\'s Eye Galaxy', type: 'galaxy' },
+  'M95': { catalog: 'M95', name: 'Barred Spiral Galaxy M95', type: 'galaxy' },
+  'M96': { catalog: 'M96', name: 'Elliptical Galaxy M96', type: 'galaxy' },
+  'M97': { catalog: 'M97', name: 'Owl Nebula', type: 'nebula' },
+  'M101': { catalog: 'M101', name: 'Pinwheel Galaxy', type: 'galaxy' },
+  'M103': { catalog: 'M103', name: 'Open Cluster M103', type: 'star cluster' },
+  'M104': { catalog: 'M104', name: 'Sombrero Galaxy', type: 'galaxy' },
+  'M106': { catalog: 'M106', name: 'Spiral Galaxy M106', type: 'galaxy' },
+  'M108': { catalog: 'M108', name: 'Surfboard Galaxy', type: 'galaxy' },
+  'M109': { catalog: 'M109', name: 'Barred Spiral Galaxy M109', type: 'galaxy' },
+  'M110': { catalog: 'M110', name: 'Elliptical Galaxy M110', type: 'galaxy' },
+
+  // ===== NGC CATALOG - Popular Objects =====
+  'NGC224': { catalog: 'NGC224', name: 'Andromeda Galaxy', type: 'galaxy' },
+  'NGC253': { catalog: 'NGC253', name: 'Sculptor Galaxy', type: 'galaxy' },
+  'NGC281': { catalog: 'NGC281', name: 'Pacman Nebula', type: 'nebula' },
+  'NGC598': { catalog: 'NGC598', name: 'Triangulum Galaxy', type: 'galaxy' },
+  'NGC869': { catalog: 'NGC869', name: 'Double Cluster', type: 'star cluster' },
+  'NGC884': { catalog: 'NGC884', name: 'Double Cluster', type: 'star cluster' },
+  'NGC891': { catalog: 'NGC891', name: 'Silver Sliver Galaxy', type: 'galaxy' },
+  'NGC1316': { catalog: 'NGC1316', name: 'Fornax A Galaxy', type: 'galaxy' },
+  'NGC1499': { catalog: 'NGC1499', name: 'California Nebula', type: 'nebula' },
+  'NGC1952': { catalog: 'NGC1952', name: 'Crab Nebula', type: 'nebula' },
+  'NGC1976': { catalog: 'NGC1976', name: 'Orion Nebula', type: 'nebula' },
+  'NGC1977': { catalog: 'NGC1977', name: 'Running Man Nebula', type: 'nebula' },
+  'NGC2024': { catalog: 'NGC2024', name: 'Flame Nebula', type: 'nebula' },
+  'NGC2070': { catalog: 'NGC2070', name: 'Tarantula Nebula', type: 'nebula' },
+  'NGC2175': { catalog: 'NGC2175', name: 'Monkey Head Nebula', type: 'nebula' },
+  'NGC2237': { catalog: 'NGC2237', name: 'Rosette Nebula', type: 'nebula' },
+  'NGC2175': { catalog: 'NGC2175', name: 'Monkey Head Nebula', type: 'nebula' },
+  'NGC2237': { catalog: 'NGC2237', name: 'Rosette Nebula', type: 'nebula' },
+  'NGC2244': { catalog: 'NGC2244', name: 'Rosette Nebula Open Cluster', type: 'star cluster' },
+  'NGC2264': { catalog: 'NGC2264', name: 'Cone Nebula', type: 'nebula' },
+  'NGC2359': { catalog: 'NGC2359', name: 'Thor\'s Helmet', type: 'nebula' },
+  'NGC3372': { catalog: 'NGC3372', name: 'Carina Nebula', type: 'nebula' },
+  'NGC4565': { catalog: 'NGC4565', name: 'Needle Galaxy', type: 'galaxy' },
+  'NGC5128': { catalog: 'NGC5128', name: 'Centaurus A', type: 'galaxy' },
+  'NGC5194': { catalog: 'NGC5194', name: 'Whirlpool Galaxy', type: 'galaxy' },
+  'NGC6302': { catalog: 'NGC6302', name: 'Bug Nebula', type: 'nebula' },
+  'NGC6334': { catalog: 'NGC6334', name: 'Cat\'s Paw Nebula', type: 'nebula' },
+  'NGC6543': { catalog: 'NGC6543', name: 'Cat\'s Eye Nebula', type: 'nebula' },
+  'NGC6720': { catalog: 'NGC6720', name: 'Ring Nebula', type: 'nebula' },
+  'NGC6888': { catalog: 'NGC6888', name: 'Crescent Nebula', type: 'nebula' },
+  'NGC6939': { catalog: 'NGC6939', name: 'NGC6939 Cluster', type: 'star cluster' },
+  'NGC6960': { catalog: 'NGC6960', name: 'Western Veil Nebula', type: 'nebula' },
+  'NGC6992': { catalog: 'NGC6992', name: 'Eastern Veil Nebula', type: 'nebula' },
+  'NGC7000': { catalog: 'NGC7000', name: 'North America Nebula', type: 'nebula' },
+  'NGC7293': { catalog: 'NGC7293', name: 'Helix Nebula', type: 'nebula' },
+  'NGC7380': { catalog: 'NGC7380', name: 'Wizard Nebula', type: 'nebula' },
+  'NGC7635': { catalog: 'NGC7635', name: 'Bubble Nebula', type: 'nebula' },
+  'NGC7822': { catalog: 'NGC7822', name: 'NGC7822 Nebula', type: 'nebula' },
+
+  // ===== IC CATALOG - Popular Objects =====
+  'IC63': { catalog: 'IC63', name: 'Ghost of Cassiopeia', type: 'nebula' },
+  'IC410': { catalog: 'IC410', name: 'Tadpoles Nebula', type: 'nebula' },
+  'IC417': { catalog: 'IC417', name: 'Spider Nebula', type: 'nebula' },
+  'IC434': { catalog: 'IC434', name: 'Horsehead Nebula', type: 'nebula' },
+  'IC443': { catalog: 'IC443', name: 'Jellyfish Nebula', type: 'nebula' },
+  'IC1284': { catalog: 'IC1284', name: 'IC1284 Nebula', type: 'nebula' },
+  'IC1295': { catalog: 'IC1295', name: 'IC1295 Nebula', type: 'nebula' },
+  'IC1318': { catalog: 'IC1318', name: 'Butterfly Nebula', type: 'nebula' },
+  'IC1396': { catalog: 'IC1396', name: 'Elephant\'s Trunk Nebula', type: 'nebula' },
+  'IC1805': { catalog: 'IC1805', name: 'Heart Nebula', type: 'nebula' },
+  'IC1848': { catalog: 'IC1848', name: 'Soul Nebula', type: 'nebula' },
+  'IC2118': { catalog: 'IC2118', name: 'Witch Head Nebula', type: 'nebula' },
+  'IC2177': { catalog: 'IC2177', name: 'Seagull Nebula', type: 'nebula' },
+  'IC4628': { catalog: 'IC4628', name: 'Prawn Nebula', type: 'nebula' },
+  'IC5070': { catalog: 'IC5070', name: 'Pelican Nebula', type: 'nebula' },
+  'IC5146': { catalog: 'IC5146', name: 'Cocoon Nebula', type: 'nebula' },
+
+  // ===== CALDWELL CATALOG - Popular Objects =====
+  'C1': { catalog: 'C1', name: 'NGC188', type: 'star cluster' },
+  'C2': { catalog: 'C2', name: 'NGC40', type: 'nebula' },
+  'C4': { catalog: 'C4', name: 'Iris Nebula', type: 'nebula' },
+  'C14': { catalog: 'C14', name: 'Double Cluster', type: 'star cluster' },
+  'C20': { catalog: 'C20', name: 'North America Nebula', type: 'nebula' },
+  'C27': { catalog: 'C27', name: 'Crescent Nebula', type: 'nebula' },
+  'C33': { catalog: 'C33', name: 'Eastern Veil Nebula', type: 'nebula' },
+  'C34': { catalog: 'C34', name: 'Western Veil Nebula', type: 'nebula' },
+  'C49': { catalog: 'C49', name: 'Rosette Nebula', type: 'nebula' },
+  'C50': { catalog: 'C50', name: 'Cone Nebula', type: 'nebula' },
+
+  // ===== SHARPLESS CATALOG - Popular Emission Nebulae =====
+  'SH2-101': { catalog: 'Sh2-101', name: 'Tulip Nebula', type: 'nebula' },
+  'SH2-115': { catalog: 'Sh2-115', name: 'Abell 71', type: 'nebula' },
+  'SH2-129': { catalog: 'Sh2-129', name: 'Flying Bat Nebula', type: 'nebula' },
+  'SH2-132': { catalog: 'Sh2-132', name: 'Lion Nebula', type: 'nebula' },
+  'SH2-140': { catalog: 'Sh2-140', name: 'Wizard Nebula', type: 'nebula' },
+  'SH2-155': { catalog: 'Sh2-155', name: 'Cave Nebula', type: 'nebula' },
+  'SH2-185': { catalog: 'Sh2-185', name: 'Sh2-185 Nebula', type: 'nebula' },
+  'SH2-212': { catalog: 'Sh2-212', name: 'Sh2-212 Nebula', type: 'nebula' },
+  'SH2-216': { catalog: 'Sh2-216', name: 'Lower\'s Nebula', type: 'nebula' },
+  'SH2-240': { catalog: 'Sh2-240', name: 'Simeis 147', type: 'nebula' },
+  'SH2-254': { catalog: 'Sh2-254', name: 'Sh2-254 Nebula', type: 'nebula' },
+  'SH2-308': { catalog: 'Sh2-308', name: 'Dolphin Head Nebula', type: 'nebula' },
+
+  // ===== BARNARD CATALOG - Dark Nebulae =====
+  'B33': { catalog: 'B33', name: 'Horsehead Nebula', type: 'dark nebula' },
+  'B72': { catalog: 'B72', name: 'Snake Nebula', type: 'dark nebula' },
+  'B86': { catalog: 'B86', name: 'Ink Spot Nebula', type: 'dark nebula' },
+  'B142': { catalog: 'B142', name: 'E Nebula', type: 'dark nebula' },
+  'B143': { catalog: 'B143', name: 'E Nebula', type: 'dark nebula' },
+  'B150': { catalog: 'B150', name: 'Seahorse Nebula', type: 'dark nebula' },
+
+  // ===== ABELL CATALOG - Planetary Nebulae =====
+  'A21': { catalog: 'Abell 21', name: 'Medusa Nebula', type: 'nebula' },
+  'A39': { catalog: 'Abell 39', name: 'Abell 39', type: 'nebula' },
+  'A426': { catalog: 'Abell 426', name: 'Perseus Cluster', type: 'galaxy cluster' },
+
+  // ===== VAN DEN BERGH CATALOG - Reflection Nebulae =====
+  'VDB14': { catalog: 'vdB 14', name: 'vdB 14', type: 'nebula' },
+  'VDB15': { catalog: 'vdB 15', name: 'vdB 15', type: 'nebula' },
+  'VDB149': { catalog: 'vdB 149', name: 'Reflection Nebula vdB 149', type: 'nebula' },
+  'VDB152': { catalog: 'vdB 152', name: 'Reflection Nebula vdB 152', type: 'nebula' },
+
+  // ===== COMMON NAME MAPPINGS =====
+  'ANDROMEDA': { catalog: 'M31', name: 'Andromeda Galaxy', type: 'galaxy' },
+  'ORION': { catalog: 'M42', name: 'Orion Nebula', type: 'nebula' },
+  'PLEIADES': { catalog: 'M45', name: 'Pleiades', type: 'star cluster' },
+  'WHIRLPOOL': { catalog: 'M51', name: 'Whirlpool Galaxy', type: 'galaxy' },
+  'CRAB': { catalog: 'M1', name: 'Crab Nebula', type: 'nebula' },
+  'RING': { catalog: 'M57', name: 'Ring Nebula', type: 'nebula' },
+  'EAGLE': { catalog: 'M16', name: 'Eagle Nebula', type: 'nebula' },
+  'LAGOON': { catalog: 'M8', name: 'Lagoon Nebula', type: 'nebula' },
+  'TRIFID': { catalog: 'M20', name: 'Trifid Nebula', type: 'nebula' },
+  'DUMBBELL': { catalog: 'M27', name: 'Dumbbell Nebula', type: 'nebula' },
+  'TRIANGULUM': { catalog: 'M33', name: 'Triangulum Galaxy', type: 'galaxy' },
+  'PINWHEEL': { catalog: 'M101', name: 'Pinwheel Galaxy', type: 'galaxy' },
+  'SOMBRERO': { catalog: 'M104', name: 'Sombrero Galaxy', type: 'galaxy' },
+  'BODES': { catalog: 'M81', name: 'Bode\'s Galaxy', type: 'galaxy' },
+  'CIGAR': { catalog: 'M82', name: 'Cigar Galaxy', type: 'galaxy' },
+  'OWL': { catalog: 'M97', name: 'Owl Nebula', type: 'nebula' },
+  'SUNFLOWER': { catalog: 'M63', name: 'Sunflower Galaxy', type: 'galaxy' },
+  'BLACKEYE': { catalog: 'M64', name: 'Black Eye Galaxy', type: 'galaxy' },
+  'BEEHIVE': { catalog: 'M44', name: 'Beehive Cluster', type: 'star cluster' },
+  'HERCULES': { catalog: 'M13', name: 'Great Globular Cluster in Hercules', type: 'star cluster' },
+  
+  'HORSEHEAD': { catalog: 'B33', name: 'Horsehead Nebula', type: 'dark nebula' },
+  'FLAME': { catalog: 'NGC2024', name: 'Flame Nebula', type: 'nebula' },
+  'ROSETTE': { catalog: 'NGC2237', name: 'Rosette Nebula', type: 'nebula' },
+  'CONE': { catalog: 'NGC2264', name: 'Cone Nebula', type: 'nebula' },
+  'CALIFORNIA': { catalog: 'NGC1499', name: 'California Nebula', type: 'nebula' },
+  'RUNNING': { catalog: 'NGC1977', name: 'Running Man Nebula', type: 'nebula' },
+  'HEART': { catalog: 'IC1805', name: 'Heart Nebula', type: 'nebula' },
+  'SOUL': { catalog: 'IC1848', name: 'Soul Nebula', type: 'nebula' },
+  'WITCH': { catalog: 'IC2118', name: 'Witch Head Nebula', type: 'nebula' },
+  'SEAGULL': { catalog: 'IC2177', name: 'Seagull Nebula', type: 'nebula' },
+  'COCOON': { catalog: 'IC5146', name: 'Cocoon Nebula', type: 'nebula' },
+  'PELICAN': { catalog: 'IC5070', name: 'Pelican Nebula', type: 'nebula' },
+  'ELEPHANT': { catalog: 'IC1396', name: 'Elephant\'s Trunk Nebula', type: 'nebula' },
+  'TADPOLES': { catalog: 'IC410', name: 'Tadpoles Nebula', type: 'nebula' },
+  'BUTTERFLY': { catalog: 'IC1318', name: 'Butterfly Nebula', type: 'nebula' },
+  'JELLYFISH': { catalog: 'IC443', name: 'Jellyfish Nebula', type: 'nebula' },
+  'SPIDER': { catalog: 'IC417', name: 'Spider Nebula', type: 'nebula' },
+  
+  'CRESCENT': { catalog: 'NGC6888', name: 'Crescent Nebula', type: 'nebula' },
+  'BUBBLE': { catalog: 'NGC7635', name: 'Bubble Nebula', type: 'nebula' },
+  'VEIL': { catalog: 'NGC6960', name: 'Western Veil Nebula', type: 'nebula' },
+  'EASTERN': { catalog: 'NGC6992', name: 'Eastern Veil Nebula', type: 'nebula' },
+  'WESTERN': { catalog: 'NGC6960', name: 'Western Veil Nebula', type: 'nebula' },
+  'NORTH': { catalog: 'NGC7000', name: 'North America Nebula', type: 'nebula' },
+  'AMERICA': { catalog: 'NGC7000', name: 'North America Nebula', type: 'nebula' },
+  'HELIX': { catalog: 'NGC7293', name: 'Helix Nebula', type: 'nebula' },
+  'PACMAN': { catalog: 'NGC281', name: 'Pacman Nebula', type: 'nebula' },
+  'WIZARD': { catalog: 'NGC7380', name: 'Wizard Nebula', type: 'nebula' },
+  'CARINA': { catalog: 'NGC3372', name: 'Carina Nebula', type: 'nebula' },
+  'NEEDLE': { catalog: 'NGC4565', name: 'Needle Galaxy', type: 'galaxy' },
+  'CENTAURUS': { catalog: 'NGC5128', name: 'Centaurus A', type: 'galaxy' },
+  'THOR': { catalog: 'NGC2359', name: 'Thor\'s Helmet', type: 'nebula' },
+  'HELMET': { catalog: 'NGC2359', name: 'Thor\'s Helmet', type: 'nebula' },
+  'MONKEY': { catalog: 'NGC2175', name: 'Monkey Head Nebula', type: 'nebula' },
+  'TARANTULA': { catalog: 'NGC2070', name: 'Tarantula Nebula', type: 'nebula' },
+  'CATS': { catalog: 'NGC6543', name: 'Cat\'s Eye Nebula', type: 'nebula' },
+  'CATS': { catalog: 'NGC6334', name: 'Cat\'s Paw Nebula', type: 'nebula' },
+  'BUG': { catalog: 'NGC6302', name: 'Bug Nebula', type: 'nebula' },
+  'MEDUSA': { catalog: 'Abell 21', name: 'Medusa Nebula', type: 'nebula' },
+  
+  'TULIP': { catalog: 'Sh2-101', name: 'Tulip Nebula', type: 'nebula' },
+  'CAVE': { catalog: 'Sh2-155', name: 'Cave Nebula', type: 'nebula' },
+  'FLYING': { catalog: 'Sh2-129', name: 'Flying Bat Nebula', type: 'nebula' },
+  'BAT': { catalog: 'Sh2-129', name: 'Flying Bat Nebula', type: 'nebula' },
+  'LION': { catalog: 'Sh2-132', name: 'Lion Nebula', type: 'nebula' },
+  'DOLPHIN': { catalog: 'Sh2-308', name: 'Dolphin Head Nebula', type: 'nebula' },
+  
+  'DOUBLE': { catalog: 'NGC869', name: 'Double Cluster', type: 'star cluster' },
+  'IRIS': { catalog: 'C4', name: 'Iris Nebula', type: 'nebula' },
+  'SCULPTOR': { catalog: 'NGC253', name: 'Sculptor Galaxy', type: 'galaxy' },
+  'SILVER': { catalog: 'NGC891', name: 'Silver Sliver Galaxy', type: 'galaxy' },
+  'SLIVER': { catalog: 'NGC891', name: 'Silver Sliver Galaxy', type: 'galaxy' },
+  'FORNAX': { catalog: 'NGC1316', name: 'Fornax A Galaxy', type: 'galaxy' },
+  'PRAWN': { catalog: 'IC4628', name: 'Prawn Nebula', type: 'nebula' },
+  'GHOST': { catalog: 'IC63', name: 'Ghost of Cassiopeia', type: 'nebula' },
+  'CASSIOPEIA': { catalog: 'IC63', name: 'Ghost of Cassiopeia', type: 'nebula' }
+};
+
+// ===== INTELLIGENT ASTRONOMICAL OBJECT IDENTIFICATION =====
+// Uses OpenAI to intelligently parse filenames and identify astronomical objects
+
+async function parseAstronomicalObjectWithAI(filename) {
+  // Check if OpenAI API key is available
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-openai-api-key-here') {
+    console.log(`   ⚠️  OpenAI API key not configured, using fallback parsing for: ${filename}`);
+    return parseAstronomicalObjectFallback(filename);
+  }
+
+  try {
+    // Remove extension and clean filename for analysis
+    const baseName = filename.replace(/\.[^/.]+$/, '');
+    
+    const prompt = `Analyze this astrophotography filename: "${baseName}"
+
+Please identify:
+1. CATALOG DESIGNATION(S): Any official astronomical catalog numbers like M42, NGC1976, IC434, Sh2-281, etc.
+2. OBJECT NAME: The common/popular name like "Orion Nebula", "Horsehead Nebula", "Andromeda Galaxy"
+3. SPECIAL CASES: Handle names that include multiple objects like "Leo Trio" (M65, M66, NGC3628), "Markarian's Chain" (M84, M86, etc.)
+
+Rules:
+- If filename contains a catalog designation (M42, NGC7000, etc.), identify the corresponding object name
+- If filename contains an object name, identify the corresponding catalog designation(s)  
+- For multi-object targets like "Leo Trio", "Heart and Soul", "Veil Complex", provide primary catalog designation
+- Handle variations like "M 42", "M-42", "NGC 1976", "IC 434", "SH2-281", "Sh2 281"
+- Ignore processing terms like "FINAL", "PROCESSED", "LR", "PI", numbers at end
+- Return "Unknown" for catalog or name if genuinely unidentifiable
+
+Respond in this exact JSON format:
+{
+  "catalogDesignation": "M42",
+  "objectName": "Orion Nebula",
+  "confidence": "high|medium|low",
+  "reasoning": "brief explanation"
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_CONFIG.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert astronomical object identifier. You have comprehensive knowledge of astronomical catalogs including Messier (M), NGC, IC, Sharpless (Sh2), Caldwell (C), Barnard (B), Abell, and van den Bergh catalogs. Provide accurate catalog designations and object names."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ],
+      max_tokens: OPENAI_CONFIG.maxTokens,
+      temperature: OPENAI_CONFIG.temperature,
+    });
+
+    const response = completion.choices[0].message.content;
+    
+    // Parse the JSON response
+    let result;
+    try {
+      result = JSON.parse(response);
+    } catch (parseError) {
+      console.log(`   ⚠️  OpenAI response not valid JSON, using fallback for: ${filename}`);
+      return parseAstronomicalObjectFallback(filename);
+    }
+    
+    // Validate the response has required fields
+    if (!result.catalogDesignation || !result.objectName) {
+      console.log(`   ⚠️  OpenAI response missing required fields, using fallback for: ${filename}`);
+      return parseAstronomicalObjectFallback(filename);
+    }
+    
+    // Log the AI analysis result
+    const confidenceEmoji = result.confidence === 'high' ? '✅' : result.confidence === 'medium' ? '⚠️' : '❓';
+    console.log(`   🤖 AI Analysis ${confidenceEmoji}: ${result.catalogDesignation} - ${result.objectName} (${result.confidence} confidence)`);
+    if (result.reasoning) {
+      console.log(`   💭 Reasoning: ${result.reasoning}`);
+    }
+    
+    return {
+      catalogDesignation: result.catalogDesignation === 'Unknown' ? '' : result.catalogDesignation,
+      objectName: result.objectName === 'Unknown' ? baseName : result.objectName
+    };
+    
+  } catch (error) {
+    console.log(`   ❌ OpenAI API error for ${filename}: ${error.message}`);
+    console.log(`   🔄 Falling back to static parsing`);
+    return parseAstronomicalObjectFallback(filename);
+  }
+}
+
+// Helper function to extract month and year from dateTaken field
+function extractMonthYear(dateTaken) {
+  if (!dateTaken || dateTaken.trim() === '') return '';
+  
+  // dateTaken is already in "Month, Year" format, so return as-is
+  if (dateTaken.match(/^[A-Za-z]+,\s*\d{4}$/)) {
+    return dateTaken;
+  }
+  
+  // If it's in other formats, try to parse and reformat
+  try {
+    const date = new Date(dateTaken);
+    if (!isNaN(date.getTime())) {
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      return `${monthNames[date.getMonth()]}, ${date.getFullYear()}`;
+    }
+  } catch (error) {
+    // If parsing fails, return original
+  }
+  
+  return dateTaken;
+}
+
+// Helper function to check if description exceeds word limit
+function exceedsWordLimit(description) {
+  if (!description) return false;
+  const wordCount = description.trim().split(/\s+/).length;
+  return wordCount > DESCRIPTION_CONFIG.maxWords;
+}
+
+// Helper function to truncate description to word limit
+function truncateDescription(description) {
+  if (!description) return description;
+  const words = description.trim().split(/\s+/);
+  if (words.length <= DESCRIPTION_CONFIG.maxWords) return description;
+  
+  // Truncate to word limit and try to end on a complete sentence
+  let truncated = words.slice(0, DESCRIPTION_CONFIG.maxWords).join(' ');
+  
+  // Look for the last complete sentence within the word limit
+  const sentences = truncated.split(/[.!?]+/);
+  if (sentences.length > 1) {
+    // Remove the incomplete last sentence and keep complete ones
+    const completeSentences = sentences.slice(0, -1);
+    if (completeSentences.length > 0 && completeSentences[0].trim().length > 0) {
+      truncated = completeSentences.join('.') + '.';
+    } else {
+      // If no complete sentences, just truncate at word boundary without ellipsis
+      truncated = words.slice(0, DESCRIPTION_CONFIG.maxWords).join(' ');
+      // Add period if it doesn't end with punctuation
+      if (!/[.!?]$/.test(truncated)) {
+        truncated += '.';
+      }
+    }
+  } else {
+    // Add period if it doesn't end with punctuation
+    if (!/[.!?]$/.test(truncated)) {
+      truncated += '.';
+    }
+  }
+  
+  return truncated;
+}
+
+// Get educational description for deep sky objects using OpenAI
+async function getAstronomicalObjectDescription(objectName, catalogDesignation, category) {
+  // Only generate descriptions for deep sky objects
+  if (!category.includes('deep-sky')) {
+    return null;
+  }
+
+  // Check if OpenAI API key is available
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-openai-api-key-here') {
+    return null;
+  }
+
+  try {
+    const objectIdentifier = catalogDesignation && objectName ? 
+      `${catalogDesignation} (${objectName})` : 
+      objectName || catalogDesignation;
+
+    const prompt = `Write a complete, well-formed paragraph describing the astronomical object: ${objectIdentifier}
+
+Requirements:
+- Write exactly one coherent paragraph with complete sentences
+- Include what type of object it is (galaxy, nebula, star cluster, etc.)
+- Mention distance from Earth if known
+- Describe key visual features or characteristics
+- Explain why it's significant for astrophotography
+- Keep to exactly ${DESCRIPTION_CONFIG.maxWords} words or fewer
+- End with a complete sentence (no ellipses or cut-offs)
+- Make it engaging but scientifically accurate
+
+Write as a single, flowing paragraph that reads naturally and completely describes the object for both amateur astronomers and the general public.`;
+
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_CONFIG.model,
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert astronomy educator writing concise but complete descriptions. Always write exactly one paragraph with complete sentences. Never exceed ${DESCRIPTION_CONFIG.maxWords} words. Ensure every description ends with a complete sentence and flows naturally as a cohesive paragraph.`
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ],
+      max_tokens: 200, // Allow more tokens for longer descriptions
+      temperature: 0.7,
+    });
+
+    const description = completion.choices[0].message.content.trim();
+    
+    // Check if the generated description exceeds word limit
+    if (exceedsWordLimit(description)) {
+      console.log(`   ⚠️  Generated description exceeds ${DESCRIPTION_CONFIG.maxWords} words, truncating...`);
+      const truncatedDescription = truncateDescription(description);
+      console.log(`   📝 AI Description generated and truncated for ${objectIdentifier}`);
+      return truncatedDescription;
+    }
+    
+    console.log(`   📝 AI Description generated for ${objectIdentifier}`);
+    return description;
+    
+  } catch (error) {
+    console.log(`   ⚠️  Could not generate description for ${objectName}: ${error.message}`);
+    return null;
+  }
+}
+
+// Fallback function using the existing static catalog
+function parseAstronomicalObjectFallback(filename) {
+  // Remove extension and clean filename
+  const baseName = filename.replace(/\.[^/.]+$/, '');
+  
+  // Common processing indicators to ignore
+  const processingTerms = ['DONE', 'FINISHED', 'FINAL', 'PROCESSED', 'LR', 'PI', 'PS', '1', '2', '3'];
+  
+  // Split by common separators
+  const parts = baseName.split(/[-_\s]+/).filter(part => 
+    part.length > 0 && !processingTerms.includes(part.toUpperCase())
+  );
+  
+  let catalogDesignation = '';
+  let objectName = '';
+  
+  // Look for catalog patterns
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const upperPart = part.toUpperCase();
+    
+    // Direct catalog lookup from the static database
+    if (ASTRONOMICAL_OBJECTS[upperPart]) {
+      const obj = ASTRONOMICAL_OBJECTS[upperPart];
+      catalogDesignation = obj.catalog;
+      objectName = obj.name;
+      break;
+    }
+    
+    // Check for catalog designation patterns
+    // Messier: M + number
+    if (/^M\d+$/.test(upperPart)) {
+      if (ASTRONOMICAL_OBJECTS[upperPart]) {
+        const obj = ASTRONOMICAL_OBJECTS[upperPart];
+        catalogDesignation = obj.catalog;
+        objectName = obj.name;
+        break;
+      } else {
+        catalogDesignation = upperPart;
+        objectName = `Messier ${upperPart.substring(1)}`;
+        break;
+      }
+    }
+    
+    // NGC: NGC + number (handle both NGC1234 and NGC 1234 formats)
+    if (/^NGC\d+$/.test(upperPart)) {
+      if (ASTRONOMICAL_OBJECTS[upperPart]) {
+        const obj = ASTRONOMICAL_OBJECTS[upperPart];
+        catalogDesignation = obj.catalog;
+        objectName = obj.name;
+        break;
+      } else {
+        catalogDesignation = upperPart;
+        objectName = `${upperPart}`;
+        break;
+      }
+    }
+    
+    // NGC with space: NGC + number in next part
+    if (upperPart === 'NGC' && i + 1 < parts.length && /^\d+$/.test(parts[i + 1])) {
+      const number = parts[i + 1];
+      const normalizedNgc = `NGC${number}`;
+      if (ASTRONOMICAL_OBJECTS[normalizedNgc]) {
+        const obj = ASTRONOMICAL_OBJECTS[normalizedNgc];
+        catalogDesignation = obj.catalog;
+        objectName = obj.name;
+        break;
+      } else {
+        catalogDesignation = `NGC${number}`;
+        objectName = `NGC${number}`;
+        break;
+      }
+    }
+    
+    // Continue with other catalog patterns...
+    // [I'll keep the existing logic for IC, SH2, etc. from the static parser]
+  }
+  
+  // If no catalog found, look for common names in the filename
+  if (!catalogDesignation) {
+    const combinedParts = parts.join(' ').toUpperCase();
+    
+    for (const [key, obj] of Object.entries(ASTRONOMICAL_OBJECTS)) {
+      // Skip catalog designations, look for common names
+      if (!/^[A-Z]+\d+/.test(key) && combinedParts.includes(key)) {
+        catalogDesignation = obj.catalog;
+        objectName = obj.name;
+        break;
+      }
+    }
+  }
+  
+  // If still no match, try to extract object name from filename
+  if (!objectName) {
+    // Look for "The" + name patterns
+    const theMatch = baseName.match(/[-_]The[-_]([A-Za-z]+)/i);
+    if (theMatch) {
+      objectName = `The ${theMatch[1]}`;
+    } else {
+      // Use the cleaned filename parts
+      objectName = parts
+        .filter(part => !/^\d+$/.test(part)) // Remove pure numbers
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+    }
+  }
+  
+  return {
+    catalogDesignation: catalogDesignation,
+    objectName: objectName || baseName
+  };
+}
+
+function generateObjectName(filename) {
+  // Remove file extension
+  let name = filename.replace(/\.[^.]+$/, '');
+  
+  // Replace hyphens, underscores, and dots with spaces
+  name = name.replace(/[-_.]/g, ' ');
+  
+  // Convert to uppercase
+  name = name.toUpperCase();
+  
+  return name;
+}
+
+// Helper function to clean terrestrial/equipment names from filename
+function generateCleanName(filename) {
+  // Remove file extension
+  let name = filename.replace(/\.[^.]+$/, '');
+  
+  // Handle camelCase by inserting spaces before uppercase letters
+  name = name.replace(/([a-z])([A-Z])/g, '$1 $2');
+  
+  // Replace hyphens, underscores, and dots with spaces
+  name = name.replace(/[-_.]/g, ' ');
+  
+  // Remove common camera/phone prefixes and suffixes
+  name = name.replace(/^(IMG|DSC|DSCN|P|PHOTO|PIC|IMAGE)\s*/i, '');
+  name = name.replace(/\s*(JPG|JPEG|PNG|AVIF|WEBP|iOS)$/i, '');
+  
+  // Remove sequences of numbers in the middle or end
+  name = name.replace(/\s+\d{8,}\s*/g, ' '); // Remove 8+ digit sequences (timestamps)
+  
+  // Remove numbers at the end (handles both spaced and unspaced numbers)
+  name = name.replace(/\s*\d+\s*$/, ''); // Remove numbers with optional spaces at end
+  name = name.replace(/\d+$/, ''); // Remove numbers directly attached at end (like "Basin10" -> "Basin")
+  
+  // Clean up extra spaces
+  name = name.replace(/\s+/g, ' ').trim();
+  
+  // Capitalize each word properly
+  name = name.split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+    
+  return name || 'Untitled';
+}
+
+
+// Helper function to extract Month, Year from image EXIF metadata
+async function getDateTaken(filePath) {
+  try {
+    // First try to get EXIF data from the image
+    const exifData = await exifr.parse(filePath);
+    
+    if (exifData) {
+      // Look for the best date field in order of preference
+      const dateFields = [
+        'DateTimeOriginal',  // Best - actual capture time
+        'CreateDate',        // Good - creation time  
+        'DateTime',          // OK - file datetime
+        'DateTimeDigitized', // OK - digitization time
+        'ModifyDate'         // Last resort - modification time (processing date)
+      ];
+      
+      let bestDate = null;
+      let bestField = null;
+      
+      for (const field of dateFields) {
+        if (exifData[field]) {
+          bestDate = new Date(exifData[field]);
+          bestField = field;
+          break;
+        }
+      }
+      
+      if (bestDate && !isNaN(bestDate.getTime())) {
+        // Validate that the date is reasonable for photography
+        const year = bestDate.getFullYear();
+        const currentYear = new Date().getFullYear();
+        
+        // Reject dates that are clearly unreasonable:
+        // - Before 1995 (before digital photography was common)
+        // - More than 1 year in the future
+        if (year < 1995 || year > currentYear + 1) {
+          console.log(`   ⚠️  Rejecting unreasonable EXIF date: ${year} (from ${bestField})`);
+        } else {
+          // Format as "Month, Year" (e.g., "February, 2024")
+          const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+          ];
+          
+          const month = monthNames[bestDate.getMonth()];
+          
+          console.log(`   📅 Date from EXIF ${bestField}: ${month}, ${year}`);
+          return `${month}, ${year}`;
+        }
+      }
+    }
+    
+    // Fallback to file system dates if no EXIF data
+    console.log(`   ⚠️  No EXIF date found, checking file system date`);
+    const stats = fs.statSync(filePath);
+    const fileDate = stats.birthtime || stats.mtime;
+    
+    // Validate file system date is reasonable
+    const year = fileDate.getFullYear();
+    const currentYear = new Date().getFullYear();
+    
+    if (year < 1995 || year > currentYear + 1) {
+      console.log(`   ❌ File system date ${year} is unreasonable, leaving date blank`);
+      return '';
+    }
+    
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const month = monthNames[fileDate.getMonth()];
+    
+    console.log(`   📁 Using file system date: ${month}, ${year}`);
+    return `${month}, ${year}`;
+  } catch (error) {
+    console.warn(`⚠️  Could not read date for ${filePath}: ${error.message}`);
+    return '';
+  }
+}
+
+function getImageType(folder) {
+  if (folder.startsWith('terrestrial/')) {
+    return 'terrestrial';
+  } else if (folder === 'equipment') {
+    return 'equipment';
+  } else if (folder === 'assets') {
+    return 'assets';
+  } else if (folder.includes('events')) {
+    return 'celestial-events';
+  } else {
+    return 'astrophotography';
+  }
+}
+
+async function createMetadataEntry(image) {
+  const imageType = getImageType(image.folder);
+  const dateTaken = await getDateTaken(image.fullPath);
+  const monthYear = extractMonthYear(dateTaken);
+  
+  // Phase 1: Detect category and subcategory from file path
+  const categoryInfo = detectCategoryFromPath(image.folder);
+  
+  switch (imageType) {
+    case 'terrestrial':
+      return {
+        "name": generateCleanName(image.filename),      // e.g., "Mammoth Springs"
+        "dateTaken": dateTaken,                         // e.g., "August, 2024"
+        "monthYear": monthYear,                         // e.g., "August, 2024"
+        "location": "Maple Valley, WA",                 // Default location
+        "protected": false,
+        "youtubeLink": "",
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "terrestrial"
+        "subcategory": categoryInfo.subcategory        // NEW: "yellowstone" or "grand-tetons"
+      };
+      
+    case 'equipment':
+      return {
+        "equipmentName": generateCleanName(image.filename), // e.g., "SeeStar S50"
+        "equipmentInfo": "",  // e.g., "Smart Telescope by ZWO"
+        "location": "Maple Valley, WA",                 // Default location
+        "protected": false,
+        "youtubeLink": "",
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "equipment"
+        "subcategory": categoryInfo.subcategory        // NEW: "equipment"
+      };
+      
+    case 'assets':
+      return {
+        "name": generateCleanName(image.filename),      // e.g., "Observatory Logo"
+        "description": "UI/Logo asset file",           // Description for asset files
+        "location": "Maple Valley, WA",                 // Default location
+        "protected": true,                              // AUTOMATICALLY PROTECTED
+        "youtubeLink": "",
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "assets"
+        "subcategory": categoryInfo.subcategory        // NEW: "assets"
+      };
+      
+    case 'celestial-events':
+      return {
+        "catalogDesignation": "",
+        "objectName": generateCleanName(image.filename), // e.g., "Total Eclipse" instead of "2017 Total Eclipse1"
+        "dateTaken": dateTaken,                         // e.g., "August, 2017"
+        "monthYear": monthYear,                         // e.g., "August, 2017"
+        "location": "Maple Valley, WA",                 // Default location
+        "equipment": "",
+        "exposure": "",
+        "protected": false,
+        "youtubeLink": "",
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "astrophotography"
+        "subcategory": categoryInfo.subcategory        // NEW: "solar-system/events"
+      };
+      
+    default: // astrophotography
+      const parsed = await parseAstronomicalObjectWithAI(image.filename);
+      
+      // Generate educational description for deep sky objects
+      const description = await getAstronomicalObjectDescription(
+        parsed.objectName, 
+        parsed.catalogDesignation, 
+        categoryInfo.subcategory
+      );
+      
+      const entry = {
+        "catalogDesignation": parsed.catalogDesignation,
+        "objectName": parsed.objectName,
+        "dateTaken": dateTaken,                         // e.g., "February, 2024"
+        "monthYear": monthYear,                         // e.g., "February, 2024"
+        "location": "Maple Valley, WA",                 // Default location
+        "equipment": "",
+        "exposure": "",
+        "protected": false,
+        "youtubeLink": "",
+        "youtubeTitle": "",
+        "category": categoryInfo.category,              // NEW: "astrophotography"
+        "subcategory": categoryInfo.subcategory        // NEW: "deep-sky/nebulas", etc.
+      };
+      
+      // Add description for deep sky objects only
+      if (description) {
+        entry.description = description;
+      }
+      
+      return entry;
+  }
+}
+
+async function updateMetadata() {
+  console.log('🔍 Scanning for images...');
+  
+  const allImages = findImages();
+  const existingMetadata = loadExistingMetadata();
+  
+  let newEntries = 0;
+  let updatedEntries = 0;
+  let deletedEntries = 0;
+  let totalImages = allImages.length;
+  
+  console.log(`📁 Found ${totalImages} images across all folders`);
+  
+  // First, check for entries that no longer have corresponding files (cleanup)
+  const currentImageFilenames = new Set(allImages.map(img => img.filename));
+  const entriesToDelete = [];
+  
+  Object.keys(existingMetadata).forEach(filename => {
+    if (!currentImageFilenames.has(filename)) {
+      entriesToDelete.push(filename);
+    }
+  });
+  
+  // Remove entries for deleted files
+  entriesToDelete.forEach(filename => {
+    console.log(`🗑️  Removing metadata for deleted file: ${filename}`);
+    delete existingMetadata[filename];
+    deletedEntries++;
+  });
+  
+  // Add/update entries for all images
+  for (const image of allImages) {
+    const isNewEntry = !existingMetadata[image.filename];
+    const imageType = getImageType(image.folder);
+    
+    if (isNewEntry) {
+      console.log(`➕ Adding ${imageType} metadata for: ${image.filename} (in ${image.folder})`);
+      newEntries++;
+      
+      // Create new entry with appropriate fields for image type
+      existingMetadata[image.filename] = await createMetadataEntry(image);
+    } else {
+      // For all image types, check if dateTaken field is missing and add it
+      const entry = existingMetadata[image.filename];
+      let needsDateUpdate = false;
+      let needsCategoryUpdate = false;
+      
+      // Phase 1: Check if category/subcategory fields are missing or incorrect and add/update them
+      const categoryInfo = detectCategoryFromPath(image.folder);
+      if (!entry.category || !entry.subcategory || 
+          entry.category !== categoryInfo.category || 
+          entry.subcategory !== categoryInfo.subcategory) {
+        entry.category = categoryInfo.category;
+        entry.subcategory = categoryInfo.subcategory;
+        needsCategoryUpdate = true;
+        console.log(`🏷️  Updated category fields for: ${image.filename} (${categoryInfo.category}/${categoryInfo.subcategory})`);
+      }
+      
+      // Check if dateTaken field is missing or empty (for astrophotography, terrestrial, and celestial events)
+      if ((imageType === 'astrophotography' || imageType === 'terrestrial' || imageType === 'celestial-events') && 
+          (!entry.dateTaken || entry.dateTaken === '')) {
+        entry.dateTaken = await getDateTaken(image.fullPath);
+        needsDateUpdate = true;
+        console.log(`📅 Added dateTaken field for: ${image.filename} (${entry.dateTaken})`);
+      }
+      
+      // Check if monthYear field is missing (for astrophotography and terrestrial)
+      let needsMonthYearUpdate = false;
+      if ((imageType === 'astrophotography' || imageType === 'terrestrial' || imageType === 'celestial-events') && 
+          (!entry.monthYear || entry.monthYear === '')) {
+        entry.monthYear = extractMonthYear(entry.dateTaken);
+        needsMonthYearUpdate = true;
+        console.log(`📆 Added monthYear field for: ${image.filename} (${entry.monthYear})`);
+      }
+      
+      // For assets, automatically mark as protected and ensure proper fields
+      if (imageType === 'assets') {
+        let needsAssetUpdate = false;
+        
+        if (entry.protected !== true) {
+          entry.protected = true;
+          needsAssetUpdate = true;
+          console.log(`🔒 Marked asset as protected: ${image.filename}`);
+        }
+        
+        if (!entry.name || entry.name === '') {
+          entry.name = generateCleanName(image.filename);
+          needsAssetUpdate = true;
+        }
+        
+        if (!entry.description) {
+          entry.description = 'UI/Logo asset file';
+          needsAssetUpdate = true;
+        }
+        
+        if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+        if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+        
+        if (needsAssetUpdate || needsCategoryUpdate) {
+          console.log(`🎨 Updated asset metadata for: ${image.filename} (${categoryInfo.category}/${categoryInfo.subcategory})`);
+          updatedEntries++;
+        } else {
+          console.log(`✅ Asset properly configured: ${image.filename} (protected)`);
+        }
+      }
+      // For terrestrial and equipment images, update if fields are empty
+      else if (imageType === 'terrestrial') {
+        const needsUpdate = !entry.name || entry.name === '' ||
+                           (!entry.protected && entry.protected !== false) || 
+                           (!entry.youtubeLink && entry.youtubeLink !== '') || 
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '') ||
+                           (!entry.location || entry.location === '');
+        
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate || needsMonthYearUpdate) {
+          console.log(`🔄 Updating terrestrial metadata for: ${image.filename} (${imageType} in ${image.folder})`);
+          // Note: Location is now managed manually only
+          if (!entry.name || entry.name === '') entry.name = generateCleanName(image.filename);
+          if (!entry.location || entry.location === '') entry.location = 'Maple Valley, WA';
+          if (entry.protected === undefined) entry.protected = false;
+          if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+          if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+          updatedEntries++;
+        } else {
+          console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder})`);
+        }
+      } else if (imageType === 'equipment') {
+        // Only update if both equipmentName and equipmentInfo are empty/missing
+        // This preserves any manual edits to equipment descriptions
+        const needsUpdate = ((!entry.equipmentName || entry.equipmentName === '') && 
+                           (!entry.equipmentInfo || entry.equipmentInfo === '')) ||
+                           (!entry.protected && entry.protected !== false) || 
+                           (!entry.youtubeLink && entry.youtubeLink !== '') || 
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '') ||
+                           (!entry.location || entry.location === '');
+        
+        if (needsUpdate || needsCategoryUpdate) {
+          console.log(`🔄 Updating equipment metadata for: ${image.filename} (${imageType} in ${image.folder})`);
+          if (!entry.equipmentName || entry.equipmentName === '') entry.equipmentName = generateCleanName(image.filename);
+          // Don't overwrite equipmentInfo if it already has content
+          if (!entry.equipmentInfo) entry.equipmentInfo = '';
+          if (!entry.location || entry.location === '') entry.location = 'Maple Valley, WA';
+          if (entry.protected === undefined) entry.protected = false;
+          if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+          if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+          updatedEntries++;
+        } else {
+          console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder}) - preserving manual edits`);
+        }
+      } else {
+        // For astrophotography and celestial events, check if required fields are missing
+        const needsUpdate = (!entry.protected && entry.protected !== false) || 
+                           (!entry.youtubeLink && entry.youtubeLink !== '') || 
+                           (!entry.youtubeTitle && entry.youtubeTitle !== '') ||
+                           (!entry.location || entry.location === '');
+        
+        // Check if this is a deep-sky object without a description
+        const needsDescription = entry.category === 'astrophotography' && 
+                                 entry.subcategory && 
+                                 entry.subcategory.includes('deep-sky') && 
+                                 !entry.description;
+        
+        // Check if existing description exceeds word limit and needs regeneration
+        const needsDescriptionRegeneration = DESCRIPTION_CONFIG.regenerateIfExceeds &&
+                                             entry.category === 'astrophotography' && 
+                                             entry.description && 
+                                             (exceedsWordLimit(entry.description) || entry.description.trim().endsWith('...'));
+        
+        if (needsUpdate || needsDateUpdate || needsCategoryUpdate || needsDescription || needsDescriptionRegeneration || needsMonthYearUpdate) {
+          console.log(`🔄 Updating ${imageType} metadata for: ${image.filename} (${imageType} in ${image.folder})`);
+          if (entry.protected === undefined) entry.protected = false;
+          if (entry.youtubeLink === undefined) entry.youtubeLink = '';
+          if (entry.youtubeTitle === undefined) entry.youtubeTitle = '';
+          if (!entry.location || entry.location === '') entry.location = 'Maple Valley, WA';
+          
+          // Generate description for deep-sky objects that don't have one
+          if (needsDescription) {
+            console.log(`   🤖 Generating AI description for deep-sky object: ${entry.objectName || entry.catalogDesignation}`);
+            const description = await getAstronomicalObjectDescription(
+              entry.objectName, 
+              entry.catalogDesignation, 
+              entry.subcategory
+            );
+            if (description) {
+              entry.description = description;
+              console.log(`   ✅ Description added: ${description.substring(0, 50)}...`);
+            }
+          }
+          
+          // Regenerate description if it exceeds word limit
+          if (needsDescriptionRegeneration) {
+            const currentWordCount = entry.description.trim().split(/\s+/).length;
+            const hasEllipses = entry.description.trim().endsWith('...');
+            console.log(`   📏 Current description has ${currentWordCount} words (max: ${DESCRIPTION_CONFIG.maxWords})${hasEllipses ? ' and ends with ellipses' : ''}`);
+            console.log(`   🤖 Regenerating AI description for: ${entry.objectName || entry.catalogDesignation}`);
+            
+            const newDescription = await getAstronomicalObjectDescription(
+              entry.objectName, 
+              entry.catalogDesignation, 
+              entry.subcategory
+            );
+            
+            if (newDescription) {
+              const newWordCount = newDescription.trim().split(/\s+/).length;
+              entry.description = newDescription;
+              console.log(`   ✅ Description regenerated (${newWordCount} words): ${newDescription.substring(0, 50)}...`);
+            } else {
+              // Fallback: truncate existing description
+              entry.description = truncateDescription(entry.description);
+              console.log(`   ⚠️  AI regeneration failed, truncated existing description`);
+            }
+          }
+          
+          updatedEntries++;
+        } else {
+          console.log(`✅ Complete entry found for: ${image.filename} (${imageType} in ${image.folder})`);
+        }
+      }
+    }
+  }
+  
+  if (newEntries > 0 || updatedEntries > 0 || deletedEntries > 0) {
+    // Write updated metadata back to file
+    const sortedMetadata = {};
+    Object.keys(existingMetadata).sort().forEach(key => {
+      sortedMetadata[key] = existingMetadata[key];
+    });
+    
+    fs.writeFileSync(METADATA_FILE, JSON.stringify(sortedMetadata, null, 2));
+    console.log(`✅ Updated metadata file`);
+  } else {
+    console.log('ℹ️  No changes needed');
+  }
+  
+  console.log(`\n📊 Summary:`);
+  console.log(`   Total images found: ${totalImages}`);
+  console.log(`   Total metadata entries: ${Object.keys(existingMetadata).length}`);
+  console.log(`   New entries added: ${newEntries}`);
+  console.log(`   Existing entries updated: ${updatedEntries}`);
+  console.log(`   Obsolete entries removed: ${deletedEntries}`);
+}
+
+// Run the script
+updateMetadata().catch(console.error);

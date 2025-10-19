@@ -1,0 +1,60 @@
+{
+  "instructions": "Please correct these coordinates based on the validation overlay image",
+  "imageSize": {
+    "width": 1284,
+    "height": 292
+  },
+  "parametersToCorrect": {
+    "cloudCover": {
+      "currentEstimate": 71,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "ecmwfCloud": {
+      "currentEstimate": 97,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "transparency": {
+      "currentEstimate": 123,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "seeing": {
+      "currentEstimate": 149,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "darkness": {
+      "currentEstimate": 174,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "smoke": {
+      "currentEstimate": 200,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "wind": {
+      "currentEstimate": 226,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "humidity": {
+      "currentEstimate": 252,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    },
+    "temperature": {
+      "currentEstimate": 278,
+      "correctedValue": "PLEASE_UPDATE",
+      "notes": ""
+    }
+  },
+  "columnGrid": {
+    "firstDataColumn": 146,
+    "columnWidth": 14,
+    "correctedFirstColumn": "PLEASE_UPDATE",
+    "correctedColumnWidth": "PLEASE_UPDATE"
+  }
+}

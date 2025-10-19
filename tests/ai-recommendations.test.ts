@@ -33,10 +33,10 @@ jest.mock('openai', () => {
 describe('AI Recommendations', () => {
   
   const mockConditions: ClearSkyCondition[] = [
-    { time: '20:00', cloudCover: 10, transparency: 4, seeingRating: 4, temperature: 10, humidity: 60, windSpeed: 5, smoke: 5 },
-    { time: '21:00', cloudCover: 15, transparency: 4, seeingRating: 3, temperature: 9, humidity: 65, windSpeed: 6, smoke: 5 },
-    { time: '22:00', cloudCover: 20, transparency: 3, seeingRating: 3, temperature: 8, humidity: 70, windSpeed: 7, smoke: 5 },
-    { time: '23:00', cloudCover: 25, transparency: 3, seeingRating: 4, temperature: 7, humidity: 75, windSpeed: 5, smoke: 5 }
+    { time: '20:00', cloudCover: 4, transparency: 4, seeingRating: 4 },
+    { time: '21:00', cloudCover: 4, transparency: 4, seeingRating: 3 },
+    { time: '22:00', cloudCover: 3, transparency: 3, seeingRating: 3 },
+    { time: '23:00', cloudCover: 3, transparency: 3, seeingRating: 4 }
   ];
   
   const mockCriteria = {
@@ -203,8 +203,8 @@ describe('AI Recommendations', () => {
     
     it('should provide reasonable recommendations for excellent conditions', async () => {
       const excellentConditions: ClearSkyCondition[] = [
-        { time: '20:00', cloudCover: 5, transparency: 5, seeingRating: 5, temperature: 10, humidity: 50, windSpeed: 3, smoke: 5 },
-        { time: '21:00', cloudCover: 0, transparency: 5, seeingRating: 4, temperature: 9, humidity: 55, windSpeed: 4, smoke: 5 }
+        { time: '20:00', cloudCover: 5, transparency: 5, seeingRating: 5 },
+        { time: '21:00', cloudCover: 5, transparency: 5, seeingRating: 4 }
       ];
       
       const result = await getAIObservingRecommendation(
@@ -220,8 +220,8 @@ describe('AI Recommendations', () => {
     
     it('should provide reasonable recommendations for poor conditions', async () => {
       const poorConditions: ClearSkyCondition[] = [
-        { time: '20:00', cloudCover: 90, transparency: 1, seeingRating: 1, temperature: 10, humidity: 95, windSpeed: 20, smoke: 1 },
-        { time: '21:00', cloudCover: 95, transparency: 1, seeingRating: 1, temperature: 9, humidity: 98, windSpeed: 25, smoke: 1 }
+        { time: '20:00', cloudCover: 1, transparency: 1, seeingRating: 1 },
+        { time: '21:00', cloudCover: 1, transparency: 1, seeingRating: 1 }
       ];
       
       const result = await getAIObservingRecommendation(

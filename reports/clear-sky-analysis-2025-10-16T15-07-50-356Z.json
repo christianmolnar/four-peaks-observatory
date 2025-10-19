@@ -1,0 +1,443 @@
+{
+  "timestamp": "2025-10-16T15:07:50.350Z",
+  "url": "https://www.cleardarksky.com/c/MplVllyObWAkey.html",
+  "location": "MplVllyObWA",
+  "totalHours": 48,
+  "analysis": {
+    "hourlyBreakdown": [
+      {
+        "hour": 0,
+        "time": "08:07",
+        "rawData": {
+          "cloudCover": 5,
+          "transparency": 3,
+          "seeingRating": 1,
+          "windSpeed": 3,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.95,
+          "transparency": 0.6,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 66.5,
+          "transparencyContribution": 9,
+          "seeingContribution": 3,
+          "totalWeighted": 78.5,
+          "totalWeight": 100,
+          "finalScore": 79
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Poor conditions due to seeing",
+          "details": {
+            "cloudCover": "excellent",
+            "transparency": "good",
+            "seeing": "poor",
+            "smoke": "excellent",
+            "wind": "good"
+          }
+        }
+      },
+      {
+        "hour": 1,
+        "time": "09:07",
+        "rawData": {
+          "cloudCover": 5,
+          "transparency": 3,
+          "seeingRating": 3,
+          "windSpeed": 4,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.95,
+          "transparency": 0.6,
+          "seeing": 0.6
+        },
+        "weightedCalculation": {
+          "cloudContribution": 66.5,
+          "transparencyContribution": 9,
+          "seeingContribution": 9,
+          "totalWeighted": 84.5,
+          "totalWeight": 100,
+          "finalScore": 85
+        },
+        "evaluation": {
+          "overall": "excellent",
+          "reason": "Good conditions for most observations",
+          "details": {
+            "cloudCover": "excellent",
+            "transparency": "good",
+            "seeing": "good",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 2,
+        "time": "10:07",
+        "rawData": {
+          "cloudCover": 5,
+          "transparency": 3,
+          "seeingRating": 2,
+          "windSpeed": 4,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.95,
+          "transparency": 0.6,
+          "seeing": 0.4
+        },
+        "weightedCalculation": {
+          "cloudContribution": 66.5,
+          "transparencyContribution": 9,
+          "seeingContribution": 6,
+          "totalWeighted": 81.5,
+          "totalWeight": 100,
+          "finalScore": 82
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Moderate conditions - seeing may obstruct targets",
+          "details": {
+            "cloudCover": "excellent",
+            "transparency": "good",
+            "seeing": "dubious",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 3,
+        "time": "11:07",
+        "rawData": {
+          "cloudCover": 5,
+          "transparency": 1,
+          "seeingRating": 1,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.95,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 66.5,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 72.5,
+          "totalWeight": 100,
+          "finalScore": 73
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Poor conditions due to transparency, seeing",
+          "details": {
+            "cloudCover": "excellent",
+            "transparency": "poor",
+            "seeing": "poor",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 4,
+        "time": "12:07",
+        "rawData": {
+          "cloudCover": 5,
+          "transparency": 3,
+          "seeingRating": 2,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.95,
+          "transparency": 0.6,
+          "seeing": 0.4
+        },
+        "weightedCalculation": {
+          "cloudContribution": 66.5,
+          "transparencyContribution": 9,
+          "seeingContribution": 6,
+          "totalWeighted": 81.5,
+          "totalWeight": 100,
+          "finalScore": 82
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Moderate conditions - seeing may obstruct targets",
+          "details": {
+            "cloudCover": "excellent",
+            "transparency": "good",
+            "seeing": "dubious",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 5,
+        "time": "13:07",
+        "rawData": {
+          "cloudCover": 5,
+          "transparency": 2,
+          "seeingRating": 2,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.95,
+          "transparency": 0.4,
+          "seeing": 0.4
+        },
+        "weightedCalculation": {
+          "cloudContribution": 66.5,
+          "transparencyContribution": 6,
+          "seeingContribution": 6,
+          "totalWeighted": 78.5,
+          "totalWeight": 100,
+          "finalScore": 79
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Moderate conditions - transparency, seeing may obstruct targets",
+          "details": {
+            "cloudCover": "excellent",
+            "transparency": "dubious",
+            "seeing": "dubious",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 6,
+        "time": "14:07",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "dubious",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 7,
+        "time": "15:07",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "dubious",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 8,
+        "time": "16:07",
+        "rawData": {
+          "cloudCover": 3,
+          "transparency": 1,
+          "seeingRating": 2,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.97,
+          "transparency": 0.2,
+          "seeing": 0.4
+        },
+        "weightedCalculation": {
+          "cloudContribution": 67.89999999999999,
+          "transparencyContribution": 3,
+          "seeingContribution": 6,
+          "totalWeighted": 76.89999999999999,
+          "totalWeight": 100,
+          "finalScore": 77
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Poor conditions due to transparency",
+          "details": {
+            "cloudCover": "good",
+            "transparency": "poor",
+            "seeing": "dubious",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 9,
+        "time": "17:07",
+        "rawData": {
+          "cloudCover": 2,
+          "transparency": 1,
+          "seeingRating": 2,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.98,
+          "transparency": 0.2,
+          "seeing": 0.4
+        },
+        "weightedCalculation": {
+          "cloudContribution": 68.6,
+          "transparencyContribution": 3,
+          "seeingContribution": 6,
+          "totalWeighted": 77.6,
+          "totalWeight": 100,
+          "finalScore": 78
+        },
+        "evaluation": {
+          "overall": "good",
+          "reason": "Poor conditions due to transparency",
+          "details": {
+            "cloudCover": "dubious",
+            "transparency": "poor",
+            "seeing": "dubious",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 10,
+        "time": "18:07",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "dubious",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      },
+      {
+        "hour": 11,
+        "time": "19:07",
+        "rawData": {
+          "cloudCover": 1,
+          "transparency": 1,
+          "seeingRating": 1,
+          "windSpeed": 5,
+          "smoke": 5
+        },
+        "normalizedScores": {
+          "cloud": 0.99,
+          "transparency": 0.2,
+          "seeing": 0.2
+        },
+        "weightedCalculation": {
+          "cloudContribution": 69.3,
+          "transparencyContribution": 3,
+          "seeingContribution": 3,
+          "totalWeighted": 75.3,
+          "totalWeight": 100,
+          "finalScore": 75
+        },
+        "evaluation": {
+          "overall": "dubious",
+          "reason": "Poor conditions due to cloudCover, transparency, seeing",
+          "details": {
+            "cloudCover": "poor",
+            "transparency": "poor",
+            "seeing": "poor",
+            "smoke": "excellent",
+            "wind": "excellent"
+          }
+        }
+      }
+    ],
+    "colorMappingIssues": [],
+    "scoringBreakdown": [],
+    "weightingAnalysis": {
+      "configuredWeights": {
+        "cloudCover": 70,
+        "transparency": 15,
+        "seeing": 15
+      },
+      "explanation": "Score calculation: ((100-cloudCover)/100 * cloudWeight + transparency/5 * transWeight + seeing/5 * seeingWeight) / totalWeights * 100",
+      "example": "For cloudCover=5%, transparency=4, seeing=3: ((100-5)/100 * 70 + 4/5 * 15 + 3/5 * 15) / 100 = (0.95*70 + 0.8*15 + 0.6*15) / 100 = (66.5+12+9)/100 = 87.5"
+    },
+    "recommendations": [],
+    "rawColorData": []
+  }
+}
