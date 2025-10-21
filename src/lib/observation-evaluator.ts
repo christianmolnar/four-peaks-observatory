@@ -163,9 +163,9 @@ export function evaluateObservingCondition(
       // Average of all ratings
       const scores = ratings.map(r => ({ excellent: 4, good: 3, dubious: 2, poor: 1 }[r]));
       const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-      if (avgScore >= 3.5) overall = 'excellent';
-      else if (avgScore >= 2.5) overall = 'good';
-      else if (avgScore >= 1.5) overall = 'dubious';
+      if (avgScore >= 4) overall = 'excellent';
+      else if (avgScore >= 3.2) overall = 'good';
+      else if (avgScore >= 1.9) overall = 'dubious';
       else overall = 'poor';
       break;
 
@@ -205,18 +205,18 @@ export function evaluateObservingCondition(
       const weightedAvg = totalWeight > 0 ? weightedSum / totalWeight : 0;
       console.log(`[Evaluator] Final weighted average: ${weightedAvg}`);
       
-      if (weightedAvg >= 3.5) {
+      if (weightedAvg >= 4) {
         overall = 'excellent';
-        console.log(`[Evaluator] Result: EXCELLENT (${weightedAvg} >= 3.5)`);
-      } else if (weightedAvg >= 2.5) {
+        console.log(`[Evaluator] Result: EXCELLENT (${weightedAvg} >= 4)`);
+      } else if (weightedAvg >= 3.2) {
         overall = 'good';
-        console.log(`[Evaluator] Result: GOOD (${weightedAvg} >= 2.5)`);
-      } else if (weightedAvg >= 1.5) {
+        console.log(`[Evaluator] Result: GOOD (${weightedAvg} >= 3.2)`);
+      } else if (weightedAvg >= 2.2) {
         overall = 'dubious';
-        console.log(`[Evaluator] Result: DUBIOUS (${weightedAvg} >= 1.5)`);
+        console.log(`[Evaluator] Result: DUBIOUS (${weightedAvg} >= 2.2)`);
       } else {
         overall = 'poor';
-        console.log(`[Evaluator] Result: POOR (${weightedAvg} < 1.5)`);
+        console.log(`[Evaluator] Result: POOR (${weightedAvg} < 2.2)`);
       }
       break;
 

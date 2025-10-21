@@ -25,20 +25,24 @@ export const CLEAR_SKY_COLOR_SCALE: ColorScaleEntry[] = [
   // Best conditions (darkest blue) - rating 5
   { rgb: { r: 0, g: 60, b: 127 }, rating: 5, description: "Excellent" },
   { rgb: { r: 16, g: 86, b: 152 }, rating: 5, description: "Excellent" },
+  { rgb: { r: 11, g: 82, b: 148 }, rating: 5, description: "Excellent" },
   { rgb: { r: 39, g: 107, b: 173 }, rating: 4, description: "Good" },
+  { rgb: { r: 43, g: 107, b: 171 }, rating: 4, description: "Good" },
   { rgb: { r: 78, g: 144, b: 208 }, rating: 4, description: "Good" },
+  { rgb: { r: 98, g: 163, b: 227 }, rating: 3, description: "Fair" },
   { rgb: { r: 99, g: 165, b: 228 }, rating: 3, description: "Fair" },
+  { rgb: { r: 99, g: 162, b: 226 }, rating: 3, description: "Fair" },
   
   // Transitional blues/cyans - should be rating 3, not 1!
-  { rgb: { r: 149, g: 213, b: 213 }, rating: 3, description: "Fair" },
+  { rgb: { r: 149, g: 213, b: 213 }, rating: 2, description: "Dubious" },
   { rgb: { r: 154, g: 218, b: 218 }, rating: 2, description: "Dubious" },
   
   // Dark grays (these should be better than white!)
   { rgb: { r: 32, g: 32, b: 32 }, rating: 2, description: "Dubious" },
   { rgb: { r: 48, g: 48, b: 48 }, rating: 2, description: "Dubious" },
   { rgb: { r: 64, g: 64, b: 64 }, rating: 2, description: "Dubious" },
-  { rgb: { r: 80, g: 80, b: 80 }, rating: 2, description: "Dubious" },
-  { rgb: { r: 128, g: 128, b: 128 }, rating: 2, description: "Dubious" },
+  { rgb: { r: 80, g: 80, b: 80 }, rating: 1, description: "Poor" },
+  { rgb: { r: 128, g: 128, b: 128 }, rating: 1, description: "Poor" },
   
   // Light grays to white (worst conditions) - rating 1
   { rgb: { r: 199, g: 199, b: 199 }, rating: 1, description: "Poor" },
