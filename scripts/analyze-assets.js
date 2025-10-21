@@ -4,7 +4,7 @@
  * 
  * ⚠️  This script has been integrated into the main update-metadata.js script.
  * ⚠️  Please use "Update Metadata" button in the admin interface instead.
- * ⚠️  Or run: node update-metadata.js
+ * ⚠️  Or run: node scripts/update-metadata.js
  * 
  * This functionality now automatically:
  * - Scans the /assets/ directory for UI/logo files
@@ -20,7 +20,7 @@ console.log('This functionality has been integrated into update-metadata.js');
 console.log('');
 console.log('🔄 To update all metadata including assets:');
 console.log('   • Use "Update Metadata" button in admin interface');
-console.log('   • Or run: node update-metadata.js');
+console.log('   • Or run: node scripts/update-metadata.js');
 console.log('');
 console.log('✨ Asset files in /public/images/assets/ are now automatically:');
 console.log('   • Detected and added to metadata.json');

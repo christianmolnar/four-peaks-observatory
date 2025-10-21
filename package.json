@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "capture-timestamps": "node scripts/capture-file-times.js",
-    "update-metadata": "node scripts/maintenance/update-metadata.js",
+    "update-metadata": "node scripts/update-metadata.js",
     "precommit": "npm run lint",
     "verify": "npm run lint && npm run build",
     "prepare": "husky"
