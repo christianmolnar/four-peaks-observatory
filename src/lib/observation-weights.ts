@@ -8,7 +8,7 @@
 export interface ObservationWeights {
   cloudCover: number;      // Weight for cloud cover impact
   transparency: number;    // Weight for atmospheric transparency
-  seeingRating: number;    // Weight for astronomical seeing
+  seeing: number;    // Weight for astronomical seeing
 }
 
 /**
@@ -20,14 +20,14 @@ export interface ObservationWeights {
 export const DEFAULT_WEIGHTS: ObservationWeights = {
   cloudCover: 0.40,      // 40% - Primary factor for observing
   transparency: 0.30,    // 30% - Critical for deep-sky observation
-  seeingRating: 0.30     // 30% - Important for all observation types
+  seeing: 0.30     // 30% - Important for all observation types
 };
 
 /**
  * Validates that weights sum to 1.0 (100%)
  */
 export function validateWeights(weights: ObservationWeights): boolean {
-  const sum = weights.cloudCover + weights.transparency + weights.seeingRating;
+  const sum = weights.cloudCover + weights.transparency + weights.seeing;
   return Math.abs(sum - 1.0) < 0.001; // Allow for small floating point errors
 }
 
@@ -35,7 +35,7 @@ export function validateWeights(weights: ObservationWeights): boolean {
  * Normalizes weights to sum to 1.0 if they don't already
  */
 export function normalizeWeights(weights: ObservationWeights): ObservationWeights {
-  const sum = weights.cloudCover + weights.transparency + weights.seeingRating;
+  const sum = weights.cloudCover + weights.transparency + weights.seeing;
   
   if (sum === 0) {
     // If all weights are 0, return default weights
@@ -45,7 +45,7 @@ export function normalizeWeights(weights: ObservationWeights): ObservationWeight
   return {
     cloudCover: weights.cloudCover / sum,
     transparency: weights.transparency / sum,
-    seeingRating: weights.seeingRating / sum
+    seeing: weights.seeing / sum
   };
 }
 
@@ -60,7 +60,7 @@ export function calculateWeightedScore(
   conditions: {
     cloudCover: number;     // 1-5 (1 = poor/cloudy, 5 = excellent/clear)
     transparency: number;   // 1-5 (1 = poor, 5 = excellent)
-    seeingRating: number;   // 1-5 (1 = poor, 5 = excellent)
+    seeing: number;   // 1-5 (1 = poor, 5 = excellent)
   },
   weights: ObservationWeights = DEFAULT_WEIGHTS
 ): number {
@@ -71,13 +71,13 @@ export function calculateWeightedScore(
   // Calculate weighted average using 1-5 scale directly
   const cloudWeight = normalizedWeights.cloudCover;
   const transparencyWeight = normalizedWeights.transparency;
-  const seeingWeight = normalizedWeights.seeingRating;
+  const seeingWeight = normalizedWeights.seeing;
   const totalWeight = cloudWeight + transparencyWeight + seeingWeight;
   
   const weightedScore = (
     conditions.cloudCover * cloudWeight +
     conditions.transparency * transparencyWeight +
-    conditions.seeingRating * seeingWeight
+    conditions.seeing * seeingWeight
   ) / totalWeight;
   
   // Convert 1-5 weighted score to 0-100 scale for scoreToQuality function

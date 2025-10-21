@@ -1,6 +1,6 @@
 // Clear Sky Chart parser using universal coordinates
 import sharp from 'sharp';
-import { mapRgbToSeeingRating } from './clear-sky-color-scale';
+import { mapRgbToRating } from './clear-sky-color-scale';
 import { inferChartGenerationTime } from './chart-time-sync';
 import { DEFAULT_CHART_CONFIG } from './chart-config';
 
@@ -8,7 +8,7 @@ export interface ClearSkyCondition {
   time: string;
   cloudCover: number; // 1-5 scale (5=excellent, 1=poor)
   transparency: number; // 1-5 scale (5=excellent, 1=poor)
-  seeingRating: number; // 1-5 scale (5=excellent, 1=poor)
+  seeing: number; // 1-5 scale (5=excellent, 1=poor)
 }
 
 export interface ClearSkyForecastData {
@@ -153,19 +153,19 @@ async function analyzeImageWithCoordinates(imageBuffer: Buffer, config: any, ima
     }
     
     // Convert to 1-5 ratings
-    const cloudRating = mapRgbToSeeingRating(cloudCover);
-    const transparencyRating = mapRgbToSeeingRating(transparency);
-    const seeingRating = mapRgbToSeeingRating(seeing);
+    const cloudRating = mapRgbToRating(cloudCover);
+    const transparencyRating = mapRgbToRating(transparency);
+    const seeingScore = mapRgbToRating(seeing);
     
     if (hour <= 3) {
-      console.log(`[Hour ${hour}] Ratings: Cloud=${cloudRating}/5, Trans=${transparencyRating}/5, Seeing=${seeingRating}/5`);
+      console.log(`[Hour ${hour}] Ratings: Cloud=${cloudRating}/5, Trans=${transparencyRating}/5, Seeing=${seeingScore}/5`);
     }
     
     forecast.push({
       time: hourString,
       cloudCover: cloudRating,
       transparency: transparencyRating,
-      seeingRating: seeingRating
+      seeing: seeingScore
     });
   }
   

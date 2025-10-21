@@ -41,7 +41,7 @@ interface ClearSkyCondition {
   time: string;
   cloudCover: number;     // 1-5 scale (5=excellent, 1=poor)
   transparency: number;   // 1-5 scale (5=excellent, 1=poor)
-  seeingRating: number;   // 1-5 scale (5=excellent, 1=poor)
+  seeing: number;   // 1-5 scale (5=excellent, 1=poor)
 }
 
 type QualityRating = 'excellent' | 'good' | 'dubious' | 'poor';
@@ -141,7 +141,7 @@ export function evaluateObservingCondition(
   // Evaluate each parameter using simple 1-5 scale (3-factor system)
   details.cloudCover = evaluateParameter(condition.cloudCover, config.cloudCover);
   details.transparency = evaluateParameter(condition.transparency, config.transparency);
-  details.seeing = evaluateParameter(condition.seeingRating, config.seeing);
+  details.seeing = evaluateParameter(condition.seeing, config.seeing);
   
   // Apply heuristic to determine overall rating using only 3 factors
   const ratings = [details.cloudCover, details.transparency, details.seeing];
@@ -175,7 +175,7 @@ export function evaluateObservingCondition(
       const weights = {
         cloudCover: factorWeights?.cloudCover || 0,
         transparency: factorWeights?.transparency || 0,
-        seeingRating: factorWeights?.seeing || factorWeights?.seeingRating || 0  // Handle both 'seeing' and 'seeingRating' parameter names
+        seeing: factorWeights?.seeing || 0  
       };
       
       console.log('[Evaluator] Using factor weights:', weights);
@@ -187,16 +187,16 @@ export function evaluateObservingCondition(
       const score3f = {
         cloudCover: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.cloudCover],
         transparency: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.transparency],
-        seeingRating: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.seeing]  // Note: details uses 'seeing' key
+        seeing: { excellent: 4, good: 3, dubious: 2, poor: 1 }[details.seeing]  // Note: details uses 'seeing' key
       };
       
-      ['cloudCover', 'transparency', 'seeingRating'].forEach(param => {
+      ['cloudCover', 'transparency', 'seeing'].forEach(param => {
         const weight = weights[param as keyof typeof weights] || 0;
         const score = score3f[param as keyof typeof score3f];
         if (weight > 0 && score) {
           weightedSum += score * weight;
           totalWeight += weight;
-          console.log(`[Evaluator] ${param}: ${details[param === 'seeingRating' ? 'seeing' : param]} (score: ${score}, weight: ${weight}, contribution: ${score * weight})`);
+          console.log(`[Evaluator] ${param}: ${details[param]} (score: ${score}, weight: ${weight}, contribution: ${score * weight})`);
         }
       });
       
@@ -249,12 +249,12 @@ export function convertLegacyCondition(legacyCondition: {
   time: string;
   cloudCover: number;
   transparency: number;
-  seeingRating: number;
+  seeing: number;
 }): ClearSkyCondition {
   return {
     time: legacyCondition.time,
     cloudCover: legacyCondition.cloudCover,
     transparency: legacyCondition.transparency,
-    seeingRating: legacyCondition.seeingRating
+    seeing: legacyCondition.seeing
   };
 }

@@ -31,7 +31,7 @@ interface ApiResponse {
       reason: string;
       cloudCover: number;
       transparency: number;
-      seeingRating: number;
+      seeing: number;
     }>;
     chartData: any;
   };
@@ -66,22 +66,60 @@ export default function ObservationModuleCustom({
 
   // Load factor weights from localStorage on mount
   useEffect(() => {
+    console.log('[FactorWeights] Component mounted, checking localStorage...');
     const saved = localStorage.getItem('factorWeights');
+    console.log('[FactorWeights] Raw localStorage value:', saved);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         console.log('[FactorWeights] Loaded from localStorage:', parsed);
-        console.log('[FactorWeights] seeingRating value:', parsed.seeingRating);
-        setFactorWeights(parsed);
+        console.log('[FactorWeights] seeing value:', parsed.seeing);
+        
+        // Validate that weights total 100
+        const total = parsed.cloudCover + parsed.transparency + parsed.seeing;
+        if (total === 100) {
+          setFactorWeights(parsed);
+          console.log('[FactorWeights] State updated to:', parsed);
+        } else {
+          console.log(`[FactorWeights] Invalid total (${total}), using valid defaults`);
+          const validDefaults = { cloudCover: 40, transparency: 30, seeing: 30 };
+          setFactorWeights(validDefaults);
+          localStorage.setItem('factorWeights', JSON.stringify(validDefaults));
+        }
       } catch (error) {
         console.error('Failed to load saved factor weights:', error);
+        const validDefaults = { cloudCover: 40, transparency: 30, seeing: 30 };
+        setFactorWeights(validDefaults);
+        localStorage.setItem('factorWeights', JSON.stringify(validDefaults));
       }
+    } else {
+      console.log('[FactorWeights] No saved weights found, using valid defaults');
+      const validDefaults = { cloudCover: 40, transparency: 30, seeing: 30 };
+      setFactorWeights(validDefaults);
+      localStorage.setItem('factorWeights', JSON.stringify(validDefaults));
     }
   }, []);
 
   useEffect(() => {
-    fetchRecommendation();
-  }, [customClearSkyUrl]);
+    console.log('[Data Fetch] useEffect triggered');
+    console.log('[Data Fetch] Current factorWeights:', factorWeights);
+    console.log('[Data Fetch] customClearSkyUrl:', customClearSkyUrl);
+    
+    // Only fetch if we have valid factor weights AND they total 100% (complete configuration)
+    const hasValidWeights = factorWeights.cloudCover > 0 || factorWeights.transparency > 0 || factorWeights.seeing > 0;
+    const totalWeight = factorWeights.cloudCover + factorWeights.transparency + factorWeights.seeing;
+    const isCompleteConfiguration = totalWeight === 100;
+    
+    console.log('[Data Fetch] hasValidWeights:', hasValidWeights);
+    console.log('[Data Fetch] totalWeight:', totalWeight);
+    console.log('[Data Fetch] isCompleteConfiguration:', isCompleteConfiguration);
+    
+    if (hasValidWeights && isCompleteConfiguration) {
+      fetchRecommendation();
+    } else {
+      console.log('[Data Fetch] Skipping fetch - waiting for complete factor weights configuration');
+    }
+}, [customClearSkyUrl, factorWeights]);
 
   const fetchRecommendation = useCallback(async () => {
     try {
@@ -95,11 +133,16 @@ export default function ObservationModuleCustom({
       }
       
       // Add factor weights as query parameters
+      console.log('[API Call] Current factorWeights state:', factorWeights);
       Object.entries(factorWeights).forEach(([key, value]) => {
+        console.log(`[API Call] Adding parameter: factorWeight_${key} = ${value}`);
         params.append(`factorWeight_${key}`, value.toString());
       });
       
-      const response = await fetch(`/api/observation-evaluate?${params.toString()}`);
+      const apiUrl = `/api/observation-evaluate?${params.toString()}`;
+      console.log('[API Call] Full URL:', apiUrl);
+      
+      const response = await fetch(apiUrl);
       const responseData = await response.json();
       
       if (responseData.success) {
@@ -145,7 +188,7 @@ export default function ObservationModuleCustom({
     // cloudCover is already on 1-5 scale from parser (5=excellent, 1=poor)
     const cloudScore = condition.cloudCover;
     const transparencyScore = Math.round(condition.transparency);
-    const seeingScore = condition.seeingRating;
+    const seeingScore = condition.seeing;
     
     // Debug logging for NaN issue
     console.log(`[WeightedScore] Scores: cloud=${cloudScore}, trans=${transparencyScore}, seeing=${seeingScore}`);
@@ -215,12 +258,16 @@ export default function ObservationModuleCustom({
     });
   }, [data?.analysisData?.conditions, data?.observingWindow]); // Only recalculate when data changes  // FactorWeightConfiguration component
   const FactorWeightConfiguration = () => {
+    // Temporary state for editing individual fields
+    const [tempValues, setTempValues] = useState<{[key: string]: string}>({});
+    
     const totalWeight = Object.values(factorWeights).reduce((sum, weight) => sum + weight, 0);
     const isUnset = totalWeight === 0;  // User hasn't configured weights yet
     const isValid = totalWeight === 100;  // Weights are properly configured
+    const isEditingMode = Object.keys(tempValues).length > 0;  // User is actively editing
     
-    // Temporary state for editing individual fields
-    const [tempValues, setTempValues] = useState<{[key: string]: string}>({});
+    // Allow saving while editing, but warn if not valid
+    const canSave = isValid || isEditingMode;
     
     const updateWeight = (factor: keyof typeof factorWeights, value: number) => {
       setFactorWeights(prev => ({
@@ -268,8 +315,8 @@ export default function ObservationModuleCustom({
       // Trigger recalculation with new weights
       fetchRecommendation();
       
-      // Show confirmation
-      alert('Factor weights saved successfully!');
+      // Show confirmation without alert (which can cause page refresh)
+      console.log('Factor weights saved successfully!');
     };
 
     const resetToDefaults = () => {
@@ -331,7 +378,7 @@ export default function ObservationModuleCustom({
             </div>
             <div style={{ 
               textAlign: 'center',
-              color: !isValid ? '#ef4444' : 'rgba(255, 255, 255, 0.9)',
+              color: (!isValid && !isEditingMode) ? '#ef4444' : 'rgba(255, 255, 255, 0.9)',
               fontWeight: '500',
               fontSize: '1rem'
             }}>
@@ -351,7 +398,7 @@ export default function ObservationModuleCustom({
                   width: '60px',
                   padding: '6px 8px',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  border: !isValid ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.2)',
+                  border: (!isValid && !isEditingMode) ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.2)',
                   borderRadius: '4px',
                   color: '#ffffff',
                   fontSize: '1rem',
@@ -397,9 +444,9 @@ export default function ObservationModuleCustom({
           <div style={{ 
             textAlign: 'center',
             fontSize: '0.9rem',
-            color: isUnset ? '#f59e0b' : isValid ? '#10b981' : '#ef4444'
+            color: isUnset ? '#f59e0b' : isValid ? '#10b981' : isEditingMode ? '#3b82f6' : '#ef4444'
           }}>
-            {isUnset ? '⚠ Not Set' : isValid ? '✓ Valid' : '✗ Must = 100%'}
+            {isUnset ? '⚠ Not Set' : isValid ? '✓ Valid' : isEditingMode ? '✎ Editing...' : '✗ Must = 100%'}
           </div>
         </div>
 
@@ -436,25 +483,25 @@ export default function ObservationModuleCustom({
         }}>
           <button
             onClick={saveConfiguration}
-            disabled={!isValid}
+            disabled={!canSave}
             style={{
               padding: '8px 16px',
-              backgroundColor: isValid ? '#10b981' : 'rgba(255, 255, 255, 0.1)',
-              border: isValid ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.3)',
+              backgroundColor: canSave ? '#10b981' : 'rgba(255, 255, 255, 0.1)',
+              border: canSave ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.3)',
               borderRadius: '6px',
-              color: isValid ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
-              cursor: isValid ? 'pointer' : 'not-allowed',
+              color: canSave ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+              cursor: canSave ? 'pointer' : 'not-allowed',
               fontSize: '0.9rem',
               fontWeight: '500',
               transition: 'all 0.3s ease'
             }}
             onMouseOver={(e) => {
-              if (isValid) {
+              if (canSave) {
                 e.currentTarget.style.backgroundColor = '#059669';
               }
             }}
             onMouseOut={(e) => {
-              if (isValid) {
+              if (canSave) {
                 e.currentTarget.style.backgroundColor = '#10b981';
               }
             }}
@@ -494,7 +541,7 @@ export default function ObservationModuleCustom({
           color: 'rgba(255, 255, 255, 0.6)',
           textAlign: 'center'
         }}>
-          💡 Tip: Type numbers and press Enter, Tab, or click away to apply changes
+          💡 Tip: Enter values for each factor (total must equal 100%). Press Enter/Tab or click away to apply changes. Use "Save Configuration" to update the forecast.
         </div>
       </div>
     );
@@ -1007,7 +1054,7 @@ export default function ObservationModuleCustom({
                     Seeing:
                   </div>
                   {displayConditions.map((condition, i) => {
-                    const score = condition.seeingRating;
+                    const score = condition.seeing;
                     const color = score >= 4 ? '#10b981' : score >= 3 ? '#f59e0b' : '#ef4444';
                     return (
                       <div key={i} style={{

@@ -141,7 +141,7 @@ function prepareAIPayload(
     currentConditions: {
       cloudCover: conditions.map(c => c.cloudCover),
       transparency: conditions.map(c => c.transparency),
-      seeing: conditions.map(c => c.seeingRating),
+      seeing: conditions.map(c => c.seeing),
       timeLabels: conditions.map(c => c.time)
     },
     moonData: {
@@ -244,19 +244,19 @@ function generateRuleBasedRecommendation(
   // Analyze average conditions
   const avgCloudCover = conditions.reduce((sum, c) => sum + c.cloudCover, 0) / conditions.length;
   const avgTransparency = conditions.reduce((sum, c) => sum + c.transparency, 0) / conditions.length;
-  const avgSeeing = conditions.reduce((sum, c) => sum + c.seeingRating, 0) / conditions.length;
+  const avgSeeing = conditions.reduce((sum, c) => sum + c.seeing, 0) / conditions.length;
   
-  // Determine overall quality
+  // Determine overall quality (1-5 scale ratings)
   let overall: 'excellent' | 'good' | 'dubious' | 'poor';
   let confidence = 0.7; // Lower confidence for rule-based
   
-  if (avgCloudCover <= 20 && avgTransparency >= 4 && avgSeeing >= 4) {
+  if (avgCloudCover >= 4 && avgTransparency >= 4 && avgSeeing >= 4) {
     overall = 'excellent';
     confidence = 0.9;
-  } else if (avgCloudCover <= 40 && avgTransparency >= 3 && avgSeeing >= 3) {
+  } else if (avgCloudCover >= 3 && avgTransparency >= 3 && avgSeeing >= 3) {
     overall = 'good';
     confidence = 0.8;
-  } else if (avgCloudCover <= 60 && avgTransparency >= 2) {
+  } else if (avgCloudCover >= 2 && avgTransparency >= 2) {
     overall = 'dubious';
   } else {
     overall = 'poor';
@@ -267,13 +267,13 @@ function generateRuleBasedRecommendation(
   const warnings: string[] = [];
   const opportunities: string[] = [];
   
-  // Find good consecutive hours
+  // Find good consecutive hours (using 1-5 rating scale)
   for (let i = 0; i < conditions.length - 1; i++) {
     const current = conditions[i];
     const next = conditions[i + 1];
     
-    if (current.cloudCover <= 30 && current.transparency >= 3) {
-      if (next.cloudCover <= 30 && next.transparency >= 3) {
+    if (current.cloudCover >= 3 && current.transparency >= 3) {
+      if (next.cloudCover >= 3 && next.transparency >= 3) {
         bestTimeWindows.push(`${current.time}-${next.time}`);
       }
     }
@@ -285,12 +285,22 @@ function generateRuleBasedRecommendation(
     opportunities.push('Excellent conditions for lunar and planetary observation');
   }
   
-  // Cloud warnings
-  if (avgCloudCover > 50) {
+  // Cloud warnings (1-5 scale: 1=very cloudy, 5=clear)
+  if (avgCloudCover <= 2) {
     warnings.push('Significant cloud cover expected');
   }
   
-  const reasoning = `Rule-based analysis: ${Math.round(avgCloudCover)}% clouds, ${avgTransparency.toFixed(1)}/5 transparency, ${avgSeeing.toFixed(1)}/5 seeing. ${moonData.illumination > 0.5 ? `Moon ${Math.round(moonData.illumination * 100)}% illuminated.` : ''}`;
+  // Poor transparency warnings
+  if (avgTransparency <= 2) {
+    warnings.push('Poor atmospheric transparency expected');
+  }
+  
+  // Poor seeing warnings  
+  if (avgSeeing <= 2) {
+    warnings.push('Poor seeing conditions expected - avoid high magnification');
+  }
+  
+  const reasoning = `Rule-based analysis: ${avgCloudCover.toFixed(1)}/5 cloud rating, ${avgTransparency.toFixed(1)}/5 transparency, ${avgSeeing.toFixed(1)}/5 seeing. ${moonData.illumination > 0.5 ? `Moon ${Math.round(moonData.illumination * 100)}% illuminated.` : ''}`;
   
   return {
     overall,

@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       // Convert to 0-1 scale where 1=excellent, 0=poor
       const cloudScore = (100 - condition.cloudCover) / 100; // Convert percentage to 0-1
       const transparencyScore = condition.transparency / 5; // Convert to 0-1
-      const seeingScore = condition.seeingRating / 5; // Convert to 0-1
+      const seeingScore = condition.seeing / 5; // Convert to 0-1
       
       const weightedScore = (
         (cloudScore * cloudWeight) +
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
         rawData: {
           cloudCover: condition.cloudCover,
           transparency: condition.transparency,
-          seeingRating: condition.seeingRating
+          seeing: condition.seeing
         },
         normalizedScores: {
           cloud: cloudScore,

@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
         reason: evaluation.reason,
         cloudCover: condition.cloudCover,
         transparency: condition.transparency,
-        seeingRating: condition.seeingRating
+        seeing: condition.seeing
       };
     });
 

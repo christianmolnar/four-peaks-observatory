@@ -36,7 +36,7 @@ interface ConditionData {
   reason: string;
   cloudCover: number;
   transparency: number;
-  seeingRating: number;
+  seeing: number;
 }
 
 export async function GET(request: Request) {
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
         time: condition.time,
         cloudCover: condition.cloudCover,     // Already 1-5 scale from parser
         transparency: condition.transparency, // Already 1-5 scale from parser
-        seeingRating: condition.seeingRating  // Already 1-5 scale from parser
+        seeing: condition.seeing  // Already 1-5 scale from parser
       };
       const evaluation = evaluateObservingCondition(clearSkyCondition, factorWeights);
       
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
         reason: evaluation.reason,
         cloudCover: condition.cloudCover,
         transparency: condition.transparency,
-        seeingRating: condition.seeingRating
+        seeing: condition.seeing
       };
     });
 
@@ -176,7 +176,7 @@ export async function GET(request: Request) {
       details: {
         cloudCover: `Varies throughout night - see time windows for details`,
         transparency: `Based on Clear Sky Chart analysis`,
-        seeing: `Ranges from ${Math.min(...conditions.map(c => c.seeingRating))}/5 to ${Math.max(...conditions.map(c => c.seeingRating))}/5`,
+        seeing: `Ranges from ${Math.min(...conditions.map(c => c.seeing))}/5 to ${Math.max(...conditions.map(c => c.seeing))}/5`,
         moonImpact: `${Math.round(moonData.illumination * 100)}% illuminated, rises at ${moonData.rise ? formatTime(moonData.rise) : 'N/A'}`,
         weatherWarnings: generateWeatherWarnings(conditions, moonData)
       },

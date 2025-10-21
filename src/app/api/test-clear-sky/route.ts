@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         time: condition.time,
         cloudCover: condition.cloudCover,
         transparency: condition.transparency,
-        seeingRating: condition.seeingRating,
+        seeing: condition.seeing,
         quality: evaluation.overall,
         reason: evaluation.reason
       };
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       warnings.push(`High cloud cover average: ${Math.round(avgCloudCover)}%`);
     }
     
-    const avgSeeing = analyzedConditions.reduce((sum, c) => sum + c.seeingRating, 0) / totalConditions;
+    const avgSeeing = analyzedConditions.reduce((sum, c) => sum + c.seeing, 0) / totalConditions;
     if (avgSeeing < 3) {
       warnings.push(`Poor seeing conditions (average ${avgSeeing.toFixed(1)}/5)`);
     }

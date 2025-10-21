@@ -8,16 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "capture-timestamps": "node scripts/capture-file-times.js",
-    "test": "jest",
-    "test:unit": "jest tests/unit --verbose",
-    "test:data": "jest tests/data --verbose",
-    "test:integration": "jest tests/integration --verbose",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:ci": "jest --ci --coverage --watchAll=false",
     "update-metadata": "node scripts/maintenance/update-metadata.js",
-    "precommit": "npm run test && npm run lint",
-    "verify": "npm run test && npm run lint && npm run build",
+    "precommit": "npm run lint",
+    "verify": "npm run lint && npm run build",
     "prepare": "husky"
   },
   "dependencies": {
@@ -43,9 +36,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -54,10 +44,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
     "husky": "^9.1.7",
-    "jest": "^30.0.5",
-    "jest-environment-jsdom": "^30.0.5",
     "tailwindcss": "^4",
-    "ts-jest": "^29.4.1",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5"
   }

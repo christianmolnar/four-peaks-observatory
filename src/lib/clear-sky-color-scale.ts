@@ -62,7 +62,7 @@ function calculateColorDistance(rgb1: { r: number; g: number; b: number }, rgb2:
 /**
  * Find the closest color in the scale and return its rating directly
  */
-export function mapRgbToSeeingRating(rgb: { r: number; g: number; b: number }): number {
+export function mapRgbToRating(rgb: { r: number; g: number; b: number }): number {
   let closestEntry = CLEAR_SKY_COLOR_SCALE[0];
   let minDistance = calculateColorDistance(rgb, closestEntry.rgb);
   
@@ -93,5 +93,5 @@ export function debugColorMatch(rgb: { r: number; g: number; b: number }): void 
   distances.slice(0, 3).forEach((item, index) => {
     console.log(`  ${index + 1}. RGB(${item.entry.rgb.r}, ${item.entry.rgb.g}, ${item.entry.rgb.b}) - Rating: ${item.entry.rating}, Distance: ${Math.round(item.distance)}, Desc: ${item.entry.description}`);
   });
-  console.log(`[Color Scale] Final rating: ${mapRgbToSeeingRating(rgb)}`);
+  console.log(`[Color Scale] Final rating: ${mapRgbToRating(rgb)}`);
 }

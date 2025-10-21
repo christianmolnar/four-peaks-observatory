@@ -118,7 +118,7 @@ export async function POST(request: Request) {
         reason: evaluation.reason,
         cloudCover: condition.cloudCover,
         transparency: condition.transparency,
-        seeingRating: condition.seeingRating
+        seeing: condition.seeing
       };
     });
 
