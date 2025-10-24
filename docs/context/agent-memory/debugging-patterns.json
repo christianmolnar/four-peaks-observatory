@@ -1,0 +1,69 @@
+{
+  "debuggingPatterns": [
+    {
+      "pattern": "File Watcher Overwhelm",
+      "symptoms": [
+        "VS Code freezing for 20+ seconds",
+        "High memory usage during file operations",
+        "Delayed response to file changes"
+      ],
+      "rootCause": "File watching system overwhelmed by large binary files",
+      "solutions": [
+        "Aggressive file exclusions in .vscode/settings.json",
+        "Emergency backup of problematic files",
+        "Migration to build-time processing"
+      ],
+      "prevention": "Exclude large binary directories from file watching",
+      "applicableTo": ["image-heavy projects", "media-rich applications"]
+    }
+  ],
+  "solvedProblems": [
+    {
+      "problemId": "vscode-freeze-image-indexing",
+      "title": "VS Code Freezing on Image-Heavy Projects",
+      "solvedDate": "2025-10-22",
+      "solution": "Multi-layered approach: VS Code optimizations, emergency backup script, Astro migration",
+      "effectiveness": "pending-validation",
+      "reusable": true,
+      "keyFiles": [
+        ".vscode/settings.json",
+        "scripts/emergency-freeze-fix.sh", 
+        "scripts/setup-astro-phase1.sh"
+      ]
+    }
+  ],
+  "codePatterns": [
+    {
+      "pattern": "Emergency File Management",
+      "description": "Script pattern for temporarily moving problematic files during development",
+      "implementation": "Bash script with backup/restore functionality",
+      "useCase": "Large file collections causing development environment issues",
+      "example": "scripts/emergency-freeze-fix.sh"
+    },
+    {
+      "pattern": "VS Code Performance Optimization",
+      "description": "Comprehensive settings for performance in file-heavy projects",
+      "implementation": "Aggressive exclusions in .vscode/settings.json",
+      "useCase": "Projects with large binary file collections",
+      "keySettings": [
+        "files.watcherExclude",
+        "search.exclude", 
+        "typescript.validate.enable: false",
+        "editor.tokenColorization: false"
+      ]
+    }
+  ],
+  "migrationPatterns": [
+    {
+      "pattern": "Framework Migration for Performance",
+      "description": "Migrating from runtime to build-time processing to solve performance issues",
+      "example": "Next.js to Astro migration for image optimization",
+      "benefits": [
+        "Eliminates runtime file indexing",
+        "Build-time optimization",
+        "Reduced development environment load"
+      ],
+      "applicability": "Projects with heavy asset processing needs"
+    }
+  ]
+}

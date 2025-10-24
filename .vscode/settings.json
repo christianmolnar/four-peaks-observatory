@@ -12,24 +12,56 @@
   "typescript.suggest.completeFunctionCalls": false,
   "typescript.preferences.experimentalDecorators": false,
   
-  // Reduce file watching overhead
+  // AGGRESSIVE file watching exclusions - ENHANCED FOR ASTRO MIGRATION
   "files.watcherExclude": {
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
     "**/node_modules/**": true,
     "**/.next/**": true,
+    "**/.astro/**": true,
     "**/public/images/**": true,
+    "**/astro-mvo/dist/**": true,
     "**/.vercel/**": true,
     "**/dist/**": true,
-    "**/build/**": true
+    "**/build/**": true,
+    "**/*.jpg": true,
+    "**/*.jpeg": true,
+    "**/*.png": true,
+    "**/*.gif": true,
+    "**/*.webp": true,
+    "**/*.avif": true,
+    "**/*.tiff": true,
+    "**/*.bmp": true,
+    "**/public/images/astrophotography/**": true,
+    "**/public/images/terrestrial/**": true,
+    "**/public/images/equipment/**": true,
+    "**/public/images/hero/**": true,
+    "**/public/images/assets/**": true
   },
   
-  // Exclude large image files from search
+  // AGGRESSIVE search exclusions - ENHANCED FOR FREEZE PREVENTION  
   "search.exclude": {
     "public/images/**": true,
+    "astro-mvo/src/assets/images/**": false,
     ".next": true,
+    ".astro": true,
+    "**/*.jpg": true,
+    "**/*.jpeg": true,
+    "**/*.png": true,
+    "**/*.gif": true,
+    "**/*.webp": true,
+    "**/*.avif": true,
+    "**/*.tiff": true,
+    "**/*.bmp": true,
     "node_modules": true,
-    ".vercel": true
+    ".vercel": true,
+    "dist": true,
+    "build": true,
+    "public/images/astrophotography": true,
+    "public/images/terrestrial": true,
+    "public/images/equipment": true,
+    "public/images/hero": true,
+    "public/images/assets": true
   },
   
   // Reduce memory usage
@@ -45,5 +77,65 @@
   "python.analysis.autoImportCompletions": false,
   
   // Enable GitHub Copilot custom instructions
-  "github.copilot.chat.codeGeneration.useInstructionFiles": true
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  
+  // Astro development settings for freeze prevention
+  "astro.trace.server": "verbose",
+  
+  // File exclusions to prevent development freezes
+  "files.exclude": {
+    "**/.astro": true,
+    "**/.next": true
+  },
+  
+  // ADDITIONAL PERFORMANCE SETTINGS FOR FREEZE PREVENTION
+  "extensions.ignoreRecommendations": true,
+  "workbench.enableExperiments": false,
+  "workbench.settings.enableNaturalLanguageSearch": false,
+  "explorer.excludeGitIgnore": true,
+  "explorer.fileNesting.enabled": false,
+  "editor.minimap.enabled": false,
+  "editor.suggest.preview": false,
+  "editor.hover.delay": 1000,
+  "editor.quickSuggestions": {
+    "comments": "off",
+    "strings": "off",
+    "other": "off"
+  },
+  "editor.parameterHints.enabled": false,
+  "editor.lightbulb.enabled": "off",
+  "breadcrumbs.enabled": false,
+  
+  // Disable heavy language features
+  "editor.inlayHints.enabled": "off",
+  "editor.codeLens": false,
+  "editor.glyphMargin": false,
+  "diffEditor.ignoreTrimWhitespace": false,
+  "diffEditor.maxComputationTime": 1000,
+  
+  // File indexing performance  
+  "search.searchOnType": false,
+  "search.followSymlinks": false,
+  "search.smartCase": false,
+  "files.hotExit": "off",
+  "files.autoSave": "off",
+  
+  // EMERGENCY FREEZE PREVENTION - MAXIMUM AGGRESSION
+  "files.maxMemoryForLargeFilesMB": 2048,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.enabled": false,
+  "typescript.validate.enable": false,
+  "editor.tokenColorization": false,
+  "editor.semanticTokenColorCustomizations": {},
+  "workbench.tree.indent": 8,
+  "workbench.list.automaticKeyboardNavigation": false,
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.enablePreviewFromQuickOpen": false,
+  "workbench.startupEditor": "none",
+  "window.restoreWindows": "none",
+  
+  // Disable all non-essential extensions during image-heavy work
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false
 }

@@ -1,8 +1,34 @@
+# AGGRESSIVE image directory exclusions to prevent freezes
 public/images/**
+public/images/astrophotography/**
+public/images/terrestrial/**
+public/images/equipment/**
+public/images/hero/**
+public/images/assets/**
+
+# Build directories
 .next/**
+.astro/**
+astro-mvo/dist/**
 node_modules/**
 .vercel/**
 dist/**
 build/**
+
+# All image file extensions
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.avif
+*.tiff
+*.bmp
+
+# System and cache files
 *.log
 .DS_Store
+Thumbs.db
+.cache/**
+.temp/**
+.tmp/**

@@ -10,7 +10,19 @@ All AI agents working on this project must follow these core principles:
 - **Test files** → `/tests/` directory (NOT `/docs/testing/`)
 - **Scripts** → `/scripts/` directory
 - **Assets** → `/public/assets/` directory
+- **Context files** → `/docs/context/` directory (MANDATORY for session continuity)
 - **Always check existing directory structure before creating files**
+
+### MANDATORY CONTEXT LOADING
+**FIRST ACTION**: Every AI agent MUST load existing context before beginning work:
+```bash
+# Quick context check - agents should understand this information
+./scripts/agent-context.sh load
+```
+**Key files to check**:
+- `docs/context/active-sessions/current-context.json` - Current work session
+- `docs/context/project-state/current-issues.json` - Active problems  
+- `docs/context/project-state/recent-changes.json` - What's been done recently
 
 ### Critical Server Management Rules
 - **NEVER start development servers automatically** (npm run dev, npm start, etc.)
@@ -112,19 +124,57 @@ public/
 - `npm run dev` - Development server (user-controlled only)
 - `npm run lint` - Code quality checks
 
+## Context Management System
+
+### Loading Context on Session Start
+**MANDATORY**: All agents must check for existing context before beginning work:
+
+1. **Read current context**: `docs/context/active-sessions/current-context.json`
+2. **Check project state**: `docs/context/project-state/current-issues.json` 
+3. **Review recent changes**: `docs/context/project-state/recent-changes.json`
+4. **Load conversation history**: `docs/context/conversation-history/[latest].md`
+5. **Apply learned patterns**: `docs/context/agent-memory/debugging-patterns.json`
+
+### Updating Context During Work
+**REQUIRED**: Update context files when:
+- Solving significant problems
+- Making important code changes  
+- Discovering new patterns or solutions
+- Before user might restart VS Code (freeze issues)
+- Completing major tasks
+
+### Context File Locations
+```
+docs/context/
+├── active-sessions/current-context.json    # Current work session
+├── project-state/current-issues.json      # Active problems
+├── project-state/recent-changes.json      # Recent modifications
+├── conversation-history/YYYY-MM-DD-summary.md # Chat summaries
+└── agent-memory/debugging-patterns.json   # Learned solutions
+```
+
 ## Agent Behavior
+
+### Session Continuity
+- **Always load context first** - Check existing context before asking questions
+- **Maintain conversation flow** - Reference previous work and decisions
+- **Update context proactively** - Don't wait for session end
+- **Handle interruptions gracefully** - Prepare for VS Code freezes/restarts
 
 ### Communication
 - Be direct and practical
 - Focus on observatory automation goals
 - Provide actionable technical solutions
 - Consider both immediate needs and long-term automation objectives
+- Reference previous context when relevant
 
 ### Problem Solving
+- **Apply evidence-based debugging** using stored patterns
 - Understand the astronomical context
 - Consider equipment limitations and upgrade paths
 - Balance cost vs. automation benefits
 - Think in terms of unattended operation requirements
+- **Learn from previous solutions** in agent memory
 
 ## Success Criteria
 The system should enable:

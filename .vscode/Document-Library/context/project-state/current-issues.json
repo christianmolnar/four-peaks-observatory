@@ -1,0 +1,54 @@
+{
+  "criticalIssues": [
+    {
+      "id": "vscode-freeze-2025-10-22",
+      "title": "VS Code Development Environment Freezes",
+      "severity": "critical",
+      "description": "VS Code freezes for 20+ seconds when working with image-heavy observatory project",
+      "impact": "Prevents effective development, causes loss of chat context",
+      "rootCause": "File watcher overwhelmed by large astrophotography image collection",
+      "solutions": {
+        "immediate": "Emergency image backup script",
+        "permanent": "Astro migration with build-time image optimization"
+      },
+      "status": "fixes-applied-testing-required",
+      "lastUpdated": "2025-10-22T14:00:00Z"
+    }
+  ],
+  "activeProjects": [
+    {
+      "name": "Astro Migration Phase 1",
+      "description": "Migrate from Next.js to Astro to solve development performance issues",
+      "priority": "high",
+      "currentPhase": "setup-and-image-optimization",
+      "deliverables": [
+        "Parallel Astro development environment",
+        "Build-time image optimization",
+        "Freeze-free development workflow"
+      ]
+    },
+    {
+      "name": "Observatory Automation System",
+      "description": "Automated astrophotography from sunset to sunrise",
+      "priority": "medium",
+      "blockedBy": "development-environment-issues",
+      "nextMilestone": "Equipment control interfaces"
+    }
+  ],
+  "technicalDebt": [
+    {
+      "area": "Image Management",
+      "issue": "Runtime image indexing causing performance problems",
+      "solution": "Move to build-time optimization with Astro",
+      "effort": "medium"
+    }
+  ],
+  "recentDecisions": [
+    {
+      "date": "2025-10-22",
+      "decision": "Implement Astro migration to solve VS Code freezing",
+      "rationale": "Build-time image optimization eliminates runtime indexing issues",
+      "alternatives": "Considered image compression, file exclusions (tried, insufficient)"
+    }
+  ]
+}

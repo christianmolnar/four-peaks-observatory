@@ -1,0 +1,67 @@
+{
+  "folders": [
+	{
+		"name": "Next.js (Current)",
+		"path": ".."
+	},
+	{
+		"name": "Astro (Migration)",
+		"path": "../astro-mvo"
+	}
+],
+  "settings": {
+    "files.watcherExclude": {
+      "**/public/images/**": true,
+      "**/src/assets/images/**": false,
+      "**/*.jpg": true,
+      "**/*.png": true,
+      "**/*.gif": true,
+      "**/*.webp": true,
+      "**/*.avif": true,
+      "**/node_modules/**": true,
+      "**/.next/**": true,
+      "**/.astro/**": true,
+      "**/dist/**": true
+    },
+    "search.exclude": {
+      "**/public/images/**": true,
+      "**/*.jpg": true,
+      "**/*.png": true,
+      "**/*.gif": true,
+      "**/*.webp": true,
+      "**/*.avif": true
+    },
+    "typescript.validate.enable": false,
+    "editor.tokenColorization": false,
+    "workbench.startupEditor": "none"
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Start Next.js Dev",
+        "type": "shell",
+        "command": "npm run dev",
+        "group": "build",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        }
+      },
+      {
+        "label": "Start Astro Dev",
+        "type": "shell",
+        "command": "npm run dev",
+        "group": "build",
+        "options": {
+          "cwd": "${workspaceFolder}/astro-mvo"
+        }
+      },
+      {
+        "label": "Emergency Image Backup",
+        "type": "shell",
+        "command": "./scripts/emergency-freeze-fix.sh",
+        "group": "build"
+      }
+    ]
+  }
+}
