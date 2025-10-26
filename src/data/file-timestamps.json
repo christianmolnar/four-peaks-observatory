@@ -909,6 +909,13 @@
     "ctimeMs": 1753836531127.1074,
     "filename": "Logo.jpg"
   },
+  "logo/favicon.png": {
+    "mtime": "2025-10-26T18:34:10.024Z",
+    "mtimeMs": 1761503650023.7747,
+    "ctime": "2025-10-26T19:26:07.577Z",
+    "ctimeMs": 1761506767576.5012,
+    "filename": "favicon.png"
+  },
   "og-preview.jpg": {
     "mtime": "2025-08-01T17:56:12.570Z",
     "mtimeMs": 1754070972569.6301,

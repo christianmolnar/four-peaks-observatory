@@ -360,14 +360,18 @@ export default function LatestCapturesCarousel() {
                 {(() => {
                   const metadataItems = [];
                   
+                  // Use trim() to handle empty strings properly
+                  const hasCatalogDesignation = images[current].catalogDesignation && images[current].catalogDesignation.trim() !== '';
+                  const hasObjectName = images[current].objectName && images[current].objectName.trim() !== '';
+                  
                   // Object name (catalog designation + object name or either one)
-                  if (images[current].catalogDesignation && images[current].objectName) {
+                  if (hasCatalogDesignation && hasObjectName) {
                     metadataItems.push(
                       <span key="name" className="font-medium tracking-wide">
                         {`${images[current].catalogDesignation} - ${images[current].objectName}`}
                       </span>
                     );
-                  } else if (images[current].catalogDesignation || images[current].objectName) {
+                  } else if (hasCatalogDesignation || hasObjectName) {
                     metadataItems.push(
                       <span key="name" className="font-medium tracking-wide">
                         {images[current].catalogDesignation || images[current].objectName}
@@ -376,23 +380,39 @@ export default function LatestCapturesCarousel() {
                   }
                   
                   // Location
-                  if (images[current].location) {
+                  if (images[current].location && images[current].location.trim() !== '') {
                     metadataItems.push(
                       <span key="location">{images[current].location}</span>
                     );
                   }
                   
                   // Equipment
-                  if (images[current].equipment) {
+                  if (images[current].equipment && images[current].equipment.trim() !== '') {
                     metadataItems.push(
                       <span key="equipment">{images[current].equipment}</span>
                     );
                   }
                   
                   // Exposure
-                  if (images[current].exposure) {
+                  if (images[current].exposure && images[current].exposure.trim() !== '') {
                     metadataItems.push(
                       <span key="exposure">{images[current].exposure}</span>
+                    );
+                  }
+                  
+                  // Fallback: Ensure every image has at least something to display
+                  if (metadataItems.length === 0) {
+                    const displayName = images[current].filename
+                      ? images[current].filename
+                          .replace(/\.[^.]+$/, '') // Remove extension
+                          .replace(/[-_]/g, ' ') // Replace dashes and underscores with spaces
+                          .replace(/\b\w/g, l => l.toUpperCase()) // Capitalize first letters
+                      : 'Featured Image';
+                    
+                    metadataItems.push(
+                      <span key="filename" className="font-medium tracking-wide">
+                        {displayName}
+                      </span>
                     );
                   }
                   

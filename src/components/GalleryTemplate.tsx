@@ -745,18 +745,23 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                   const metadataItems = [];
                   
                   // Check if this is an astrophotography, equipment, or terrestrial image
-                  const isAstrophotography = images[currentImage].catalogDesignation || images[currentImage].objectName;
-                  const isEquipment = images[currentImage].equipmentName;
+                  // Use trim() to handle empty strings properly
+                  const hasCatalogDesignation = images[currentImage].catalogDesignation && images[currentImage].catalogDesignation.trim() !== '';
+                  const hasObjectName = images[currentImage].objectName && images[currentImage].objectName.trim() !== '';
+                  const hasEquipmentName = images[currentImage].equipmentName && images[currentImage].equipmentName.trim() !== '';
+                  
+                  const isAstrophotography = hasCatalogDesignation || hasObjectName;
+                  const isEquipment = hasEquipmentName;
                   
                   if (isAstrophotography) {
                     // Astrophotography: Object name (catalog designation + object name or either one)
-                    if (images[currentImage].catalogDesignation && images[currentImage].objectName) {
+                    if (hasCatalogDesignation && hasObjectName) {
                       metadataItems.push(
                         <span key="name" className="font-medium tracking-wide">
                           {`${images[currentImage].catalogDesignation} - ${images[currentImage].objectName}`}
                         </span>
                       );
-                    } else if (images[currentImage].catalogDesignation || images[currentImage].objectName) {
+                    } else if (hasCatalogDesignation || hasObjectName) {
                       metadataItems.push(
                         <span key="name" className="font-medium tracking-wide">
                           {images[currentImage].catalogDesignation || images[currentImage].objectName}
@@ -765,7 +770,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                     }
                     
                     // Date taken (for astrophotography)
-                    if (images[currentImage].dateTaken) {
+                    if (images[currentImage].dateTaken && images[currentImage].dateTaken.trim() !== '') {
                       metadataItems.push(
                         <span key="dateTaken">{images[currentImage].dateTaken}</span>
                       );
@@ -777,7 +782,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                         {images[currentImage].equipmentName}
                       </span>
                     );
-                    if (images[currentImage].equipmentInfo) {
+                    if (images[currentImage].equipmentInfo && images[currentImage].equipmentInfo.trim() !== '') {
                       metadataItems.push(
                         <span key="equipmentInfo" className="text-white/70">
                           {images[currentImage].equipmentInfo}
@@ -786,7 +791,8 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                     }
                   } else {
                     // Terrestrial: Show name if available
-                    if (images[currentImage].name) {
+                    const hasName = images[currentImage].name && images[currentImage].name.trim() !== '';
+                    if (hasName) {
                       metadataItems.push(
                         <span key="name" className="font-medium tracking-wide">
                           {images[currentImage].name}
@@ -795,7 +801,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                     }
                     
                     // Date taken (for terrestrial)
-                    if (images[currentImage].dateTaken) {
+                    if (images[currentImage].dateTaken && images[currentImage].dateTaken.trim() !== '') {
                       metadataItems.push(
                         <span key="dateTaken">{images[currentImage].dateTaken}</span>
                       );
@@ -803,7 +809,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                   }
                   
                   // Location
-                  if (images[currentImage].location) {
+                  if (images[currentImage].location && images[currentImage].location.trim() !== '') {
                     metadataItems.push(
                       <span key="location">{images[currentImage].location}</span>
                     );
@@ -820,6 +826,21 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
                   if (isAstrophotography && images[currentImage].exposure && images[currentImage].exposure.trim() !== '') {
                     metadataItems.push(
                       <span key="exposure">{images[currentImage].exposure}</span>
+                    );
+                  }
+                  
+                  // Fallback: Ensure every image has at least something to display
+                  // If no metadata items were added, show filename as fallback
+                  if (metadataItems.length === 0) {
+                    const displayName = images[currentImage].filename
+                      .replace(/\.[^.]+$/, '') // Remove extension
+                      .replace(/[-_]/g, ' ') // Replace dashes and underscores with spaces
+                      .replace(/\b\w/g, l => l.toUpperCase()); // Capitalize first letters
+                    
+                    metadataItems.push(
+                      <span key="filename" className="font-medium tracking-wide">
+                        {displayName}
+                      </span>
                     );
                   }
                   
