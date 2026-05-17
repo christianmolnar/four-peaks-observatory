@@ -745,14 +745,8 @@
     "description": "M81 and M82, also known as Bode's and Cigar Galaxy respectively, are spiral and starburst galaxies about 12 million light-years away. Their close proximity and contrasting nature—M81 with its grand design spiral structure and M82 with its explosive star formation—make them fascinating subjects for astrophotography. These galaxies showcase the dynamic and diverse universe we inhabit."
   },
   "M81 and M82-1.jpg": {
-    "catalogDesignation": [
-      "M81",
-      "M82"
-    ],
-    "objectName": [
-      "Bode's Galaxy",
-      "Cigar Galaxy"
-    ],
+    "catalogDesignation": "M81, M82",
+    "objectName": "Bode's Galaxy, Cigar Galaxy",
     "dateTaken": "October, 2025",
     "monthYear": "October, 2025",
     "location": "Maple Valley, WA",
@@ -766,14 +760,8 @@
     "description": "M81 and M82, known as Bode's and Cigar Galaxies respectively, are spiral and starburst galaxies located about 12 million light-years away. Visually, M81 is a grand spiral, while M82 exhibits red-hued explosive gas clouds due to intense star formation. Their proximity and contrasting features make them a highly sought pair for astrophotography."
   },
   "M81 and M82.jpg": {
-    "catalogDesignation": [
-      "M81",
-      "M82"
-    ],
-    "objectName": [
-      "Bode's Galaxy",
-      "Cigar Galaxy"
-    ],
+    "catalogDesignation": "M81, M82",
+    "objectName": "Bode's Galaxy, Cigar Galaxy",
     "dateTaken": "October, 2025",
     "monthYear": "October, 2025",
     "location": "Maple Valley, WA",
