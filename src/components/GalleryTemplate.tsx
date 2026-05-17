@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Head from 'next/head';
 import Image from 'next/image';
@@ -180,66 +180,43 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
   const [currentImage, setCurrentImage] = useState(0);
   const [showYouTubeOverlay, setShowYouTubeOverlay] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  let images = getGalleryImages(imageFolder);
+  const images = useMemo((): ImageMetadata[] => {
+    const rawImages = getGalleryImages(imageFolder);
 
-  // Sort ALL galleries by newest first based on metadata dateTaken field
-  const shouldSortByNewest = true; // Apply to all galleries
-
-  if (shouldSortByNewest) {
-    images = [...images].sort((a, b) => {
-      // Parse dateTaken from metadata (e.g., "August, 2025" -> timestamp)
-      const parseDateTaken = (dateTaken: string | undefined) => {
-        if (!dateTaken) return 0;
-        
-        // Handle "Month, Year" format (e.g., "August, 2025")
-        const monthYearMatch = dateTaken.match(/^(\w+),?\s+(\d{4})$/);
-        if (monthYearMatch) {
-          const [, monthName, year] = monthYearMatch;
-          const monthNames = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-          ];
-          const monthIndex = monthNames.indexOf(monthName);
-          if (monthIndex !== -1) {
-            return new Date(parseInt(year), monthIndex).getTime();
-          }
+    const parseDateTaken = (dateTaken: string | undefined) => {
+      if (!dateTaken) return 0;
+      const monthYearMatch = dateTaken.match(/^(\w+),?\s+(\d{4})$/);
+      if (monthYearMatch) {
+        const [, monthName, year] = monthYearMatch;
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const monthIndex = monthNames.indexOf(monthName);
+        if (monthIndex !== -1) {
+          return new Date(parseInt(year), monthIndex).getTime();
         }
-        
-        return 0;
-      };
-      
-      // Get dates from metadata
+      }
+      return 0;
+    };
+
+    const getFileModTime = (imageData: { filename: string }) => {
+      const fullPath = `${imageFolder}/${imageData.filename}`;
+      return fileTimestamps[fullPath as keyof typeof fileTimestamps]?.mtimeMs ?? 0;
+    };
+
+    return [...rawImages].sort((a, b) => {
       const timeA = parseDateTaken(a.dateTaken);
       const timeB = parseDateTaken(b.dateTaken);
-      
-      // Sort by metadata date (newest first)
-      if (timeA !== timeB) {
-        return timeB - timeA; // Higher timestamp = newer = first
-      }
-      
-      // Fallback to file modification time if no metadata dates
-      const getFileModTime = (imageData: { filename: string }) => {
-        const filename = imageData.filename;
-        const fullPath = `${imageFolder}/${filename}`;
-        
-        if (fileTimestamps[fullPath as keyof typeof fileTimestamps]) {
-          return fileTimestamps[fullPath as keyof typeof fileTimestamps].mtimeMs;
-        }
-        
-        return 0;
-      };
-      
+      if (timeA !== timeB) return timeB - timeA;
+
       const fileTimeA = getFileModTime(a);
       const fileTimeB = getFileModTime(b);
-      
-      if (fileTimeA !== fileTimeB) {
-        return fileTimeB - fileTimeA;
-      }
-      
-      // Final fallback: reverse alphabetical (assumes newer files have "later" names)
+      if (fileTimeA !== fileTimeB) return fileTimeB - fileTimeA;
+
       return b.filename.localeCompare(a.filename);
     });
-  }
+  }, [imageFolder]);
 
   const openModal = (index: number) => {
     setCurrentImage(index);
@@ -526,7 +503,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
       </main>
 
       {/* Modal with Metadata */}
-      {modalOpen && typeof document !== 'undefined' && createPortal(
+      {modalOpen && typeof document !== 'undefined' && images[currentImage] && createPortal(
         <div 
           className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-lg"
           style={{ zIndex: 99999 }}
