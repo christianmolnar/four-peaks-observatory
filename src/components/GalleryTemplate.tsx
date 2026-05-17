@@ -55,12 +55,22 @@ function getGalleryImages(imageFolder: string): ImageMetadata[] {
       .map((key: string) => {
         const src = key.replace(/^\./, '/images');
         const filename = src.split('/').pop() || '';
-        const imageMetadata = metadata[filename as keyof typeof metadata] || {
+        const raw = metadata[filename as keyof typeof metadata] || {
           catalogDesignation: '',
           objectName: filename.replace(/[-_]/g, ' ').replace(/\.[^.]+$/, '').toUpperCase(),
           location: 'Maple Valley, WA',
           equipment: 'SeeStar S50',
           exposure: 'Unknown'
+        };
+        // Normalize any array fields to strings (guard against malformed metadata)
+        const imageMetadata = {
+          ...raw,
+          catalogDesignation: Array.isArray((raw as Record<string, unknown>).catalogDesignation)
+            ? ((raw as Record<string, unknown>).catalogDesignation as string[]).join(', ')
+            : (raw as Record<string, unknown>).catalogDesignation as string | undefined,
+          objectName: Array.isArray((raw as Record<string, unknown>).objectName)
+            ? ((raw as Record<string, unknown>).objectName as string[]).join(', ')
+            : (raw as Record<string, unknown>).objectName as string | undefined,
         };
         return { src, filename, ...imageMetadata };
       });
