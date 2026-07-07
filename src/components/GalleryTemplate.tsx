@@ -36,6 +36,8 @@ interface GalleryTemplateProps {
   title: string;
   backgroundImage: string;
   imageFolder: string;
+  equipmentFilter?: string;   // e.g. "SeeStar S50" — filters images by equipment metadata
+  subcategoryFilter?: string; // e.g. "deep-sky/" — filters by subcategory prefix
 }
 
 // Dynamically import gallery images and videos
@@ -185,13 +187,27 @@ function isVideoFile(filename: string): boolean {
   return videoExtensions.includes(extension);
 }
 
-export default function GalleryTemplate({ title, backgroundImage, imageFolder }: GalleryTemplateProps) {
+export default function GalleryTemplate({ title, backgroundImage, imageFolder, equipmentFilter, subcategoryFilter }: GalleryTemplateProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
   const [showYouTubeOverlay, setShowYouTubeOverlay] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const images = useMemo((): ImageMetadata[] => {
-    const rawImages = getGalleryImages(imageFolder);
+    let rawImages = getGalleryImages(imageFolder);
+
+    // Smart Telescope filter: restrict by equipment and/or subcategory prefix
+    if (equipmentFilter) {
+      rawImages = rawImages.filter(img => {
+        const eq = (img.equipment || '').trim();
+        return eq === equipmentFilter || eq.includes(equipmentFilter);
+      });
+    }
+    if (subcategoryFilter) {
+      rawImages = rawImages.filter(img => {
+        const sub = ((img as unknown) as Record<string, unknown>).subcategory as string | undefined || '';
+        return sub.startsWith(subcategoryFilter);
+      });
+    }
 
     const parseDateTaken = (dateTaken: string | undefined) => {
       if (!dateTaken) return 0;
@@ -226,7 +242,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder }:
 
       return b.filename.localeCompare(a.filename);
     });
-  }, [imageFolder]);
+  }, [imageFolder, equipmentFilter, subcategoryFilter]);
 
   const openModal = (index: number) => {
     setCurrentImage(index);
