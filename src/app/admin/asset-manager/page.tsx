@@ -559,12 +559,24 @@ export default function AssetManagerPage() {
   }, [metadata, activeFilter]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // Add state for thumbnail visibility (default: false/hidden)
-  const [showThumbnails, setShowThumbnails] = useState(false);
+  // Thumbnail visibility (default: true/shown)
+  const [showThumbnails, setShowThumbnails] = useState(true);
 
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ src: string; filename: string } | null>(null);
 
+  // Column widths map — used for dynamic gridTemplateColumns (matches column definition keys)
+  const colWidths: Record<string, string> = {
+    filename: 'minmax(200px, 300px)',
+    category: 'minmax(100px, 120px)',
+    subcategory: 'minmax(100px, 120px)',
+    catalogDesignation: 'minmax(120px, 150px)',
+    objectName: 'minmax(200px, 250px)',
+    dateTaken: 'minmax(100px, 120px)',
+    location: 'minmax(150px, 200px)',
+    equipment: 'minmax(100px, 120px)',
+    protected: 'minmax(60px, 80px)',
+  };
   // Column order state — keys match the column definition array below
   const defaultColumnOrder = ['filename','category','subcategory','catalogDesignation','objectName','dateTaken','location','equipment','protected'];
   const [columnOrder, setColumnOrder] = useState<string[]>(defaultColumnOrder);
@@ -1969,79 +1981,79 @@ export default function AssetManagerPage() {
               </div>
             </div>
             
-            <div className="bg-white/5 backdrop-blur-sm rounded-b-lg border border-white/10 overflow-hidden">
-              <div className="overflow-x-auto overflow-y-hidden max-w-full">
-                <div className="min-w-max max-w-none">
+            <div className="bg-white/5 backdrop-blur-sm rounded-b-lg border border-white/10 overflow-x-auto">
+              <div>
+                <div style={{ minWidth: '1600px' }}>
                   {/* Table Header */}
-                  <div className={showThumbnails 
-                    ? "grid grid-cols-[60px_60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
-                    : "grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
-                  }>
-                    <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedImages.size > 0 && selectedImages.size === getFilteredImages().length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            selectAllImages();
-                          } else {
-                            selectNoneImages();
-                          }
-                        }}
-                        className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
-                      />
-                    </div>
-                    {showThumbnails && (
-                      <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
-                        Thumbnail
-                      </div>
-                    )}
-                    {(() => {
-                      const allColumns = [
-                        { key: 'filename', label: 'Image Name' },
-                        { key: 'category', label: 'Category' },
-                        { key: 'subcategory', label: 'Subcategory' },
-                        { key: 'catalogDesignation', label: 'Catalog' },
-                        { key: 'objectName', label: 'Object Name' },
-                        { key: 'dateTaken', label: 'Date Taken' },
-                        { key: 'location', label: 'Location' },
-                        { key: 'equipment', label: 'Equipment' },
-                        { key: 'protected', label: 'Protected' }
-                      ];
-                      const orderedColumns = columnOrder.map(k => allColumns.find(c => c.key === k)!).filter(Boolean);
-                      return orderedColumns.map((column) => (
-                        <div
-                          key={column.key}
-                          draggable
-                          onDragStart={() => setDraggedCol(column.key)}
-                          onDragOver={(e) => { e.preventDefault(); setDragOverCol(column.key); }}
-                          onDragEnd={() => {
-                            if (draggedCol && dragOverCol && draggedCol !== dragOverCol) {
-                              const next = [...columnOrder];
-                              const from = next.indexOf(draggedCol);
-                              const to = next.indexOf(dragOverCol);
-                              next.splice(from, 1);
-                              next.splice(to, 0, draggedCol);
-                              setColumnOrder(next);
-                            }
-                            setDraggedCol(null);
-                            setDragOverCol(null);
-                          }}
-                          className={`text-white/90 text-sm font-medium tracking-wide cursor-grab active:cursor-grabbing hover:text-amber-400 transition-colors flex items-center space-x-1 select-none ${dragOverCol === column.key ? 'border-l-2 border-amber-400 pl-1' : ''}`}
-                          title="Drag to reorder · Click to sort"
-                          onClick={() => handleSort(column.key)}
-                        >
-                          <span className="text-white/30 text-xs mr-1">⠿</span>
-                          <span>{column.label}</span>
-                          {sortConfig?.key === column.key && (
-                            <span className="text-amber-400">
-                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
+                  {(() => {
+                    const dynamicCols = columnOrder.map(k => colWidths[k] || 'minmax(100px,150px)').join(' ');
+                    const headerGrid = showThumbnails
+                      ? `60px 60px ${dynamicCols}`
+                      : `60px ${dynamicCols}`;
+                    const allColumns = [
+                      { key: 'filename', label: 'Image Name' },
+                      { key: 'category', label: 'Category' },
+                      { key: 'subcategory', label: 'Subcategory' },
+                      { key: 'catalogDesignation', label: 'Catalog' },
+                      { key: 'objectName', label: 'Object Name' },
+                      { key: 'dateTaken', label: 'Date Taken' },
+                      { key: 'location', label: 'Location' },
+                      { key: 'equipment', label: 'Equipment' },
+                      { key: 'protected', label: 'Protected' },
+                    ];
+                    const orderedColumns = columnOrder.map(k => allColumns.find(c => c.key === k)!).filter(Boolean);
+                    return (
+                      <div
+                        style={{ gridTemplateColumns: headerGrid }}
+                        className="grid gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0 z-10"
+                      >
+                        <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedImages.size > 0 && selectedImages.size === getFilteredImages().length}
+                            onChange={(e) => {
+                              if (e.target.checked) { selectAllImages(); } else { selectNoneImages(); }
+                            }}
+                            className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
+                          />
                         </div>
-                      ));
-                    })()}
-                  </div>
+                        {showThumbnails && (
+                          <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
+                            Thumbnail
+                          </div>
+                        )}
+                        {orderedColumns.map((column) => (
+                          <div
+                            key={column.key}
+                            draggable
+                            onDragStart={() => setDraggedCol(column.key)}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverCol(column.key); }}
+                            onDragEnd={() => {
+                              if (draggedCol && dragOverCol && draggedCol !== dragOverCol) {
+                                const next = [...columnOrder];
+                                const from = next.indexOf(draggedCol);
+                                const to = next.indexOf(dragOverCol);
+                                next.splice(from, 1);
+                                next.splice(to, 0, draggedCol);
+                                setColumnOrder(next);
+                              }
+                              setDraggedCol(null);
+                              setDragOverCol(null);
+                            }}
+                            className={`text-white/90 text-sm font-medium tracking-wide cursor-grab active:cursor-grabbing hover:text-amber-400 transition-colors flex items-center space-x-1 select-none ${dragOverCol === column.key ? 'border-l-2 border-amber-400 pl-1' : ''}`}
+                            title="Drag to reorder · Click to sort"
+                            onClick={() => handleSort(column.key)}
+                          >
+                            <span className="text-white/30 text-xs mr-1">⠿</span>
+                            <span>{column.label}</span>
+                            {sortConfig?.key === column.key && (
+                              <span className="text-amber-400">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {/* Table Content */}
                   <div className="max-h-[70vh] overflow-y-auto">
                     {(() => {
@@ -2058,342 +2070,169 @@ export default function AssetManagerPage() {
                           </div>
                         );
                       }
-                      return filteredImages.map(({ filename, ...imageData }) => (
-                        <div key={filename} className={showThumbnails
-                          ? "grid grid-cols-[60px_60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
-                          : "grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
-                        }>
-                          {/* Checkbox for bulk selection */}
+                      return filteredImages.map(({ filename, ...imageData }) => {
+                        const dynamicCols = columnOrder.map(k => colWidths[k] || 'minmax(100px,150px)').join(' ');
+                        const rowGrid = showThumbnails ? `60px 60px ${dynamicCols}` : `60px ${dynamicCols}`;
+                        return (
+                        <div key={filename}
+                          style={{ gridTemplateColumns: rowGrid }}
+                          className="grid gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
+                        >
+                          {/* Checkbox */}
                           <div className="text-white/80 text-sm flex items-center justify-center">
-                            <input
-                              type="checkbox"
+                            <input type="checkbox"
                               checked={selectedImages.has(filename)}
                               onChange={() => toggleImageSelection(filename)}
                               className="w-4 h-4 text-amber-400 bg-white/10 border-white/30 rounded focus:ring-amber-400 focus:ring-2"
                             />
                           </div>
-                          
-                          {/* Thumbnail - Conditional */}
-                          {showThumbnails && (
-                            <div className="flex items-center justify-center">
-                              {(() => {
-                                const isVideo = filename.toLowerCase().endsWith('.mp4') || 
-                                               filename.toLowerCase().endsWith('.mov') || 
-                                               filename.toLowerCase().endsWith('.avi') ||
-                                               filename.toLowerCase().endsWith('.webm');
-                                
-                                const imagePath = (() => {
-                                  const category = safeGet(imageData, 'category', '');
-                                  const subcategory = safeGet(imageData, 'subcategory', '');
-                                  
-                                  // Construct path based on category and subcategory
-                                  if (category === 'astrophotography') {
-                                    if (subcategory === 'featured') {
-                                      return `/images/astrophotography/featured/${filename}`;
-                                    } else if (subcategory === 'solar-eclipses') {
-                                      // Eclipse images are in a special subfolder
-                                      return `/images/astrophotography/solar-system/events/total-eclipse-2017/${filename}`;
-                                    } else if (subcategory && subcategory.startsWith('solar-system/')) {
-                                      // Solar system subcategories like solar-system/lunar, solar-system/solar, etc.
-                                      return `/images/astrophotography/${subcategory}/${filename}`;
-                                    } else if (subcategory && subcategory.startsWith('deep-sky/')) {
-                                      // Deep sky subcategories like deep-sky/nebulas, deep-sky/galaxies, etc.
-                                      return `/images/astrophotography/${subcategory}/${filename}`;
-                                    } else if (subcategory && subcategory !== '') {
-                                      return `/images/astrophotography/${subcategory}/${filename}`;
-                                    }
-                                    return `/images/astrophotography/featured/${filename}`; // fallback
-                                  } else if (category === 'terrestrial') {
-                                    if (subcategory && subcategory !== '') {
-                                      return `/images/terrestrial/${subcategory}/${filename}`;
-                                    }
-                                    return `/images/terrestrial/${filename}`;
-                                  } else if (category === 'equipment') {
-                                    return `/images/equipment/${filename}`;
-                                  } else if (safeGet(imageData, 'protected')) {
-                                    return `/images/assets/${filename}`;
-                                  }
-                                  
-                                  // Default fallback - try to determine from filename patterns
-                                  return `/images/${filename}`;
-                                })();
 
-                                if (isVideo) {
-                                  return (
-                                    <div className="relative w-12 h-12 bg-black rounded shadow border border-white/10 flex items-center justify-center cursor-pointer hover:border-amber-400 transition-colors"
-                                      onClick={() => setPreviewImage({ src: imagePath, filename })}>
-                                      <video
-                                        src={imagePath}
-                                        className="w-full h-full object-cover rounded"
-                                        preload="metadata"
-                                        muted
-                                        style={{ objectFit: 'cover' }}
-                                        onError={(e) => {
-                                          e.currentTarget.style.display = 'none';
-                                          const parent = e.currentTarget.parentElement;
-                                          if (parent) {
-                                            parent.innerHTML = `<div class="w-full h-full bg-gray-800 rounded flex flex-col items-center justify-center text-white/60"><div class="text-lg">🎬</div></div>`;
-                                          }
-                                        }}
-                                      />
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
-                                          <div className="w-0 h-0 border-l-[5px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5"></div>
-                                        </div>
+                          {/* Thumbnail - Conditional */}
+                          {showThumbnails && (() => {
+                            const isVideo = /\.(mp4|mov|avi|webm)$/i.test(filename);
+                            const category = safeGet(imageData, 'category', '');
+                            const subcategory = safeGet(imageData, 'subcategory', '');
+                            let imagePath = `/images/${filename}`;
+                            if (category === 'astrophotography') {
+                              if (subcategory === 'featured') imagePath = `/images/astrophotography/featured/${filename}`;
+                              else if (subcategory === 'solar-eclipses') imagePath = `/images/astrophotography/solar-system/events/total-eclipse-2017/${filename}`;
+                              else if (subcategory) imagePath = `/images/astrophotography/${subcategory}/${filename}`;
+                              else imagePath = `/images/astrophotography/featured/${filename}`;
+                            } else if (category === 'terrestrial') {
+                              imagePath = subcategory ? `/images/terrestrial/${subcategory}/${filename}` : `/images/terrestrial/${filename}`;
+                            } else if (category === 'equipment') {
+                              imagePath = `/images/equipment/${filename}`;
+                            } else if (safeGet(imageData, 'protected')) {
+                              imagePath = `/images/assets/${filename}`;
+                            }
+                            return (
+                              <div className="flex items-center justify-center">
+                                {isVideo ? (
+                                  <div className="relative w-12 h-12 bg-black rounded shadow border border-white/10 flex items-center justify-center cursor-pointer hover:border-amber-400 transition-colors"
+                                    onClick={() => setPreviewImage({ src: imagePath, filename })}>
+                                    <video src={imagePath} className="w-full h-full object-cover rounded" preload="metadata" muted
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                      <div className="w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
+                                        <div className="w-0 h-0 border-l-[5px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5"></div>
                                       </div>
                                     </div>
-                                  );
-                                } else {
-                                  return (
-                                    <Image
-                                      src={imagePath}
-                                      alt={filename}
-                                      width={48}
-                                      height={48}
-                                      className="rounded shadow border border-white/10 object-cover bg-black cursor-pointer hover:border-amber-400 hover:scale-110 transition-all"
-                                      style={{ objectFit: 'cover', width: '48px', height: '48px' }}
-                                      unoptimized
-                                      onClick={() => setPreviewImage({ src: imagePath, filename })}
-                                      onError={(e) => { 
-                                        const target = e.currentTarget;
-                                        target.src = '/images/logo/Logo.jpg';
-                                        target.style.objectFit = 'contain';
-                                      }}
-                                    />
-                                  );
-                                }
-                              })()}
-                            </div>
-                          )}
-                          
-                          {/* Image Name */}
-                          <div className="text-white/90 text-sm font-medium truncate" title={filename}>
-                            {filename}
-                          </div>
-                          {/* Category - Editable Dropdown */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.category` ? (
-                              <select
-                                value={getCurrentValue(filename, 'category', safeGet(imageData, 'category'))}
-                                onChange={(e) => handleCellEdit(filename, 'category', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              >
-                                <option value="">Select...</option>
-                                <option value="astrophotography">Astrophotography</option>
-                                <option value="terrestrial">Terrestrial</option>
-                                <option value="equipment">Equipment</option>
-                              </select>
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'category')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'category', safeGet(imageData, 'category')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'category', safeGet(imageData, 'category')) || '—'}
+                                  </div>
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={imagePath}
+                                    alt={filename}
+                                    width={48}
+                                    height={48}
+                                    className="rounded shadow border border-white/10 object-cover bg-black cursor-pointer hover:border-amber-400 hover:scale-110 transition-all"
+                                    style={{ objectFit: 'cover', width: '48px', height: '48px' }}
+                                    onClick={() => setPreviewImage({ src: imagePath, filename })}
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).src = '/images/logo/Logo.jpg';
+                                      (e.currentTarget as HTMLImageElement).style.objectFit = 'contain';
+                                    }}
+                                  />
+                                )}
                               </div>
-                            )}
-                          </div>
-                          {/* Subcategory - Editable Dropdown */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.subcategory` ? (
-                              <select
-                                value={getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory'))}
-                                onChange={(e) => handleCellEdit(filename, 'subcategory', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              >
-                                <option value="">Select...</option>
-                                {(() => {
-                                  const category = getCurrentValue(filename, 'category', safeGet(imageData, 'category'));
-                                  if (category === 'astrophotography') {
-                                    return (
-                                      <>
-                                        <option value="deep-sky/nebulas">Deep Sky - Nebulas</option>
-                                        <option value="deep-sky/galaxies">Deep Sky - Galaxies</option>
-                                        <option value="deep-sky/star-clusters">Deep Sky - Star Clusters</option>
-                                        <option value="deep-sky/wide-field">Deep Sky - Wide Field</option>
-                                        <option value="deep-sky/hubble-palette">Deep Sky - Hubble Palette</option>
-                                        <option value="solar-system/solar">Solar System - Solar</option>
-                                        <option value="solar-system/lunar">Solar System - Lunar</option>
-                                        <option value="solar-system/planets">Solar System - Planets</option>
-                                        <option value="solar-eclipses">Solar Eclipses</option>
-                                        <option value="featured">Featured</option>
-                                      </>
-                                    );
-                                  } else if (category === 'terrestrial') {
-                                    return (
-                                      <>
-                                        <option value="yellowstone">Yellowstone</option>
-                                        <option value="grand-tetons">Grand Tetons</option>
-                                      </>
-                                    );
-                                  } else if (category === 'equipment') {
-                                    return <option value="equipment">Equipment</option>;
-                                  }
-                                  return <option value="">Select category first</option>;
-                                })()}
-                              </select>
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'subcategory')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory')) || '—'}
+                            );
+                          })()}
+
+                          {/* Dynamic data cells in columnOrder sequence */}
+                          {columnOrder.map((colKey) => {
+                            if (colKey === 'filename') {
+                              return (
+                                <div key="filename" className="text-white/90 text-sm font-medium truncate" title={filename}>{filename}</div>
+                              );
+                            }
+                            if (colKey === 'category') {
+                              return (
+                                <div key="category" className="text-white/80 text-sm">
+                                  {editingCell === `${filename}.category` ? (
+                                    <select value={getCurrentValue(filename, 'category', safeGet(imageData, 'category'))}
+                                      onChange={(e) => handleCellEdit(filename, 'category', e.target.value)}
+                                      onBlur={handleCellBlur} autoFocus
+                                      className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
+                                    >
+                                      <option value="">Select...</option>
+                                      <option value="astrophotography">Astrophotography</option>
+                                      <option value="terrestrial">Terrestrial</option>
+                                      <option value="equipment">Equipment</option>
+                                    </select>
+                                  ) : (
+                                    <div onClick={() => handleCellClick(filename, 'category')}
+                                      className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
+                                      title={getCurrentValue(filename, 'category', safeGet(imageData, 'category')) || 'Click to edit'}
+                                    >{getCurrentValue(filename, 'category', safeGet(imageData, 'category')) || '—'}</div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            if (colKey === 'subcategory') {
+                              return (
+                                <div key="subcategory" className="text-white/80 text-sm">
+                                  {editingCell === `${filename}.subcategory` ? (
+                                    <select value={getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory'))}
+                                      onChange={(e) => handleCellEdit(filename, 'subcategory', e.target.value)}
+                                      onBlur={handleCellBlur} autoFocus
+                                      className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
+                                    >
+                                      <option value="">Select...</option>
+                                      {(() => {
+                                        const cat = getCurrentValue(filename, 'category', safeGet(imageData, 'category'));
+                                        if (cat === 'astrophotography') return (<><option value="deep-sky/nebulas">Deep Sky - Nebulas</option><option value="deep-sky/galaxies">Deep Sky - Galaxies</option><option value="deep-sky/star-clusters">Deep Sky - Star Clusters</option><option value="deep-sky/wide-field">Deep Sky - Wide Field</option><option value="solar-system/solar">Solar System - Solar</option><option value="solar-system/lunar">Solar System - Lunar</option><option value="solar-system/planets">Solar System - Planets</option><option value="solar-eclipses">Solar Eclipses</option><option value="featured">Featured</option></>);
+                                        if (cat === 'terrestrial') return (<><option value="yellowstone">Yellowstone</option><option value="grand-tetons">Grand Tetons</option></>);
+                                        if (cat === 'equipment') return <option value="equipment">Equipment</option>;
+                                        return <option value="">Select category first</option>;
+                                      })()}
+                                    </select>
+                                  ) : (
+                                    <div onClick={() => handleCellClick(filename, 'subcategory')}
+                                      className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
+                                      title={getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory')) || 'Click to edit'}
+                                    >{getCurrentValue(filename, 'subcategory', safeGet(imageData, 'subcategory')) || '—'}</div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            if (colKey === 'protected') {
+                              return (
+                                <div key="protected" className="text-white/80 text-sm">
+                                  <button onClick={() => handleCellEdit(filename, 'protected', !getCurrentValue(filename, 'protected', safeGet(imageData, 'protected')))}
+                                    className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] w-full text-left"
+                                  >
+                                    {getCurrentValue(filename, 'protected', safeGet(imageData, 'protected'))
+                                      ? <span className="text-amber-400">✓</span>
+                                      : <span className="text-white/30">✗</span>}
+                                  </button>
+                                </div>
+                              );
+                            }
+                            // Generic text-editable fields: catalogDesignation, objectName, dateTaken, location, equipment
+                            return (
+                              <div key={colKey} className="text-white/80 text-sm">
+                                {editingCell === `${filename}.${colKey}` ? (
+                                  <input type="text"
+                                    value={getCurrentValue(filename, colKey, safeGet(imageData, colKey))}
+                                    onChange={(e) => handleCellEdit(filename, colKey, e.target.value)}
+                                    onBlur={handleCellBlur}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') handleCellBlur(); }}
+                                    autoFocus
+                                    className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
+                                  />
+                                ) : (
+                                  <div onClick={() => handleCellClick(filename, colKey)}
+                                    className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
+                                    title={getCurrentValue(filename, colKey, safeGet(imageData, colKey)) || 'Click to edit'}
+                                  >{getCurrentValue(filename, colKey, safeGet(imageData, colKey)) || '—'}</div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          {/* Catalog Designation - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.catalogDesignation` ? (
-                              <input
-                                type="text"
-                                value={getCurrentValue(filename, 'catalogDesignation', safeGet(imageData, 'catalogDesignation'))}
-                                onChange={(e) => handleCellEdit(filename, 'catalogDesignation', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'catalogDesignation')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'catalogDesignation', safeGet(imageData, 'catalogDesignation')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'catalogDesignation', safeGet(imageData, 'catalogDesignation')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          {/* Object Name - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.objectName` ? (
-                              <input
-                                type="text"
-                                value={getCurrentValue(filename, 'objectName', safeGet(imageData, 'objectName'))}
-                                onChange={(e) => handleCellEdit(filename, 'objectName', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'objectName')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'objectName', safeGet(imageData, 'objectName')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'objectName', safeGet(imageData, 'objectName')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          {/* Date Taken - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.dateTaken` ? (
-                              <input
-                                type="text"
-                                value={getCurrentValue(filename, 'dateTaken', safeGet(imageData, 'dateTaken'))}
-                                onChange={(e) => handleCellEdit(filename, 'dateTaken', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'dateTaken')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'dateTaken', safeGet(imageData, 'dateTaken')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'dateTaken', safeGet(imageData, 'dateTaken')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          {/* Location - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.location` ? (
-                              <input
-                                value={getCurrentValue(filename, 'location', safeGet(imageData, 'location'))}
-                                onChange={(e) => handleCellEdit(filename, 'location', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'location')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'location', safeGet(imageData, 'location')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'location', safeGet(imageData, 'location')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Equipment - Editable */}
-                          <div className="text-white/80 text-sm">
-                            {editingCell === `${filename}.equipment` ? (
-                              <input
-                                value={getCurrentValue(filename, 'equipment', safeGet(imageData, 'equipment'))}
-                                onChange={(e) => handleCellEdit(filename, 'equipment', e.target.value)}
-                                onBlur={handleCellBlur}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleCellBlur();
-                                  if (e.key === 'Escape') handleCellBlur();
-                                }}
-                                autoFocus
-                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:bg-white/20 focus:border-amber-400 focus:outline-none"
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleCellClick(filename, 'equipment')}
-                                className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] truncate"
-                                title={getCurrentValue(filename, 'equipment', safeGet(imageData, 'equipment')) || 'Click to edit'}
-                              >
-                                {getCurrentValue(filename, 'equipment', safeGet(imageData, 'equipment')) || '—'}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Protected - Toggle */}
-                          <div className="text-white/80 text-sm">
-                            <button
-                              onClick={() => handleCellEdit(filename, 'protected', !getCurrentValue(filename, 'protected', safeGet(imageData, 'protected')))}
-                              className="cursor-pointer hover:bg-white/10 rounded px-2 py-1 min-h-[24px] w-full text-left"
-                            >
-                              {getCurrentValue(filename, 'protected', safeGet(imageData, 'protected')) ? (
-                                <span className="text-amber-400">✓</span>
-                              ) : (
-                                <span className="text-white/30">✗</span>
-                              )}
-                            </button>
-                          </div>
+                            );
+                          })}
                         </div>
-                      ));
+                        );
+                      });
                     })()}
                   </div>
                 </div>
