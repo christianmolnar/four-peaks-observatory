@@ -562,6 +562,15 @@ export default function AssetManagerPage() {
   // Add state for thumbnail visibility (default: false/hidden)
   const [showThumbnails, setShowThumbnails] = useState(false);
 
+  // Image preview modal state
+  const [previewImage, setPreviewImage] = useState<{ src: string; filename: string } | null>(null);
+
+  // Column order state — keys match the column definition array below
+  const defaultColumnOrder = ['filename','category','subcategory','catalogDesignation','objectName','dateTaken','location','equipment','protected'];
+  const [columnOrder, setColumnOrder] = useState<string[]>(defaultColumnOrder);
+  const [draggedCol, setDraggedCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
   // Bulk selection handlers
   const toggleImageSelection = (filename: string) => {
     const newSelected = new Set(selectedImages);
@@ -1965,7 +1974,7 @@ export default function AssetManagerPage() {
                 <div className="min-w-max max-w-none">
                   {/* Table Header */}
                   <div className={showThumbnails 
-                    ? "grid grid-cols-[60px_140px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
+                    ? "grid grid-cols-[60px_60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
                     : "grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/10 bg-white/5 sticky top-0"
                   }>
                     <div className="text-white/90 text-sm font-medium tracking-wide flex items-center justify-center">
@@ -1987,30 +1996,51 @@ export default function AssetManagerPage() {
                         Thumbnail
                       </div>
                     )}
-                    {[
-                      { key: 'filename', label: 'Image Name' },
-                      { key: 'category', label: 'Category' },
-                      { key: 'subcategory', label: 'Subcategory' },
-                      { key: 'catalogDesignation', label: 'Catalog' },
-                      { key: 'objectName', label: 'Object Name' },
-                      { key: 'dateTaken', label: 'Date Taken' },
-                      { key: 'location', label: 'Location' },
-                      { key: 'equipment', label: 'Equipment' },
-                      { key: 'protected', label: 'Protected' }
-                    ].map((column) => (
-                      <div 
-                        key={column.key} 
-                        className="text-white/90 text-sm font-medium tracking-wide cursor-pointer hover:text-amber-400 transition-colors flex items-center space-x-1"
-                        onClick={() => handleSort(column.key)}
-                      >
-                        <span>{column.label}</span>
-                        {sortConfig?.key === column.key && (
-                          <span className="text-amber-400">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                    {(() => {
+                      const allColumns = [
+                        { key: 'filename', label: 'Image Name' },
+                        { key: 'category', label: 'Category' },
+                        { key: 'subcategory', label: 'Subcategory' },
+                        { key: 'catalogDesignation', label: 'Catalog' },
+                        { key: 'objectName', label: 'Object Name' },
+                        { key: 'dateTaken', label: 'Date Taken' },
+                        { key: 'location', label: 'Location' },
+                        { key: 'equipment', label: 'Equipment' },
+                        { key: 'protected', label: 'Protected' }
+                      ];
+                      const orderedColumns = columnOrder.map(k => allColumns.find(c => c.key === k)!).filter(Boolean);
+                      return orderedColumns.map((column) => (
+                        <div
+                          key={column.key}
+                          draggable
+                          onDragStart={() => setDraggedCol(column.key)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverCol(column.key); }}
+                          onDragEnd={() => {
+                            if (draggedCol && dragOverCol && draggedCol !== dragOverCol) {
+                              const next = [...columnOrder];
+                              const from = next.indexOf(draggedCol);
+                              const to = next.indexOf(dragOverCol);
+                              next.splice(from, 1);
+                              next.splice(to, 0, draggedCol);
+                              setColumnOrder(next);
+                            }
+                            setDraggedCol(null);
+                            setDragOverCol(null);
+                          }}
+                          className={`text-white/90 text-sm font-medium tracking-wide cursor-grab active:cursor-grabbing hover:text-amber-400 transition-colors flex items-center space-x-1 select-none ${dragOverCol === column.key ? 'border-l-2 border-amber-400 pl-1' : ''}`}
+                          title="Drag to reorder · Click to sort"
+                          onClick={() => handleSort(column.key)}
+                        >
+                          <span className="text-white/30 text-xs mr-1">⠿</span>
+                          <span>{column.label}</span>
+                          {sortConfig?.key === column.key && (
+                            <span className="text-amber-400">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      ));
+                    })()}
                   </div>
                   {/* Table Content */}
                   <div className="max-h-[70vh] overflow-y-auto">
@@ -2030,7 +2060,7 @@ export default function AssetManagerPage() {
                       }
                       return filteredImages.map(({ filename, ...imageData }) => (
                         <div key={filename} className={showThumbnails
-                          ? "grid grid-cols-[60px_140px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
+                          ? "grid grid-cols-[60px_60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
                           : "grid grid-cols-[60px_minmax(200px,300px)_minmax(100px,120px)_minmax(100px,120px)_minmax(120px,150px)_minmax(200px,250px)_minmax(100px,120px)_minmax(150px,200px)_minmax(100px,120px)_minmax(60px,80px)] gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
                         }>
                           {/* Checkbox for bulk selection */}
@@ -2045,7 +2075,7 @@ export default function AssetManagerPage() {
                           
                           {/* Thumbnail - Conditional */}
                           {showThumbnails && (
-                            <div className="flex items-center justify-center p-2">
+                            <div className="flex items-center justify-center">
                               {(() => {
                                 const isVideo = filename.toLowerCase().endsWith('.mp4') || 
                                                filename.toLowerCase().endsWith('.mov') || 
@@ -2090,7 +2120,8 @@ export default function AssetManagerPage() {
 
                                 if (isVideo) {
                                   return (
-                                    <div className="relative w-[120px] h-[120px] bg-black rounded shadow border border-white/10 flex items-center justify-center">
+                                    <div className="relative w-12 h-12 bg-black rounded shadow border border-white/10 flex items-center justify-center cursor-pointer hover:border-amber-400 transition-colors"
+                                      onClick={() => setPreviewImage({ src: imagePath, filename })}>
                                       <video
                                         src={imagePath}
                                         className="w-full h-full object-cover rounded"
@@ -2098,23 +2129,16 @@ export default function AssetManagerPage() {
                                         muted
                                         style={{ objectFit: 'cover' }}
                                         onError={(e) => {
-                                          // If video fails to load, show a video placeholder
                                           e.currentTarget.style.display = 'none';
                                           const parent = e.currentTarget.parentElement;
                                           if (parent) {
-                                            parent.innerHTML = `
-                                              <div class="w-full h-full bg-gray-800 rounded flex flex-col items-center justify-center text-white/60">
-                                                <div class="text-2xl mb-1">🎬</div>
-                                                <div class="text-xs">VIDEO</div>
-                                              </div>
-                                            `;
+                                            parent.innerHTML = `<div class="w-full h-full bg-gray-800 rounded flex flex-col items-center justify-center text-white/60"><div class="text-lg">🎬</div></div>`;
                                           }
                                         }}
                                       />
-                                      {/* Video overlay icon */}
                                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="w-8 h-8 bg-black/60 rounded-full flex items-center justify-center">
-                                          <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1"></div>
+                                        <div className="w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
+                                          <div className="w-0 h-0 border-l-[5px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5"></div>
                                         </div>
                                       </div>
                                     </div>
@@ -2124,11 +2148,12 @@ export default function AssetManagerPage() {
                                     <Image
                                       src={imagePath}
                                       alt={filename}
-                                      width={120}
-                                      height={120}
-                                      className="rounded shadow border border-white/10 object-cover bg-black"
-                                      style={{ objectFit: 'cover', width: '120px', height: '120px' }}
+                                      width={48}
+                                      height={48}
+                                      className="rounded shadow border border-white/10 object-cover bg-black cursor-pointer hover:border-amber-400 hover:scale-110 transition-all"
+                                      style={{ objectFit: 'cover', width: '48px', height: '48px' }}
                                       unoptimized
+                                      onClick={() => setPreviewImage({ src: imagePath, filename })}
                                       onError={(e) => { 
                                         const target = e.currentTarget;
                                         target.src = '/images/logo/Logo.jpg';
@@ -2968,6 +2993,34 @@ export default function AssetManagerPage() {
           </div>
         )}
       </div>
+
+      {/* ── Image Preview Modal ── */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between w-full mb-3">
+              <p className="text-white/70 text-sm truncate">{previewImage.filename}</p>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="text-white/50 hover:text-white transition-colors text-xl leading-none ml-4"
+              >✕</button>
+            </div>
+            <Image
+              src={previewImage.src}
+              alt={previewImage.filename}
+              width={1200}
+              height={900}
+              className="max-h-[80vh] w-auto rounded-lg shadow-2xl border border-white/10 object-contain"
+              unoptimized
+              onError={(e) => { e.currentTarget.src = '/images/logo/Logo.jpg'; }}
+            />
+            <p className="text-white/30 text-xs mt-3">Click outside to close</p>
+          </div>
+        </div>
+      )}
     </DevelopmentGuard>
   );
 }
