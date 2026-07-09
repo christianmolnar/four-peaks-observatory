@@ -12,9 +12,21 @@ interface ImageData {
   catalogDesignation: string;
   objectName: string;
   location: string;
+  // Split equipment fields (new)
+  ota?: string;
+  camera?: string;
+  mount?: string;
+  // Legacy combined field (fallback)
   equipment: string;
   exposure: string;
   description?: string;
+}
+
+/** Concatenates non-blank ota / camera / mount, falls back to equipment string */
+function buildEquipmentString(img: { ota?: string; camera?: string; mount?: string; equipment: string }): string {
+  const parts = [img.ota, img.camera, img.mount].filter(s => s && s.trim());
+  if (parts.length > 0) return parts.join(' · ');
+  return img.equipment?.trim() || '';
 }
 
 // Dynamically import all images from the featured folder
@@ -387,9 +399,10 @@ export default function LatestCapturesCarousel() {
                   }
                   
                   // Equipment
-                  if (images[current].equipment && images[current].equipment.trim() !== '') {
+                  const eqStr = buildEquipmentString(images[current]);
+                  if (eqStr) {
                     metadataItems.push(
-                      <span key="equipment">{images[current].equipment}</span>
+                      <span key="equipment">{eqStr}</span>
                     );
                   }
                   

@@ -10,7 +10,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "solar-system/lunar",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "2017 Total Eclipse10.jpg": {
     "catalogDesignation": "",
@@ -24,7 +27,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "REI Parking Lot, Portland, OR",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "2017 Total Eclipse2.mp4": {
     "catalogDesignation": "",
@@ -38,7 +44,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "REI Parking Lot, Portland, OR",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "2017 Total Eclipse8.jpg": {
     "catalogDesignation": "",
@@ -52,7 +61,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "REI Parking Lot, Portland, OR",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "2017 Total Eclipse87.jpg": {
     "catalogDesignation": "",
@@ -66,7 +78,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "REI Parking Lot, Portland, OR",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "2017 Total Eclipse88.jpg": {
     "catalogDesignation": "",
@@ -80,7 +95,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "REI Parking Lot, Portland, OR",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "2017 Total Eclipse9.jpg": {
     "catalogDesignation": "",
@@ -94,7 +112,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "REI Parking Lot, Portland, OR",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "20230919_Star-Trails.jpg": {
     "catalogDesignation": "",
@@ -109,7 +130,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/wide-field",
-    "description": "Star trails, not an outer space entity but a fascinating visual phenomenon, are created by the Earth's rotation during long-exposure astrophotography. The camera captures stars as streaks of light, forming beautiful circular patterns centered around the celestial poles. These trails, showcasing the apparent motion of stars in the night sky, provide an engaging way to visualize our planet's rotation."
+    "description": "Star trails, not an outer space entity but a fascinating visual phenomenon, are created by the Earth's rotation during long-exposure astrophotography. The camera captures stars as streaks of light, forming beautiful circular patterns centered around the celestial poles. These trails, showcasing the apparent motion of stars in the night sky, provide an engaging way to visualize our planet's rotation.",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "C13.jpg": {
     "catalogDesignation": "NGC457",
@@ -124,7 +148,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/star-clusters",
-    "description": "NGC457, also known as the Owl Cluster, is an open star cluster located about 7,900 light-years away in the Cassiopeia constellation. Known for its distinctive owl-like shape, it features two bright stars as the 'eyes' and a scattering of fainter stars forming the 'body'. Its unique shape, combined with its accessibility, makes it a popular target for astrophotographers."
+    "description": "NGC457, also known as the Owl Cluster, is an open star cluster located about 7,900 light-years away in the Cassiopeia constellation. Known for its distinctive owl-like shape, it features two bright stars as the 'eyes' and a scattering of fainter stars forming the 'body'. Its unique shape, combined with its accessibility, makes it a popular target for astrophotographers.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "Cepheus Large Emmission Nebula.jpg": {
     "catalogDesignation": "",
@@ -139,13 +166,16 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "The Cepheus Large Emission Nebula is a spectacular interstellar cloud of gas and dust located about 2,400 light-years away from Earth. Characterized by its radiant red glow from ionized hydrogen, it presents a stunning visual contrast against surrounding star clusters. Its vibrant hues and vast expanse make it a captivating subject for astrophotographers seeking to capture the universe's infinite beauty."
+    "description": "The Cepheus Large Emission Nebula is a spectacular interstellar cloud of gas and dust located about 2,400 light-years away from Earth. Characterized by its radiant red glow from ionized hydrogen, it presents a stunning visual contrast against surrounding star clusters. Its vibrant hues and vast expanse make it a captivating subject for astrophotographers seeking to capture the universe's infinite beauty.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "Cocoon Nebula Tight.jpg": {
     "catalogDesignation": "IC5146",
     "objectName": "Cocoon Nebula",
     "dateTaken": "July, 2005",
-    "equipment": "",
+    "equipment": "Meade LX200 10\"",
     "exposure": "",
     "protected": false,
     "youtubeLink": "https://www.youtube.com/watch?v=GWggDMDhwIA",
@@ -154,22 +184,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "IC5146, the Cocoon Nebula, is an emission/reflection nebula and star cluster, 4,000 light-years away. Known for its cocoon-like shape, it's a stellar nursery popular among astrophotographers for its intricate patterns and vivid colors.",
     "location": "Ravensdale, WA",
-    "monthYear": "July, 2005"
-  },
-  "Cocoon Nebula Wide.jpg": {
-    "catalogDesignation": "IC5146",
-    "objectName": "Cocoon Nebula",
-    "dateTaken": "July, 2005",
-    "equipment": "",
-    "exposure": "",
-    "protected": false,
-    "youtubeLink": "https://youtu.be/vWZ6hmHj2MA",
-    "youtubeTitle": "Contemplative Sounds",
-    "category": "astrophotography",
-    "subcategory": "deep-sky/nebulas",
-    "description": "\"IC5146, the Cocoon Nebula, is a reflection/emission nebula and star cluster, situated roughly 4,000 light-years away. Known for its distinctive cocoon shape, it's a popular astrophotography target due to its unique structure and stunning colors.\"",
-    "location": "Ravensdale, WA",
-    "monthYear": "July, 2005"
+    "monthYear": "July, 2005",
+    "ota": "Meade LX200 10\"",
+    "camera": "",
+    "mount": ""
   },
   "Crescent Moon.jpg": {
     "catalogDesignation": "",
@@ -183,7 +201,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/lunar",
     "location": "Maple Valley, WA",
-    "monthYear": "August, 2005"
+    "monthYear": "August, 2005",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Crescent Nebula.jpg": {
     "catalogDesignation": "NGC6888",
@@ -198,7 +219,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"NGC6888, the Crescent Nebula, is a cosmic bubble produced by a Wolf-Rayet star. Located 5,000 light-years away in Cygnus, its intricate shell-like structure and vibrant colors make it a favorite among astrophotographers.\"",
     "location": "Ravensdale, WA",
-    "monthYear": "July, 2023"
+    "monthYear": "July, 2023",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Double Cluster.jpg": {
     "catalogDesignation": "NGC869",
@@ -213,7 +237,10 @@
     "subcategory": "deep-sky/wide-field",
     "description": "\"NGC 869, part of the Double Cluster, is an open star cluster about 7,500 light-years away in Perseus. Its dense, bright stars and neighboring NGC 884 make it popular for astrophotography and naked-eye viewing.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "Eclipse2017.jpg": {
     "catalogDesignation": "",
@@ -227,7 +254,10 @@
     "category": "astrophotography",
     "subcategory": "solar-eclipses",
     "location": "Maple Valley, WA",
-    "monthYear": "August, 2017"
+    "monthYear": "August, 2017",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "Full Moon.jpg": {
     "catalogDesignation": "",
@@ -241,7 +271,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/lunar",
     "location": "Maple Valley, WA",
-    "monthYear": "August, 2005"
+    "monthYear": "August, 2005",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Grand Tetons1.jpg": {
     "name": "Grand Tetons",
@@ -252,7 +285,10 @@
     "category": "terrestrial",
     "subcategory": "grand-tetons",
     "location": "Grand Tetons, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Grand Tetons2.jpg": {
     "name": "Grand Tetons",
@@ -263,7 +299,10 @@
     "category": "terrestrial",
     "subcategory": "grand-tetons",
     "location": "Grand Tetons, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Grand Tetons3.jpg": {
     "name": "Grand Tetons",
@@ -274,7 +313,10 @@
     "category": "terrestrial",
     "subcategory": "grand-tetons",
     "location": "Grand Tetons, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Grand Tetons4.jpg": {
     "name": "Grand Tetons",
@@ -285,7 +327,10 @@
     "category": "terrestrial",
     "subcategory": "grand-tetons",
     "location": "Grand Tetons, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Heart Nebula.jpg": {
     "catalogDesignation": "IC1805",
@@ -300,7 +345,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "IC1805, known as the Heart Nebula, is an emission nebula located approximately 7,500 light-years away in the constellation Cassiopeia. It displays a rich red hue due to hydrogen gas illuminated by nearby stars. Its distinctive heart shape, spread over 200 light-years, makes it a favorite among astrophotographers, who often capture its stunning beauty during long-exposure shots.",
     "location": "Ravensdale., WA",
-    "monthYear": "June, 2025"
+    "monthYear": "June, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "Heart and Soul Nebulas-4.jpg": {
     "catalogDesignation": "IC1805",
@@ -315,7 +363,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"IC1805, the Heart Nebula, is an emission nebula 7,500 light-years away in the constellation Cassiopeia. Its heart shape, vibrant red color, and rich star-forming regions make it a favorite among astrophotographers.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "Hubble and Me.jpg": {
     "catalogDesignation": "",
@@ -329,7 +380,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/planets",
     "location": "Maple Valley, WA",
-    "monthYear": "September, 2003"
+    "monthYear": "September, 2003",
+    "ota": "Konus 8\" Reflector",
+    "camera": "ATIK Camera",
+    "mount": ""
   },
   "IC1396-The Elephant.jpg": {
     "catalogDesignation": "IC1396",
@@ -344,7 +398,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "IC1396, the Elephant's Trunk Nebula, is an emission nebula around 2,400 light-years away. This region of star formation, resembling an elephant's trunk, is popular in astrophotography due to its unique structure and colorful gas clouds.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "IC434.jpg": {
     "catalogDesignation": "IC434",
@@ -359,7 +416,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "IC434, the Horsehead Nebula, is a dark nebula within an emission nebula, located approximately 1,500 light-years away. Its unique, horse-head silhouette against a pinkish background makes it a popular target for astrophotographers.",
     "location": "Ravensdale., WA",
-    "monthYear": "February, 2024"
+    "monthYear": "February, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "IC5146.jpg": {
     "catalogDesignation": "IC 5146",
@@ -374,7 +434,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "IC 5146, known as the Cocoon Nebula, is an emission and reflection nebula approximately 4,000 light-years away in the constellation Cygnus. This mesmerizing cosmic object, resembling a silken cocoon, houses a newly formed star cluster. Its stunning interplay of light and dark matter makes it a favorite target for astrophotographers, who capture the nebula's intricate structures and radiant glow."
+    "description": "IC 5146, known as the Cocoon Nebula, is an emission and reflection nebula approximately 4,000 light-years away in the constellation Cygnus. This mesmerizing cosmic object, resembling a silken cocoon, houses a newly formed star cluster. Its stunning interplay of light and dark matter makes it a favorite target for astrophotographers, who capture the nebula's intricate structures and radiant glow.",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "IC63.jpg": {
     "catalogDesignation": "IC63",
@@ -389,7 +452,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"IC63, the Ghost of Cassiopeia, is a bright emission and reflection nebula. Located 550 light-years away, it's shaped by radiation from a nearby supergiant star. Its ghostly appearance makes it a popular astrophotography target.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "LBN-438.jpg": {
     "catalogDesignation": "LBN 438",
@@ -404,7 +470,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "LBN 438, a faint nebula, is a celestial wonder situated 2,000 light-years away in the Lyra constellation. Characterized by its unique, irregular shape, this dark nebula is a dense cloud of dust and gas, obscuring the stars behind it. Its striking contrast against the surrounding bright star field makes LBN 438 an intriguing subject for astrophotographers."
+    "description": "LBN 438, a faint nebula, is a celestial wonder situated 2,000 light-years away in the Lyra constellation. Characterized by its unique, irregular shape, this dark nebula is a dense cloud of dust and gas, obscuring the stars behind it. Its striking contrast against the surrounding bright star field makes LBN 438 an intriguing subject for astrophotographers.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "M1 - The Crab Nebula.jpg": {
     "catalogDesignation": "M1",
@@ -419,7 +488,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M1, the Crab Nebula, is a supernova remnant located 6,500 light-years away. It's known for its intricate, ever-changing filamentary structure and pulsar. Its brightness and detail make it a popular astrophotography subject.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "M1.jpg": {
     "catalogDesignation": "M1",
@@ -434,7 +506,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M1, the Crab Nebula, is a supernova remnant 6,500 light-years away in Taurus. Its intricate structure and bright pulsar, remnants of a star explosion in 1054 AD, make it an astrophotography favorite.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "M103-1.jpg": {
     "catalogDesignation": "M103",
@@ -448,7 +523,10 @@
     "category": "astrophotography",
     "subcategory": "featured",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M103.jpg": {
     "catalogDesignation": "M103",
@@ -463,7 +541,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M103, an open star cluster located 10,000 light-years away in Cassiopeia, boasts a rich blue color and a red giant at its heart. Popular for astrophotography due to its distinctive stars and striking color contrast.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M13-1.jpg": {
     "catalogDesignation": "M13",
@@ -478,7 +559,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M13, the Great Globular Cluster in Hercules, is a spherical collection of stars 25,000 light-years away. Hosting nearly 300,000 stars, its dense core and starry backdrop make it a favorite target for astrophotographers.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M13-4.jpg": {
     "catalogDesignation": "M13",
@@ -493,7 +577,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M13, the Great Globular Cluster in Hercules, is a dense star cluster 25,000 light-years away. Hosting about 300,000 stars, its brilliant core and starry halo make it a popular target for astrophotographers.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M16.jpg": {
     "catalogDesignation": "M16",
@@ -508,7 +595,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M16, the Eagle Nebula, is a star-forming region located 7,000 light-years away. Its 'Pillars of Creation' are dense gas columns sculpted by stellar winds, providing iconic, dramatic snapshots for astrophotography enthusiasts worldwide.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2024"
+    "monthYear": "August, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "M27-2-1.jpg": {
     "catalogDesignation": "M27",
@@ -523,7 +613,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M27, the Dumbbell Nebula, is a planetary nebula located 1,360 light-years away. With its unique hourglass shape and vibrant colors, it's a favorite target for astrophotographers and easily visible through small telescopes.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M27.jpg": {
     "catalogDesignation": "M27",
@@ -538,7 +631,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M27, the Dumbbell Nebula, is a planetary nebula approximately 1,360 light-years away. Known for its apple-core shape, it's the first nebula of its kind discovered. Its bright, intricate detail makes it a popular astrophotography target.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2024"
+    "monthYear": "August, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "M31-25x300sec-Tight-1600x1131.jpg": {
     "catalogDesignation": "M31",
@@ -553,7 +649,10 @@
     "subcategory": "deep-sky/galaxies",
     "description": "The Andromeda Galaxy, or M31, is our closest spiral galaxy neighbor, situated approximately 2.5 million light-years away. With its vast, luminous spiral arms and bright core, it's a stunning sight in the night sky.",
     "location": "Maple Valley, WA",
-    "monthYear": "July, 2005"
+    "monthYear": "July, 2005",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M31-Final.jpg": {
     "catalogDesignation": "M31",
@@ -568,7 +667,10 @@
     "subcategory": "deep-sky/galaxies",
     "description": "The Andromeda Galaxy (M31) is the nearest spiral galaxy to our own Milky Way, located approximately 2.5 million light years away. Visually, it's characterized by its bright, elongated core and fainter spiral arms. It's a prime target for astrophotographers due to its large size and high surface brightness, allowing for stunning images even from modest equipment.",
     "location": "Ravensdale., WA",
-    "monthYear": "September, 2023"
+    "monthYear": "September, 2023",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "M31.jpg": {
     "catalogDesignation": "M31",
@@ -583,7 +685,10 @@
     "subcategory": "deep-sky/galaxies",
     "description": "The Andromeda Galaxy, formally known as M31, is our closest spiral galaxy, lying approximately 2.5 million light-years away. This celestial neighbor is renowned for its distinctive spiral shape, bright core, and expansive dust lanes.",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "M33 - The Triangulum Galaxy.jpg": {
     "catalogDesignation": "M33",
@@ -598,7 +703,10 @@
     "subcategory": "deep-sky/galaxies",
     "description": "\"M33, the Triangulum Galaxy, is a spiral galaxy about 3 million light-years away. It's the third-largest member of the Local Group and well-known for its blue star-forming regions, making it a popular astrophotography target.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "M33.jpg": {
     "name": "M",
@@ -607,7 +715,10 @@
     "youtubeLink": "https://www.youtube.com/watch?v=qm-40iddr2I",
     "youtubeTitle": "Schindler's List - John Williams Violin Performance",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M39.jpg": {
     "catalogDesignation": "M39",
@@ -622,7 +733,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M39 is an open star cluster about 800 light-years away in the constellation Cygnus. It's popular for its triangular shape and easy visibility with binoculars, making it well-loved among amateur astronomers and astrophotographers.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M42 The Orion Nebula.jpg": {
     "catalogDesignation": "M42",
@@ -637,7 +751,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M42, the Orion Nebula, is an emission nebula located 1,344 light-years away. A stellar nursery with intricate structure, its vibrant colors make it a popular and visually stunning target for astrophotography.\"",
     "location": "Maple Valley, WA",
-    "monthYear": "March, 2005"
+    "monthYear": "March, 2005",
+    "ota": "Orion 80ED APO",
+    "camera": "Canon EOS",
+    "mount": ""
   },
   "M45 - Pleiades.jpg": {
     "catalogDesignation": "M45",
@@ -652,7 +769,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M45, the Pleiades, is an open star cluster located 444 light-years away in Taurus constellation. Known as the Seven Sisters, it's popular for its bright blue stars and nebulous gas, ideal for astrophotography.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "M45.jpg": {
     "catalogDesignation": "M45",
@@ -667,7 +787,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/star-clusters",
-    "description": "The Pleiades, or M45, is a captivating open star cluster located approximately 444 light-years from Earth. This cluster is most notable for its seven brightest stars, often called the \"Seven Sisters,\" which form a subtle dipper shape in the night sky."
+    "description": "The Pleiades, or M45, is a captivating open star cluster located approximately 444 light-years from Earth. This cluster is most notable for its seven brightest stars, often called the \"Seven Sisters,\" which form a subtle dipper shape in the night sky.",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "M56.jpg": {
     "catalogDesignation": "M56",
@@ -682,7 +805,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M56, a globular cluster located 32,900 light-years away in Lyra constellation, features aged, yellow stars. Its loose, irregular shape and age of 13.7 billion years intrigue astronomers and make a captivating astrophotography target.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M57-1.jpg": {
     "catalogDesignation": "M57",
@@ -697,7 +823,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "M57, also known as the Ring Nebula, is a planetary nebula situated approximately 2,283 light-years away from Earth. Resembling a colorful cosmic smoke ring in the Lyra constellation, its distinct shape, vivid hues of red, blue, and green, and moderate brightness make it a highly coveted target for astrophotographers. Its ethereal beauty offers a glimpse of our Sun's potential future."
+    "description": "M57, also known as the Ring Nebula, is a planetary nebula situated approximately 2,283 light-years away from Earth. Resembling a colorful cosmic smoke ring in the Lyra constellation, its distinct shape, vivid hues of red, blue, and green, and moderate brightness make it a highly coveted target for astrophotographers. Its ethereal beauty offers a glimpse of our Sun's potential future.",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M57.jpg": {
     "catalogDesignation": "M57",
@@ -711,7 +840,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "astrophotography",
-    "subcategory": "featured"
+    "subcategory": "featured",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M71.jpg": {
     "catalogDesignation": "M71",
@@ -726,7 +858,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M71, a globular cluster in Sagitta constellation, is about 12,000 light-years away. Known for its loosely concentrated stars, it was long mistaken for an open cluster. Its dense core makes it a popular astrophotography target.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M81 and M82 Tight-1.jpg": {
     "catalogDesignation": "M81, M82",
@@ -741,7 +876,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/galaxies",
-    "description": "M81 and M82, also known as Bode's and Cigar Galaxy respectively, are spiral and starburst galaxies about 12 million light-years away. Their close proximity and contrasting nature—M81 with its grand design spiral structure and M82 with its explosive star formation—make them fascinating subjects for astrophotography. These galaxies showcase the dynamic and diverse universe we inhabit."
+    "description": "M81 and M82, also known as Bode's and Cigar Galaxy respectively, are spiral and starburst galaxies about 12 million light-years away. Their close proximity and contrasting nature—M81 with its grand design spiral structure and M82 with its explosive star formation—make them fascinating subjects for astrophotography. These galaxies showcase the dynamic and diverse universe we inhabit.",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M81 and M82-1.jpg": {
     "catalogDesignation": "M81, M82",
@@ -756,7 +894,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/galaxies",
-    "description": "M81 and M82, known as Bode's and Cigar Galaxies respectively, are spiral and starburst galaxies located about 12 million light-years away. Visually, M81 is a grand spiral, while M82 exhibits red-hued explosive gas clouds due to intense star formation. Their proximity and contrasting features make them a highly sought pair for astrophotography."
+    "description": "M81 and M82, known as Bode's and Cigar Galaxies respectively, are spiral and starburst galaxies located about 12 million light-years away. Visually, M81 is a grand spiral, while M82 exhibits red-hued explosive gas clouds due to intense star formation. Their proximity and contrasting features make them a highly sought pair for astrophotography.",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M81 and M82.jpg": {
     "catalogDesignation": "M81, M82",
@@ -770,7 +911,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "astrophotography",
-    "subcategory": "featured"
+    "subcategory": "featured",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M92-1.jpg": {
     "catalogDesignation": "M92",
@@ -784,7 +928,10 @@
     "category": "astrophotography",
     "subcategory": "featured",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M92.jpg": {
     "catalogDesignation": "M92",
@@ -799,7 +946,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"M92, a globular cluster, is 26,700 light-years away in Hercules. Older than most similar clusters, it's dense with stars. Its brightness and star-packed core make it a popular target for astrophotography enthusiasts.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "M97.jpg": {
     "catalogDesignation": "M97",
@@ -814,7 +964,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"M97, the Owl Nebula, is a planetary nebula approximately 2,000 light-years away. Its round, owl-eye appearance, created by expelled gas from a dying star, fascinates astronomers and makes it a popular target for astrophotography.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "March, 2024"
+    "monthYear": "March, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "MVO-Favicon.jpg": {
     "name": "Mvo Favicon",
@@ -823,7 +976,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs1.jpg": {
     "name": "Mammoth Hot Springs",
@@ -834,7 +990,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs10.jpg": {
     "name": "Mammoth Hot Springs",
@@ -845,7 +1004,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs11.jpg": {
     "name": "Mammoth Hot Springs",
@@ -856,7 +1018,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs2.jpg": {
     "name": "Mammoth Hot Springs",
@@ -867,7 +1032,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs3.jpg": {
     "name": "Mammoth Hot Springs",
@@ -878,7 +1046,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs4.jpg": {
     "name": "Mammoth Hot Springs",
@@ -889,7 +1060,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs5.jpg": {
     "name": "Mammoth Hot Springs",
@@ -900,7 +1074,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs6.jpg": {
     "name": "Mammoth Hot Springs",
@@ -911,7 +1088,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs7.jpg": {
     "name": "Mammoth Hot Springs",
@@ -922,7 +1102,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs8.jpg": {
     "name": "Mammoth Hot Springs",
@@ -933,7 +1116,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mammoth Hot Springs9.jpg": {
     "name": "Mammoth Hot Springs",
@@ -944,7 +1130,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mauna-Kea-1.jpg": {
     "name": "Mauna Kea",
@@ -953,7 +1142,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Mauna-Kea-2.jpg": {
     "name": "Mauna Kea",
@@ -962,7 +1154,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin1.jpg": {
     "name": "Midway Basin",
@@ -973,7 +1168,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin10.jpg": {
     "name": "Midway Basin",
@@ -984,7 +1182,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin11.jpg": {
     "name": "Midway Basin",
@@ -995,7 +1196,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin12.jpg": {
     "name": "Midway Basin",
@@ -1006,7 +1210,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin15.jpg": {
     "name": "Midway Basin",
@@ -1017,7 +1224,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin16.jpg": {
     "name": "Midway Basin",
@@ -1028,7 +1238,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin17.jpg": {
     "name": "Midway Basin",
@@ -1039,7 +1252,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin18.jpg": {
     "name": "Midway Basin",
@@ -1050,7 +1266,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin19.jpg": {
     "name": "Midway Basin",
@@ -1061,7 +1280,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin20.jpg": {
     "name": "Midway Basin",
@@ -1072,7 +1294,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin21.jpg": {
     "name": "Midway Basin",
@@ -1083,7 +1308,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin22.jpg": {
     "name": "Midway Basin",
@@ -1094,7 +1322,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin23.jpg": {
     "name": "Midway Basin",
@@ -1105,7 +1336,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin24.jpg": {
     "name": "Midway Basin",
@@ -1116,7 +1350,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin25.jpg": {
     "name": "Midway Basin",
@@ -1127,7 +1364,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin4.jpg": {
     "name": "Midway Basin",
@@ -1138,7 +1378,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin5.jpg": {
     "name": "Midway Basin",
@@ -1149,7 +1392,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin6.jpg": {
     "name": "Midway Basin",
@@ -1160,7 +1406,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin7.jpg": {
     "name": "Midway Basin",
@@ -1171,7 +1420,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin8.jpg": {
     "name": "Midway Basin",
@@ -1182,7 +1434,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Midway Basin9.jpg": {
     "name": "Midway Basin",
@@ -1193,7 +1448,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "My Gear0.jpg": {
     "equipmentName": "My Gear",
@@ -1203,7 +1461,10 @@
     "youtubeTitle": "",
     "category": "equipment",
     "subcategory": "equipment",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "My Gear1.jpg": {
     "equipmentName": "My Gear",
@@ -1213,7 +1474,10 @@
     "youtubeTitle": "",
     "category": "equipment",
     "subcategory": "equipment",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "My Gear5.jpg": {
     "equipmentName": "My Gear",
@@ -1223,7 +1487,10 @@
     "youtubeTitle": "",
     "category": "equipment",
     "subcategory": "equipment",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "My Gear6.jpg": {
     "equipmentName": "My Gear",
@@ -1233,7 +1500,10 @@
     "youtubeTitle": "",
     "category": "equipment",
     "subcategory": "equipment",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "My Gear7.jpg": {
     "equipmentName": "My Gear",
@@ -1243,7 +1513,10 @@
     "youtubeTitle": "",
     "category": "equipment",
     "subcategory": "equipment",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "My Gear8.jpg": {
     "equipmentName": "My Gear",
@@ -1253,7 +1526,10 @@
     "youtubeTitle": "",
     "category": "equipment",
     "subcategory": "equipment",
-    "location": "Maple Valley, WA"
+    "location": "Maple Valley, WA",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC 7635 - M52.jpg": {
     "catalogDesignation": "NGC7635",
@@ -1268,7 +1544,10 @@
     "subcategory": "deep-sky/wide-field",
     "description": "NGC7635, also known as the Bubble Nebula, is an emission nebula located 7,100 light-years away from Earth. This nebula is unique due to its spherical shape, created by stellar winds pushing against surrounding gas. Its vivid colors, mainly blue and purple, are caused by the ionizing radiation of a nearby star.",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC1499.jpg": {
     "catalogDesignation": "NGC1499",
@@ -1283,7 +1562,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "The NGC1499, or the California Nebula, is a large emission nebula approximately 1,000 light-years from Earth. Resembling the outline of the US state of California, this nebula's distinct red hue is due to its hydrogen gas being excited by the nearby star, Xi Persei. Its vibrant color and striking shape make it a favored subject for astrophotographers.",
     "location": "Maple Valley, WA",
-    "monthYear": "July, 2005"
+    "monthYear": "July, 2005",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC2070-Finished.jpg": {
     "name": "Ngc2070 Finished",
@@ -1292,7 +1574,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC2244.jpg": {
     "catalogDesignation": "NGC2244",
@@ -1307,7 +1592,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"NGC2244, within the Rosette Nebula, is an open star cluster located about 5,200 light-years away. Popular in astrophotography due to its stunning rose-like shape, it's a site of ongoing star formation and intense stellar winds.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "February, 2024"
+    "monthYear": "February, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "NGC2264.jpg": {
     "catalogDesignation": "NGC2264",
@@ -1322,7 +1610,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "NGC2264, the Cone Nebula, is a star-forming region approximately 2,700 light-years away. Its conical shape, dark dust lanes and red emission glow make it a captivating target for astrophotographers.",
     "location": "Ravensdale, WA",
-    "monthYear": ""
+    "monthYear": "",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC281.jpg": {
     "catalogDesignation": "NGC281",
@@ -1337,7 +1628,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"NGC281, the Pacman Nebula, is an active star-forming region over 9,200 light-years away. Known for its distinct Pacman-like shape, this emission nebula's radiant colors and fascinating dust structures make it a popular astrophotography subject.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2024"
+    "monthYear": "August, 2024",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC6871-1.jpg": {
     "catalogDesignation": "NGC6871",
@@ -1352,7 +1646,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "The Tulip Nebula is a striking emission nebula known for its vivid colors and delicate structure."
+    "description": "The Tulip Nebula is a striking emission nebula known for its vivid colors and delicate structure.",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "NGC6946.jpg": {
     "catalogDesignation": "NGC6946",
@@ -1367,7 +1664,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/galaxies",
-    "description": "The Fireworks Galaxy (NGC6946) is an intermediate spiral galaxy situated approximately 22 million light-years away from Earth, within the constellations Cepheus and Cygnus. Known for its frequent supernovae, it has hosted ten in the last century, more than any other galaxy we know. Its vivid and varied stellar explosions make it a prime target for astrophotographers."
+    "description": "The Fireworks Galaxy (NGC6946) is an intermediate spiral galaxy situated approximately 22 million light-years away from Earth, within the constellations Cepheus and Cygnus. Known for its frequent supernovae, it has hosted ten in the last century, more than any other galaxy we know. Its vivid and varied stellar explosions make it a prime target for astrophotographers.",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "NGC7000 and IC5070-2.jpg": {
     "catalogDesignation": "NGC7000",
@@ -1382,7 +1682,10 @@
     "subcategory": "deep-sky/hubble-palette",
     "description": "NGC7000, the North America Nebula, is an emission nebula located roughly 1,600 light-years away. Its striking resemblance to the North American continent makes it a popular target for astrophotographers and casual stargazers alike.",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "NGC7000-Pelican-1.jpg": {
     "name": "Ngc7000 Pelican",
@@ -1391,7 +1694,10 @@
     "youtubeLink": "https://www.youtube.com/watch?v=9-BMlq_zyko",
     "youtubeTitle": "Yes - Wondrous Stories (Official Music Video)",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC7000.jpg": {
     "catalogDesignation": "NGC7000",
@@ -1406,7 +1712,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "NGC7000, the North America Nebula, is a large, bright emission nebula approximately 1,600 light-years away. Shaped like the North American continent, this nebula is popular in astrophotography for its intricate structure and vibrant colors.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2023"
+    "monthYear": "July, 2023",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC7331.jpg": {
     "catalogDesignation": "NGC7331",
@@ -1421,7 +1730,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/galaxies",
-    "description": "NGC7331, often referred to as the Deer Lick Group, is a spiral galaxy located approximately 40 million light-years away from Earth. Its clear spiral structure, bright core, and surrounding fainter galaxies make it a compelling target for astrophotographers. Its relative brightness and large size provide an intriguing glimpse into the complexity and beauty of distant galaxies."
+    "description": "NGC7331, often referred to as the Deer Lick Group, is a spiral galaxy located approximately 40 million light-years away from Earth. Its clear spiral structure, bright core, and surrounding fainter galaxies make it a compelling target for astrophotographers. Its relative brightness and large size provide an intriguing glimpse into the complexity and beauty of distant galaxies.",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "NGC7538.jpg": {
     "catalogDesignation": "NGC7538",
@@ -1436,7 +1748,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"NGC7538 is a star-forming nebula located 9,100 light-years away in the Perseus constellation. Known for its massive protostar, it's a popular astrophotography target due to its fascinating structure and bright infrared emissions.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "September, 2025"
+    "monthYear": "September, 2025",
+    "ota": "Meade 8\" SCT",
+    "camera": "",
+    "mount": ""
   },
   "NGC7635 - The Bubble Nebula - Tight.jpg": {
     "catalogDesignation": "NGC7635",
@@ -1451,7 +1766,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "NGC7635, the Bubble Nebula, is an emission nebula 7,100 light-years away. A massive star's stellar wind creates its unique bubble shape. Its vibrant colors and intriguing form make it a popular target for astrophotographers.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "NGC7635 - The Bubble Nebula-Wide.jpg": {
     "catalogDesignation": "NGC7635",
@@ -1466,7 +1784,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "The Bubble Nebula, or NGC7635, is a beautiful emission nebula situated approximately 7,100 light years away in the constellation Cassiopeia. It gets its name from the spherical gas bubble surrounding a central massive star, created by stellar winds. Its vibrant colors and unique shape make it a captivating target for astrophotographers, showcasing the dynamic and colorful nature of our universe.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "NGC7635.jpg": {
     "catalogDesignation": "NGC7635",
@@ -1481,7 +1802,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/hubble-palette",
-    "description": "The Bubble Nebula, or NGC 7635, is an emission nebula located 7,100 light-years away in the constellation Cassiopeia. Its defining feature is a stunning, bubble-like cloud of gas created by the stellar wind from a massive, central star. This nebula's vibrant colors and unique structure make it a captivating subject for astrophotographers across the globe."
+    "description": "The Bubble Nebula, or NGC 7635, is an emission nebula located 7,100 light-years away in the constellation Cassiopeia. Its defining feature is a stunning, bubble-like cloud of gas created by the stellar wind from a massive, central star. This nebula's vibrant colors and unique structure make it a captivating subject for astrophotographers across the globe.",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC869 and NGC884 - The Double Cluster.jpg": {
     "catalogDesignation": "NGC869",
@@ -1496,7 +1820,10 @@
     "subcategory": "deep-sky/star-clusters",
     "description": "\"NGC869, part of the Double Cluster, is an open star cluster located roughly 7,500 light-years away. Noted for its dense stellar population and bright stars, it's a popular target for its striking visual appeal.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "NGC891-1.jpg": {
     "catalogDesignation": "NGC 891",
@@ -1511,7 +1838,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/galaxies",
-    "description": "NGC 891, also known as the Silver Sliver Galaxy, is a captivating spiral galaxy situated about 30 million light-years away in the constellation Andromeda. Its edge-on orientation from our perspective on Earth provides a unique view of the galaxy's dust lane bisecting its luminous core."
+    "description": "NGC 891, also known as the Silver Sliver Galaxy, is a captivating spiral galaxy situated about 30 million light-years away in the constellation Andromeda. Its edge-on orientation from our perspective on Earth provides a unique view of the galaxy's dust lane bisecting its luminous core.",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "NGC891.jpg": {
     "catalogDesignation": "NGC891",
@@ -1525,7 +1855,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "astrophotography",
-    "subcategory": "featured"
+    "subcategory": "featured",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "North America and The Pelican.jpg": {
     "catalogDesignation": "NGC7000",
@@ -1540,7 +1873,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "NGC7000, the North America Nebula, is an emission nebula roughly 1,600 light-years away. Resembling North America, this large, intricate nebula is bright, making it a popular target for astrophotographers.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful10.jpg": {
     "name": "Old Faithful",
@@ -1551,7 +1887,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful3.jpg": {
     "name": "Old Faithful",
@@ -1562,7 +1901,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful4.jpg": {
     "name": "Old Faithful",
@@ -1573,7 +1915,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful5.jpg": {
     "name": "Old Faithful",
@@ -1584,7 +1929,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful6.jpg": {
     "name": "Old Faithful",
@@ -1595,7 +1943,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful7.jpg": {
     "name": "Old Faithful",
@@ -1606,7 +1957,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful8.jpg": {
     "name": "Old Faithful",
@@ -1617,7 +1971,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Old Faithful9.jpg": {
     "name": "Old Faithful",
@@ -1628,7 +1985,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Orion-wide-death-valley.jpg": {
     "catalogDesignation": "M42",
@@ -1643,7 +2003,10 @@
     "subcategory": "deep-sky/wide-field",
     "description": "The Orion Nebula, or M42, is a diffuse nebula situated in the Milky Way, around 1,344 light years from Earth. Known for its bright, swirling clouds of gas and dust, it's one of the most observed and photographed objects in the night sky.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "SH2-115.jpg": {
     "catalogDesignation": "Sh2-115",
@@ -1658,7 +2021,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "Sh2-115 is a breathtaking emission nebula located approximately 7,500 light-years away from Earth. It's distinguished by its intricate, filamentous clouds of ionized gas, producing a visually stunning spectacle of red and pink hues. Its vast, complex structure, richly detailed patterns, and vibrant palette make Sh2-115 an ideal subject for astrophotography, offering endless opportunities for exploration and artistic representation."
+    "description": "Sh2-115 is a breathtaking emission nebula located approximately 7,500 light-years away from Earth. It's distinguished by its intricate, filamentous clouds of ionized gas, producing a visually stunning spectacle of red and pink hues. Its vast, complex structure, richly detailed patterns, and vibrant palette make Sh2-115 an ideal subject for astrophotography, offering endless opportunities for exploration and artistic representation.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "SH2-124.jpg": {
     "catalogDesignation": "Sh2-124",
@@ -1673,7 +2039,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "Sh2-124 is a large emission nebula located approximately 18,000 light-years away from Earth. This celestial object is special for its complex structures and intense reddish color, which is the result of ionized hydrogen atoms. Its dense, intricate formations and luminosity make it a popular target for astrophotographers seeking to capture the remarkably vibrant and dynamic beauty of the universe."
+    "description": "Sh2-124 is a large emission nebula located approximately 18,000 light-years away from Earth. This celestial object is special for its complex structures and intense reddish color, which is the result of ionized hydrogen atoms. Its dense, intricate formations and luminosity make it a popular target for astrophotographers seeking to capture the remarkably vibrant and dynamic beauty of the universe.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "SH2-132-The-LobsterClaw.jpg": {
     "catalogDesignation": "Sh2-132",
@@ -1688,7 +2057,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "Sh2-132, the Lion Nebula, is an emission nebula approximately 10,000 light-years away. Famous for its lion-like shape, it showcases an intricate mix of ionized gas, making it a popular target for astrophotographers.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "SH2-140-1.jpg": {
     "catalogDesignation": "Sh2-140",
@@ -1703,7 +2075,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "Sh2-140 is an emission nebula, located approximately 3,000 light-years away in the Cepheus constellation. Known for its vibrant red hues, it showcases the process of star formation, making it a popular target for astrophotographers. The nebula's intricate structure, shaped by stellar winds and radiation, provides a stunning view into the complexity of our universe."
+    "description": "Sh2-140 is an emission nebula, located approximately 3,000 light-years away in the Cepheus constellation. Known for its vibrant red hues, it showcases the process of star formation, making it a popular target for astrophotographers. The nebula's intricate structure, shaped by stellar winds and radiation, provides a stunning view into the complexity of our universe.",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "SH2-173.jpg": {
     "catalogDesignation": "Sh2-173",
@@ -1718,7 +2093,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "Sh2-173, known as the Phantom Nebula, is a faint emission nebula located approximately 2,400 light-years away from Earth. Its ghostly shape, akin to a specter in the night sky, is formed by interstellar dust and gas illuminated by nearby stars. The nebula's elusive visibility and intriguing structure make it a challenging but rewarding target for astrophotographers."
+    "description": "Sh2-173, known as the Phantom Nebula, is a faint emission nebula located approximately 2,400 light-years away from Earth. Its ghostly shape, akin to a specter in the night sky, is formed by interstellar dust and gas illuminated by nearby stars. The nebula's elusive visibility and intriguing structure make it a challenging but rewarding target for astrophotographers.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "SH2-86.jpg": {
     "catalogDesignation": "Sh2-86",
@@ -1733,7 +2111,10 @@
     "youtubeTitle": "",
     "category": "astrophotography",
     "subcategory": "deep-sky/nebulas",
-    "description": "Sh2-86 is a captivating emission nebula located 4,200 light-years away in the constellation Vulpecula. Known for its vibrant red and pink gas clouds surrounding a cluster of hot young stars, it's a sight to behold. Its high surface brightness and large angular size make it a significant target for astrophotographers, showcasing the beauty and complexity of stellar evolution."
+    "description": "Sh2-86 is a captivating emission nebula located 4,200 light-years away in the constellation Vulpecula. Known for its vibrant red and pink gas clouds surrounding a cluster of hot young stars, it's a sight to behold. Its high surface brightness and large angular size make it a significant target for astrophotographers, showcasing the beauty and complexity of stellar evolution.",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "ZWO AM5N"
   },
   "Sadr Region.jpg": {
     "catalogDesignation": "IC 1318",
@@ -1748,7 +2129,10 @@
     "subcategory": "deep-sky/wide-field",
     "description": "IC 1318, also known as the Sadr Region, is a vast emission nebula situated approximately 1,800 light-years away from Earth. Located in the constellation Cygnus, it is distinguished by its intricate formations of glowing gas and dust illuminated by the bright star Gamma Cygni. Its vibrant colors and detailed structure make it a prized target for astrophotographers.",
     "location": "Death Valley, CA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "Nikon D5300 Astro Modified",
+    "mount": ""
   },
   "SampleCSC.png": {
     "name": "Sample Csc",
@@ -1758,7 +2142,10 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Sun .jpg": {
     "catalogDesignation": "",
@@ -1772,7 +2159,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/solar",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Sun.jpg": {
     "catalogDesignation": "",
@@ -1786,7 +2176,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/solar",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "The Leo Trio.jpg": {
     "catalogDesignation": "NGC 3628, M65, and M66.",
@@ -1801,7 +2194,10 @@
     "subcategory": "deep-sky/galaxies",
     "description": "\"NGC 3628, M65, and M66, known as the Leo Trio, are spiral galaxies approximately 35 million light-years away. They're popular in astrophotography for their unique interactions, causing distorted shapes and tidal tails.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "March, 2024"
+    "monthYear": "March, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "The Soul Nebula.jpg": {
     "catalogDesignation": "IC1848",
@@ -1816,7 +2212,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "IC1848, the Soul Nebula, is an emission nebula about 6,500 light-years away. This star-forming region, resembling a human heart, is popular for its intricate structure and intense red hues in astrophotography.",
     "location": "Ravensdale., WA",
-    "monthYear": "October, 2023"
+    "monthYear": "October, 2023",
+    "ota": "William Optics Zenithstar 81",
+    "camera": "ZWO ASI533MC",
+    "mount": "Meade LXD75"
   },
   "Thor's Helmet.jpg": {
     "catalogDesignation": "NGC2359",
@@ -1831,7 +2230,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"NGC2359, or Thor's Helmet, is an emission nebula about 15,000 light-years away. Its unique, helmet-like shape, caused by the central Wolf-Rayet star's intense winds, makes it a captivating subject for astrophotographers.\"",
     "location": "Cabo San Lucas, Mexico",
-    "monthYear": "February, 2024"
+    "monthYear": "February, 2024",
+    "ota": "SeeStar S50",
+    "camera": "",
+    "mount": ""
   },
   "Twilight Moon - Copernicus.jpg": {
     "catalogDesignation": "",
@@ -1845,7 +2247,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/lunar",
     "location": "Maple Valley, WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Twilight Moon - Tycho Region.jpg": {
     "catalogDesignation": "",
@@ -1859,7 +2264,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/lunar",
     "location": "Maple Valley, WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Twilight Moon.jpg": {
     "catalogDesignation": "",
@@ -1873,7 +2281,10 @@
     "category": "astrophotography",
     "subcategory": "solar-system/lunar",
     "location": "Maple Valley, WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin1.jpg": {
     "name": "Upper Basin",
@@ -1884,7 +2295,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin10.jpg": {
     "name": "Upper Basin",
@@ -1895,7 +2309,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin11.jpg": {
     "name": "Upper Basin",
@@ -1906,7 +2323,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin12.jpg": {
     "name": "Upper Basin",
@@ -1917,7 +2337,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin2.jpg": {
     "name": "Upper Basin",
@@ -1928,7 +2351,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin3.jpg": {
     "name": "Upper Basin",
@@ -1939,7 +2365,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin4.jpg": {
     "name": "Upper Basin",
@@ -1950,7 +2379,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin5.jpg": {
     "name": "Upper Basin",
@@ -1961,7 +2393,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin6.jpg": {
     "name": "Upper Basin",
@@ -1972,7 +2407,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin7.jpg": {
     "name": "Upper Basin",
@@ -1983,7 +2421,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin8.jpg": {
     "name": "Upper Basin",
@@ -1994,7 +2435,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Upper Basin9.jpg": {
     "name": "Upper Basin",
@@ -2005,7 +2449,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Veil Nebula Complex.jpg": {
     "catalogDesignation": "NGC6960",
@@ -2020,7 +2467,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "\"NGC6960, the Western Veil Nebula, is a supernova remnant approximately 1,470 light-years away. Its delicate, lace-like filaments of ionized gas make it a popular target for astrophotographers seeking to capture its ethereal beauty.\"",
     "location": "Ravensdale., WA",
-    "monthYear": "August, 2025"
+    "monthYear": "August, 2025",
+    "ota": "SeeStar S30",
+    "camera": "",
+    "mount": ""
   },
   "Wizard-Lr-PI.jpg": {
     "catalogDesignation": "NGC7380",
@@ -2035,7 +2485,10 @@
     "subcategory": "deep-sky/nebulas",
     "description": "NGC7380, the Wizard Nebula, is an open star cluster enveloped in a nebula, located 7,200 light-years away. Its unique structure, resembling a sorcerer, makes it a popular target for astrophotographers.",
     "location": "Ravensdale., WA",
-    "monthYear": "July, 2025"
+    "monthYear": "July, 2025",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon13.jpg": {
     "name": "Yellowstone Canyon",
@@ -2046,7 +2499,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon14.jpg": {
     "name": "Yellowstone Canyon",
@@ -2057,7 +2513,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon16.jpg": {
     "name": "Yellowstone Canyon",
@@ -2068,7 +2527,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon2.jpg": {
     "name": "Yellowstone Canyon",
@@ -2079,7 +2541,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon4.jpg": {
     "name": "Yellowstone Canyon",
@@ -2090,7 +2555,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon6.jpg": {
     "name": "Yellowstone Canyon",
@@ -2101,7 +2569,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon7.jpg": {
     "name": "Yellowstone Canyon",
@@ -2112,7 +2583,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Canyon9.jpg": {
     "name": "Yellowstone Canyon",
@@ -2123,7 +2597,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna1.jpg": {
     "name": "Yellowstone Fauna",
@@ -2134,7 +2611,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna12.jpg": {
     "name": "Yellowstone Fauna",
@@ -2145,7 +2625,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna13.jpg": {
     "name": "Yellowstone Fauna",
@@ -2156,7 +2639,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna15.jpg": {
     "name": "Yellowstone Fauna",
@@ -2167,7 +2653,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna16.jpg": {
     "name": "Yellowstone Fauna",
@@ -2178,7 +2667,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna2.jpg": {
     "name": "Yellowstone Fauna",
@@ -2189,7 +2681,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna4.jpg": {
     "name": "Yellowstone Fauna",
@@ -2200,7 +2695,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna5.jpg": {
     "name": "Yellowstone Fauna",
@@ -2211,7 +2709,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna6.jpg": {
     "name": "Yellowstone Fauna",
@@ -2222,7 +2723,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna7.jpg": {
     "name": "Yellowstone Fauna",
@@ -2233,7 +2737,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "Yellowstone Fauna8.jpg": {
     "name": "Yellowstone Fauna",
@@ -2244,7 +2751,10 @@
     "category": "terrestrial",
     "subcategory": "yellowstone",
     "location": "Yellowstone, WY",
-    "monthYear": "July, 2021"
+    "monthYear": "July, 2021",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   },
   "conf.png": {
     "name": "Conf",
@@ -2254,6 +2764,9 @@
     "youtubeLink": "",
     "youtubeTitle": "",
     "category": "assets",
-    "subcategory": "assets"
+    "subcategory": "assets",
+    "ota": "",
+    "camera": "",
+    "mount": ""
   }
 }

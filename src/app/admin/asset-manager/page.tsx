@@ -18,6 +18,11 @@ interface AstrophysicsImageData extends BaseImageData {
   catalogDesignation: string;
   objectName: string;
   location?: string;
+  // Split equipment fields
+  ota?: string;
+  camera?: string;
+  mount?: string;
+  // Legacy combined field (kept for backward compat)
   equipment?: string;
   exposure?: string;
 }
@@ -574,14 +579,35 @@ export default function AssetManagerPage() {
     objectName: 'minmax(200px, 250px)',
     dateTaken: 'minmax(100px, 120px)',
     location: 'minmax(150px, 200px)',
-    equipment: 'minmax(100px, 120px)',
+    ota: 'minmax(120px, 160px)',
+    camera: 'minmax(120px, 160px)',
+    mount: 'minmax(120px, 160px)',
     protected: 'minmax(60px, 80px)',
   };
-  // Column order state — keys match the column definition array below
-  const defaultColumnOrder = ['filename','category','subcategory','catalogDesignation','objectName','dateTaken','location','equipment','protected'];
-  const [columnOrder, setColumnOrder] = useState<string[]>(defaultColumnOrder);
+  // Column order state — persisted to localStorage so reorders survive page refresh
+  const defaultColumnOrder = ['filename','category','subcategory','catalogDesignation','objectName','dateTaken','location','ota','camera','mount','protected'];
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('assetManagerColumnOrder');
+        if (saved) {
+          const parsed: string[] = JSON.parse(saved);
+          // Validate: must contain exactly the same keys as defaultColumnOrder
+          if (parsed.length === defaultColumnOrder.length && defaultColumnOrder.every(k => parsed.includes(k))) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return defaultColumnOrder;
+  });
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
+  // Persist column order whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem('assetManagerColumnOrder', JSON.stringify(columnOrder)); } catch {}
+  }, [columnOrder]);
 
   // Bulk selection handlers
   const toggleImageSelection = (filename: string) => {
@@ -1302,6 +1328,9 @@ export default function AssetManagerPage() {
           safeGet(data, 'name', ''),
           safeGet(data, 'equipmentName', ''),
           safeGet(data, 'location', ''),
+          safeGet(data, 'ota', ''),
+          safeGet(data, 'camera', ''),
+          safeGet(data, 'mount', ''),
           safeGet(data, 'equipment', ''),
           safeGet(data, 'youtubeTitle', '')
         ].join(' ');
@@ -1998,7 +2027,9 @@ export default function AssetManagerPage() {
                       { key: 'objectName', label: 'Object Name' },
                       { key: 'dateTaken', label: 'Date Taken' },
                       { key: 'location', label: 'Location' },
-                      { key: 'equipment', label: 'Equipment' },
+                      { key: 'ota', label: 'OTA / Scope' },
+                      { key: 'camera', label: 'Camera' },
+                      { key: 'mount', label: 'Mount' },
                       { key: 'protected', label: 'Protected' },
                     ];
                     const orderedColumns = columnOrder.map(k => allColumns.find(c => c.key === k)!).filter(Boolean);
@@ -2209,11 +2240,23 @@ export default function AssetManagerPage() {
                                 </div>
                               );
                             }
-                            // Generic text-editable fields: catalogDesignation, objectName, dateTaken, location, equipment
+                            // Generic text-editable fields: catalogDesignation, objectName, dateTaken, location
+                            // ota / camera / mount get datalist-driven dropdowns for consistency
+                            const otaOptions = ['SeeStar S50','SeeStar S30','Unistellar Odyssey','William Optics Zenithstar 81','Orion 80ED APO','Meade 8" SCT','Meade LX200 10"','Konus 8" Reflector'];
+                            const cameraOptions = ['ZWO ASI533MC','Nikon D5300 Astro Modified','ATIK Camera','Canon EOS'];
+                            const mountOptions = ['ZWO AM5N','Meade LXD75','iOptron CEM26'];
+                            const listId = colKey === 'ota' ? 'ota-list' : colKey === 'camera' ? 'camera-list' : colKey === 'mount' ? 'mount-list' : undefined;
+                            const listOptions = colKey === 'ota' ? otaOptions : colKey === 'camera' ? cameraOptions : colKey === 'mount' ? mountOptions : undefined;
                             return (
                               <div key={colKey} className="text-white/80 text-sm">
+                                {listOptions && listId && (
+                                  <datalist id={listId}>
+                                    {listOptions.map(o => <option key={o} value={o} />)}
+                                  </datalist>
+                                )}
                                 {editingCell === `${filename}.${colKey}` ? (
                                   <input type="text"
+                                    list={listId}
                                     value={getCurrentValue(filename, colKey, safeGet(imageData, colKey))}
                                     onChange={(e) => handleCellEdit(filename, colKey, e.target.value)}
                                     onBlur={handleCellBlur}

@@ -15,6 +15,11 @@ interface ImageMetadata {
   // Astrophotography fields
   catalogDesignation?: string;
   objectName?: string;
+  // Split equipment fields (new)
+  ota?: string;
+  camera?: string;
+  mount?: string;
+  // Legacy combined field (still used as fallback)
   equipment?: string;
   exposure?: string;
   // Terrestrial fields
@@ -30,6 +35,15 @@ interface ImageMetadata {
   youtubeTitle?: string;
   // AI-generated description
   description?: string;
+}
+
+/** Concatenates non-blank ota / camera / mount into a display string, e.g.
+ *  "William Optics Zenithstar 81 · ZWO ASI533MC · ZWO AM5N"
+ *  Falls back to the legacy `equipment` field if no split fields are set. */
+function buildEquipmentString(img: ImageMetadata): string {
+  const parts = [img.ota, img.camera, img.mount].filter(s => s && s.trim());
+  if (parts.length > 0) return parts.join(' · ');
+  return img.equipment?.trim() || '';
 }
 
 interface GalleryTemplateProps {
@@ -196,10 +210,11 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
     let rawImages = getGalleryImages(imageFolder);
 
     // Smart Telescope filter: restrict by equipment and/or subcategory prefix
+    // Checks ota first (new split field), then legacy combined equipment string
     if (equipmentFilter) {
       rawImages = rawImages.filter(img => {
-        const eq = (img.equipment || '').trim();
-        return eq === equipmentFilter || eq.includes(equipmentFilter);
+        const haystack = buildEquipmentString(img) || (img.equipment || '').trim();
+        return haystack === equipmentFilter || haystack.includes(equipmentFilter);
       });
     }
     if (subcategoryFilter) {
@@ -365,7 +380,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
     url: image.src,
     name: image.objectName || image.name || image.equipmentName || image.filename,
     description: image.catalogDesignation 
-      ? `${image.objectName || 'Deep sky object'} (${image.catalogDesignation}) captured with ${image.equipment || 'telescope'}`
+      ? `${image.objectName || 'Deep sky object'} (${image.catalogDesignation}) captured with ${buildEquipmentString(image) || 'telescope'}`
       : `${image.name || image.equipmentName || 'Image'} captured by Maple Valley Observatory`,
     dateCreated: image.dateTaken,
     author: 'Maple Valley Observatory'
@@ -819,9 +834,10 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
                   }
                   
                   // Equipment (only for astrophotography)
-                  if (isAstrophotography && images[currentImage].equipment && images[currentImage].equipment.trim() !== '') {
+                  const eqStr = buildEquipmentString(images[currentImage]);
+                  if (isAstrophotography && eqStr) {
                     metadataItems.push(
-                      <span key="equipment">{images[currentImage].equipment}</span>
+                      <span key="equipment">{eqStr}</span>
                     );
                   }
                   
