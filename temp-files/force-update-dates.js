@@ -5,8 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 // Force update all dateTaken fields with EXIF data
-const METADATA_FILE = '/Users/christian/Repos/MapleValleyObservatory/src/data/metadata.json';
-const IMAGES_BASE = '/Users/christian/Repos/MapleValleyObservatory/public/images';
+const METADATA_FILE = '/Users/christian/Repos/FourPeaksObservatory/src/data/metadata.json';
+const IMAGES_BASE = '/Users/christian/Repos/FourPeaksObservatory/public/images';
 
 const SCAN_FOLDERS = [
   'astrophotography/featured',

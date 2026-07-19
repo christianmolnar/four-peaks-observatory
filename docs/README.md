@@ -1,6 +1,6 @@
 # Documentation
 
-This folder contains comprehensive documentation for the Maple Valley Observatory website.
+This folder contains comprehensive documentation for the Four Peaks Observatory website.
 
 ## 📚 Documentation Index
 

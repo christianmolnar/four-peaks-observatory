@@ -28,15 +28,15 @@ export function generateMetadata(config: SEOConfig): Metadata {
     subcategory
   } = config;
 
-  const baseURL = "https://www.maplevalleyobservatory.com";
-  const fullTitle = `${title} | Maple Valley Observatory`;
+  const baseURL = "https://www.fourpeaksobservatory.com";
+  const fullTitle = `${title} | Four Peaks Observatory`;
   
   // Base keywords for astrophotography site
   const baseKeywords = [
     "astrophotography",
     "astronomy",
     "telescope",
-    "Maple Valley",
+    "Fountain Hills",
     "Washington",
     "observatory",
     "celestial photography",
@@ -103,7 +103,7 @@ export function generateMetadata(config: SEOConfig): Metadata {
   // Generate Open Graph image
   const ogImage = images.length > 0 ? images[0] : {
     url: `${baseURL}/images/og-preview.jpg`,
-    alt: "Maple Valley Observatory Astrophotography",
+    alt: "Four Peaks Observatory Astrophotography",
     width: 1200,
     height: 675
   };
@@ -119,7 +119,7 @@ export function generateMetadata(config: SEOConfig): Metadata {
       title: fullTitle,
       description,
       url: canonical ? `${baseURL}${canonical}` : baseURL,
-      siteName: "Maple Valley Observatory",
+      siteName: "Four Peaks Observatory",
       images: [
         {
           url: `${baseURL}${ogImage.url}`,
@@ -168,7 +168,7 @@ export function generateAstrophysicsMetadata(
     subcategory,
     images: featuredImage ? [{
       url: featuredImage,
-      alt: `${title} - Astrophotography by Maple Valley Observatory`,
+      alt: `${title} - Astrophotography by Four Peaks Observatory`,
       width: 1200,
       height: 800
     }] : undefined
@@ -189,7 +189,7 @@ export function generateSolarSystemMetadata(
     subcategory,
     images: featuredImage ? [{
       url: featuredImage,
-      alt: `${title} - Astrophotography by Maple Valley Observatory`,
+      alt: `${title} - Astrophotography by Four Peaks Observatory`,
       width: 1200,
       height: 800
     }] : undefined
@@ -210,7 +210,7 @@ export function generateTerrestrialMetadata(
     subcategory: location,
     images: featuredImage ? [{
       url: featuredImage,
-      alt: `${title} - Photography by Maple Valley Observatory`,
+      alt: `${title} - Photography by Four Peaks Observatory`,
       width: 1200,
       height: 800
     }] : undefined
@@ -234,24 +234,24 @@ export function generateImageGalleryStructuredData(
     "@type": "ImageGallery",
     "name": title,
     "description": description,
-    "url": "https://www.maplevalleyobservatory.com",
+    "url": "https://www.fourpeaksobservatory.com",
     "author": {
       "@type": "Organization",
-      "name": "Maple Valley Observatory"
+      "name": "Four Peaks Observatory"
     },
     "image": images.map(img => ({
       "@type": "ImageObject",
-      "url": `https://www.maplevalleyobservatory.com${img.url}`,
+      "url": `https://www.fourpeaksobservatory.com${img.url}`,
       "name": img.name,
-      "description": img.description || `${img.name} - Captured by Maple Valley Observatory`,
+      "description": img.description || `${img.name} - Captured by Four Peaks Observatory`,
       "dateCreated": img.dateCreated,
       "author": {
         "@type": "Organization",
-        "name": img.author || "Maple Valley Observatory"
+        "name": img.author || "Four Peaks Observatory"
       },
       "contentLocation": {
         "@type": "Place",
-        "name": "Maple Valley, Washington"
+        "name": "Fountain Hills, Arizona"
       }
     }))
   };
@@ -268,7 +268,7 @@ export function generateBreadcrumbStructuredData(breadcrumbs: Array<{
       "@type": "ListItem",
       "position": index + 1,
       "name": crumb.name,
-      "item": `https://www.maplevalleyobservatory.com${crumb.url}`
+      "item": `https://www.fourpeaksobservatory.com${crumb.url}`
     }))
   };
 }

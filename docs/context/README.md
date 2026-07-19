@@ -1,7 +1,7 @@
 # Context Management System for AI Agents
 
 ## Overview
-This system provides persistent context storage and retrieval for AI agents working on the Maple Valley Observatory project. It helps maintain conversation continuity across VS Code restarts and chat session interruptions.
+This system provides persistent context storage and retrieval for AI agents working on the Four Peaks Observatory project. It helps maintain conversation continuity across VS Code restarts and chat session interruptions.
 
 ## Directory Structure
 ```

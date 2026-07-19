@@ -513,7 +513,7 @@ function DevelopmentGuard({ children }: { children: React.ReactNode }) {
 export default function AssetManagerPage() {
   // Set page title
   useEffect(() => {
-    document.title = "Asset Manager | Maple Valley Observatory";
+    document.title = "Asset Manager | Four Peaks Observatory";
   }, []);
 
   // Auto-scan metadata on page load
@@ -541,7 +541,7 @@ export default function AssetManagerPage() {
   const [fileSystemData, setFileSystemData] = useState<any>(null);
   
   // Clear Sky Analysis state
-  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/MplVllyObWAkey.html');
+  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/FourPksObWAkey.html');
   const [clearSkyAnalysis, setClearSkyAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -1516,7 +1516,7 @@ export default function AssetManagerPage() {
         <header className="relative z-20 w-full px-6 py-8 border-b border-white/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              <Image src="/images/logo/Logo.jpg" alt="Maple Valley Observatory Logo" width={375} height={375} className="rounded-full" />
+              <Image src="/images/logo/Logo.jpg" alt="Four Peaks Observatory Logo" width={375} height={375} className="rounded-full" />
               <div>
                 <h1 className="text-6xl font-bold text-amber-400 tracking-wider">MAPLE VALLEY OBSERVATORY</h1>
                 <p className="text-white/80 text-2xl font-light tracking-wide mt-1">Site Asset Management</p>
@@ -2758,10 +2758,10 @@ export default function AssetManagerPage() {
                           Perform Analysis
                         </button>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/MplVllyObWAkey.html')}
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/FourPksObWAkey.html')}
                           className="px-3 py-1 bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 rounded text-sm transition-colors"
                         >
-                          Reset to Maple Valley
+                          Reset to Four Peaks
                         </button>
                       </div>
                     </div>

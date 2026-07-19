@@ -40,7 +40,7 @@ function getFeaturedImages(): ImageData[] {
     const imageMetadata = metadata[filename as keyof typeof metadata] || {
       catalogDesignation: '',
       objectName: filename.replace(/[-_]/g, ' ').replace(/\.[^.]+$/, '').toUpperCase(),
-      location: 'Maple Valley, WA',
+      location: 'Fountain Hills, AZ',
       equipment: 'SeeStar S50',
       exposure: 'Unknown'
     };

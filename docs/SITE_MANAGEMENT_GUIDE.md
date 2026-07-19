@@ -1,4 +1,4 @@
-# Maple Valley Observatory - Site Management Guide
+# Four Peaks Observatory - Site Management Guide
 
 ## Quick Reference
 

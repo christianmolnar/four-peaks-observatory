@@ -57,7 +57,7 @@ export const subNavigationConfig = {
 export const homepageConfig = {
   hero: {
     image: '/images/hero/NGC7000-Pelican-1.jpg',
-    alt: 'NGC7000 Pelican Nebula - Maple Valley Observatory',
+    alt: 'NGC7000 Pelican Nebula - Four Peaks Observatory',
     title: observatoryConfig.name,
     tagline: observatoryConfig.tagline,
     description: [

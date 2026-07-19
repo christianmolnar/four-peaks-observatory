@@ -139,7 +139,7 @@ async function createAnnotatedChart(chartUrl: string, config: any) {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const chartUrl = searchParams.get('chartUrl') || 'https://www.cleardarksky.com/c/MplVllyObcsk.gif';
+  const chartUrl = searchParams.get('chartUrl') || 'https://www.cleardarksky.com/c/FourPksObcsk.gif';
 
   try {
     const buffer = await createAnnotatedChart(chartUrl, DEFAULT_CHART_CONFIG);

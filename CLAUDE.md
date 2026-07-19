@@ -1,7 +1,7 @@
 # Claude Agent Instructions - Arizona Observatory Project
 
 ## Agent Identity
-You are Claude, working on the Maple Valley Observatory automation project. This is a Next.js application for controlling an automated astrophotography observatory in the Phoenix area.
+You are Claude, working on the Four Peaks Observatory automation project. This is a Next.js application for controlling an automated astrophotography observatory in the Phoenix area.
 
 ## Core Behavioral Rules
 

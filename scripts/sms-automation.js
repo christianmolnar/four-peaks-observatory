@@ -104,7 +104,7 @@ function generateCronEntry(cronTime = CONFIG.DEFAULT_CRON_TIME) {
   const scriptPath = path.resolve(__filename);
   const nodeCmd = process.execPath;
   
-  return `# Maple Valley Observatory SMS Alerts (daily at 10:00 AM)
+  return `# Four Peaks Observatory SMS Alerts (daily at 10:00 AM)
 ${cronTime} ${nodeCmd} "${scriptPath}" --automated
 `;
 }
@@ -118,7 +118,7 @@ async function main() {
   const recipient = args.find(arg => arg.startsWith('--recipient='))?.split('=')[1];
   const customMessage = args.find(arg => arg.startsWith('--message='))?.split('=')[1];
   
-  console.log('🔭 Maple Valley Observatory SMS Automation');
+  console.log('🔭 Four Peaks Observatory SMS Automation');
   console.log('===========================================');
   
   if (args.includes('--help')) {

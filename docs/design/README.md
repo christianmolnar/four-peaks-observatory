@@ -1,6 +1,6 @@
 # Design & Architecture Documentation
 
-This directory contains all design-related documentation for the Maple Valley Observatory website.
+This directory contains all design-related documentation for the Four Peaks Observatory website.
 
 ## Files
 

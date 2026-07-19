@@ -31,8 +31,8 @@ export default function AboutPage() {
             <div className="bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 p-8 md:p-12">
               <div className="prose prose-invert max-w-none">
                 <p className="text-white/90 text-lg leading-relaxed mb-6">
-                  Welcome to Maple Valley Observatory, where we capture the beauty and wonder of the cosmos 
-                  from the Pacific Northwest. Located in Maple Valley, Washington, our observatory is dedicated 
+                  Welcome to Four Peaks Observatory, where we capture the beauty and wonder of the cosmos 
+                  from the Sonoran Desert. Located in Fountain Hills, Arizona, our observatory is dedicated 
                   to astrophotography and sharing the magnificent views of deep space objects, our solar system, 
                   and the natural world around us.
                 </p>

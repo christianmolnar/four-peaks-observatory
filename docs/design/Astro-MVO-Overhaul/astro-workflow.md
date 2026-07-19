@@ -107,7 +107,7 @@ npm run astro:preview # Preview Astro build
 
 ### Parallel Development Structure
 ```
-MapleValleyObservatory/
+FourPeaksObservatory/
 ├── [Next.js files...]          # Original Next.js project
 ├── astro-mvo/                  # Astro migration
 │   ├── src/

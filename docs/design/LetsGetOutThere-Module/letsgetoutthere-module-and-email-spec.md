@@ -28,7 +28,7 @@ This document outlines the specification and plan for developing an observation 
 ## Data Sources
 1. **Clear Sky Chart**:
    - Provides cloud cover, transparency, seeing, and darkness data.
-   - URL: [Clear Sky Chart for Maple Valley Observatory](https://www.cleardarksky.com/c/MplVllyObWAkey.html)
+   - URL: [Clear Sky Chart for Four Peaks Observatory](https://www.cleardarksky.com/c/FourPksObWAkey.html)
 
 2. **Moon Data**:
    - Source for moon phase, rise/set times, and altitude:
@@ -156,7 +156,7 @@ This document outlines the specification and plan for developing an observation 
   - **Data Payload Structure**:
     ```json
     {
-      "location": "Maple Valley Observatory, WA",
+      "location": "Four Peaks Observatory, WA",
       "date": "2025-10-07",
       "userPreferences": {
         "observationType": "deep-sky",
@@ -285,7 +285,7 @@ This document outlines the specification and plan for developing an observation 
 ---
 
 ## References
-- [Clear Sky Chart](https://www.cleardarksky.com/c/MplVllyObWAkey.html)
+- [Clear Sky Chart](https://www.cleardarksky.com/c/FourPksObWAkey.html)
 - [US Naval Observatory API](https://aa.usno.navy.mil/data)
 - [Time and Date API](https://www.timeanddate.com/services/api/)
 - [AstronomyAPI](https://astronomyapi.com/)

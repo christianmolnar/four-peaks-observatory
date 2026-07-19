@@ -3,13 +3,13 @@
 
 export const observatoryConfig = {
   // Basic Information
-  name: "Maple Valley Observatory",
+  name: "Four Peaks Observatory",
   tagline: "Capturing Photons Since the 1900s...",
   
   // Location Details
   location: {
-    city: "Maple Valley",
-    state: "WA",
+    city: "Fountain Hills",
+    state: "AZ",
     zipCode: "98038",
     coordinates: {
       lat: 47.3809,

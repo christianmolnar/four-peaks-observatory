@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     'mindful living'
   ],
   openGraph: {
-    title: 'Mindfulness Resources - Maple Valley Observatory',
+    title: 'Mindfulness Resources - Four Peaks Observatory',
     description: 'Curated resources for mindfulness, meditation, and wellbeing.',
     type: 'website',
   },

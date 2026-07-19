@@ -1,6 +1,6 @@
 # Setup & Configuration Documentation
 
-This directory contains setup and configuration guides for various aspects of the Maple Valley Observatory website.
+This directory contains setup and configuration guides for various aspects of the Four Peaks Observatory website.
 
 ## Files
 

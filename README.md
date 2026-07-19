@@ -1,4 +1,4 @@
-# Maple Valley Observatory
+# Four Peaks Observatory
 
 A Next.js astrophotography website featuring contemplative viewing experiences with curated YouTube content.
 

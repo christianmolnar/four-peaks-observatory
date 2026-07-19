@@ -242,7 +242,7 @@ function formatEmailContent(forecast) {
   
   // Links
   content += `🔗 DETAILED FORECAST: ${CONFIG.API_BASE_URL}/admin/asset-manager\\n`;
-  content += `🌐 CLEAR SKY CHART: http://cleardarksky.com/c/MplVllyWAkey.html\\n\\n`;
+  content += `🌐 CLEAR SKY CHART: http://cleardarksky.com/c/FourPksWAkey.html\\n\\n`;
   
   content += `📍 Location: ${location}\\n`;
   content += `⏰ Generated: ${new Date(timestamp).toLocaleString()}`;
@@ -297,7 +297,7 @@ async function main() {
   const isAutomated = args.includes('--automated');
   const generateCron = args.includes('--cron');
   
-  console.log('🔭 Maple Valley Observatory Daily Automation');
+  console.log('🔭 Four Peaks Observatory Daily Automation');
   console.log('=============================================');
   
   if (generateCron) {

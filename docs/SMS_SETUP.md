@@ -68,7 +68,7 @@ Your SMS alerts will include:
 ### Sample SMS Message
 
 ```
-🔭 Maple Valley Observatory Dec 10
+🔭 Four Peaks Observatory Dec 10
 🌟 EXCELLENT
 🌙 21:00-05:00 (8h)
 🌟 Best: 22:00-02:00, 03:00-05:00
@@ -287,7 +287,7 @@ Content-Type: application/json
     "messageLength": 156
   },
   "timestamp": "2024-12-10T17:00:00.000Z",
-  "location": "Maple Valley Observatory",
+  "location": "Four Peaks Observatory",
   "observingWindow": {
     "start": "21:00",
     "end": "05:00",

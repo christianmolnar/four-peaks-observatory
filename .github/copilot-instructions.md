@@ -1,7 +1,7 @@
 # Arizona Observatory Project - Repository Instructions
 
 ## Project Overview
-This is a Next.js web application for the Maple Valley Observatory, focused on automated astrophotography operations. The project provides weather forecasting, observation planning, and equipment management for a fully automated observatory system.
+This is a Next.js web application for the Four Peaks Observatory, focused on automated astrophotography operations. The project provides weather forecasting, observation planning, and equipment management for a fully automated observatory system.
 
 ## Critical File Organization Rules
 

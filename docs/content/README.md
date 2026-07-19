@@ -1,6 +1,6 @@
 # Content Management Documentation
 
-This directory contains guides for managing content across the Maple Valley Observatory website.
+This directory contains guides for managing content across the Four Peaks Observatory website.
 
 ## Files
 

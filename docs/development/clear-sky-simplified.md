@@ -14,7 +14,7 @@ Simple, clean integration that proxies to the working Next.js implementation on 
 
 ### ONE Implementation Used Everywhere
 
-1. **Home Page**: `ObservationModule.astro` - Shows Maple Valley Observatory conditions
+1. **Home Page**: `ObservationModule.astro` - Shows Four Peaks Observatory conditions
 2. **Admin Panel**: `ClearSkyAnalysis.astro` - Accepts any chart URL for analysis
 
 ## File Structure
@@ -35,7 +35,7 @@ Simple, clean integration that proxies to the working Next.js implementation on 
 
 ### Home Page (Default MVO Chart)
 ```javascript
-// Automatically loads Maple Valley Observatory chart
+// Automatically loads Four Peaks Observatory chart
 fetch('/api/observation-evaluate')
 ```
 

@@ -74,7 +74,7 @@ function getGalleryImages(imageFolder: string): ImageMetadata[] {
         const raw = metadata[filename as keyof typeof metadata] || {
           catalogDesignation: '',
           objectName: filename.replace(/[-_]/g, ' ').replace(/\.[^.]+$/, '').toUpperCase(),
-          location: 'Maple Valley, WA',
+          location: 'Fountain Hills, AZ',
           equipment: 'SeeStar S50',
           exposure: 'Unknown'
         };
@@ -139,7 +139,7 @@ function getGalleryImages(imageFolder: string): ImageMetadata[] {
       const imageMetadata = metadata[filename as keyof typeof metadata] || {
         catalogDesignation: '',
         objectName: filename.replace(/[-_]/g, ' ').replace(/\.[^.]+$/, '').toUpperCase(),
-        location: 'Maple Valley, WA',
+        location: 'Fountain Hills, AZ',
         equipment: 'SeeStar S50',
         exposure: 'Unknown'
       };
@@ -381,14 +381,14 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
     name: image.objectName || image.name || image.equipmentName || image.filename,
     description: image.catalogDesignation 
       ? `${image.objectName || 'Deep sky object'} (${image.catalogDesignation}) captured with ${buildEquipmentString(image) || 'telescope'}`
-      : `${image.name || image.equipmentName || 'Image'} captured by Maple Valley Observatory`,
+      : `${image.name || image.equipmentName || 'Image'} captured by Four Peaks Observatory`,
     dateCreated: image.dateTaken,
-    author: 'Maple Valley Observatory'
+    author: 'Four Peaks Observatory'
   }));
 
   const imageGalleryStructuredData = generateImageGalleryStructuredData(
-    `${title} - Maple Valley Observatory`,
-    `${title} gallery featuring astrophotography and celestial imaging from Maple Valley Observatory`,
+    `${title} - Four Peaks Observatory`,
+    `${title} gallery featuring astrophotography and celestial imaging from Four Peaks Observatory`,
     galleryImages
   );
 
@@ -484,12 +484,12 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
                         src={image.src}
                         alt={
                           image.objectName 
-                            ? `${image.objectName} ${image.catalogDesignation ? `(${image.catalogDesignation})` : ''} - Astrophotography by Maple Valley Observatory`
+                            ? `${image.objectName} ${image.catalogDesignation ? `(${image.catalogDesignation})` : ''} - Astrophotography by Four Peaks Observatory`
                             : image.equipmentName 
                             ? `${image.equipmentName} - Telescope and Astrophotography Equipment`
                             : image.name 
-                            ? `${image.name} - Photography by Maple Valley Observatory`
-                            : 'Astronomy and Photography by Maple Valley Observatory'
+                            ? `${image.name} - Photography by Four Peaks Observatory`
+                            : 'Astronomy and Photography by Four Peaks Observatory'
                         }
                         fill
                         className="object-contain bg-black/20"
@@ -733,12 +733,12 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
                   src={images[currentImage].src}
                   alt={
                     images[currentImage].objectName 
-                      ? `${images[currentImage].objectName} ${images[currentImage].catalogDesignation ? `(${images[currentImage].catalogDesignation})` : ''} - Astrophotography by Maple Valley Observatory`
+                      ? `${images[currentImage].objectName} ${images[currentImage].catalogDesignation ? `(${images[currentImage].catalogDesignation})` : ''} - Astrophotography by Four Peaks Observatory`
                       : images[currentImage].equipmentName 
                       ? `${images[currentImage].equipmentName} - Telescope and Astrophotography Equipment`
                       : images[currentImage].name 
-                      ? `${images[currentImage].name} - Photography by Maple Valley Observatory`
-                      : 'Astronomy and Photography by Maple Valley Observatory'
+                      ? `${images[currentImage].name} - Photography by Four Peaks Observatory`
+                      : 'Astronomy and Photography by Four Peaks Observatory'
                   }
                   width={1400}
                   height={1000}

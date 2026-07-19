@@ -1,4 +1,4 @@
-# SEO Setup Guide for Maple Valley Observatory
+# SEO Setup Guide for Four Peaks Observatory
 
 ## What Was Added:
 

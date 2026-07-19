@@ -16,10 +16,10 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "Maple Valley Observatory",
-    template: "%s | Maple Valley Observatory",
+    default: "Four Peaks Observatory",
+    template: "%s | Four Peaks Observatory",
   },
-  description: "Professional astrophotography and celestial imaging from Maple Valley, Washington. Explore deep sky objects, nebulas, galaxies, and terrestrial photography through our advanced telescope setups.",
+  description: "Professional astrophotography and celestial imaging from Fountain Hills, Arizona. Explore deep sky objects, nebulas, galaxies, and terrestrial photography through our advanced telescope setups.",
   keywords: [
     "astrophotography",
     "astronomy",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     "deep sky",
     "nebula",
     "galaxy",
-    "Maple Valley",
+    "Fountain Hills",
     "Washington",
     "observatory",
     "celestial photography",
@@ -36,35 +36,35 @@ export const metadata: Metadata = {
     "SeeStar S50",
     "Meade telescope"
   ],
-  authors: [{ name: "Maple Valley Observatory" }],
-  creator: "Maple Valley Observatory",
-  publisher: "Maple Valley Observatory",
-  metadataBase: new URL("https://www.maplevalleyobservatory.com"),
+  authors: [{ name: "Four Peaks Observatory" }],
+  creator: "Four Peaks Observatory",
+  publisher: "Four Peaks Observatory",
+  metadataBase: new URL("https://www.fourpeaksobservatory.com"),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://www.maplevalleyobservatory.com",
-    siteName: "Maple Valley Observatory",
-    title: "Maple Valley Observatory | Astrophotography & Astronomy",
-    description: "Astrophotography from Maple Valley, Washington. Explore deep sky objects, nebulas, galaxies, and terrestrial photography.",
+    url: "https://www.fourpeaksobservatory.com",
+    siteName: "Four Peaks Observatory",
+    title: "Four Peaks Observatory | Astrophotography & Astronomy",
+    description: "Astrophotography from Fountain Hills, Arizona. Explore deep sky objects, nebulas, galaxies, and terrestrial photography.",
     images: [
       {
-        url: "https://www.maplevalleyobservatory.com/images/og-preview.jpg", // Featured astrophoto
+        url: "https://www.fourpeaksobservatory.com/images/og-preview.jpg", // Featured astrophoto
         width: 1200,
         height: 675,
-        alt: "North America Nebula - Astrophotography by Maple Valley Observatory",
+        alt: "North America Nebula - Astrophotography by Four Peaks Observatory",
         type: "image/jpeg",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Maple Valley Observatory | Astrophotography & Astronomy",
-    description: "Astrophotography and celestial imaging from Maple Valley, Washington.",
-    images: ["https://www.maplevalleyobservatory.com/images/og-preview.jpg"],
+    title: "Four Peaks Observatory | Astrophotography & Astronomy",
+    description: "Astrophotography and celestial imaging from Fountain Hills, Arizona.",
+    images: ["https://www.fourpeaksobservatory.com/images/og-preview.jpg"],
   },
   robots: {
     index: true,
@@ -113,17 +113,17 @@ export default function RootLayout({
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Maple Valley Observatory",
-    "description": "Professional astrophotography and celestial imaging from Maple Valley, Washington",
-    "url": "https://www.maplevalleyobservatory.com",
-    "logo": "https://www.maplevalleyobservatory.com/images/logo/maple-valley-observatory-logo.png",
+    "name": "Four Peaks Observatory",
+    "description": "Professional astrophotography and celestial imaging from Fountain Hills, Arizona",
+    "url": "https://www.fourpeaksobservatory.com",
+    "logo": "https://www.fourpeaksobservatory.com/images/logo/four-peaks-observatory-logo.png",
     "contactPoint": {
       "@type": "ContactPoint",
       "contactType": "general"
     },
     "address": {
       "@type": "PostalAddress",
-      "addressLocality": "Maple Valley",
+      "addressLocality": "Fountain Hills",
       "addressRegion": "WA",
       "addressCountry": "US"
     },
@@ -141,21 +141,21 @@ export default function RootLayout({
         {/* Raw Open Graph meta tags for better Facebook compatibility */}
         <meta property="fb:app_id" content="1396805241625567" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.maplevalleyobservatory.com/" />
-        <meta property="og:title" content="Maple Valley Observatory | Astrophotography & Astronomy" />
-        <meta property="og:description" content="Astrophotography from Maple Valley, Washington. Explore deep sky objects, nebulas, galaxies, and terrestrial photography." />
-        <meta property="og:image" content="https://www.maplevalleyobservatory.com/images/og-preview.jpg" />
+        <meta property="og:url" content="https://www.fourpeaksobservatory.com/" />
+        <meta property="og:title" content="Four Peaks Observatory | Astrophotography & Astronomy" />
+        <meta property="og:description" content="Astrophotography from Fountain Hills, Arizona. Explore deep sky objects, nebulas, galaxies, and terrestrial photography." />
+        <meta property="og:image" content="https://www.fourpeaksobservatory.com/images/og-preview.jpg" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="675" />
         <meta property="og:image:type" content="image/jpeg" />
-        <meta property="og:site_name" content="Maple Valley Observatory" />
+        <meta property="og:site_name" content="Four Peaks Observatory" />
         <meta property="og:locale" content="en_US" />
         
         {/* Twitter Card meta tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Maple Valley Observatory | Astrophotography & Astronomy" />
-        <meta name="twitter:description" content="Astrophotography and celestial imaging from Maple Valley, Washington." />
-        <meta name="twitter:image" content="https://www.maplevalleyobservatory.com/images/og-preview.jpg" />
+        <meta name="twitter:title" content="Four Peaks Observatory | Astrophotography & Astronomy" />
+        <meta name="twitter:description" content="Astrophotography and celestial imaging from Fountain Hills, Arizona." />
+        <meta name="twitter:image" content="https://www.fourpeaksobservatory.com/images/og-preview.jpg" />
         
         <script
           type="application/ld+json"

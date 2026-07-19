@@ -899,7 +899,7 @@ export default function ObservationModuleCustom({
             // If it's an HTML URL, convert to GIF
             const htmlMatch = customClearSkyUrl.match(/\/c\/([^\/]+)\.html/);
             if (htmlMatch) {
-              const fullId = htmlMatch[1]; // e.g., "MplVllyObWAkey"
+              const fullId = htmlMatch[1]; // e.g., "FourPksObWAkey"
               const chartId = fullId.replace(/key$/, ''); // Remove "key" suffix to get base ID
               imageUrl = `https://www.cleardarksky.com/c/${chartId}csk.gif`;
             }

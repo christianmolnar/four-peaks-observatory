@@ -87,14 +87,14 @@ export async function inferChartGenerationTime(chartUrl: string): Promise<ChartT
  */
 function extractChartId(url: string): string {
   // Handle various URL formats:
-  // https://www.cleardarksky.com/c/MplVllyObWAkey.html
-  // https://www.cleardarksky.com/c/MplVllyObWAcsk.gif
-  // https://www.cleardarksky.com/c/MplVllyObWA.html (legacy)
+  // https://www.cleardarksky.com/c/FourPksObWAkey.html
+  // https://www.cleardarksky.com/c/FourPksObWAcsk.gif
+  // https://www.cleardarksky.com/c/FourPksObWA.html (legacy)
   
   const patterns = [
-    /\/c\/([^\/]+)key\.html/,    // ...MplVllyObWAkey.html
-    /\/c\/([^\/\?]+)csk\.gif/,   // ...MplVllyObWAcsk.gif
-    /\/c\/([^\/]+)\.html/        // ...MplVllyObWA.html (legacy)
+    /\/c\/([^\/]+)key\.html/,    // ...FourPksObWAkey.html
+    /\/c\/([^\/\?]+)csk\.gif/,   // ...FourPksObWAcsk.gif
+    /\/c\/([^\/]+)\.html/        // ...FourPksObWA.html (legacy)
   ];
   
   for (const pattern of patterns) {

@@ -45,7 +45,7 @@ export function formatSMSContent(
   };
 
   // SMS has 160 character limit per segment, but we can use multiple segments for detailed info
-  let message = `🔭 ${location.replace('Maple Valley Observatory, ', 'Maple Valley ')} ${date}\n`;
+  let message = `🔭 ${location.replace('Four Peaks Observatory, ', 'Fountain Hills ')} ${date}\n`;
   message += `${getQualityEmoji(recommendation.overall)} ${recommendation.overall.toUpperCase()}\n`;
   
   // Add observing window

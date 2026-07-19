@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Maple Valley Observatory Astro component library provides a consistent set of reusable UI components following the observatory's design system. All components feature glass morphism effects, amber accent colors, and responsive design.
+The Four Peaks Observatory Astro component library provides a consistent set of reusable UI components following the observatory's design system. All components feature glass morphism effects, amber accent colors, and responsive design.
 
 ## Components
 

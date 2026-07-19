@@ -1,10 +1,10 @@
-# MapleValleyObservatory.com - Design Document
+# FourPeaksObservatory.com - Design Document
 
 ## Project Overview
-A complete redesign of MapleValleyObservatory.com to create a modern, beautiful portfolio website showcasing astrophotography and terrestrial photography using a collection-based approach.
+A complete redesign of FourPeaksObservatory.com to create a modern, beautiful portfolio website showcasing astrophotography and terrestrial photography using a collection-based approach.
 
 ## Brand Identity
-- **Site Name**: Maple Valley Observatory
+- **Site Name**: Four Peaks Observatory
 - **Tagline**: "Capturing Photons Since Last Century"
 - **Location**: Maple Valley, WA 98038
 - **Owner**: Christian Molnar

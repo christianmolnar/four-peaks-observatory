@@ -20,10 +20,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const scope = globalConfig.smartTelescopes.scopes.find(s => s.slug === scopeSlug);
   if (!scope) return {};
   return {
-    title: `${scope.title} | Smart Telescopes | Maple Valley Observatory`,
+    title: `${scope.title} | Smart Telescopes | Four Peaks Observatory`,
     description: scope.intro.slice(0, 160),
     openGraph: {
-      title: `${scope.title} | Maple Valley Observatory`,
+      title: `${scope.title} | Four Peaks Observatory`,
       images: [{ url: scope.backgroundImage }],
     },
   };

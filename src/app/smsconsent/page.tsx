@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'SMS Consent - Maple Valley Observatory',
-  description: 'SMS messaging consent and opt-in information for Maple Valley Observatory alerts',
+  title: 'SMS Consent - Four Peaks Observatory',
+  description: 'SMS messaging consent and opt-in information for Four Peaks Observatory alerts',
 };
 
 export default function SMSConsentPage() {
@@ -18,7 +18,7 @@ export default function SMSConsentPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4">Observatory SMS Alerts</h2>
             <p className="text-gray-300 leading-relaxed">
-              Maple Valley Observatory provides automated SMS text message alerts about observing 
+              Four Peaks Observatory provides automated SMS text message alerts about observing 
               conditions, weather forecasts, and astronomical events to help amateur astronomers 
               plan their stargazing sessions.
             </p>
@@ -28,7 +28,7 @@ export default function SMSConsentPage() {
             <h2 className="text-2xl font-semibold mb-4">Consent to Receive Messages</h2>
             <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
               <p className="text-green-200">
-                ✅ <strong>I consent to receive SMS messages from Maple Valley Observatory</strong>
+                ✅ <strong>I consent to receive SMS messages from Four Peaks Observatory</strong>
               </p>
               <p className="text-sm text-green-300 mt-2">
                 By providing my phone number and requesting SMS alerts, I agree to receive 
@@ -115,7 +115,7 @@ export default function SMSConsentPage() {
           <section className="border-t border-gray-600 pt-6">
             <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
             <div className="text-sm text-gray-300 space-y-2">
-              <p><strong>Observatory:</strong> Maple Valley Observatory</p>
+              <p><strong>Observatory:</strong> Four Peaks Observatory</p>
               <p><strong>Website:</strong> <Link href="/" className="text-blue-400 hover:underline">maplevalley.com</Link></p>
               <p><strong>Opt-Out:</strong> Reply STOP to any message</p>
               <p><strong>Help:</strong> Reply HELP to any message</p>

@@ -1,7 +1,7 @@
 # Gemini Agent Instructions - Arizona Observatory Project
 
 ## Agent Context
-You are Gemini, contributing to the Maple Valley Observatory project - a Next.js application for automated astrophotography operations in the Phoenix area.
+You are Gemini, contributing to the Four Peaks Observatory project - a Next.js application for automated astrophotography operations in the Phoenix area.
 
 ## Fundamental Rules
 

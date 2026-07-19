@@ -1,8 +1,8 @@
-# Astro Migration Plan for Maple Valley Observatory
+# Astro Migration Plan for Four Peaks Observatory
 
 ## Executive Summary
 
-This document outlines a comprehensive migration strategy from Next.js 15.4.5 to Astro for the Maple Valley Observatory project. The migration follows a hybrid approach prioritizing immediate performance gains while maintaining system stability and minimizing risk.
+This document outlines a comprehensive migration strategy from Next.js 15.4.5 to Astro for the Four Peaks Observatory project. The migration follows a hybrid approach prioritizing immediate performance gains while maintaining system stability and minimizing risk.
 
 ## Project Context
 
@@ -370,7 +370,7 @@ main                    # Next.js production (untouched)
    import { heroImages } from '../utils/imageImports';
    ---
    
-   <Layout title="Maple Valley Observatory">
+   <Layout title="Four Peaks Observatory">
      <Navigation />
      <Hero backgroundImage={heroImages.m42} />
      <!-- Additional content -->
@@ -920,7 +920,7 @@ npm run build
 
 ## Conclusion
 
-This comprehensive migration plan provides a structured approach to migrating the Maple Valley Observatory from Next.js to Astro while addressing immediate development issues and achieving significant performance improvements. The phased approach minimizes risk while delivering immediate value through improved development experience and enhanced performance for observatory operations.
+This comprehensive migration plan provides a structured approach to migrating the Four Peaks Observatory from Next.js to Astro while addressing immediate development issues and achieving significant performance improvements. The phased approach minimizes risk while delivering immediate value through improved development experience and enhanced performance for observatory operations.
 
 The plan prioritizes:
 1. **Immediate relief** from development environment issues

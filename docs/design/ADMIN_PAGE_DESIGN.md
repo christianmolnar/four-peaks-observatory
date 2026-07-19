@@ -1,5 +1,5 @@
 # Admin Page Design Document
-**Maple Valley Observatory - Site Management Interface**
+**Four Peaks Observatory - Site Management Interface**
 
 ## Overview
 Create a comprehensive admin interface for managing site assets, specifically image metadata and organization. This page will provide real-time editing capabilities for all image metadata stored in `metadata.json`.
@@ -23,7 +23,7 @@ Create a comprehensive admin interface for managing site assets, specifically im
 ## Page Structure
 
 ### 1. Header Section
-- **Maple Valley Observatory Logo** (same as main site)
+- **Four Peaks Observatory Logo** (same as main site)
 - **Main Title**: "MAPLE VALLEY OBSERVATORY"
 - **Subtitle**: "Site Asset Management"
 

@@ -138,7 +138,7 @@ Based on your latest inventory:
 ## File Locations
 
 ```
-/Users/christian/Repos/MapleValleyObservatory/
+/Users/christian/Repos/FourPeaksObservatory/
 ├── src/data/metadata.json              # Primary metadata
 ├── docs/youtube-contemplation-links.md # Curated content list  
 ├── contemplation-inventory.json        # Automated inventory

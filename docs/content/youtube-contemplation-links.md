@@ -202,4 +202,4 @@
 
 ---
 
-*Created for Maple Valley Observatory - Enhancing the contemplative experience of cosmic beauty*
+*Created for Four Peaks Observatory - Enhancing the contemplative experience of cosmic beauty*

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     'space resources'
   ],
   openGraph: {
-    title: 'Resources - Maple Valley Observatory',
+    title: 'Resources - Four Peaks Observatory',
     description: 'Curated resources for astronomy, astrophotography, mindfulness, and wellbeing.',
     type: 'website',
   },

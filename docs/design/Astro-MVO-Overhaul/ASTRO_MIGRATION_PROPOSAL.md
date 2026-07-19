@@ -1,5 +1,5 @@
 # Astro Web Framework Migration Proposal
-## Maple Valley Observatory
+## Four Peaks Observatory
 
 **Created**: December 19, 2024  
 **Status**: Draft  
@@ -42,7 +42,7 @@ This migration project will utilize Atlassian's integrated suite for comprehensi
 
 ## Executive Summary
 
-This document proposes migrating the Maple Valley Observatory website from Next.js 15.4.5 to Astro, a content-driven web framework optimized for static sites with server-first rendering. The migration would address current production challenges while significantly improving performance, bundle sizes, and developer experience.
+This document proposes migrating the Four Peaks Observatory website from Next.js 15.4.5 to Astro, a content-driven web framework optimized for static sites with server-first rendering. The migration would address current production challenges while significantly improving performance, bundle sizes, and developer experience.
 
 ### Quick Assessment
 - **Recommendation**: ✅ **PROCEED** with migration - Excellent fit for astrophotography portfolio
@@ -72,7 +72,7 @@ This document proposes migrating the Maple Valley Observatory website from Next.
 ## Why Astro is Perfect for This Project
 
 ### 1. Content-Driven Architecture Match
-The Maple Valley Observatory website is primarily a **content showcase** - exactly what Astro was designed for:
+The Four Peaks Observatory website is primarily a **content showcase** - exactly what Astro was designed for:
 - **Astrophotography galleries** (static image collections)
 - **Equipment documentation** (markdown-based content)
 - **Observatory information** (structured data)
@@ -404,7 +404,7 @@ The benefits significantly outweigh the costs for this content-driven website.
 
 ## Conclusion
 
-The migration to Astro represents a strategic improvement that aligns perfectly with the Maple Valley Observatory website's content-driven nature. The framework's focus on performance, content management, and static generation addresses current production challenges while providing a foundation for future growth.
+The migration to Astro represents a strategic improvement that aligns perfectly with the Four Peaks Observatory website's content-driven nature. The framework's focus on performance, content management, and static generation addresses current production challenges while providing a foundation for future growth.
 
 **Recommendation**: Proceed with migration as a planned strategic enhancement, following the phased approach outlined above.
 

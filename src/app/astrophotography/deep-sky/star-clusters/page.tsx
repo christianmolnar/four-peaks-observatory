@@ -6,7 +6,7 @@ import { generateAstrophysicsMetadata } from '@/lib/seo';
 export const metadata: Metadata = generateAstrophysicsMetadata(
   'star-clusters',
   'Star Cluster Astrophotography',
-  'Open and globular star cluster photography from Maple Valley Observatory. Featuring Messier clusters, stellar associations, and beautiful celestial groupings captured through advanced telescope imaging.',
+  'Open and globular star cluster photography from Four Peaks Observatory. Featuring Messier clusters, stellar associations, and beautiful celestial groupings captured through advanced telescope imaging.',
   '/images/astrophotography/featured/Wizard-Lr-PI.jpg'
 );
 

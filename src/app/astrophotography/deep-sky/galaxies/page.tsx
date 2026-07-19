@@ -6,7 +6,7 @@ import { generateAstrophysicsMetadata } from '@/lib/seo';
 export const metadata: Metadata = generateAstrophysicsMetadata(
   'galaxies',
   'Galaxy Astrophotography',
-  'Deep space galaxy photography from Maple Valley Observatory. Featuring spiral galaxies, elliptical galaxies, and Messier objects including M31 Andromeda, M33 Triangulum, and other distant galactic wonders.',
+  'Deep space galaxy photography from Four Peaks Observatory. Featuring spiral galaxies, elliptical galaxies, and Messier objects including M31 Andromeda, M33 Triangulum, and other distant galactic wonders.',
   '/images/astrophotography/deep-sky/galaxies/M33 - The Triangulum Galaxy.jpg'
 );
 

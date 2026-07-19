@@ -1,7 +1,7 @@
 # Clear Sky Chart Interpretation Specification v2.0
 
 ## Overview
-This document defines the complete methodology for interpreting Clear Sky Chart data for astronomical observation forecasting at Maple Valley Observatory. This specification includes both the corrected color interpretation logic and a new precise pixel-based parsing system for accurate RGB extraction from Clear Sky Chart images.
+This document defines the complete methodology for interpreting Clear Sky Chart data for astronomical observation forecasting at Four Peaks Observatory. This specification includes both the corrected color interpretation logic and a new precise pixel-based parsing system for accurate RGB extraction from Clear Sky Chart images.
 
 ## New Pixel-Based Parser Architecture
 
@@ -164,7 +164,7 @@ interface ParserValidation {
 
 ## CONFIRMED: Official Clear Sky Chart Color Interpretation
 
-Based on official documentation from https://www.cleardarksky.com/c/MplVllyObWAkey.html and standardized Clear Sky Chart specifications:
+Based on official documentation from https://www.cleardarksky.com/c/FourPksObWAkey.html and standardized Clear Sky Chart specifications:
 
 ### Core Color Interpretation Principles
 

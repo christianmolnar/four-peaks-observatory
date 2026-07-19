@@ -30,7 +30,7 @@ The system uses GPT-4 for intelligent analysis of forecast conditions.
 #### Data Structure
 ```json
 {
-  "location": "Maple Valley Observatory, WA",
+  "location": "Four Peaks Observatory, WA",
   "currentConditions": {
     "cloudCover": [4, 4, 3, 2, ...],
     "transparency": [3, 4, 4, 3, ...],

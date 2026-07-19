@@ -4,7 +4,7 @@ const exifr = require('exifr');
 const fs = require('fs');
 
 async function checkProblemImage() {
-  const imagePath = '/Users/christian/Repos/MapleValleyObservatory/public/images/astrophotography/deep-sky/nebulas/NGC2264.jpg';
+  const imagePath = '/Users/christian/Repos/FourPeaksObservatory/public/images/astrophotography/deep-sky/nebulas/NGC2264.jpg';
   
   console.log('🔍 Checking NGC2264.jpg for EXIF data...\n');
   

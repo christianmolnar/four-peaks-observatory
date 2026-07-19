@@ -14,7 +14,7 @@ EMAIL_ENABLED=true
 3. Go to Settings → Environment Variables
 4. Add each variable aboverts
 
-This feature allows the Maple Valley Observatory to send automated daily observation reports via email using Formspree.io.
+This feature allows the Four Peaks Observatory to send automated daily observation reports via email using Formspree.io.
 
 ## 🚀 Quick Setup
 

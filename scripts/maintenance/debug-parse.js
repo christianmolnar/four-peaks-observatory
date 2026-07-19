@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 // Quick debug script to check the parsing
-const CONTEMPLATION_LINKS_FILE = '/Users/christian/Repos/MapleValleyObservatory/docs/youtube-contemplation-links.md';
+const CONTEMPLATION_LINKS_FILE = '/Users/christian/Repos/FourPeaksObservatory/docs/youtube-contemplation-links.md';
 
 try {
   const content = fs.readFileSync(CONTEMPLATION_LINKS_FILE, 'utf8');

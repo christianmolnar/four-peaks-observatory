@@ -204,7 +204,7 @@ curl http://localhost:3000/api/observation-evaluate | jq
 // Test with known Clear Sky Chart images
 const testCases = [
   {
-    url: "https://www.cleardarksky.com/c/MplVllyObWAcsk.gif?c=774043",
+    url: "https://www.cleardarksky.com/c/FourPksObWAcsk.gif?c=774043",
     expectedConditions: "clear_night_with_good_seeing"
   },
   // Add multiple test scenarios

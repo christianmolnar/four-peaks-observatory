@@ -1,6 +1,6 @@
 # Development Documentation
 
-This directory contains documentation related to development processes and project organization for the Maple Valley Observatory website.
+This directory contains documentation related to development processes and project organization for the Four Peaks Observatory website.
 
 ## Files
 

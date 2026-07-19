@@ -1,6 +1,6 @@
 # Admin Page Implementation Status
 
-**Project**: Maple Valley Observatory - Site Asset Management Interface  
+**Project**: Four Peaks Observatory - Site Asset Management Interface  
 **Route**: `/admin/asset-manager` (development only)  
 **Started**: August 25, 2025
 

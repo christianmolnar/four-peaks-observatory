@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains automation scripts for maintaining the Maple Valley Observatory website.
+This directory contains automation scripts for maintaining the Four Peaks Observatory website.
 
 ## Directory Structure
 

@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
  
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://www.maplevalleyobservatory.com' // Updated with www
+  const baseUrl = 'https://www.fourpeaksobservatory.com' // Updated with www
 
   return [
     {

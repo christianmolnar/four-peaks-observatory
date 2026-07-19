@@ -34,7 +34,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/'],
       },
     ],
-    sitemap: 'https://www.maplevalleyobservatory.com/sitemap.xml',
-    host: 'https://www.maplevalleyobservatory.com',
+    sitemap: 'https://www.fourpeaksobservatory.com/sitemap.xml',
+    host: 'https://www.fourpeaksobservatory.com',
   }
 }

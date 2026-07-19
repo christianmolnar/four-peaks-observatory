@@ -19,10 +19,10 @@ We'll create a new Atlassian project called **"Observatory Astro Migration"** to
 ## Step 1: Create New Jira Project
 
 ### Project Details
-- **Project Name**: Maple Valley Observatory Astro Migration
+- **Project Name**: Four Peaks Observatory Astro Migration
 - **Project Key**: MVOAM
 - **Project Type**: Software Development (Scrum)
-- **Description**: Migration of Maple Valley Observatory website from Next.js to Astro framework
+- **Description**: Migration of Four Peaks Observatory website from Next.js to Astro framework
 
 ### Initial Setup Tasks
 1. Create project in Jira

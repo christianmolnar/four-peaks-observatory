@@ -23,10 +23,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = globalConfig.smartTelescopes.categories.find(c => c.slug === categorySlug);
   if (!scope || !category) return {};
   return {
-    title: `${scope.title} — ${category.title} | Maple Valley Observatory`,
-    description: `${category.title} astrophotography captured with the ${scope.title} from Maple Valley Observatory.`,
+    title: `${scope.title} — ${category.title} | Four Peaks Observatory`,
+    description: `${category.title} astrophotography captured with the ${scope.title} from Four Peaks Observatory.`,
     openGraph: {
-      title: `${scope.title} — ${category.title} | Maple Valley Observatory`,
+      title: `${scope.title} — ${category.title} | Four Peaks Observatory`,
       images: [{ url: scope.backgroundImage }],
     },
   };

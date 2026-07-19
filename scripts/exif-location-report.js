@@ -5,8 +5,8 @@ const path = require('path');
 const exifr = require('exifr');
 
 // Paths
-const IMAGES_BASE = '/Users/christian/Repos/MapleValleyObservatory/public/images';
-const METADATA_FILE = '/Users/christian/Repos/MapleValleyObservatory/src/data/metadata.json';
+const IMAGES_BASE = '/Users/christian/Repos/FourPeaksObservatory/public/images';
+const METADATA_FILE = '/Users/christian/Repos/FourPeaksObservatory/src/data/metadata.json';
 
 // Image folders to scan (matches the global config structure)
 const SCAN_FOLDERS = [
@@ -251,7 +251,7 @@ async function main() {
     const results = await extractEXIFLocations();
     const markdown = generateMarkdownReport(results);
     
-    const reportPath = '/Users/christian/Repos/MapleValleyObservatory/exif-gps-report.md';
+    const reportPath = '/Users/christian/Repos/FourPeaksObservatory/exif-gps-report.md';
     fs.writeFileSync(reportPath, markdown);
     
     console.log(`\n✅ Report generated: ${reportPath}`);

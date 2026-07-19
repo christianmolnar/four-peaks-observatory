@@ -18,7 +18,7 @@ All configuration is centralized in `/src/config/global.ts`. Simply modify value
 ### 1. Observatory Information (`observatory`)
 ```typescript
 // From /src/config/observatory.ts
-name: "Maple Valley Observatory"
+name: "Four Peaks Observatory"
 tagline: "Capturing Photons Since Last Century"
 location: { city, state, coordinates }
 owner: { name, email, social media }

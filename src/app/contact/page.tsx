@@ -3,12 +3,12 @@ import Image from 'next/image';
 import SiteLayout from '@/components/SiteLayout';
 
 export const metadata: Metadata = {
-  title: 'Contact | Maple Valley Observatory',
-  description: 'Get in touch with Maple Valley Observatory. Contact us for inquiries about visual astronomy and automated astrophotography.',
-  keywords: ['contact', 'astrophotography', 'astronomy', 'observatory', 'Maple Valley'],
+  title: 'Contact | Four Peaks Observatory',
+  description: 'Get in touch with Four Peaks Observatory. Contact us for inquiries about visual astronomy and automated astrophotography.',
+  keywords: ['contact', 'astrophotography', 'astronomy', 'observatory', 'Fountain Hills'],
   openGraph: {
-    title: 'Contact | Maple Valley Observatory',
-    description: 'Get in touch with Maple Valley Observatory for astrophotography and astronomy inquiries.',
+    title: 'Contact | Four Peaks Observatory',
+    description: 'Get in touch with Four Peaks Observatory for astrophotography and astronomy inquiries.',
     type: 'website',
   }
 };
@@ -144,7 +144,7 @@ export default function ContactPage() {
               <div className="text-amber-400 text-xl mb-2">🔭</div>
               <h3 className="text-base font-medium text-white mb-1">Observatory</h3>
               <p className="text-slate-200 text-xs">
-                Located in Maple Valley, Washington
+                Located in Fountain Hills, Arizona
               </p>
             </div>
             <div className="bg-white/5 backdrop-blur-md rounded-lg p-4 border border-white/20 shadow-xl">
