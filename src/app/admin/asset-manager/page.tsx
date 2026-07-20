@@ -541,7 +541,7 @@ export default function AssetManagerPage() {
   const [fileSystemData, setFileSystemData] = useState<any>(null);
   
   // Clear Sky Analysis state
-  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/FourPksObWAkey.html');
+  const [clearSkyUrl, setClearSkyUrl] = useState<string>('https://www.cleardarksky.com/c/FntnHllsAZkey.html');
   const [clearSkyAnalysis, setClearSkyAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -2758,7 +2758,7 @@ export default function AssetManagerPage() {
                           Perform Analysis
                         </button>
                         <button
-                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/FourPksObWAkey.html')}
+                          onClick={() => setClearSkyUrl('https://www.cleardarksky.com/c/FntnHllsAZkey.html')}
                           className="px-3 py-1 bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 rounded text-sm transition-colors"
                         >
                           Reset to Four Peaks

@@ -35,7 +35,7 @@ export const observatoryConfig = {
   equipmentDescription: "These photos were taken with the ultra-portable, fully integrated, smart telescope SeeStar S50. A hobby that used to be very expensive and frustrating is now accessible to anyone with the desire to learn and basic technical skills.",
   
   // Clear Sky Clock (if applicable)
-  clearSkyClockId: "6334", // Update for new location
+  clearSkyClockId: "FntnHllsAZ", // Update for new location
   
   // SEO and Metadata
   seo: {
@@ -67,7 +67,7 @@ export const phoenixConfig = {
       lng: -112.0740
     }
   },
-  clearSkyClockId: "XXXX", // Will need to find Phoenix area ID
+  clearSkyClockId: "FntnHllsAZ", // Will need to find Phoenix area ID
 };
 
 // You can easily switch by changing this export
