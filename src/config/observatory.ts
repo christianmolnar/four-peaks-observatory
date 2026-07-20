@@ -10,10 +10,10 @@ export const observatoryConfig = {
   location: {
     city: "Fountain Hills",
     state: "AZ",
-    zipCode: "98038",
+    zipCode: "85268",
     coordinates: {
-      lat: 47.3809,
-      lng: -122.0326
+      lat: 33.6115,
+      lng: -111.7190
     }
   },
   
