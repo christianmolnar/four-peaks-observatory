@@ -28,6 +28,11 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
     if (segments[0] === 'terrestrial') {
       return '/terrestrial';
     }
+
+    // For smart-telescopes paths like /smart-telescopes/zwo-seestar-s50, return /smart-telescopes
+    if (segments[0] === 'smart-telescopes') {
+      return '/smart-telescopes';
+    }
     
     return path;
   };
@@ -49,6 +54,12 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
     if (segments.length >= 2 && segments[0] === 'terrestrial') {
       return true;
     }
+
+    // For smart-telescopes, show sub-navigation on leaf pages like /smart-telescopes/zwo-seestar-s50
+    // Don't show on the category page /smart-telescopes
+    if (segments.length >= 2 && segments[0] === 'smart-telescopes') {
+      return true;
+    }
     
     return false;
   };
@@ -61,7 +72,7 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
     <>
       <Navigation />
       {shouldShowSubNav && <SubNavigation items={subNavItems} />}
-      <div className="pt-[148px]">
+      <div className={shouldShowSubNav ? 'pt-[200px]' : 'pt-[148px]'}>
         {children}
       </div>
     </>

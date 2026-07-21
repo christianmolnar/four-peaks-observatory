@@ -32,7 +32,7 @@ export default function SubNavigation({ items }: SubNavigationProps) {
   return (
     <>
       {/* DESIGN-PROTECTED: Positioning - Enhanced for mobile responsiveness */}
-      <div className="fixed top-[120px] md:top-[140px] left-0 right-0 z-30">
+      <div className="fixed top-[160px] md:top-[180px] left-0 right-0 z-30">
         <div className="max-w-5xl mx-auto px-4 md:px-6">
           <div className="py-3 md:py-4">
             {/* DESIGN-PROTECTED: Layout - Enhanced with mobile wrapping and centering */}

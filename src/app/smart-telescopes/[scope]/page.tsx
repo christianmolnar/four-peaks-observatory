@@ -54,13 +54,6 @@ export default async function ScopePage({ params }: Props) {
         <main className="relative z-10 pt-16 pb-20">
           <div className="max-w-5xl mx-auto px-6">
 
-            {/* Breadcrumb */}
-            <nav className="mb-8 text-xs text-white/50 tracking-wide">
-              <Link href="/smart-telescopes" className="hover:text-yellow-400 transition-colors">Smart Telescopes</Link>
-              <span className="mx-2">›</span>
-              <span className="text-white/80">{scope.title}</span>
-            </nav>
-
             {/* Title */}
             <div className="text-center mb-12">
               <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em] mb-4">
