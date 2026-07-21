@@ -43,12 +43,12 @@ export default function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-sm">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Logo Section */}
-        <div className="flex items-center justify-between md:justify-center pt-4 pb-2">
+        <div className="flex items-center justify-between md:justify-center py-0">
           <Link href="/" className="hover:opacity-80 transition-opacity">
             {/* Observatory Logo */}
             <div
               className="flex items-center justify-center"
-              style={{ maxWidth: '250px', width: '100%', height: 'auto' }}
+              style={{ maxWidth: '520px', width: '100%' }}
             >
               <Image
                 src={navigation.logo.src}
@@ -57,7 +57,6 @@ export default function Navigation() {
                 height={navigation.logo.height}
                 className="object-contain w-full h-auto"
                 priority
-                style={{ objectFit: 'contain' }}
               />
             </div>
           </Link>
@@ -88,12 +87,12 @@ export default function Navigation() {
         </div>
 
         {/* Centered Dividing Line - Desktop Only */}
-        <div className="hidden md:flex justify-center pb-2">
+        <div className="hidden md:flex justify-center pb-1">
           <div className="w-full max-w-[800px] h-px bg-white"></div>
         </div>
 
         {/* Desktop Navigation Links */}
-        <div className="hidden md:block pb-4">
+        <div className="hidden md:block pb-2">
           <ul className="flex items-center justify-center space-x-8">
             {navigation.items.map((item) => (
               <li key={item.href}>

@@ -81,12 +81,9 @@ export default function Home() {
           </div>
           <LatestCapturesCarousel />
           {/* Clear Sky Clock Embed */}
-          {homepage.latestCaptures.showClearSkyClock && (
-            <div className="mt-12">
-              <ClearSkyClockEmbed />
-              <ObservationModule />
-            </div>
-          )}
+          <div className="mt-12">
+            <ClearSkyClockEmbed />
+          </div>
         </div>
       </section>
     </>

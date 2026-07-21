@@ -9,21 +9,21 @@ export default function ClearSkyClockEmbed() {
         className="text-xl md:text-2xl font-light tracking-wider text-white mb-2 uppercase"
         style={{ letterSpacing: '0.08em' }}
       >
-        MAPLE VALLEY OBSERVATORY CLEAR SKY CLOCK
+        FOUNTAIN HILLS CLEAR SKY CLOCK
       </h3>
       <div className="flex justify-center pb-2">
         <div className="w-[800px] h-px bg-white"></div>
       </div>
       <div className="w-full flex justify-center px-4">
         <a
-          href="https://www.cleardarksky.com/c/FourPksObWAkey.html"
+          href="https://www.cleardarksky.com/c/FntnHllsAZkey.html"
           target="_blank"
           rel="noopener noreferrer"
           className="block max-w-full"
         >
           <Image
-            src="https://www.cleardarksky.com/c/FourPksObWAcsk.gif?c=493250"
-            alt="Four Peaks Observatory Clear Sky Clock"
+            src="https://www.cleardarksky.com/c/FntnHllsAZcsk.gif"
+            alt="Fountain Hills Clear Sky Clock"
             width={960}
             height={400}
             className="w-full max-w-4xl h-auto"

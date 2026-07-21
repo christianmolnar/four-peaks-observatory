@@ -6,10 +6,10 @@ import { observatoryConfig } from './observatory';
 // Navigation Configuration
 export const navigationConfig = {
   logo: {
-    src: '/images/logo/Logo2.avif',
+    src: '/images/logo/Logo.png',
     alt: `${observatoryConfig.name} Logo`,
-    width: 300,
-    height: 100
+    width: 1352,
+    height: 349
   },
   items: [
     { label: 'Home', href: '/' },
@@ -56,7 +56,7 @@ export const subNavigationConfig = {
 // Homepage Configuration
 export const homepageConfig = {
   hero: {
-    image: '/images/hero/NGC7000-Pelican-1.jpg',
+    image: '/images/astrophotography/deep-sky/Hubble-Palette/NGC7000 and IC5070-2.jpg',
     alt: 'NGC7000 Pelican Nebula - Four Peaks Observatory',
     title: observatoryConfig.name,
     tagline: observatoryConfig.tagline,
@@ -68,8 +68,8 @@ export const homepageConfig = {
   latestCaptures: {
     title: 'LATEST CAPTURES',
     subtitle: 'Fresh out of the oven. Careful. The plate is very hot!',
-    backgroundImage: '/images/assets/NGC2070-Finished.jpg',
-    showClearSkyClock: true
+    backgroundImage: '/images/hero/m45-hero.jpg',
+    showClearSkyClock: false
   }
 };
 
