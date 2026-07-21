@@ -147,13 +147,21 @@ export default function LatestCapturesCarousel() {
           style={{ position: 'relative', zIndex: 2, height: '100%', alignItems: 'center', justifyContent: 'center' }}
         >
           {/* Left Image - previous */}
-          <div className="hidden md:block" style={{ width: '220px', height: '320px', zIndex: 1 }}>
+          <div
+            className="hidden md:block opacity-70 overflow-hidden rounded-xl border border-white/10"
+            style={{
+              width: '220px',
+              height: '320px',
+              zIndex: 1,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05)',
+            }}
+          >
             <Image
               src={images[(current - 1 + length) % length].src}
               alt={images[(current - 1 + length) % length].alt}
               width={220}
               height={320}
-              className="object-contain w-full h-full"
+              className="object-cover w-full h-full"
               quality={95}
               draggable={false}
             />
@@ -176,15 +184,22 @@ export default function LatestCapturesCarousel() {
             onClick={openModal}
             style={{ zIndex: 2 }}
           >
-            <Image
-              src={images[current].src}
-              alt={images[current].alt}
-              width={600}
-              height={810}
-              className="object-contain w-full h-full cursor-pointer"
-              quality={98}
-              draggable={false}
-            />
+            <div
+              className="w-full h-full overflow-hidden rounded-2xl border-2 border-white/20 transition-transform duration-300 hover:scale-[1.02]"
+              style={{
+                boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08)',
+              }}
+            >
+              <Image
+                src={images[current].src}
+                alt={images[current].alt}
+                width={600}
+                height={810}
+                className="object-cover w-full h-full cursor-pointer"
+                quality={98}
+                draggable={false}
+              />
+            </div>
           </div>
           {/* Right Chevron */}
           <button
@@ -200,13 +215,21 @@ export default function LatestCapturesCarousel() {
             {'>'}
           </button>
           {/* Right Image - next */}
-          <div className="hidden md:block" style={{ width: '220px', height: '320px', zIndex: 1 }}>
+          <div
+            className="hidden md:block opacity-70 overflow-hidden rounded-xl border border-white/10"
+            style={{
+              width: '220px',
+              height: '320px',
+              zIndex: 1,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05)',
+            }}
+          >
             <Image
               src={images[(current + 1) % length].src}
               alt={images[(current + 1) % length].alt}
               width={220}
               height={320}
-              className="object-contain w-full h-full"
+              className="object-cover w-full h-full"
               quality={95}
               draggable={false}
             />

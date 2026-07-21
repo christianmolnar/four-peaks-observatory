@@ -290,7 +290,7 @@ export const smartTelescopesConfig = {
       title: 'ZWO SeeStar S50',
       equipmentMatch: 'SeeStar S50',
       href: '/smart-telescopes/zwo-seestar-s50',
-      backgroundImage: '/images/astrophotography/deep-sky/nebulas/SH2-132-The-LobsterClaw.jpg',
+      backgroundImage: '/images/equipment/smart/s50.png',
       description: 'The versatile all-rounder — powerful enough for challenging targets, light enough to take anywhere.',
       intro: 'The ZWO SeeStar S50 is the sweet spot in the smart telescope market — a 50mm f/5 all-in-one instrument that punches well above its size. With a built-in dual-band light pollution filter, automated polar alignment, and a sophisticated stacking engine, the S50 consistently delivers publication-worthy results of nebulas, galaxies, and star clusters straight from the app. Its EQ mode and WiFi Station integration make it equally at home on a backyard patio or a remote dark sky site.',
       specs: {
@@ -330,7 +330,7 @@ export const smartTelescopesConfig = {
       title: 'ZWO SeeStar S30',
       equipmentMatch: 'SeeStar S30',
       href: '/smart-telescopes/zwo-seestar-s30',
-      backgroundImage: '/images/astrophotography/deep-sky/nebulas/North America and The Pelican.jpg',
+      backgroundImage: '/images/equipment/smart/s30-pro.png',
       description: 'The ultimate travel scope — bottle-sized, featherweight, and shockingly good on wide-field targets.',
       intro: 'The ZWO SeeStar S30 Pro is the most portable serious astrophotography instrument ever made. At the size of a large Yeti bottle and weighing next to nothing, it fits in a carry-on, a day pack, or the corner of any bag. The 30mm aperture and wider field of view are ideal for large emission nebulas, sweeping star fields, and grand mosaic projects spanning degrees of sky. The same intelligent stacking engine, plan mode, and app experience as the S50 — in a package you\'ll actually have with you.',
       specs: {
@@ -372,7 +372,7 @@ export const smartTelescopesConfig = {
       title: 'Unistellar Odyssey',
       equipmentMatch: 'Unistellar',
       href: '/smart-telescopes/unistellar-odyssey',
-      backgroundImage: '/images/astrophotography/deep-sky/nebulas/Heart Nebula.jpg',
+      backgroundImage: '/images/equipment/smart/unistellar.png',
       description: 'Premium optics and AI-driven processing — a different philosophy in smart telescope design.',
       intro: 'The Unistellar Odyssey takes a different approach to smart telescoping: a faster f/2 aperture, proprietary Smart Light Pollution Rejection technology, and deep integration with the Unistellar citizen science network. Its AI-driven processing pipeline handles heavy lifting invisibly, delivering beautiful results with minimal user input. The Odyssey also participates in real scientific campaigns — variable star monitoring, asteroid occultations, and exoplanet observations — making it a telescope that contributes to actual astronomical research.',
       specs: {
