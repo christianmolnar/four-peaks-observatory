@@ -58,6 +58,8 @@ export default function LatestCapturesCarousel() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const length = images.length;
+  const touchStartX = React.useRef<number | null>(null);
+  const touchDeltaX = React.useRef(0);
 
   useEffect(() => {
     if (modalOpen || !autoScroll) return;
@@ -76,6 +78,31 @@ export default function LatestCapturesCarousel() {
 
   const prevImage = useCallback(() => {
     setCurrent((prev) => (prev - 1 + length) % length);
+  }, [length]);
+
+  // Swipe gesture handlers for mobile carousel navigation
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    const SWIPE_THRESHOLD = 50;
+    if (Math.abs(touchDeltaX.current) > SWIPE_THRESHOLD) {
+      setAutoScroll(false);
+      if (touchDeltaX.current > 0) {
+        setCurrent((prev) => (prev - 1 + length) % length);
+      } else {
+        setCurrent((prev) => (prev + 1) % length);
+      }
+    }
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
   }, [length]);
 
   // Full-screen functions
@@ -141,17 +168,18 @@ export default function LatestCapturesCarousel() {
       <div
         className="relative w-full max-w-4xl mx-auto flex items-center justify-center mt-4 md:mt-8"
         style={{ minHeight: '400px', height: '50vh', maxHeight: '600px' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           className="flex items-center justify-center w-full h-full gap-2 md:gap-4"
           style={{ position: 'relative', zIndex: 2, height: '100%', alignItems: 'center', justifyContent: 'center' }}
         >
-          {/* Left Image - previous */}
+          {/* Left Image - previous (peek on mobile, full on desktop) */}
           <div
-            className="hidden md:block opacity-70 overflow-hidden rounded-xl border border-white/10"
+            className="block opacity-50 md:opacity-70 overflow-hidden rounded-lg md:rounded-xl border border-white/10 flex-shrink-0 w-[28px] h-[200px] md:w-[220px] md:h-[320px]"
             style={{
-              width: '220px',
-              height: '320px',
               zIndex: 1,
               boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05)',
             }}
@@ -196,8 +224,9 @@ export default function LatestCapturesCarousel() {
                 width={600}
                 height={810}
                 className="object-cover w-full h-full cursor-pointer"
-                quality={98}
+                quality={90}
                 draggable={false}
+                sizes="(max-width: 768px) 300px, 600px"
               />
             </div>
           </div>
@@ -214,12 +243,10 @@ export default function LatestCapturesCarousel() {
           >
             {'>'}
           </button>
-          {/* Right Image - next */}
+          {/* Right Image - next (peek on mobile, full on desktop) */}
           <div
-            className="hidden md:block opacity-70 overflow-hidden rounded-xl border border-white/10"
+            className="block opacity-50 md:opacity-70 overflow-hidden rounded-lg md:rounded-xl border border-white/10 flex-shrink-0 w-[28px] h-[200px] md:w-[220px] md:h-[320px]"
             style={{
-              width: '220px',
-              height: '320px',
               zIndex: 1,
               boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05)',
             }}
@@ -366,11 +393,15 @@ export default function LatestCapturesCarousel() {
           )}
           {/* Image and Metadata Container */}
           <div className="flex flex-col items-center justify-center w-full h-full p-6">
-            <div className={`relative rounded-2xl overflow-hidden shadow-2xl bg-black ${
+            <div className={`relative rounded-2xl overflow-hidden shadow-2xl bg-black border-2 border-white/20 ${
               isFullScreen 
-                ? 'max-w-[100vw] max-h-[100vh]' 
+                ? 'max-w-[100vw] max-h-[100vh] border-0 rounded-none' 
                 : 'max-w-[85vw] max-h-[70vh]'
-            }`}>
+            }`}
+            style={!isFullScreen ? {
+              boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 8px 20px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.08)',
+            } : undefined}
+            >
               <Image
                 src={images[current].src}
                 alt={images[current].alt}
