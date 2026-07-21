@@ -57,9 +57,9 @@ export default function LatestCapturesCarousel() {
   const [current, setCurrent] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const length = images.length;
-  const touchStartX = React.useRef<number | null>(null);
-  const touchDeltaX = React.useRef(0);
 
   useEffect(() => {
     if (modalOpen || !autoScroll) return;
@@ -72,38 +72,26 @@ export default function LatestCapturesCarousel() {
   const openModal = () => setModalOpen(true);
   const closeModal = () => setModalOpen(false);
 
+  const goToWithSlide = useCallback((direction: 'left' | 'right', targetIndex: number) => {
+    if (isAnimating) return;
+    setAutoScroll(false);
+    setIsAnimating(true);
+    setSlideDirection(direction);
+    // Wait for slide-out animation, then swap image and slide back in
+    setTimeout(() => {
+      setCurrent(targetIndex);
+      setSlideDirection(null);
+      setIsAnimating(false);
+    }, 300);
+  }, [isAnimating]);
+
   const nextImage = useCallback(() => {
-    setCurrent((prev) => (prev + 1) % length);
-  }, [length]);
+    goToWithSlide('left', (current + 1) % length);
+  }, [current, length, goToWithSlide]);
 
   const prevImage = useCallback(() => {
-    setCurrent((prev) => (prev - 1 + length) % length);
-  }, [length]);
-
-  // Swipe gesture handlers for mobile carousel navigation
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchDeltaX.current = 0;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    const SWIPE_THRESHOLD = 50;
-    if (Math.abs(touchDeltaX.current) > SWIPE_THRESHOLD) {
-      setAutoScroll(false);
-      if (touchDeltaX.current > 0) {
-        setCurrent((prev) => (prev - 1 + length) % length);
-      } else {
-        setCurrent((prev) => (prev + 1) % length);
-      }
-    }
-    touchStartX.current = null;
-    touchDeltaX.current = 0;
-  }, [length]);
+    goToWithSlide('right', (current - 1 + length) % length);
+  }, [current, length, goToWithSlide]);
 
   // Full-screen functions
   const toggleFullScreen = useCallback(async () => {
@@ -168,9 +156,6 @@ export default function LatestCapturesCarousel() {
       <div
         className="relative w-full max-w-4xl mx-auto flex items-center justify-center mt-4 md:mt-8"
         style={{ minHeight: '400px', height: '50vh', maxHeight: '600px' }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         <div
           className="flex items-center justify-center w-full h-full gap-2 md:gap-4"
@@ -196,26 +181,29 @@ export default function LatestCapturesCarousel() {
           </div>
           {/* Left Chevron */}
           <button
-            onClick={() => {
-              setAutoScroll(false);
-              setCurrent((current - 1 + length) % length);
-            }}
+            onClick={prevImage}
             className="mx-1 md:mx-2 text-white text-2xl md:text-4xl font-bold bg-black/60 rounded-full px-2 py-1 hover:bg-yellow-400/80 transition-colors z-10 touch-manipulation"
             aria-label="Previous image"
             style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.3)', height: '40px', minHeight: '40px' }}
           >
             {'<'}
           </button>
-          {/* Center Image - current - Enhanced for mobile */}
+          {/* Center Image - current - Enhanced for mobile, with sliding transition */}
           <div 
-            className="flex-1 max-w-[300px] md:max-w-[600px] h-full flex items-center justify-center z-2 cursor-pointer" 
+            className="flex-1 max-w-[300px] md:max-w-[600px] h-full flex items-center justify-center z-2 cursor-pointer overflow-hidden" 
             onClick={openModal}
             style={{ zIndex: 2 }}
           >
             <div
-              className="w-full h-full overflow-hidden rounded-2xl border-2 border-white/20 transition-transform duration-300 hover:scale-[1.02]"
+              className="w-full h-full overflow-hidden rounded-2xl border-2 border-white/20 transition-all duration-300 ease-out hover:scale-[1.02]"
               style={{
                 boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08)',
+                transform: slideDirection === 'left'
+                  ? 'translateX(-40px)'
+                  : slideDirection === 'right'
+                  ? 'translateX(40px)'
+                  : 'translateX(0)',
+                opacity: slideDirection ? 0 : 1,
               }}
             >
               <Image
@@ -234,8 +222,7 @@ export default function LatestCapturesCarousel() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setAutoScroll(false);
-              setCurrent((current + 1) % length);
+              nextImage();
             }}
             className="mx-1 md:mx-2 text-white text-2xl md:text-4xl font-bold bg-black/60 rounded-full px-2 py-1 hover:bg-yellow-400/80 transition-colors z-10 touch-manipulation"
             aria-label="Next image"

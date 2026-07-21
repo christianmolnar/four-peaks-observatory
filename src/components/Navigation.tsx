@@ -48,7 +48,7 @@ export default function Navigation() {
             {/* Observatory Logo */}
             <div
               className="flex items-center justify-center"
-              style={{ maxWidth: '520px', width: '100%' }}
+              style={{ maxWidth: '484px', width: '100%' }}
             >
               <Image
                 src={navigation.logo.src}
