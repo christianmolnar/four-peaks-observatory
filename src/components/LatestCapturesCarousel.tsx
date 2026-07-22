@@ -57,17 +57,22 @@ export default function LatestCapturesCarousel() {
   const [current, setCurrent] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // Real two-layer slide: current image slides fully off, incoming image slides fully in.
+  // slideDirection is set immediately (defines which side the incoming image starts from).
+  // slideProgress flips to true one frame later, which is what actually triggers the CSS transition.
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [slideTarget, setSlideTarget] = useState<number | null>(null);
+  const [slideProgress, setSlideProgress] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const length = images.length;
 
   useEffect(() => {
-    if (modalOpen || !autoScroll) return;
+    if (modalOpen || !autoScroll || isAnimating) return;
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % length);
     }, 4000);
     return () => clearInterval(timer);
-  }, [length, modalOpen, autoScroll]);
+  }, [length, modalOpen, autoScroll, isAnimating]);
   
   const openModal = () => setModalOpen(true);
   const closeModal = () => setModalOpen(false);
@@ -77,12 +82,22 @@ export default function LatestCapturesCarousel() {
     setAutoScroll(false);
     setIsAnimating(true);
     setSlideDirection(direction);
-    // Wait for slide-out animation, then swap image and slide back in
+    setSlideTarget(targetIndex);
+    setSlideProgress(false);
+    // Let the browser paint the "at rest" position first, then trigger the transition on the next frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setSlideProgress(true);
+      });
+    });
+    // After the slide finishes, commit the new current image and reset animation state
     setTimeout(() => {
       setCurrent(targetIndex);
       setSlideDirection(null);
+      setSlideTarget(null);
+      setSlideProgress(false);
       setIsAnimating(false);
-    }, 300);
+    }, 400);
   }, [isAnimating]);
 
   const nextImage = useCallback(() => {
@@ -92,6 +107,32 @@ export default function LatestCapturesCarousel() {
   const prevImage = useCallback(() => {
     goToWithSlide('right', (current - 1 + length) % length);
   }, [current, length, goToWithSlide]);
+
+  // Touch swipe support - wired to the same slide animation as the chevrons
+  const touchStartX = React.useRef<number | null>(null);
+  const touchDeltaX = React.useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+
+  const handleTouchEnd = () => {
+    const delta = touchDeltaX.current;
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+    const SWIPE_THRESHOLD = 40;
+    if (delta > SWIPE_THRESHOLD) {
+      prevImage();
+    } else if (delta < -SWIPE_THRESHOLD) {
+      nextImage();
+    }
+  };
 
   // Full-screen functions
   const toggleFullScreen = useCallback(async () => {
@@ -188,34 +229,67 @@ export default function LatestCapturesCarousel() {
           >
             {'<'}
           </button>
-          {/* Center Image - current - Enhanced for mobile, with sliding transition */}
+          {/* Center Image - current - Enhanced for mobile, with true two-layer sliding transition */}
           <div 
             className="flex-1 max-w-[300px] md:max-w-[600px] h-full flex items-center justify-center z-2 cursor-pointer overflow-hidden" 
             onClick={openModal}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             style={{ zIndex: 2 }}
           >
             <div
-              className="w-full h-full overflow-hidden rounded-2xl border-2 border-white/20 transition-all duration-300 ease-out hover:scale-[1.02]"
+              className="relative w-full h-full overflow-hidden rounded-2xl border-2 border-white/20 hover:scale-[1.02] transition-transform duration-300"
               style={{
                 boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08)',
-                transform: slideDirection === 'left'
-                  ? 'translateX(-40px)'
-                  : slideDirection === 'right'
-                  ? 'translateX(40px)'
-                  : 'translateX(0)',
-                opacity: slideDirection ? 0 : 1,
               }}
             >
-              <Image
-                src={images[current].src}
-                alt={images[current].alt}
-                width={600}
-                height={810}
-                className="object-cover w-full h-full cursor-pointer"
-                quality={90}
-                draggable={false}
-                sizes="(max-width: 768px) 300px, 600px"
-              />
+              {/* Outgoing image - slides fully off in the direction of travel */}
+              <div
+                className="absolute inset-0 transition-transform duration-[400ms] ease-in-out"
+                style={{
+                  transform: slideDirection && slideProgress
+                    ? slideDirection === 'left'
+                      ? 'translateX(-100%)'
+                      : 'translateX(100%)'
+                    : 'translateX(0)',
+                }}
+              >
+                <Image
+                  src={images[current].src}
+                  alt={images[current].alt}
+                  width={600}
+                  height={810}
+                  className="object-cover w-full h-full cursor-pointer"
+                  quality={90}
+                  draggable={false}
+                  sizes="(max-width: 768px) 300px, 600px"
+                />
+              </div>
+              {/* Incoming image - starts fully offscreen, slides into place */}
+              {slideDirection && slideTarget !== null && (
+                <div
+                  className="absolute inset-0 transition-transform duration-[400ms] ease-in-out"
+                  style={{
+                    transform: slideProgress
+                      ? 'translateX(0)'
+                      : slideDirection === 'left'
+                      ? 'translateX(100%)'
+                      : 'translateX(-100%)',
+                  }}
+                >
+                  <Image
+                    src={images[slideTarget].src}
+                    alt={images[slideTarget].alt}
+                    width={600}
+                    height={810}
+                    className="object-cover w-full h-full cursor-pointer"
+                    quality={90}
+                    draggable={false}
+                    sizes="(max-width: 768px) 300px, 600px"
+                  />
+                </div>
+              )}
             </div>
           </div>
           {/* Right Chevron */}
