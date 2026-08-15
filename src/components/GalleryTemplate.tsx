@@ -722,6 +722,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
                 <video
                   src={images[currentImage].src}
                   controls
+                  autoPlay
                   className="object-contain"
                   style={{ 
                     width: '100%', 
