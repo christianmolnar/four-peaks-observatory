@@ -102,7 +102,13 @@ function getGalleryImages(imageFolder: string): ImageMetadata[] {
         if (videoMetadata) {
           // Check if this video belongs to the current folder by checking the metadata location
           // We'll use a simple path-based check since we can't use require.context for videos
-          const expectedPath = `/images/${imageFolder}/${filename}`;
+          // Large videos are served from an external CDN (Cloudflare R2) rather than
+          // bundled as static assets, since Vercel + git-tracked large binaries don't
+          // reliably support the Range requests needed for video playback in production.
+          const cdnBaseUrl = process.env.NEXT_PUBLIC_MEDIA_CDN_URL;
+          const expectedPath = cdnBaseUrl
+            ? `${cdnBaseUrl}/${encodeURIComponent(filename)}`
+            : `/images/${imageFolder}/${filename}`;
           
           // Only include videos that would logically belong in this folder
           // This is a safer approach than trying to scan video files as modules
@@ -703,10 +709,10 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
             )}
             
             <div 
-              className={`relative rounded-lg overflow-hidden shadow-2xl bg-black ${
+              className={`relative rounded-lg overflow-hidden shadow-2xl bg-black flex items-center justify-center ${
                 isFullScreen 
-                  ? 'max-w-[100vw] max-h-[100vh]' 
-                  : 'max-w-[98vw] max-h-[92vh]'
+                  ? 'w-screen h-screen' 
+                  : 'w-[98vw] h-[92vh]'
               }`}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
@@ -716,13 +722,12 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
                 <video
                   src={images[currentImage].src}
                   controls
-                  className="object-contain w-full h-full"
+                  className="object-contain"
                   style={{ 
-                    width: 'auto', 
-                    height: 'auto',
-                    maxWidth: isFullScreen ? '100vw' : '98vw',
-                    maxHeight: isFullScreen ? '100vh' : '92vh',
-                    minWidth: '300px'
+                    width: '100%', 
+                    height: '100%',
+                    maxWidth: '100%',
+                    maxHeight: '100%'
                   }}
                   preload="metadata"
                 >
@@ -740,17 +745,11 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
                       ? `${images[currentImage].name} - Photography by Four Peaks Observatory`
                       : 'Astronomy and Photography by Four Peaks Observatory'
                   }
-                  width={1400}
-                  height={1000}
-                  className="object-contain w-full h-full"
+                  fill
+                  className="object-contain"
                   priority
-                  style={{ 
-                    width: 'auto', 
-                    height: 'auto',
-                    maxWidth: isFullScreen ? '100vw' : '98vw',
-                    maxHeight: isFullScreen ? '100vh' : '92vh',
-                    minWidth: '300px'
-                  }}
+                  quality={95}
+                  sizes="100vw"
                 />
               )}
             </div>
