@@ -46,7 +46,7 @@ export default async function ScopeCategoryPage({ params }: Props) {
   return (
     <GalleryTemplate
       title={`${scope.title} — ${category.title}`}
-      backgroundImage={scope.backgroundImage}
+      backgroundImage="/images/astrophotography/deep-sky/nebulas/Heart and Soul Nebulas-4.jpg"
       imageFolder={imageFolder}
       equipmentFilter={scope.equipmentMatch}
       subcategoryFilter={category.subcategoryPrefix}
