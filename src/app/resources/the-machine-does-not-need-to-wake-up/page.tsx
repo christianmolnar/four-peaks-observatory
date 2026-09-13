@@ -79,7 +79,7 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               <p className="text-white/60 text-lg md:text-xl font-light tracking-wide">
                 Consciousness, Will, and the Real Risk of Artificial Intelligence
               </p>
-              <p className="text-white/35 text-xs italic mt-4 tracking-wide">
+              <p className="text-white/60 text-xs italic mt-4 tracking-wide">
                 &copy; {new Date().getFullYear()} Christian Molnar. All rights reserved.
               </p>
             </header>
