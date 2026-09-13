@@ -92,7 +92,7 @@
   "extensions.ignoreRecommendations": true,
   "workbench.enableExperiments": false,
   "workbench.settings.enableNaturalLanguageSearch": false,
-  "explorer.excludeGitIgnore": true,
+  "explorer.excludeGitIgnore": false,
   "explorer.fileNesting.enabled": false,
   "editor.minimap.enabled": false,
   "editor.suggest.preview": false,

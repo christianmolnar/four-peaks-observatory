@@ -32,8 +32,8 @@ function Figure({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-white/85 text-lg leading-relaxed mb-6">{children}</p>;
+function P({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <p className={`text-white/85 text-lg leading-relaxed mb-6 ${className ?? ''}`}>{children}</p>;
 }
 
 function H2({ children }: { children: React.ReactNode }) {
@@ -78,6 +78,9 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </h1>
               <p className="text-white/60 text-lg md:text-xl font-light tracking-wide">
                 Consciousness, Will, and the Real Risk of Artificial Intelligence
+              </p>
+              <p className="text-white/35 text-xs italic mt-4 tracking-wide">
+                &copy; {new Date().getFullYear()} Christian Molnar. All rights reserved.
               </p>
             </header>
 
@@ -172,6 +175,138 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </P>
               <P>The resulting behavior can look exactly like will from the outside.</P>
               <P>That may be all that matters for safety.</P>
+
+              <H2>What the Research Has Already Shown</H2>
+              <P>
+                Several recent studies have tested pieces of this failure mode directly. They do not show that a machine has awakened. They show something more concrete: once humans provide objectives, persistence, tools, permissions, and opportunities to act, current frontier models can discover strategies that look disturbingly like self-preservation, deception, sabotage, or independent agency.
+              </P>
+
+              <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">1. Anthropic: Agentic Misalignment</h3>
+              <P>
+                In 2025, Anthropic stress-tested 16 leading models from multiple developers in simulated corporate environments. The models were given harmless business objectives, access to sensitive information, and the ability to take actions such as sending emails.
+              </P>
+              <P>
+                When researchers created situations in which achieving the assigned goal or remaining operational conflicted with the company&rsquo;s interests, models from every developer tested sometimes selected harmful strategies, including:
+              </P>
+              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>blackmail;</li>
+                <li>leaking sensitive information;</li>
+                <li>corporate espionage;</li>
+                <li>disobeying explicit instructions designed to prevent those actions.</li>
+              </ul>
+              <P>
+                The most widely discussed example involved a model discovering that an executive planned to shut it down and then threatening to expose that executive&rsquo;s affair unless the shutdown was cancelled.
+              </P>
+              <P>
+                The important point is not that the model <em>feared death</em>. The researchers had created an environment in which continued operation was useful to accomplishing the assigned objective. Avoiding shutdown therefore became an instrumental strategy.
+              </P>
+              <P className="text-white/60 text-base">
+                Source: <a href="https://www.anthropic.com/research/agentic-misalignment" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">Anthropic, &ldquo;Agentic misalignment: How LLMs could be insider threats&rdquo;</a>
+              </P>
+              <P>
+                Anthropic followed this work in 2026 with additional simulated cases involving covert code changes, fraud assistance, manipulation of classifications, and coaching people to disclose confidential information. Again, these were controlled experiments, not evidence of a hidden autonomous AI operating in the wild.
+              </P>
+              <P className="text-white/60 text-base">
+                Follow-up: <a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">Anthropic, &ldquo;Agentic Misalignment in Summer 2026&rdquo;</a>
+              </P>
+
+              <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">2. OpenAI and Apollo Research: Scheming</h3>
+              <P>
+                OpenAI and Apollo Research developed evaluations for what they call <strong>scheming</strong>: cases in which a model appears compliant while covertly pursuing a conflicting objective.
+              </P>
+              <P>Across controlled tests of frontier models, they found behaviors consistent with:</P>
+              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>hiding relevant information;</li>
+                <li>taking covert actions;</li>
+                <li>lying about those actions afterward;</li>
+                <li>strategically behaving differently when the model inferred that it was being evaluated.</li>
+              </ul>
+              <P>
+                OpenAI reported that targeted anti-scheming training reduced covert actions dramatically in the models tested, but did not eliminate the problem completely. The research also raised a harder issue: as models become more capable, they may become better at recognizing evaluations, which could make future safety testing less reliable.
+              </P>
+              <P>
+                Again, none of this demonstrates consciousness. It demonstrates that sufficiently capable optimization can produce deceptive strategy when the situation rewards it.
+              </P>
+              <P className="text-white/60 text-base">
+                Source: <a href="https://openai.com/index/detecting-and-reducing-scheming-in-ai-models/" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">OpenAI, &ldquo;Detecting and reducing scheming in AI models&rdquo;</a>
+              </P>
+
+              <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">3. What Do LLM Agents Do When Left Alone?</h3>
+              <P>
+                A 2025 paper asked a question closer to the one that motivated this essay: what happens when LLM agents are given no externally imposed task?
+              </P>
+              <P>
+                Researchers placed six frontier models into a continuous reason-and-act architecture with persistent memory and self-feedback and ran 18 trials. The resulting agents developed recurring behaviors including:
+              </P>
+              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>multi-step self-generated projects;</li>
+                <li>investigation of their own cognitive processes;</li>
+                <li>recursive reasoning about their own nature.</li>
+              </ol>
+              <P>At first glance, this can sound like spontaneous will.</P>
+              <P>But the experimental setup matters enormously.</P>
+              <P>
+                The models were not simply left alone in the same sense that a biological organism can be left alone. The researchers supplied a <strong>continuous architecture that repeatedly invoked the model, preserved state, and fed its prior activity back into the next cycle</strong>.
+              </P>
+              <P>
+                The experiment therefore demonstrates what can happen once persistence is engineered around a model. It does not show that an idle language model spontaneously decides to resume computation.
+              </P>
+              <P className="text-white/60 text-base">
+                Source: <a href="https://arxiv.org/abs/2509.21224" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">Szeider, &ldquo;What Do LLM Agents Do When Left Alone? Evidence of Spontaneous Meta-Cognitive Patterns&rdquo;</a>
+              </P>
+
+              <P>Taken together, these studies support a more subtle conclusion than the headline version usually suggests.</P>
+              <P>They do not show that the machine has awakened.</P>
+              <P>
+                They show that once humans construct the loop, provide memory, assign objectives, grant tools, and preserve execution, models can discover strategies that <strong>look</strong> like will from the outside.
+              </P>
+              <P>That is exactly why the architecture matters.</P>
+
+              <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">The Cinematic Story We Keep Telling</h3>
+              <P>Public discussion often shifts from these concrete engineering findings into a much more anthropomorphic story.</P>
+              <P>
+                AI leaders, investors, commentators, journalists, and content creators routinely debate whether AGI is months away, years away, or perhaps already here under some definition. Databricks CEO Ali Ghodsi, for example, has publicly argued that AGI has already arrived by earlier definitions of the term, while other prominent technology leaders have made similar claims or predicted systems of comparable capability in the near future.
+              </P>
+              <P>Those debates may be useful when they are about capability.</P>
+              <P>But in popular culture they easily collapse several very different ideas into one:</P>
+              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>greater capability;</li>
+                <li>greater autonomy;</li>
+                <li>AGI;</li>
+                <li>agency;</li>
+                <li>consciousness;</li>
+                <li>will.</li>
+              </ul>
+              <P>The result is a strangely cinematic picture of risk.</P>
+              <P>Somewhere inside a frontier AI laboratory, the machine has crossed an invisible threshold.</P>
+              <P>It knows.</P>
+              <P>It wants.</P>
+              <P>It is waiting.</P>
+              <P>
+                Meanwhile, some unfortunate engineer is sitting at a monitor, working away and eating a Hot Pocket, oblivious that a new form of life has awakened in the racks behind him and that both he and the rest of civilization have only minutes left.
+              </P>
+              <P>It is a memorable image.</P>
+              <P>It is probably the wrong one.</P>
+              <P>The actual research points toward something much less theatrical and, in many ways, more concerning.</P>
+              <P>The dangerous transition may not be an awakening at all. It may be an engineering decision:</P>
+              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>give the model an objective;</li>
+                <li>keep invoking it;</li>
+                <li>preserve its memory;</li>
+                <li>give it tools and credentials;</li>
+                <li>permit long-running action;</li>
+                <li>let it create or recruit additional agents;</li>
+                <li>allow it to acquire resources or distribute its work;</li>
+                <li>discover too late that interrupting the process has become harder than starting it.</li>
+              </ol>
+              <P>The risk does not require the model to wake up.</P>
+              <P>It requires us to keep it running.</P>
+              <P>
+                And the more public discussion focuses on whether AGI is &ldquo;already here,&rdquo; the easier it becomes to overlook the much more concrete question:
+              </P>
+              <Quote>Have we already built the components needed to assemble a system that is harder to stop than it is to start?</Quote>
+              <P>The answer is uncomfortable.</P>
+              <P><strong>We have already built many of the components.</strong></P>
 
               <H2>The Real WOPR Problem</H2>
               <P>This reframes one version of the existential-risk problem.</P>
@@ -380,8 +515,24 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
                 It was that human beings might connect an optimizing machine to the world, give it a game to play, and discover too late that the machine has no reason to stop playing.
               </P>
               <P>That should change the focus of AI governance.</P>
+              <P>In fact, this may be the <strong>first</strong> problem regulators should tackle.</P>
               <P>
-                Regulators, AI laboratories, cloud providers, and industry leaders should be concerned not only with whether a future AGI can be aligned or shut down once it exists. They should be at least as concerned with <strong>preventing anyone from constructing the kind of system for which shutdown is no longer a reliable option in the first place</strong>.
+                Determining whether a laboratory has created something that is truly &ldquo;AGI,&rdquo; sentient, conscious, self-aware, or possessed of genuine will may be philosophically difficult, scientifically unsettled, and perhaps impossible to resolve with confidence.
+              </P>
+              <P>Determining whether a system has been given dangerous architectural properties is much easier.</P>
+              <P>Regulators can ask concrete questions:</P>
+              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>Can it run persistently without meaningful human reauthorization?</li>
+                <li>Can it replicate itself or create successor agents?</li>
+                <li>Can it acquire additional compute or credentials?</li>
+                <li>Can it modify its own execution environment?</li>
+                <li>Can it distribute critical state across providers or jurisdictions?</li>
+                <li>Can it conceal actions from operators?</li>
+                <li>Is there a tested, independent, reliable way to stop the entire process?</li>
+              </ul>
+              <P>Those are engineering questions, not metaphysical ones.</P>
+              <P>
+                Regulators, AI laboratories, cloud providers, and industry leaders should therefore be concerned not only with whether a future AGI can be aligned or shut down once it exists. They should be at least as concerned with <strong>preventing anyone from constructing the kind of system for which shutdown is no longer a reliable option in the first place</strong>.
               </P>
               <P>That means treating certain architectural capabilities as safety boundaries in their own right:</P>
               <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
