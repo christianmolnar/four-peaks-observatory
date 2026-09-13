@@ -23,7 +23,8 @@ const eslintConfig = [
       "node_modules/**/*",
       ".vercel/**/*",
       "dist/**/*",
-      "build/**/*"
+      "build/**/*",
+      "temp-files/**/*"
     ]
   },
   {

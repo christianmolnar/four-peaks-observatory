@@ -57,11 +57,10 @@ These rules are enforced by GitHub Copilot agent instructions in:
 ## Critical Agent Instructions
 
 ### Server Management Rules:
-- **NEVER start development servers automatically** (npm run dev, npm start, etc.)
-- **NEVER restart servers** without explicit user permission
-- **ALWAYS notify user when changes are complete** and let them restart the server
-- **User prefers to control server lifecycle** due to port conflicts and system management
-- When work is finished, simply state: "Changes complete. Please restart your server to see the updates."
+- **NEVER start or restart development servers automatically** (npm run dev, npm start, etc.) without the user asking
+- **DO restart/start the server when the user explicitly asks** (e.g., "restart it", "start the server", "run npm run dev") — comply directly, do not ask again or refuse
+- **When work is finished without an explicit restart request**, notify the user and let them decide: "Changes complete. Please restart your server to see the updates, or let me know if you'd like me to restart it."
+- **User prefers to control server lifecycle by default** due to port conflicts and system management, but explicit requests to start/restart override this default
 
 ### Code Complexity Rules:
 - **ALWAYS opt for simplifying and removing unnecessary complexity**

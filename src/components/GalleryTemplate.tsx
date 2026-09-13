@@ -220,7 +220,7 @@ export default function GalleryTemplate({ title, backgroundImage, imageFolder, e
     if (equipmentFilter) {
       rawImages = rawImages.filter(img => {
         const haystack = buildEquipmentString(img) || (img.equipment || '').trim();
-        return haystack === equipmentFilter || haystack.includes(equipmentFilter);
+        return haystack === equipmentFilter;
       });
     }
     if (subcategoryFilter) {

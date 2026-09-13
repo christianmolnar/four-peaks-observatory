@@ -72,7 +72,7 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
     <>
       <Navigation />
       {shouldShowSubNav && <SubNavigation items={subNavItems} />}
-      <div className={shouldShowSubNav ? 'pt-[200px]' : 'pt-[148px]'}>
+      <div className={shouldShowSubNav ? 'pt-[160px]' : 'pt-[148px]'}>
         {children}
       </div>
     </>

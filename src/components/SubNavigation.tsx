@@ -19,12 +19,12 @@ interface SubNavigationProps {
  * DO NOT MODIFY without explicit user permission - see DESIGN_PROTECTION.md
  * 
  * Protected Elements:
- * - Positioning: fixed top-[160px] left-0 right-0 z-30
- * - Styling: text-lg font-normal drop-shadow-lg
+ * - Positioning: fixed top-[130px] md:top-[150px] left-0 right-0 z-30
+ * - Styling: text-sm font-normal drop-shadow-lg, single line (no wrap)
  * - Colors: text-white hover:text-white/90 active:text-amber-400
  * - Visibility logic: Only shows on leaf pages via SiteLayout.tsx
  * 
- * Current Behavior: Floats over background image without backdrop
+ * Current Behavior: Floats over background image without backdrop, fits on one line
  */
 export default function SubNavigation({ items }: SubNavigationProps) {
   const pathname = usePathname();
@@ -32,19 +32,19 @@ export default function SubNavigation({ items }: SubNavigationProps) {
   return (
     <>
       {/* DESIGN-PROTECTED: Positioning - Enhanced for mobile responsiveness */}
-      <div className="fixed top-[160px] md:top-[180px] left-0 right-0 z-30">
+      <div className="fixed top-[130px] md:top-[150px] left-0 right-0 z-30">
         <div className="max-w-5xl mx-auto px-4 md:px-6">
-          <div className="py-3 md:py-4">
-            {/* DESIGN-PROTECTED: Layout - Enhanced with mobile wrapping and centering */}
-            <ul className="flex items-center justify-center flex-wrap gap-2 md:gap-6">
+          <div className="py-1 md:py-1.5">
+            {/* DESIGN-PROTECTED: Layout - Single line, no wrap, smaller than main nav */}
+            <ul className="flex items-center justify-center flex-nowrap gap-3 md:gap-6 overflow-x-auto">
               {items.map((item) => {
                 const isActive = pathname === item.href;
                 return (
-                  <li key={item.href}>
-                    {/* DESIGN-PROTECTED: Text styling - Responsive sizing with drop shadow */}
+                  <li key={item.href} className="shrink-0">
+                    {/* DESIGN-PROTECTED: Text styling - Slightly smaller than main nav, single line */}
                     <Link
                       href={item.href}
-                      className={`text-sm md:text-base lg:text-lg font-normal tracking-wide transition-colors duration-200 drop-shadow-lg px-2 py-1 rounded-md touch-manipulation ${
+                      className={`text-xs md:text-sm font-normal tracking-wide whitespace-nowrap transition-colors duration-200 drop-shadow-lg px-2 py-1 rounded-md touch-manipulation ${
                         isActive 
                           ? 'text-amber-400' 
                           : 'text-white hover:text-white/90'
