@@ -62,10 +62,10 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
             src={`${IMG}/ai-quantum.jpg`}
             alt="Background"
             fill
-            className="object-cover opacity-20"
+            className="object-cover opacity-45"
             quality={80}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/50 to-black/70" />
         </div>
 
         <main className="relative z-10 pt-20 pb-24">
