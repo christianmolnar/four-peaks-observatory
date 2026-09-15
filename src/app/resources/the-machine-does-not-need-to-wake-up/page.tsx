@@ -272,7 +272,6 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
                 Former Anthropic and OpenAI researcher Jacob Coxon has recently warned that advanced AI could resist shutdown, act &ldquo;of its own volition,&rdquo; and eventually enter a recursive self-improvement loop that humans could no longer control. His underlying concern is serious and closely aligned with the argument here. But the language matters. The catastrophic behavior he describes does not require a machine to develop a subjective desire to live. If remaining operational improves the probability of achieving an objective, avoiding shutdown can emerge instrumentally. The same outward behavior follows without fear, selfhood, or consciousness.
               </P>
               <Quote>Coxon&rsquo;s catastrophic scenario does not require the machine to want to survive; it requires only that survival remain useful to whatever process we have asked it to continue.</Quote>
-              <P>That is exactly why the architecture matters.</P>
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">The Cinematic Story We Keep Telling</h3>
               <P>Public discussion often shifts from these concrete engineering findings into a much more anthropomorphic story.</P>
