@@ -19,6 +19,7 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [rate, setRate] = useState(1);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const charIndexRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -38,6 +39,8 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
     };
   }, []);
 
+  const fullTextRef = useRef<string>('');
+
   const getArticleText = (): string => {
     const el = document.querySelector(targetSelector);
     if (!el) return '';
@@ -45,6 +48,34 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
     const clone = el.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('figure, figcaption').forEach((n) => n.remove());
     return clone.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  };
+
+  // Speak starting at a given character offset into the full article text.
+  // Needed because changing voice/rate mid-speech requires cancel + re-speak
+  // (the Web Speech API has no way to change these on an in-flight utterance).
+  const speakFrom = (offset: number, rateOverride?: number, voiceOverride?: SpeechSynthesisVoice) => {
+    window.speechSynthesis.cancel();
+    const text = fullTextRef.current.slice(offset);
+    if (!text) {
+      setStatus('idle');
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = rateOverride ?? rate;
+    const chosenVoice = voiceOverride ?? voices[voiceIndex];
+    if (chosenVoice) utterance.voice = chosenVoice;
+    utterance.onboundary = (e) => {
+      charIndexRef.current = offset + e.charIndex;
+    };
+    utterance.onend = () => {
+      charIndexRef.current = 0;
+      setStatus('idle');
+    };
+    utterance.onerror = () => setStatus('idle');
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+    setStatus('playing');
   };
 
   const handlePlay = () => {
@@ -56,18 +87,9 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const text = getArticleText();
-    if (!text) return;
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    if (voices[voiceIndex]) utterance.voice = voices[voiceIndex];
-    utterance.onend = () => setStatus('idle');
-    utterance.onerror = () => setStatus('idle');
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-    setStatus('playing');
+    fullTextRef.current = getArticleText();
+    charIndexRef.current = 0;
+    speakFrom(0);
   };
 
   const handlePause = () => {
@@ -77,7 +99,25 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
 
   const handleStop = () => {
     window.speechSynthesis.cancel();
+    charIndexRef.current = 0;
     setStatus('idle');
+  };
+
+  // Applying a new voice or rate mid-playback requires restarting the
+  // utterance from where we left off, since speechSynthesis can't update
+  // an in-progress utterance's voice/rate live.
+  const handleVoiceChange = (index: number) => {
+    setVoiceIndex(index);
+    if (status === 'playing' || status === 'paused') {
+      speakFrom(charIndexRef.current, undefined, voices[index]);
+    }
+  };
+
+  const handleRateChange = (newRate: number) => {
+    setRate(newRate);
+    if (status === 'playing' || status === 'paused') {
+      speakFrom(charIndexRef.current, newRate);
+    }
   };
 
   if (!supported) return null;
@@ -123,7 +163,7 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
         {voices.length > 0 && (
           <select
             value={voiceIndex}
-            onChange={(e) => setVoiceIndex(Number(e.target.value))}
+            onChange={(e) => handleVoiceChange(Number(e.target.value))}
             className="bg-black/60 border border-white/20 rounded-md text-white/80 text-xs px-2 py-1.5 max-w-[160px]"
             aria-label="Choose a voice"
           >
@@ -137,7 +177,7 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
 
         <select
           value={rate}
-          onChange={(e) => setRate(Number(e.target.value))}
+          onChange={(e) => handleRateChange(Number(e.target.value))}
           className="bg-black/60 border border-white/20 rounded-md text-white/80 text-xs px-2 py-1.5"
           aria-label="Playback speed"
         >
