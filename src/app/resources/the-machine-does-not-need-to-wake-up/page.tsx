@@ -126,7 +126,7 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </ul>
               <P>For another act of computation to occur, something outside the model must cause it.</P>
 
-              <Figure src={`${IMG}/a_model_at_rest_ai_loops_explained.png`} alt="A Model at Rest" />
+              <Figure src={`${IMG}/what_the_model_is_not_doing.png`} alt="What the Model Is NOT Doing" />
 
               <P>
                 We can disguise this fact with engineering. We can place a model inside a loop. We can give it memory. We can periodically awaken it. We can instruct it to choose its next objective. We can give it tools and tell it to keep working until some condition is satisfied.
@@ -138,7 +138,7 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </P>
               <P>Someone still started the clock.</P>
 
-              <Figure src={`${IMG}/what_the_model_is_not_doing.png`} alt="What the Model Is NOT Doing" />
+              <Figure src={`${IMG}/a_model_at_rest_ai_loops_explained.png`} alt="A Model at Rest" />
 
               <H2>The Difference Between a Computer and a Bacterium</H2>
               <P>Compare this with even the simplest living organism.</P>
