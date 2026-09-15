@@ -18,6 +18,8 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [rate, setRate] = useState(1);
+  const [readMinutes, setReadMinutes] = useState<number | null>(null);
+  const [listenMinutes, setListenMinutes] = useState<number | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const charIndexRef = useRef(0);
 
@@ -38,6 +40,22 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
       window.speechSynthesis.cancel();
     };
   }, []);
+
+  // Estimate reading and listening time once the article text is available.
+  useEffect(() => {
+    const el = document.querySelector(targetSelector);
+    if (!el) return;
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('figure, figcaption').forEach((n) => n.remove());
+    const text = clone.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const wordCount = text.length ? text.split(' ').length : 0;
+    if (!wordCount) return;
+
+    // Average adult silent reading speed (~200 wpm) and average natural
+    // speech rate (~150 wpm at 1x) are standard estimates for this kind of label.
+    setReadMinutes(Math.max(1, Math.round(wordCount / 200)));
+    setListenMinutes(Math.max(1, Math.round(wordCount / 150)));
+  }, [targetSelector]);
 
   const fullTextRef = useRef<string>('');
 
@@ -124,7 +142,14 @@ export default function ArticleReader({ targetSelector }: ArticleReaderProps) {
 
   return (
     <div className="mb-10 rounded-xl border border-white/10 bg-black/50 backdrop-blur-sm p-4 md:p-5 flex flex-wrap items-center gap-3">
-      <span className="text-yellow-400/90 text-xs uppercase tracking-[0.2em]">Listen to this article</span>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-yellow-400/90 text-xs uppercase tracking-[0.2em]">Listen to this article</span>
+        {readMinutes !== null && listenMinutes !== null && (
+          <span className="text-white/40 text-xs">
+            {readMinutes} min read &middot; {listenMinutes} min listen
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center gap-2">
         {status !== 'playing' ? (
