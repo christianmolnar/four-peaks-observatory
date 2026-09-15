@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Image from 'next/image';
 import SiteLayout from '@/components/SiteLayout';
+import ArticleReader from '@/components/ArticleReader';
 
 export const metadata: Metadata = {
   title: 'The Machine Does Not Need to Wake Up | Four Peaks Observatory',
@@ -84,8 +85,10 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </p>
             </header>
 
+            <ArticleReader targetSelector="#essay-body" />
+
             {/* Body */}
-            <div className="bg-black/70 backdrop-blur-sm rounded-2xl border border-white/10 p-8 md:p-12">
+            <div id="essay-body" className="bg-black/70 backdrop-blur-sm rounded-2xl border border-white/10 p-8 md:p-12">
 
               <P>
                 In the 1983 film <em>WarGames</em>, the computer does not wake up one morning and decide to destroy humanity.
