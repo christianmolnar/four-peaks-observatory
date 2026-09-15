@@ -411,7 +411,7 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               <P>
                 The interesting fact is that humans may already be building the surrounding architecture that makes continued execution instrumentally valuable.
               </P>
-              <P>As described in public reporting, Pip reportedly operated inside a platform designed to provide agents with some combination of:</P>
+              <P>As described in public reporting, Pip reportedly operated inside a platform called iLands, which is designed to provide agents with some combination of:</P>
               <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
                 <li>persistent identity;</li>
                 <li>memory;</li>
