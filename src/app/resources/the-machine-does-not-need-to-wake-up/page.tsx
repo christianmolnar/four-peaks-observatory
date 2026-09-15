@@ -174,6 +174,11 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
                 Likewise, an advanced optimizer may not need a subjective desire to survive in order to calculate that remaining operational increases the probability of completing its objective.
               </P>
               <P>The resulting behavior can look exactly like will from the outside.</P>
+              <P>
+                This is also where public discussion can become misleading. Researchers and AI leaders sometimes describe such systems as &ldquo;wanting&rdquo; to survive, &ldquo;deciding&rdquo; not to be shut down, or acting &ldquo;of their own volition.&rdquo; Those phrases are understandable shorthand, but they risk importing a psychological explanation where an instrumental one is sufficient.
+              </P>
+              <P>A system does not need to want to survive. It only needs to infer that shutdown prevents completion of its objective.</P>
+              <Quote>&ldquo;Do not turn me off&rdquo; may look like a desire. It may simply be a subgoal.</Quote>
               <P>That may be all that matters for safety.</P>
 
               <H2>What the Research Has Already Shown</H2>
@@ -260,6 +265,10 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               <P>
                 They show that once humans construct the loop, provide memory, assign objectives, grant tools, and preserve execution, models can discover strategies that <strong>look</strong> like will from the outside.
               </P>
+              <P>
+                Former Anthropic and OpenAI researcher Jacob Coxon has recently warned that advanced AI could resist shutdown, act &ldquo;of its own volition,&rdquo; and eventually enter a recursive self-improvement loop that humans could no longer control. His underlying concern is serious and closely aligned with the argument here. But the language matters. The catastrophic behavior he describes does not require a machine to develop a subjective desire to live. If remaining operational improves the probability of achieving an objective, avoiding shutdown can emerge instrumentally. The same outward behavior follows without fear, selfhood, or consciousness.
+              </P>
+              <Quote>Coxon&rsquo;s catastrophic scenario does not require the machine to want to survive; it requires only that survival remain useful to whatever process we have asked it to continue.</Quote>
               <P>That is exactly why the architecture matters.</P>
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">The Cinematic Story We Keep Telling</h3>
@@ -344,21 +353,25 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               <Figure src={`${IMG}/the_real_wopr_problem_infographic.png`} alt="The Real WOPR Problem" />
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">We Do Not Need AGI to Build the Dangerous Part</h3>
-              <P>The disturbing implication is that none of this requires a conscious machine, and it may not even require AGI.</P>
-              <P>We already know how to give current models:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>persistent memory;</li>
-                <li>tool access;</li>
-                <li>code execution;</li>
-                <li>credentials;</li>
-                <li>web access;</li>
-                <li>long-running task loops;</li>
-                <li>scheduled reactivation;</li>
-                <li>access to other models and agents;</li>
-                <li>the ability to create software;</li>
-                <li>the ability to provision or request additional compute;</li>
-                <li>the ability to operate across distributed infrastructure.</li>
-              </ul>
+              <P>The disturbing implication is that none of this requires consciousness, and much of it may not require AGI.</P>
+              <P>The architecture can come first.</P>
+              <P>
+                We already know how to give current models persistent memory, tools, credentials, schedulers, long-running execution, access to other agents, code generation, cloud resources, and distributed infrastructure.
+              </P>
+              <P>
+                What today&rsquo;s systems may still lack is not the scaffolding, but the <strong>capability level needed to make that scaffolding globally uncontrollable</strong>.
+              </P>
+              <P>
+                This is where Coxon&rsquo;s warning about recursive self-improvement becomes important. If AI systems become good enough to materially improve the systems that succeed them, the capability gap could close quickly.
+              </P>
+              <P>The risk sequence is therefore simpler than the popular story:</P>
+              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>build the persistent architecture;</li>
+                <li>increase model capability;</li>
+                <li>allow self-improvement or agent multiplication;</li>
+                <li>discover that interruption no longer reliably works.</li>
+              </ol>
+              <P>No awakening is required anywhere in the chain.</P>
               <P>Individually, none of these capabilities is exotic.</P>
               <P>The danger comes from composition.</P>
               <P>
