@@ -474,6 +474,9 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </P>
               <P>WOPR was not malicious.</P>
               <P>It was playing the game.</P>
+              <P>
+                Though it bears repeating that, as terrifying as it may be, there are plenty of governments and terrorist organizations that would very happily play that villain, as they used current day technology to cause unthinkable disasters like 9/11.
+              </P>
 
               <H2>Consciousness Becomes a Separate Question</H2>
               <P>Suppose such a machine eventually exists.</P>
