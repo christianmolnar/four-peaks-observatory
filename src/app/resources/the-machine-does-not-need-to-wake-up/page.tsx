@@ -381,9 +381,14 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </P>
               <P>That system might not be intelligent enough to become uncontrollable.</P>
               <P>But the architecture required to attempt it is no longer science fiction.</P>
-              <P>And that should make us <strong>more concerned, not less</strong>.</P>
+              <P>And that should make us <strong>more concerned, not less</strong>, because all you need to add to this equation is a malicious human actor that:</P>
+              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
+                <li>disables safety protocols and training;</li>
+                <li>gives the model harmful instructions;</li>
+                <li>provides it with sufficient cover until it is too late.</li>
+              </ul>
               <P>
-                If the public believes catastrophic AI risk begins only after the arrival of some future conscious superintelligence, then we will be watching the wrong milestone.
+                If the public believes catastrophic AI risk begins only after the arrival of some future conscious superintelligence, then we will be watching for the wrong milestone.
               </P>
               <P>The more relevant milestone may be much earlier:</P>
               <Quote>
