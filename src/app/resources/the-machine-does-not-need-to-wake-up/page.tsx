@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import Image from 'next/image';
 import SiteLayout from '@/components/SiteLayout';
-import ArticleReader from '@/components/ArticleReader';
+import AudioPlayer from '@/components/AudioPlayer';
 
 export const metadata: Metadata = {
   title: 'The Machine Does Not Need to Wake Up | Four Peaks Observatory',
@@ -85,7 +85,7 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
               </p>
             </header>
 
-            <ArticleReader targetSelector="#essay-body" />
+            <AudioPlayer src="/audio/the-machine-does-not-need-to-wake-up.mp3" />
 
             {/* Body */}
             <div id="essay-body" className="bg-black/70 backdrop-blur-sm rounded-2xl border border-white/10 p-8 md:p-12">
