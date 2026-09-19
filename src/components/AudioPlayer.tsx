@@ -79,7 +79,7 @@ export default function AudioPlayer({ src }: AudioPlayerProps) {
   const progressPct = duration ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="my-10 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-sm p-6 md:p-8">
+    <div className="my-6 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-sm px-6 py-3 md:px-8 md:py-4">
       <audio ref={audioRef} src={src} preload="metadata" />
 
       <div className="flex items-center gap-4 md:gap-6">
@@ -87,15 +87,15 @@ export default function AudioPlayer({ src }: AudioPlayerProps) {
         <button
           onClick={togglePlay}
           aria-label={isPlaying ? 'Pause' : 'Play'}
-          className="flex-shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-full bg-yellow-400 hover:bg-yellow-300 transition-colors flex items-center justify-center shadow-lg shadow-yellow-400/20"
+          className="flex-shrink-0 w-11 h-11 md:w-[3.25rem] md:h-[3.25rem] rounded-full bg-yellow-400 hover:bg-yellow-300 transition-colors flex items-center justify-center shadow-lg shadow-yellow-400/20"
         >
           {isPlaying ? (
-            <svg viewBox="0 0 24 24" className="w-6 h-6 md:w-7 md:h-7 fill-black">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 md:w-6 md:h-6 fill-black">
               <rect x="6" y="5" width="4" height="14" rx="1" />
               <rect x="14" y="5" width="4" height="14" rx="1" />
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" className="w-6 h-6 md:w-7 md:h-7 fill-black ml-1">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 md:w-6 md:h-6 fill-black ml-1">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
@@ -115,7 +115,7 @@ export default function AudioPlayer({ src }: AudioPlayerProps) {
               background: `linear-gradient(to right, #facc15 ${progressPct}%, rgba(255,255,255,0.15) ${progressPct}%)`,
             }}
           />
-          <div className="flex justify-between mt-2 text-white/50 text-xs tracking-wide">
+          <div className="flex justify-between mt-1 text-white/50 text-xs tracking-wide">
             <span>{formatTime(currentTime)}</span>
             <span>{formatTime(duration)}</span>
           </div>
@@ -126,28 +126,28 @@ export default function AudioPlayer({ src }: AudioPlayerProps) {
           <button
             onClick={() => skip(-15)}
             aria-label="Back 15 seconds"
-            className="w-10 h-10 rounded-full border border-white/15 text-white/70 hover:text-yellow-400 hover:border-yellow-400/50 transition-colors flex items-center justify-center text-xs font-medium"
+            className="w-9 h-9 rounded-full border border-white/15 text-white/70 hover:text-yellow-400 hover:border-yellow-400/50 transition-colors flex items-center justify-center text-xs font-medium"
           >
             15«
           </button>
           <button
             onClick={() => skip(15)}
             aria-label="Forward 15 seconds"
-            className="w-10 h-10 rounded-full border border-white/15 text-white/70 hover:text-yellow-400 hover:border-yellow-400/50 transition-colors flex items-center justify-center text-xs font-medium"
+            className="w-9 h-9 rounded-full border border-white/15 text-white/70 hover:text-yellow-400 hover:border-yellow-400/50 transition-colors flex items-center justify-center text-xs font-medium"
           >
             »15
           </button>
           <button
             onClick={cycleSpeed}
             aria-label="Playback speed"
-            className="w-12 h-10 rounded-full border border-white/15 text-white/70 hover:text-yellow-400 hover:border-yellow-400/50 transition-colors flex items-center justify-center text-xs font-medium"
+            className="w-11 h-9 rounded-full border border-white/15 text-white/70 hover:text-yellow-400 hover:border-yellow-400/50 transition-colors flex items-center justify-center text-xs font-medium"
           >
             {SPEEDS[speedIndex]}x
           </button>
         </div>
       </div>
 
-      <p className="text-white/40 text-xs italic mt-5 tracking-wide text-center">
+      <p className="text-white/40 text-xs italic mt-2 tracking-wide text-center">
         Narrated by ElevenLabs
       </p>
     </div>
