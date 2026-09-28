@@ -317,7 +317,7 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
                 Humanity does not need a cartoon villain telling an AI to &ldquo;destroy civilization.&rdquo; A powerful enough system chasing a badly specified objective could choose actions that are catastrophic for people simply because human survival was never correctly written into the constraints on its search. WOPR was not malicious. It was playing the game.
               </P>
               <P>
-                It bears repeating, as terrifying as it is, that plenty of governments and terrorist organizations would happily play that villain, the way terrorists used the technology of their day to cause unthinkable disasters like 9/11.
+                It bears repeating, as terrifying as it is, that someone would happily play that villain. On 9/11 it was a terrorist network using the technology of its day. The larger threat now is nation-state actors: government-financed agencies with almost unlimited resources and the organization and chain of command of our own CIA and NSA, masterminding attacks like these.
               </P>
 
               <H2>Consciousness Becomes a Separate Question</H2>
