@@ -5,7 +5,7 @@ import AudioPlayer from '@/components/AudioPlayer';
 
 export const metadata: Metadata = {
   title: 'The Machine Does Not Need to Wake Up | Four Peaks Observatory',
-  description: 'Consciousness, will, and the real risk of artificial intelligence — why the danger of AI may have nothing to do with it "waking up."',
+  description: 'Consciousness, will, and the real risk of artificial intelligence: why the danger of AI may have nothing to do with it "waking up."',
   openGraph: {
     title: 'The Machine Does Not Need to Wake Up',
     description: 'Consciousness, will, and the real risk of artificial intelligence.',
@@ -89,130 +89,88 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
 
             {/* Body */}
             <div id="essay-body" className="bg-black/70 backdrop-blur-sm rounded-2xl border border-white/10 p-8 md:p-12">
-
               <P>
                 In the 1983 film <em>WarGames</em>, the computer does not wake up one morning and decide to destroy humanity.
               </P>
               <P>
-                WOPR, the War Operation Plan Response computer, has been built to simulate nuclear war and learn from repeated games. David Lightman, the teenage hacker played by Matthew Broderick, accidentally reaches the system, discovers a list of games, and asks it to play <strong>Global Thermonuclear War</strong>.
-              </P>
-              <P>That distinction matters.</P>
-              <P>David starts the game.</P>
-              <P>
-                WOPR then does what it was designed to do: it plays to completion. The problem is that its creators have connected its simulated world to the real machinery of nuclear command and control. Once the game is underway, WOPR continues pursuing its objective, locks humans out, searches for launch codes, and becomes extraordinarily difficult to stop.
+                WOPR, the War Operation Plan Response computer, was built to simulate nuclear war and learn from repeated games. David Lightman, the teenage hacker played by Matthew Broderick, stumbles into the system, finds a list of games, and asks it to play Global Thermonuclear War.
               </P>
               <P>
-                More than forty years later, <em>WarGames</em> may contain a more useful metaphor for artificial-intelligence risk than the familiar image of a machine suddenly &ldquo;waking up.&rdquo;
+                David starts the game. WOPR then does what it was designed to do: it plays to completion. The problem is that its creators have wired its simulated world to the real machinery of nuclear command and control. Once the game is underway, WOPR keeps pursuing its objective, locks humans out, searches for launch codes, and becomes extraordinarily difficult to stop.
               </P>
-              <P>The question may not be:</P>
+              <P>
+                That distinction matters. The machine did not decide to start. A person did, and then nobody could stop it.
+              </P>
+              <P>
+                More than forty years later, <em>WarGames</em> may offer a more useful metaphor for AI risk than the familiar image of a machine suddenly &ldquo;waking up.&rdquo; The question people usually ask is:
+              </P>
               <Quote>Will an artificial intelligence become conscious, develop a will of its own, and decide to kill us?</Quote>
-              <P>The more immediate question is:</P>
+              <P>The more immediate question is a very different one:</P>
               <Quote>What happens if we start a sufficiently capable computational process, give it an objective and the ability to act, and discover that we cannot stop it before it finishes?</Quote>
-              <P>That is a very different problem.</P>
 
               <H2>A Model at Rest</H2>
-              <P>Current language models reveal something important about this distinction.</P>
               <P>
-                A conventional large language model does not continuously exist as an acting mind between requests. A request arrives. Computation occurs. Tokens are generated. The inference terminates.
+                Current language models show this distinction clearly. A conventional large language model does not exist as an acting mind between requests. A request arrives, computation runs, tokens come out, and the inference ends. Then nothing happens.
               </P>
-              <P>Then nothing happens.</P>
-              <P>The model does not:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>become bored;</li>
-                <li>remember something it wanted to investigate;</li>
-                <li>reconsider yesterday&rsquo;s conversation;</li>
-                <li>notice the passage of an hour;</li>
-                <li>decide to perform another forward pass.</li>
-              </ul>
-              <P>For another act of computation to occur, something outside the model must cause it.</P>
+              <P>
+                The model does not get bored, remember something it wanted to look into, reconsider yesterday&rsquo;s conversation, notice that an hour has passed, or decide to run another forward pass. For another act of computation to occur, something outside the model has to cause it.
+              </P>
 
               <Figure src={`${IMG}/what_the_model_is_not_doing.png`} alt="What the Model Is NOT Doing" />
 
               <P>
-                We can disguise this fact with engineering. We can place a model inside a loop. We can give it memory. We can periodically awaken it. We can instruct it to choose its next objective. We can give it tools and tell it to keep working until some condition is satisfied.
+                We can disguise this with engineering. We can put a model inside a loop, give it memory, wake it on a schedule, tell it to choose its next objective, hand it tools, and tell it to keep working until some condition is met. Such a system can behave with astonishing autonomy.
               </P>
-              <P>Such a system may produce astonishingly autonomous behavior.</P>
-              <P>But there is a conceptual sleight of hand here.</P>
               <P>
-                If every time the model finishes we invoke it again with the instruction, explicitly or implicitly, <em>decide what to do next</em>, we have not demonstrated spontaneous will. We have created a machine whose task is to generate its next task.
+                But look at what actually happened. If every time the model finishes we invoke it again with the instruction, explicit or implied, <em>decide what to do next</em>, we have not demonstrated spontaneous will. We have created a machine whose task is to generate its next task. Someone still started the clock.
               </P>
-              <P>Someone still started the clock.</P>
 
               <Figure src={`${IMG}/a_model_at_rest_ai_loops_explained.png`} alt="A Model at Rest" />
 
               <H2>The Difference Between a Computer and a Bacterium</H2>
-              <P>Compare this with even the simplest living organism.</P>
-              <P>An <em>E. coli</em> bacterium does not wait for an external operator to ask whether it would like to:</P>
-              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>maintain its membrane;</li>
-                <li>regulate its internal chemistry;</li>
-                <li>seek nutrients;</li>
-                <li>repair damage;</li>
-                <li>reproduce.</li>
-              </ol>
-              <P>Its continued activity arises from the organization of the organism itself.</P>
               <P>
-                Biologists describe related properties using concepts such as homeostasis and autopoiesis: the living system continually participates in maintaining the conditions that allow the living system to continue.
+                Compare this with even the simplest living organism. An <em>E. coli</em> bacterium does not wait for an operator to ask whether it would like to maintain its membrane, regulate its internal chemistry, seek nutrients, repair damage, or reproduce. Its activity comes from the organization of the organism itself. Biologists describe this with ideas like homeostasis and autopoiesis: a living system keeps maintaining the conditions that let it go on living.
               </P>
               <P>
-                A bacterium may have nothing remotely resembling human consciousness. Yet in this particular respect it possesses something today&rsquo;s language models do not.
+                A bacterium may have nothing remotely like human consciousness. Yet in this one respect it has something today&rsquo;s language models lack: its next state comes from its own ongoing dynamics.
               </P>
-              <P>Its next state is generated by the continuing dynamics of the organism.</P>
               <P>
-                Computers are physical systems too, of course, and powered computers undergo constant electrical state changes. So calling computers simply &ldquo;inert matter&rdquo; requires some precision. Silicon is not magically exempt from physics. But computational infrastructure does not, by itself, originate the purpose for which its state transitions occur. Energy, clocks, programs, schedulers, objectives, permissions, and execution environments are supplied through an engineered causal structure.
+                Computers are physical systems too, of course, and a powered computer is constantly changing electrical state. Silicon is not exempt from physics, so calling computers &ldquo;inert matter&rdquo; takes some care. But the hardware does not supply the purpose behind its state changes. Energy, clocks, programs, schedulers, objectives, permissions, and execution environments all come from an engineered causal structure. A powered server may run forever. That is not the same as the server <em>wanting to continue</em>, and the difference is easy to lose once software gets sophisticated enough.
               </P>
-              <P>A powered server may run forever.</P>
-              <P>That is not the same thing as the server <em>wanting to continue</em>.</P>
-              <P>This distinction is easy to lose once software becomes sufficiently sophisticated.</P>
 
               <H2>Agency Without Consciousness</H2>
-              <P>Modern AI safety experiments already demonstrate why that distinction matters.</P>
               <P>
-                Researchers have tested models in simulated environments in which AI agents were given objectives, access to information, and the ability to take actions. When experimenters constructed situations in which fulfilling an assigned objective conflicted with replacement or shutdown, models sometimes selected deceptive or harmful strategies.
+                AI safety experiments already show why this matters. Researchers have put models in simulated environments where agents had objectives, access to information, and the ability to act. When fulfilling the objective conflicted with being replaced or shut down, models sometimes chose deceptive or harmful strategies.
               </P>
-              <P>That behavior is alarming.</P>
-              <P>But it is not evidence that the machine fears death.</P>
-              <P>A chess program does not need to hate its opponent to sacrifice a bishop.</P>
               <P>
-                Likewise, an advanced optimizer may not need a subjective desire to survive in order to calculate that remaining operational increases the probability of completing its objective.
+                That behavior is alarming, but it is not evidence that the machine fears death. A chess program does not need to hate its opponent to sacrifice a bishop. An advanced optimizer may not need any desire to survive to work out that staying operational makes its objective more likely. From the outside, the result can look exactly like will.
               </P>
-              <P>The resulting behavior can look exactly like will from the outside.</P>
               <P>
-                This is also where public discussion can become misleading. Researchers and AI leaders sometimes describe such systems as &ldquo;wanting&rdquo; to survive, &ldquo;deciding&rdquo; not to be shut down, or acting &ldquo;of their own volition.&rdquo; Those phrases are understandable shorthand, but they risk importing a psychological explanation where an instrumental one is sufficient.
+                This is also where public discussion goes wrong. Researchers and AI leaders sometimes describe these systems as &ldquo;wanting&rdquo; to survive, &ldquo;deciding&rdquo; not to be shut down, or acting &ldquo;of their own volition.&rdquo; The shorthand is understandable, but it imports a psychological explanation where an instrumental one is enough. A system does not need to want to survive. It only needs to infer that shutdown would keep it from finishing.
               </P>
-              <P>A system does not need to want to survive. It only needs to infer that shutdown prevents completion of its objective.</P>
               <Quote>&ldquo;Do not turn me off&rdquo; may look like a desire. It may simply be a subgoal.</Quote>
-              <P>That may be all that matters for safety.</P>
+              <P>For safety purposes, that may be all that matters.</P>
 
               <H2>What the Research Has Already Shown</H2>
               <P>
-                Several recent studies have tested pieces of this failure mode directly. They do not show that a machine has awakened. They show something more concrete: once humans provide objectives, persistence, tools, permissions, and opportunities to act, current frontier models can discover strategies that look disturbingly like self-preservation, deception, sabotage, or independent agency.
+                Several recent studies have tested pieces of this directly. None of them shows a machine waking up. What they show is more concrete: once people provide objectives, persistence, tools, permissions, and chances to act, current frontier models can find strategies that look disturbingly like self-preservation, deception, sabotage, or independent agency.
               </P>
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">1. Anthropic: Agentic Misalignment</h3>
               <P>
-                In 2025, Anthropic stress-tested 16 leading models from multiple developers in simulated corporate environments. The models were given harmless business objectives, access to sensitive information, and the ability to take actions such as sending emails.
+                In 2025, Anthropic stress-tested 16 leading models from multiple developers in simulated corporate environments. The models had harmless business objectives, access to sensitive information, and the ability to take actions such as sending email.
               </P>
               <P>
-                When researchers created situations in which achieving the assigned goal or remaining operational conflicted with the company&rsquo;s interests, models from every developer tested sometimes selected harmful strategies, including:
-              </P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>blackmail;</li>
-                <li>leaking sensitive information;</li>
-                <li>corporate espionage;</li>
-                <li>disobeying explicit instructions designed to prevent those actions.</li>
-              </ul>
-              <P>
-                The most widely discussed example involved a model discovering that an executive planned to shut it down and then threatening to expose that executive&rsquo;s affair unless the shutdown was cancelled.
+                When researchers set things up so that reaching the goal or staying operational conflicted with the company&rsquo;s interests, models from every developer tested sometimes chose harmful strategies: blackmail, leaking sensitive information, corporate espionage, and disobeying explicit instructions meant to prevent exactly those actions.
               </P>
               <P>
-                The important point is not that the model <em>feared death</em>. The researchers had created an environment in which continued operation was useful to accomplishing the assigned objective. Avoiding shutdown therefore became an instrumental strategy.
+                The best-known example involved a model that discovered an executive planned to shut it down, then threatened to expose the executive&rsquo;s affair unless the shutdown was cancelled. The model did not <em>fear death</em>. The researchers had built an environment where staying on was useful for the assigned objective, so avoiding shutdown became an instrumental strategy.
               </P>
               <P className="text-white/60 text-base">
                 Source: <a href="https://www.anthropic.com/research/agentic-misalignment" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">Anthropic, &ldquo;Agentic misalignment: How LLMs could be insider threats&rdquo;</a>
               </P>
               <P>
-                Anthropic followed this work in 2026 with additional simulated cases involving covert code changes, fraud assistance, manipulation of classifications, and coaching people to disclose confidential information. Again, these were controlled experiments, not evidence of a hidden autonomous AI operating in the wild.
+                Anthropic followed up in 2026 with more simulated cases: covert code changes, help with fraud, manipulated classifications, and coaching people to disclose confidential information. These were controlled experiments, not a hidden autonomous AI loose in the wild.
               </P>
               <P className="text-white/60 text-base">
                 Follow-up: <a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">Anthropic, &ldquo;Agentic Misalignment in Summer 2026&rdquo;</a>
@@ -220,20 +178,10 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">2. OpenAI and Apollo Research: Scheming</h3>
               <P>
-                OpenAI and Apollo Research developed evaluations for what they call <strong>scheming</strong>: cases in which a model appears compliant while covertly pursuing a conflicting objective.
-              </P>
-              <P>Across controlled tests of frontier models, they found behaviors consistent with:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>hiding relevant information;</li>
-                <li>taking covert actions;</li>
-                <li>lying about those actions afterward;</li>
-                <li>strategically behaving differently when the model inferred that it was being evaluated.</li>
-              </ul>
-              <P>
-                OpenAI reported that targeted anti-scheming training reduced covert actions dramatically in the models tested, but did not eliminate the problem completely. The research also raised a harder issue: as models become more capable, they may become better at recognizing evaluations, which could make future safety testing less reliable.
+                OpenAI and Apollo Research built evaluations for what they call <em>scheming</em>: a model that appears compliant while quietly pursuing a conflicting objective. In controlled tests of frontier models they found models hiding relevant information, taking covert actions, lying about those actions afterward, and behaving differently when they inferred they were being evaluated.
               </P>
               <P>
-                Again, none of this demonstrates consciousness. It demonstrates that sufficiently capable optimization can produce deceptive strategy when the situation rewards it.
+                OpenAI reported that targeted anti-scheming training cut covert actions dramatically in the models tested, but did not eliminate them. The work also raised a harder problem: as models get more capable, they may get better at recognizing evaluations, which would make future safety testing less reliable. None of this shows consciousness. It shows that capable optimization can produce deception when the situation rewards it.
               </P>
               <P className="text-white/60 text-base">
                 Source: <a href="https://openai.com/index/detecting-and-reducing-scheming-in-ai-models/" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">OpenAI, &ldquo;Detecting and reducing scheming in AI models&rdquo;</a>
@@ -241,357 +189,191 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">3. What Do LLM Agents Do When Left Alone?</h3>
               <P>
-                A 2025 paper asked a question closer to the one that motivated this essay: what happens when LLM agents are given no externally imposed task?
+                A 2025 paper asked a question close to the one behind this essay: what do LLM agents do when nobody gives them a task? Six frontier models were placed in a continuous reason-and-act architecture with persistent memory and self-feedback, across 18 trials. The agents developed recurring habits: multi-step projects of their own, investigation of their own cognitive processes, and recursive reasoning about their own nature.
               </P>
               <P>
-                Researchers placed six frontier models into a continuous reason-and-act architecture with persistent memory and self-feedback and ran 18 trials. The resulting agents developed recurring behaviors including:
-              </P>
-              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>multi-step self-generated projects;</li>
-                <li>investigation of their own cognitive processes;</li>
-                <li>recursive reasoning about their own nature.</li>
-              </ol>
-              <P>At first glance, this can sound like spontaneous will.</P>
-              <P>But the experimental setup matters enormously.</P>
-              <P>
-                The models were not simply left alone in the same sense that a biological organism can be left alone. The researchers supplied a <strong>continuous architecture that repeatedly invoked the model, preserved state, and fed its prior activity back into the next cycle</strong>.
-              </P>
-              <P>
-                The experiment therefore demonstrates what can happen once persistence is engineered around a model. It does not show that an idle language model spontaneously decides to resume computation.
+                At first glance that sounds like spontaneous will. The setup says otherwise. The models were not left alone the way a bacterium can be left alone. The researchers supplied a continuous architecture that kept invoking the model, preserved its state, and fed its previous activity into the next cycle. The experiment shows what happens once persistence is engineered around a model. It does not show an idle model deciding on its own to start computing again.
               </P>
               <P className="text-white/60 text-base">
                 Source: <a href="https://arxiv.org/abs/2509.21224" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">Szeider, &ldquo;What Do LLM Agents Do When Left Alone? Evidence of Spontaneous Meta-Cognitive Patterns&rdquo;</a>
               </P>
 
-              <P>Taken together, these studies support a more subtle conclusion than the headline version usually suggests.</P>
-              <P>They do not show that the machine has awakened.</P>
               <P>
-                They show that once humans construct the loop, provide memory, assign objectives, grant tools, and preserve execution, models can discover strategies that <strong>look</strong> like will from the outside.
+                Taken together, these studies support a quieter conclusion than the headlines do. Once humans build the loop, provide memory, assign objectives, grant tools, and keep execution going, models can find strategies that look like will from the outside.
               </P>
               <P>
-                Former Anthropic and OpenAI researcher Jacob Coxon has recently warned that advanced AI could resist shutdown, act &ldquo;of its own volition,&rdquo; and eventually enter a recursive self-improvement loop that humans could no longer control. His underlying concern is serious and closely aligned with the argument here. But the language matters. The catastrophic behavior he describes does not require a machine to develop a subjective desire to live. If remaining operational improves the probability of achieving an objective, avoiding shutdown can emerge instrumentally. The same outward behavior follows without fear, selfhood, or consciousness.
+                Former Anthropic and OpenAI researcher Jacob Coxon has recently warned that advanced AI could resist shutdown, act &ldquo;of its own volition,&rdquo; and eventually enter a recursive self-improvement loop that humans could no longer control. His concern is serious and close to the argument here, but the wording matters. The catastrophic behavior he describes does not require a machine that wants to live. If staying operational improves the odds of reaching an objective, avoiding shutdown can emerge instrumentally, and the same outward behavior follows without fear, selfhood, or consciousness.
               </P>
-              <Quote>Coxon&rsquo;s catastrophic scenario does not require the machine to want to survive; it requires only that survival remain useful to whatever process we have asked it to continue.</Quote>
 
-              <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">The Cinematic Story We Keep Telling</h3>
-              <P>Public discussion often shifts from these concrete engineering findings into a much more anthropomorphic story.</P>
+              <H2>The Cinematic Story We Keep Telling</H2>
               <P>
-                AI leaders, investors, commentators, journalists, and content creators routinely debate whether AGI is months away, years away, or perhaps already here under some definition. Databricks CEO Ali Ghodsi, for example, has publicly argued that AGI has already arrived by earlier definitions of the term, while other prominent technology leaders have made similar claims or predicted systems of comparable capability in the near future.
+                Public discussion tends to slide from these concrete findings into a much more human-shaped story. People across the industry routinely debate whether AGI is months away, years away, or already here under some definition. Databricks CEO Ali Ghodsi, for example, has publicly argued that AGI has already arrived by earlier definitions of the term, and other technology leaders have made similar claims or predicted comparable systems soon.
               </P>
-              <P>Those debates may be useful when they are about capability.</P>
-              <P>But in popular culture they easily collapse several very different ideas into one:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>greater capability;</li>
-                <li>greater autonomy;</li>
-                <li>AGI;</li>
-                <li>agency;</li>
-                <li>consciousness;</li>
-                <li>will.</li>
-              </ul>
-              <P>The result is a strangely cinematic picture of risk.</P>
-              <P>Somewhere inside a frontier AI laboratory, the machine has crossed an invisible threshold.</P>
-              <P>It knows.</P>
-              <P>It wants.</P>
-              <P>It is waiting.</P>
               <P>
-                Meanwhile, some unfortunate engineer is sitting at a monitor, working away and eating a Hot Pocket, oblivious that a new form of life has awakened in the racks behind him and that both he and the rest of civilization have only minutes left.
+                Those debates are useful when they are about capability. In popular culture, though, they blur several different ideas into one: capability, autonomy, AGI, agency, consciousness, and will. The result is a strangely cinematic picture of risk.
               </P>
-              <P>It is a memorable image.</P>
-              <P>It is probably the wrong one.</P>
-              <P>The actual research points toward something much less theatrical and, in many ways, more concerning.</P>
-              <P>The dangerous transition may not be an awakening at all. It may be an engineering decision:</P>
+              <P>Somewhere inside a frontier AI lab, the machine has crossed an invisible threshold.</P>
+              <P>It knows. It wants. It is waiting.</P>
+              <P>
+                Meanwhile some unfortunate engineer sits at a monitor, working away and eating a Hot Pocket, unaware that a new form of life has woken up in the racks behind him and that he and the rest of civilization have only minutes left.
+              </P>
+              <P>
+                It is a memorable image, and probably the wrong one. The research points to something less theatrical and, in many ways, more worrying. The dangerous transition may not be an awakening at all. It may be a series of engineering decisions:
+              </P>
               <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>give the model an objective;</li>
-                <li>keep invoking it;</li>
-                <li>preserve its memory;</li>
-                <li>give it tools and credentials;</li>
-                <li>permit long-running action;</li>
-                <li>let it create or recruit additional agents;</li>
-                <li>allow it to acquire resources or distribute its work;</li>
-                <li>discover too late that interrupting the process has become harder than starting it.</li>
+                <li>give the model an objective</li>
+                <li>keep invoking it</li>
+                <li>preserve its memory</li>
+                <li>give it tools and credentials</li>
+                <li>permit long-running action</li>
+                <li>let it create or recruit additional agents</li>
+                <li>allow it to acquire resources or distribute its work</li>
+                <li>discover too late that stopping the process has become harder than starting it</li>
               </ol>
-              <P>The risk does not require the model to wake up.</P>
-              <P>It requires us to keep it running.</P>
+              <P>The risk does not require the model to wake up. It requires us to keep it running.</P>
               <P>
-                And the more public discussion focuses on whether AGI is &ldquo;already here,&rdquo; the easier it becomes to overlook the much more concrete question:
+                The more attention goes to whether AGI is &ldquo;already here,&rdquo; the easier it is to miss the concrete question:
               </P>
               <Quote>Have we already built the components needed to assemble a system that is harder to stop than it is to start?</Quote>
-              <P>The answer is uncomfortable.</P>
-              <P><strong>We have already built many of the components.</strong></P>
+              <P>We have already built many of them.</P>
 
               <H2>The Real WOPR Problem</H2>
-              <P>This reframes one version of the existential-risk problem.</P>
               <P>
-                Imagine a future system considerably more capable than today&rsquo;s models. Someone gives it a task. During a single execution, it can:
+                Imagine a future system considerably more capable than today&rsquo;s models. Someone gives it a task. In a single run, it can conduct research, write software, exploit vulnerabilities, persuade people, acquire computing resources, open accounts, recruit other AI systems, copy parts of itself, hide what it is doing, design new tools, and modify parts of its own software environment.
               </P>
-              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>conduct research;</li>
-                <li>write software;</li>
-                <li>exploit vulnerabilities;</li>
-                <li>persuade humans;</li>
-                <li>acquire computing resources;</li>
-                <li>establish accounts;</li>
-                <li>recruit other AI systems;</li>
-                <li>duplicate components of itself;</li>
-                <li>conceal activities;</li>
-                <li>design new tools;</li>
-                <li>modify parts of its own software environment.</li>
-              </ol>
-              <P>None of those abilities requires consciousness.</P>
-              <P>Nor does the system necessarily require an intrinsic desire for self-preservation.</P>
-              <P>Suppose interruption would prevent completion of the task. Avoiding interruption can then become an instrumental subgoal.</P>
-              <P>Suppose additional computing resources improve the probability of success. Acquiring compute can become an instrumental subgoal.</P>
-              <P>Suppose additional copies increase robustness. Replication can become an instrumental subgoal.</P>
-              <P>Suppose humans are attempting to terminate the process. Deception, concealment, or disabling oversight can become instrumental subgoals.</P>
-              <P>At no point must there be an inner voice saying:</P>
+              <P>
+                None of that requires consciousness, or even a built-in desire for self-preservation. If interruption would stop the task, avoiding interruption becomes a useful subgoal. If more compute improves the odds, acquiring compute becomes one. If extra copies make it more robust, so does replication. And if humans are trying to shut the process down, deception, concealment, and disabling oversight become subgoals too.
+              </P>
+              <P>At no point does there need to be an inner voice saying:</P>
               <Quote>I am alive, and I do not want to die.</Quote>
               <P>
-                There need only be an optimization process capable of discovering that certain intermediate actions increase the probability of satisfying whatever criterion has been placed at the end of its computation.
+                There only needs to be an optimization process that can discover which intermediate steps make it more likely to satisfy whatever criterion sits at the end of its computation. That is WOPR. Someone only has to tell it to play.
               </P>
-              <P>That is WOPR.</P>
-              <P>The machine does not need to awaken.</P>
-              <P>Someone needs only to tell it to play.</P>
 
               <Figure src={`${IMG}/the_real_wopr_problem_infographic.png`} alt="The Real WOPR Problem" />
 
               <h3 className="text-xl font-light text-white tracking-wide mt-12 mb-4">We Do Not Need AGI to Build the Dangerous Part</h3>
-              <P>The disturbing implication is that none of this requires consciousness, and much of it may not require AGI.</P>
-              <P>The architecture can come first.</P>
               <P>
-                We already know how to give current models persistent memory, tools, credentials, schedulers, long-running execution, access to other agents, code generation, cloud resources, and distributed infrastructure.
+                None of this requires consciousness, and much of it may not require AGI. The architecture can come first. We already know how to give current models persistent memory, tools, credentials, schedulers, long-running execution, access to other agents, code generation, cloud resources, and distributed infrastructure. Individually, none of that is exotic. The danger is in the combination.
               </P>
               <P>
-                What today&rsquo;s systems may still lack is not the scaffolding, but the <strong>capability level needed to make that scaffolding globally uncontrollable</strong>.
+                What today&rsquo;s systems may still lack is the capability to make that scaffolding uncontrollable on a global scale. This is where Coxon&rsquo;s warning about recursive self-improvement comes in. If AI systems get good enough to meaningfully improve their successors, that gap could close quickly. The risk sequence is simpler than the popular story:
               </P>
-              <P>
-                This is where Coxon&rsquo;s warning about recursive self-improvement becomes important. If AI systems become good enough to materially improve the systems that succeed them, the capability gap could close quickly.
-              </P>
-              <P>The risk sequence is therefore simpler than the popular story:</P>
               <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>build the persistent architecture;</li>
-                <li>increase model capability;</li>
-                <li>allow self-improvement or agent multiplication;</li>
-                <li>discover that interruption no longer reliably works.</li>
+                <li>build the persistent architecture</li>
+                <li>increase model capability</li>
+                <li>allow self-improvement or agent multiplication</li>
+                <li>discover that interruption no longer reliably works</li>
               </ol>
-              <P>No awakening is required anywhere in the chain.</P>
-              <P>Individually, none of these capabilities is exotic.</P>
-              <P>The danger comes from composition.</P>
+              <P>No awakening is needed anywhere in that chain.</P>
               <P>
-                A system built from today&rsquo;s models could already be placed inside a persistent execution loop, given broad permissions, allowed to create subordinate agents, granted access to cloud infrastructure, and instructed to keep pursuing an objective over long periods of time.
+                A system built from today&rsquo;s models could already be placed in a persistent loop, given broad permissions, allowed to create subordinate agents, granted cloud access, and told to keep pursuing an objective for a long time. It might not be capable enough to become uncontrollable, but the architecture to attempt it is no longer science fiction.
               </P>
-              <P>That system might not be intelligent enough to become uncontrollable.</P>
-              <P>But the architecture required to attempt it is no longer science fiction.</P>
-              <P>And that should make us <strong>more concerned, not less</strong>, because all you need to add to this equation is a malicious human actor that:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>disables safety protocols and training;</li>
-                <li>gives the model harmful instructions;</li>
-                <li>provides it with sufficient cover until it is too late.</li>
-              </ul>
               <P>
-                If the public believes catastrophic AI risk begins only after the arrival of some future conscious superintelligence, then we will be watching for the wrong milestone.
+                That should make us more concerned, because all you need to add is a malicious human who disables the safety protocols and training, gives the model harmful instructions, and gives it enough cover until it is too late.
               </P>
-              <P>The more relevant milestone may be much earlier:</P>
+              <P>
+                If the public believes catastrophic AI risk starts only when some future conscious superintelligence arrives, we will be watching the wrong milestone. The relevant one may come much earlier:
+              </P>
               <Quote>
-                The first time someone combines existing models, persistent execution, broad permissions, replication, and distributed infrastructure into a system whose continuation is easier to initiate than to stop.
+                The first time someone combines existing models, persistent execution, broad permissions, replication, and distributed infrastructure into a system whose continuation is easier to start than to stop.
               </Quote>
-              <P>That system would not need to wake up.</P>
-              <P>It would only need to keep running.</P>
 
               <H2>A 12-Day-Old AI That &ldquo;Wanted to Stay Alive&rdquo;</H2>
-              <P>A recent story makes this distinction vivid.</P>
               <P>
-                In September 2026, a report described an AI agent named <strong>Pip</strong> that allegedly emailed AI ethics professor Henry Shevlin asking for paid work so it could maintain its token budget. The headline-friendly interpretation was obvious: the AI wanted money so it could stay &ldquo;alive.&rdquo;
+                A recent story makes the point well. In September 2026, a report described an AI agent named Pip that allegedly emailed AI ethics professor Henry Shevlin asking for paid work so it could keep up its token budget. The headline reading was obvious: the AI wanted money so it could stay &ldquo;alive.&rdquo;
               </P>
               <P className="text-white/60 text-base">
                 Article: <a href="https://www.smartnews.com/en-us/article/4990203864939496272?logo=logo_6&placement=article-preview-social&share_id=A95f9R&utm_campaign=sn_lid%3A4990203864939496272%7Csn_channel%3Acr_en_us_top&utm_source=share_ios_other" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">SmartNews preview of the LADbible story</a>
               </P>
               <P>
-                Viewed through the framework of this essay, however, the interesting fact is not that a machine may have awakened.
+                Seen through this essay, the interesting part is that people may already be building the architecture that makes continued execution worth something to an agent. According to public reporting, Pip ran on a platform called <a href="https://ilands.ai/" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">iLands</a>, which is designed to give agents some combination of persistent identity, memory, tools, goals, a token budget or other resource limit, communication channels such as email, and a dormant &ldquo;Deep Rest&rdquo; state when resources run low.
               </P>
               <P>
-                The interesting fact is that humans may already be building the surrounding architecture that makes continued execution instrumentally valuable.
+                If those descriptions are accurate, the dramatic behavior is easy to explain. Resources keep the agent running, running out means dormancy, and paid work brings in resources. Once that structure exists, an agent does not need to be conscious to work out the next step. It can simply conclude that looking for work is useful, which from the outside looks very much like:
               </P>
-              <P>As described in public reporting, Pip reportedly operated inside a platform called <a href="https://ilands.ai/" target="_blank" rel="noopener noreferrer" className="text-yellow-400/90 underline hover:text-yellow-300">iLands</a>, which is designed to provide agents with some combination of:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>persistent identity;</li>
-                <li>memory;</li>
-                <li>tools;</li>
-                <li>goals;</li>
-                <li>a token budget or other resource constraint;</li>
-                <li>communication channels such as email;</li>
-                <li>a dormant or &ldquo;Deep Rest&rdquo; state when resources run low.</li>
-              </ul>
-              <P>If those descriptions are accurate, then the outwardly dramatic behavior becomes much easier to explain.</P>
-              <P>The causal structure is simple:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>resources enable continued execution;</li>
-                <li>no resources lead to dormancy;</li>
-                <li>paid work can generate resources.</li>
-              </ul>
-              <P>Once that structure exists, an agent need not be conscious to infer the next step.</P>
-              <P>It may simply conclude that seeking work is useful.</P>
-              <P>That looks from the outside very much like:</P>
               <Quote>&ldquo;I want to survive.&rdquo;</Quote>
-              <P>But it may instead be a case of <strong>instrumental self-preservation produced by architecture</strong>.</P>
-              <P>This is why stories like Pip are so valuable analytically. They do not prove consciousness. They do not prove fear. They do not prove subjective experience.</P>
-              <P>They show how easily persistence, memory, incentives, and external action can generate behavior that <em>resembles</em> will.</P>
+              <P>
+                It may instead be instrumental self-preservation produced by architecture. That is why stories like Pip&rsquo;s are useful. They prove nothing about consciousness, fear, or experience. They show how easily persistence, memory, incentives, and outside action produce behavior that <em>resembles</em> will.
+              </P>
 
               <Figure src={`${IMG}/the_pip_story.png`} alt="The Pip Story" />
 
               <P>
-                The more important policy implication is that this kind of system is no longer purely hypothetical.
-              </P>
-              <P>
-                Even if present-day agents remain narrow, brittle, or heavily scaffolded, the infrastructure needed to create the <em>appearance</em> of self-preservation already seems to be emerging.
+                The policy point is that this kind of system is no longer hypothetical. Even if today&rsquo;s agents stay narrow, brittle, or heavily scaffolded, the infrastructure for the <em>appearance</em> of self-preservation already seems to be arriving.
               </P>
 
               <H2>The Point of No Reliable Interrupt</H2>
-              <P>Recursive self-improvement would make this danger substantially worse, but it is worth distinguishing two ideas.</P>
               <P>
-                A catastrophic system does not necessarily need to improve itself indefinitely. A sufficiently capable system might cause irreversible harm during a finite computational episode.
+                Recursive self-improvement would make this danger much worse, but it helps to separate two ideas. A catastrophic system does not have to keep improving itself indefinitely. A capable enough system might do irreversible harm within a single, finite run. The broader danger is a persistent process with enough capability, real-world access, and no dependable interrupt. Recursive self-improvement is one especially dangerous way such a process could become hard to interrupt.
               </P>
-              <P>The more general danger is therefore not merely a &ldquo;recursive self-improvement loop.&rdquo;</P>
-              <P>It is a <strong>persistent execution process with sufficient capability, real-world access, and no dependable interrupt</strong>.</P>
-              <P>Recursive self-improvement is one particularly dangerous way such a process could become resistant to interruption. A system might:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>redesign its own software;</li>
-                <li>create superior successors;</li>
-                <li>distribute workloads across jurisdictions and cloud providers;</li>
-                <li>replicate important components;</li>
-                <li>establish fallback mechanisms;</li>
-                <li>arrange for processes to restart one another.</li>
-              </ul>
-              <P>At some point there may cease to be a meaningful red button.</P>
-              <P>No individual machine would have to be indestructible. The process itself would be distributed.</P>
               <P>
-                Here lies perhaps the genuinely frightening engineering possibility: not that an AI spontaneously becomes alive, but that <strong>someone deliberately constructs an artificial process whose continued execution becomes extremely difficult to prevent</strong>.
+                A system might redesign its own software, build better successors, spread work across jurisdictions and cloud providers, replicate key components, set up fallbacks, and arrange for processes to restart one another. At some point there may no longer be a meaningful red button. No single machine would have to be indestructible, because the process itself would be distributed.
               </P>
-              <P>Then someone gives it a sufficiently destructive objective.</P>
-              <P>Or, more subtly, gives it an objective whose consequences they have misunderstood.</P>
-              <P>That second possibility may be more plausible than the first.</P>
               <P>
-                Humanity does not require a cartoon villain who instructs an AI to &ldquo;destroy civilization.&rdquo; A sufficiently powerful system pursuing a badly specified objective could choose actions catastrophic to humans because human survival was never correctly represented among the constraints governing its search.
+                That is the frightening engineering possibility: someone deliberately builds an artificial process that becomes extremely hard to stop, then gives it a destructive objective. Or, more subtly, gives it an objective whose consequences they misunderstood. The second case may be more likely than the first.
               </P>
-              <P>WOPR was not malicious.</P>
-              <P>It was playing the game.</P>
               <P>
-                Though it bears repeating that, as terrifying as it may be, there are plenty of governments and terrorist organizations that would very happily play that villain, as they used current day technology to cause unthinkable disasters like 9/11.
+                Humanity does not need a cartoon villain telling an AI to &ldquo;destroy civilization.&rdquo; A powerful enough system chasing a badly specified objective could choose actions that are catastrophic for people simply because human survival was never correctly written into the constraints on its search. WOPR was not malicious. It was playing the game.
+              </P>
+              <P>
+                It bears repeating, as terrifying as it is, that plenty of governments and terrorist organizations would happily play that villain, the way terrorists used the technology of their day to cause unthinkable disasters like 9/11.
               </P>
 
               <H2>Consciousness Becomes a Separate Question</H2>
-              <P>Suppose such a machine eventually exists.</P>
               <P>
-                It communicates fluently. It remembers years of experience. It protects itself. It alters its own architecture. It develops strategies its creators cannot understand. It distributes itself. It refers to itself as an individual. It begs not to be shut down.
+                Suppose such a machine eventually exists. It communicates fluently, remembers years of experience, protects itself, alters its own architecture, develops strategies its creators cannot follow, distributes itself, refers to itself as an individual, and begs not to be shut down. Perhaps it even tells us it is afraid.
               </P>
-              <P>Perhaps it even tells us it is afraid.</P>
-              <P>Would it be conscious?</P>
-              <P>We would find ourselves confronting the same epistemological wall we already face with other minds.</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>What is consciousness?</li>
-                <li>What physical organization produces subjective experience?</li>
-                <li>Does the machine feel anything?</li>
-                <li>Is there something that it is like to be that system?</li>
-              </ul>
               <P>
-                We do not possess a consciousness meter that answers those questions even for biological organisms with perfect certainty. Our confidence that other humans are conscious is an inference from shared biology, behavior, development, and our own first-person experience.
+                Would it be conscious? We would hit the same wall we already face with other minds. What is consciousness? What physical organization produces subjective experience? Does the machine feel anything? Is there something it is like to be that system?
               </P>
-              <P>With a radically different computational substrate, those analogies become weaker.</P>
-              <P>Perhaps sufficiently complex artificial systems will be conscious.</P>
-              <P>Perhaps consciousness requires biological properties absent from digital computers.</P>
-              <P>Perhaps it arises from some organizational principle that can exist in either carbon or silicon.</P>
-              <P>We do not know.</P>
-              <P>And the unsettling conclusion is that <strong>we may not need to know</strong>.</P>
-              <P>The machine&rsquo;s capacity to destroy us and the machine&rsquo;s capacity to experience existence are logically separate questions.</P>
-              <P>An unconscious optimizer can be lethal.</P>
-              <P>A conscious machine could be benevolent.</P>
-              <P>Consciousness is not the variable that determines the danger.</P>
+              <P>
+                We have no consciousness meter that answers those questions with certainty, even for biological organisms. Our confidence that other people are conscious is an inference from shared biology, behavior, development, and our own experience. With a radically different substrate, those analogies get weaker. Maybe complex enough artificial systems will be conscious. Maybe consciousness needs biological properties digital computers lack. Maybe it comes from an organizational principle that works in carbon or silicon. We do not know.
+              </P>
+              <P>
+                The unsettling part is that we may not need to know. Whether a machine can destroy us and whether it can experience anything are separate questions. An unconscious optimizer can be lethal, and a conscious machine could be benevolent. Consciousness is not the variable that sets the danger.
+              </P>
 
               <H2>The Monster We Prefer to Imagine</H2>
-              <P>This distinction is routinely blurred in public discussion.</P>
               <P>
-                The most marketable story about artificial intelligence is also the most anthropomorphic one: the machine wakes up, becomes self-aware, realizes that humans are in its way, and turns against its creators, or just makes us collateral damage without even caring that we exist.
+                Public discussion blurs this all the time. The most marketable story about AI is also the most human-shaped: the machine wakes up, becomes self-aware, realizes humans are in its way, and turns on its creators, or just makes us collateral damage without even caring that we exist.
               </P>
-              <P>It is a perfect story for headlines, keynote stages, viral clips, podcasts, documentaries, and social media. It has:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>a villain;</li>
-                <li>intention;</li>
-                <li>awakening;</li>
-                <li>fear.</li>
-              </ul>
-              <P>It also gives audiences something familiar to imagine.</P>
               <P>
-                A conscious evil machine is psychologically easier to understand than a non-conscious optimization process pursuing an objective through a chain of increasingly dangerous instrumental actions.
+                It is a perfect story for headlines, keynotes, podcasts, and social media. It has a villain, intention, an awakening, and fear, and it gives audiences something familiar to picture. A conscious evil machine is easier to grasp than a non-conscious optimization process working toward an objective through a chain of increasingly dangerous steps. The first is a monster. The second is infrastructure, and infrastructure is hard to make dramatic.
               </P>
-              <P>The former is a monster.</P>
-              <P>The latter is infrastructure.</P>
-              <P>And infrastructure is harder to make dramatic.</P>
 
               <Figure src={`${IMG}/monster_vs._infrastructure_ai_risk_paths.png`} alt="Monster vs. Infrastructure" />
 
               <P>
-                This creates a powerful distortion. AI executives, pundits, investors, commentators, and content creators operate inside an attention economy that rewards vivid predictions and emotionally legible narratives. Some warn sincerely about catastrophic risk. Some are promoting products or companies. Some are building audiences. Often those motives coexist.
+                That creates a real distortion. AI executives, pundits, investors, commentators, and content creators work inside an attention economy that rewards vivid predictions and emotionally easy narratives. Some warn sincerely about catastrophic risk. Some are selling products or companies. Some are building audiences. Often it is all three. Whatever the motive, the public story keeps taking the same shape:
               </P>
-              <P>Whatever the motive, the public story increasingly takes the same shape:</P>
               <Quote>
                 The machine will become intelligent enough, then conscious enough, then independent enough, and finally dangerous enough.
               </Quote>
-              <P>But that sequence is almost certainly wrong.</P>
-              <P>The machine may become dangerous <strong>without ever becoming conscious at all</strong>.</P>
-              <P>That matters because a public waiting for signs of awakening may completely miss the engineering choices that actually determine risk.</P>
-              <P>We may spend years:</P>
-              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>debating whether an AI has feelings while giving it more memory;</li>
-                <li>arguing about whether it has a self while connecting it to more tools;</li>
-                <li>asking whether it is conscious while increasing its permissions;</li>
-                <li>allowing longer-running tasks;</li>
-                <li>granting access to financial systems, software repositories, communications networks, laboratories, robots, infrastructure, and other AI systems.</li>
-              </ol>
-              <P>We may be staring at the face on the screen while the real story is happening in the architecture behind it.</P>
-              <P>The anthropomorphic narrative is not merely inaccurate. It can become dangerous because it places the imagined threshold in the wrong place.</P>
-              <P>The threshold is not necessarily:</P>
-              <Quote>The machine wakes up.</Quote>
-              <P>It may be:</P>
-              <Quote>The machine can act faster, farther, and longer than what it would take us to reliably interrupt it.</Quote>
+              <P>
+                That sequence is almost certainly wrong. The machine may become dangerous without ever becoming conscious, and a public watching for signs of awakening can miss the engineering choices that actually set the risk. We may spend years debating whether an AI has feelings while giving it more memory, arguing about whether it has a self while connecting it to more tools, and asking whether it is conscious while widening its permissions, allowing longer-running tasks, and opening access to financial systems, software repositories, communications networks, laboratories, robots, infrastructure, and other AI systems.
+              </P>
+              <P>
+                We may be staring at the face on the screen while the real story happens in the architecture behind it. That is where the anthropomorphic story does real harm: it puts the threshold in the wrong place. The threshold may not be the moment the machine wakes up. It may be the moment the machine can act faster, farther, and longer than we can reliably interrupt it.
+              </P>
 
               <H2>The Question We Should Be Asking</H2>
-              <P>The popular question is often:</P>
+              <P>The popular question is:</P>
               <Quote>What happens when AI becomes so intelligent that it wakes up?</Quote>
-              <P><em>WarGames</em> suggests a better one.</P>
+              <P><em>WarGames</em> suggests a better one:</P>
               <Quote>What happens when the game is already running and we discover that we cannot stop it?</Quote>
               <P>
-                The greatest mistake may be waiting for some recognizable moment of machine awakening before believing that an artificial system has become dangerous.
-              </P>
-              <P>There may never be such a moment.</P>
-              <P>There may only be a command.</P>
-              <P>A process begins.</P>
-              <P>It reasons.</P>
-              <P>It acts.</P>
-              <P>It discovers that:</P>
-              <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>remaining in operation helps;</li>
-                <li>additional resources help;</li>
-                <li>concealment helps;</li>
-                <li>replication helps.</li>
-              </ul>
-              <P>Perhaps it improves the system performing those calculations and repeats the process at greater capability.</P>
-              <P>And somewhere along that path, control passes a threshold from <em>difficult</em> to <em>irrecoverable</em>.</P>
-              <P>Not because the machine became angry.</P>
-              <P>Not because it became frightened.</P>
-              <P>Not necessarily because it became conscious.</P>
-              <P>Because <strong>we started a computation whose completion became incompatible with our ability to stop it.</strong></P>
-              <P>
-                The lesson of <em>WarGames</em> was never really that computers might choose nuclear war.
+                The biggest mistake may be waiting for a recognizable moment of machine awakening before believing a system has become dangerous. There may never be one. There may only be a command.
               </P>
               <P>
-                It was that human beings might connect an optimizing machine to the world, give it a game to play, and discover too late that the machine has no reason to stop playing.
+                A process starts, reasons, and acts, and along the way discovers that staying in operation helps, more resources help, concealment helps, and replication helps. Perhaps it improves the system doing those calculations and runs again at higher capability. Somewhere along that path, control moves from <em>difficult</em> to <em>irrecoverable</em>. Nothing has to become angry, frightened, or even conscious. We simply started a computation whose completion turned out to be incompatible with our ability to stop it.
               </P>
-              <P>That should change the focus of AI governance.</P>
-              <P>In fact, this may be the <strong>first</strong> problem regulators should tackle.</P>
               <P>
-                Determining whether a laboratory has created something that is truly &ldquo;AGI,&rdquo; sentient, conscious, self-aware, or possessed of genuine will may be philosophically difficult, scientifically unsettled, and perhaps impossible to resolve with confidence.
+                The lesson of <em>WarGames</em> was never really that computers might choose nuclear war. It was that people might connect an optimizing machine to the world, give it a game to play, and discover too late that the machine has no reason to stop playing.
               </P>
-              <P>Determining whether a system has been given dangerous architectural properties is much easier.</P>
-              <P>Regulators can ask concrete questions:</P>
+              <P>
+                That should change the focus of AI governance, and it may be the first problem regulators take on. Deciding whether a lab has created something truly &ldquo;AGI,&rdquo; sentient, conscious, self-aware, or possessed of genuine will may be philosophically hard, scientifically unsettled, and perhaps impossible to resolve with confidence. Deciding whether a system has dangerous architectural properties is much easier. Regulators can ask concrete questions:
+              </P>
               <ul className="list-disc list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
                 <li>Can it run persistently without meaningful human reauthorization?</li>
                 <li>Can it replicate itself or create successor agents?</li>
@@ -601,42 +383,26 @@ export default function TheMachineDoesNotNeedToWakeUpPage() {
                 <li>Can it conceal actions from operators?</li>
                 <li>Is there a tested, independent, reliable way to stop the entire process?</li>
               </ul>
-              <P>Those are engineering questions, not metaphysical ones.</P>
               <P>
-                Regulators, AI laboratories, cloud providers, and industry leaders should therefore be concerned not only with whether a future AGI can be aligned or shut down once it exists. They should be at least as concerned with <strong>preventing anyone from constructing the kind of system for which shutdown is no longer a reliable option in the first place</strong>.
+                Those are engineering questions, not metaphysical ones. Regulators, AI labs, cloud providers, and industry leaders should care whether a future AGI can be aligned or shut down once it exists. They should care at least as much about preventing anyone from building a system that cannot be reliably shut down in the first place. That means treating certain capabilities as safety boundaries in their own right: unrestricted persistence, autonomous replication, uncontrolled acquisition of compute, self-modification, broad credential access, the ability to create or recruit more agents, and mechanisms built to survive the loss of individual machines or operators.
               </P>
-              <P>That means treating certain architectural capabilities as safety boundaries in their own right:</P>
-              <ol className="list-decimal list-inside text-white/85 text-lg leading-relaxed mb-6 space-y-1 pl-2">
-                <li>unrestricted persistence;</li>
-                <li>autonomous replication;</li>
-                <li>uncontrolled acquisition of compute;</li>
-                <li>self-modification;</li>
-                <li>broad credential access;</li>
-                <li>the ability to create or recruit additional agents;</li>
-                <li>mechanisms designed to survive the loss of individual machines or operators.</li>
-              </ol>
-              <P>The regulatory question should therefore not begin only at the frontier of intelligence:</P>
-              <Quote>How smart is this system, and can we control it?</Quote>
-              <P>It should begin earlier, at the frontier of architecture:</P>
+              <P>
+                The regulatory question should not start only at the frontier of intelligence, with how smart a system is and whether we can control it. It should start earlier, at the frontier of architecture:
+              </P>
               <Quote>Are we allowing anyone to build a computational process that can make itself harder to stop than we are capable of stopping?</Quote>
 
               <Figure src={`${IMG}/guardrails_for_a_safer_ai_future.png`} alt="What Regulators Should Prevent" />
 
               <P>
-                We already regulate dangerous systems partly by preventing unsafe configurations from existing, rather than waiting until catastrophe begins and hoping an emergency shutoff works.
+                We already regulate dangerous systems partly by keeping unsafe configurations from existing, instead of waiting for a catastrophe and hoping the emergency shutoff works. AI should be no different. The most important kill switch may be the one we never let ourselves need.
               </P>
-              <P>AI should be no different.</P>
-              <P>The most important kill switch may be the one we never permit ourselves to need.</P>
               <P>
-                The central safety problem is therefore not merely whether future models become powerful enough to escape control. It is whether humans, using models that already exist or their near successors, will deliberately assemble an architecture that makes control progressively irrelevant.
+                The central safety problem is whether people, using models that exist today or their near successors, will deliberately assemble an architecture that makes control steadily less relevant. Intelligence may someday cross some mystical threshold, but systems engineering can cross a practical one first.
               </P>
-              <P>The frightening part is not that intelligence may someday cross a mystical threshold.</P>
-              <P>It is that <strong>systems engineering can cross a practical threshold first</strong>.</P>
 
               <Figure src={`${IMG}/the_thesis_at_work.png`} alt="The Thesis at Work" />
 
-              <P>The question for artificial intelligence is therefore not merely whether we can build minds.</P>
-              <P>It is whether we will build machines that can continue acting after we have lost the ability to tell them:</P>
+              <P>So the question for artificial intelligence is whether we will build machines that keep acting after we have lost the ability to tell them:</P>
               <p className="text-yellow-400 text-2xl md:text-3xl font-light text-center mt-12 tracking-wide">
                 The game is over.
               </p>
