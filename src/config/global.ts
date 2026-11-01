@@ -65,8 +65,7 @@ export const homepageConfig = {
     description: [
       "Welcome to my astrophotography site. My first shots were taken with a Konus 8\u201d Newtonian and an ATIK 2 CCD Camera. It is astounding to think how long this hobby and its technologies have come in just a couple of decades.",
       "There is something special about capturing this ancient light ourselves, doing the work it takes to process it and get the most out of these long exposures, and sharing them with others.",
-      "I hope you will enjoy these images, and please don\u2019t hesitate to reach out if you have any questions about the hobby or anything you\u2019d like to share.",
-      "This site is also a place where I can share the beauty of this planet we live in, so in it you will find my efforts to share the places I have had the good fortune to visit."
+      "I hope you will enjoy these images, and please don\u2019t hesitate to reach out if you have any questions about the hobby or anything you\u2019d like to share."
     ]
   },
   latestCaptures: {
