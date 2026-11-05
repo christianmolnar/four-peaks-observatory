@@ -36,17 +36,34 @@ describe('sample profile', () => {
     expect(optics.missing).toEqual([]);
   });
 
-  it('reports the HyperStar factor and unspecified smart-scope pixel size as missing, not guessed', () => {
+  it('gives the HyperStar train its image scale from the cited 540 mm focal length', () => {
     const hs = profile.trains.find((t) => t.id === 'wide-c11-hyperstar-2600')!;
     const r = resolveTrain(profile, hs);
+    expect(r.scope.focalLengthMm).toBe(540);
+    expect(r.accessory).toBeUndefined();
     const o = opticalTrain(r.scope, r.camera, r.accessory);
-    expect(o.missing).toEqual(['accessory.factor']);
-    expect(o.imageScale).toBeUndefined();
+    expect(o.missing).toEqual([]);
+    expect(o.imageScale).toBeCloseTo((206.264806 * 3.76) / 540, 6);
+    expect(o.focalRatio).toBeCloseTo(540 / 279.4, 6);
+  });
 
+  it('reports unspecified smart-scope specs as missing, not guessed', () => {
     const s30 = resolveTrain(profile, profile.trains.find((t) => t.id === 'smart-seestar-s30-pro')!);
     const so = opticalTrain(s30.scope, s30.camera, s30.accessory);
     expect(so.missing).toContain('scope.focalLengthMm');
     expect(so.imageScale).toBeUndefined();
+  });
+
+  it('applies a replacing accessory before multipliers, and refuses two replacing accessories', () => {
+    const p = validateProfile(sample);
+    p.equipment.accessories.push({ id: 'second', name: 'Other', effectiveFocalLengthMm: 600 });
+    const t = { ...(p.trains.find((x) => x.id === 'wide-c11-hyperstar-2600')!) } as { accessoryIds: string[] } & typeof p.trains[number];
+    t.accessoryIds = ['hyperstar-v4', 'powermate-25'];
+    const r = resolveTrain(p, t);
+    expect(r.scope.focalLengthMm).toBe(540);
+    expect(r.accessory?.factor).toBe(2.5);
+    t.accessoryIds = ['hyperstar-v4', 'second'];
+    expect(() => resolveTrain(p, t)).toThrow('more than one accessory with an effective focal length');
   });
 
   it('multiplies stacked accessories', () => {

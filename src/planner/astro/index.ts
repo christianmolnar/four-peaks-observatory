@@ -91,6 +91,82 @@ export function bodyAltAz(body: BodyName, when: Date, site: Site): AltAz {
   return { altitude: hor.altitude, azimuth: hor.azimuth };
 }
 
+const HOUR_MS = 3600000;
+
+/**
+ * Instant of the Sun's lowest altitude after `dusk`, a descending crossing.
+ * The lowest point is near the Sun's anti-transit but not at it: the Sun's
+ * declination is changing, so it can fall a few minutes before or after. A
+ * night of under two minutes can sit wholly after the anti-transit that
+ * precedes its dusk, so then that anti-transit, not the next one a day later,
+ * is the anchor. The altitude is unimodal over the bracket (it holds no
+ * transit), so a golden-section search finds the minimum.
+ */
+function lowestSunTime(
+  observer: Astronomy.Observer,
+  sunAlt: (d: Date) => number,
+  dusk: Astronomy.AstroTime,
+): Date {
+  const duskMs = dusk.date.getTime();
+  const next = Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, dusk).time.date;
+  // Dusk falls between transit and the lowest point, at most about 12 h before it.
+  const anchor =
+    next.getTime() - duskMs > 18 * HOUR_MS
+      ? Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, dusk.AddDays(-1)).time.date
+      : next;
+  let lo = duskMs;
+  let hi = anchor.getTime() + 3 * HOUR_MS;
+  const phi = (Math.sqrt(5) - 1) / 2;
+  let a = hi - phi * (hi - lo);
+  let b = lo + phi * (hi - lo);
+  let fa = sunAlt(new Date(a));
+  let fb = sunAlt(new Date(b));
+  for (let i = 0; i < 60; i++) {
+    if (fa < fb) {
+      hi = b;
+      b = a;
+      fb = fa;
+      a = hi - phi * (hi - lo);
+      fa = sunAlt(new Date(a));
+    } else {
+      lo = a;
+      a = b;
+      fa = fb;
+      b = lo + phi * (hi - lo);
+      fb = sunAlt(new Date(b));
+    }
+  }
+  return new Date((lo + hi) / 2);
+}
+
+const REFINE_WINDOW_MS = 10 * 60000;
+
+/**
+ * Bisects the -18 deg crossing next to the engine's estimate `seed`, which is
+ * off by tens of seconds when the night lasts about a minute (the Sun's
+ * altitude is nearly flat there). `nadir` is on the dark side of the crossing.
+ * `side` -1 is dusk (Sun above -18 before the crossing), +1 is dawn. If the
+ * bracket does not hold the estimate is returned unchanged.
+ */
+function refineCrossing(
+  sunAlt: (d: Date) => number,
+  seed: Date,
+  nadir: Date,
+  side: -1 | 1,
+): Date {
+  let light = seed.getTime() + side * REFINE_WINDOW_MS; // expected: Sun above -18
+  let dark = nadir.getTime();
+  if ((side === -1 ? light >= dark : light <= dark) || sunAlt(new Date(light)) < ASTRONOMICAL_TWILIGHT_DEG) {
+    return seed;
+  }
+  for (let i = 0; i < 50; i++) {
+    const mid = (light + dark) / 2;
+    if (sunAlt(new Date(mid)) < ASTRONOMICAL_TWILIGHT_DEG) dark = mid;
+    else light = mid;
+  }
+  return new Date(dark);
+}
+
 /**
  * Astronomical night (Sun below -18 deg) around `reference`.
  * Pass an instant in the daytime (for example local noon): the result is the
@@ -136,18 +212,14 @@ export function astronomicalNight(
     }
   }
 
-  // Search for dawn from the Sun's lowest point (anti-transit) after dusk, not from
-  // dusk plus a margin: a margin jumps over dawn when the night lasts under a minute.
-  const nadir = Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, start);
-  if (sunAlt(nadir.time.date) >= ASTRONOMICAL_TWILIGHT_DEG) {
-    // Dusk found but the Sun never gets (and stays) below -18: no night.
-    return { kind: 'none', start: null, end: null };
-  }
+  // Dawn is searched from the Sun's true lowest point after dusk, not from dusk plus a
+  // margin (a margin jumps over dawn when the night lasts under a minute).
+  const nadir = lowestSunTime(observer, sunAlt, start);
   const end = Astronomy.SearchAltitude(
     Astronomy.Body.Sun,
     observer,
     +1,
-    nadir.time,
+    nadir,
     1.5,
     ASTRONOMICAL_TWILIGHT_DEG,
   );
@@ -155,7 +227,11 @@ export function astronomicalNight(
     // Last dusk before polar night: the Sun dips below -18 and never comes back up.
     return { kind: 'polar-night', start: null, end: null };
   }
-  return { kind: 'normal', start: start.date, end: end.date };
+  return {
+    kind: 'normal',
+    start: refineCrossing(sunAlt, start.date, nadir, -1),
+    end: refineCrossing(sunAlt, end.date, nadir, +1),
+  };
 }
 
 /** Illuminated fraction of the Moon's disc, 0..1. */

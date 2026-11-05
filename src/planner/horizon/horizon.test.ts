@@ -68,7 +68,7 @@ describe('usableWindows', () => {
   const end = new Date(Date.UTC(2026, 0, 16, 13, 0));
 
   it('gives one all-night window for a circumpolar target', () => {
-    // Dec +88: altitude stays within ~33.6 +/- 2 degrees all night.
+    // Dec +88: altitude stays within 40 +/- 2 degrees (the site latitude) all night.
     const r = usableWindows({
       raHours: 2.5, decDeg: 88, site: boulder, minAltitude: 20, start, end,
     });

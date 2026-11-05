@@ -183,27 +183,74 @@ describe('astronomical night', () => {
     }
   });
 
-  // Reproductions from the M1a round-2 review: nights of about 60 s.
-  it('finds a 60 s night that is ending (lat 54.174665, May)', () => {
-    const n = astronomicalNight(
-      { latitude: 54.174665, longitude: 0 },
-      new Date(Date.UTC(2026, 4, 10, 12)),
-    );
+  // Nights of about a minute. Truth below is an independent 1-second scan of the Sun.
+  const scanSeconds = (site: Site, from: Date): number => {
+    let first: number | null = null;
+    let last = 0;
+    for (let t = from.getTime(); t < from.getTime() + 40 * 3600000; t += 1000) {
+      if (sunAltitudeAt(new Date(t), site) < -18) {
+        if (first === null) first = t;
+        last = t;
+      } else if (first !== null) break;
+    }
+    return first === null ? 0 : (last - first) / 1000;
+  };
+  const lengthSeconds = (site: Site, from: Date): number => {
+    const n = astronomicalNight(site, from);
     expect(n.kind).toBe('normal');
-    const seconds = (n.end!.getTime() - n.start!.getTime()) / 1000;
-    expect(seconds).toBeGreaterThan(0);
-    expect(seconds).toBeLessThan(180);
+    return (n.end!.getTime() - n.start!.getTime()) / 1000;
+  };
+
+  it('measures a 60 s night that is ending (lat 54.174665, May)', () => {
+    const site: Site = { latitude: 54.174665, longitude: 0 };
+    const from = new Date(Date.UTC(2026, 4, 10, 12));
+    const truth = scanSeconds(site, from);
+    expect(truth).toBeGreaterThan(55);
+    expect(Math.abs(lengthSeconds(site, from) - truth)).toBeLessThanOrEqual(3);
   });
 
-  it('finds a 60 s night that is returning (lat 54.194972, August) instead of a day-long one', () => {
+  it('measures a 60 s night that is returning (lat 54.194972, August) instead of a day-long one', () => {
+    const site: Site = { latitude: 54.194972, longitude: 0 };
+    const from = new Date(Date.UTC(2026, 7, 1, 12));
+    const truth = scanSeconds(site, from);
+    expect(truth).toBeGreaterThan(55);
+    expect(Math.abs(lengthSeconds(site, from) - truth)).toBeLessThanOrEqual(3);
+  });
+
+  it('never returns a day-long night for a returning night under a minute (lat 54.19503, August)', () => {
     const n = astronomicalNight(
-      { latitude: 54.194972, longitude: 0 },
+      { latitude: 54.19503, longitude: 0 },
       new Date(Date.UTC(2026, 7, 1, 12)),
     );
+    // True night is about 28 s. The old search came back with 24.5 h.
     expect(n.kind).toBe('normal');
-    const seconds = (n.end!.getTime() - n.start!.getTime()) / 1000;
-    expect(seconds).toBeGreaterThan(0);
-    expect(seconds).toBeLessThan(180);
+    expect((n.end!.getTime() - n.start!.getTime()) / 1000).toBeLessThan(60);
+  });
+
+  it('finds returning nights of 30 to 40 s near lat 71 in September, not a day-long one', () => {
+    const site: Site = { latitude: 71.221358, longitude: 0 };
+    const from = new Date(Date.UTC(2026, 8, 20, 12));
+    const truth = scanSeconds(site, from);
+    expect(truth).toBeGreaterThan(35);
+    expect(truth).toBeLessThan(45);
+    expect(Math.abs(lengthSeconds(site, from) - truth)).toBeLessThanOrEqual(3);
+  });
+
+  it('finds a returning night that the Sun barely enters (28 s, 1.8e-5 deg deep) at lat 54.195028', () => {
+    // The Sun's lowest point is only 0.00002 deg under -18, so it must not be judged "never below".
+    const site: Site = { latitude: 54.195028, longitude: 0 };
+    const from = new Date(Date.UTC(2026, 7, 1, 12));
+    const truth = scanSeconds(site, from);
+    expect(truth).toBeGreaterThan(20);
+    expect(Math.abs(lengthSeconds(site, from) - truth)).toBeLessThanOrEqual(3);
+  });
+
+  it('reports none just above the threshold latitude, never a day', () => {
+    const n = astronomicalNight(
+      { latitude: 71.22139, longitude: 0 },
+      new Date(Date.UTC(2026, 8, 20, 12)),
+    );
+    expect(n.kind).toBe('none');
   });
 
   it('returns a typed result, not an error, on the last dusk before polar night (lat 85)', () => {

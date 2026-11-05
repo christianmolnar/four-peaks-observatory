@@ -73,7 +73,49 @@ describe('validateProfile', () => {
     failsAt((p) => { delete p.sites[0].blockedArc; }, '$.sites[0].blockedArc');
   });
 
+  it('explains arcs that cannot be fixed by the old advice', () => {
+    const msg = (arc: unknown): string => {
+      const p = clone(full()) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      p.sites[0].blockedArc = arc;
+      try { validateProfile(p); } catch (e) { return (e as Error).message; }
+      throw new Error('expected an error');
+    };
+    // 0 to 360 is a zero-length arc once 360 becomes 0: do not say "use 0 instead of 360".
+    expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).not.toMatch(/use 0 instead/);
+    expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).toMatch(/start and end must differ/);
+    // A near-full arc must not be told to use null, which means nothing is blocked.
+    expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).not.toMatch(/use null for no arc/);
+    expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).toMatch(/shorten it/);
+    // The advice still works where it applies.
+    const p = clone(full());
+    p.sites[0].blockedArc = { startAz: 100, endAz: 360, heightDeg: 10 };
+    expect(() => validateProfile(p)).toThrow('$.sites[0].blockedArc.endAz: use 0 instead of 360');
+    p.sites[0].blockedArc = { startAz: 100, endAz: 0, heightDeg: 10 };
+    expect(() => validateProfile(p)).not.toThrow();
+  });
+
+  it('rejects unknown fields with their path, but allows _ notes', () => {
+    failsAt((p) => { p.equipment.scopes[0].focalLengthmm = 2800; }, '$.equipment.scopes[0].focalLengthmm');
+    failsAt((p) => { p.sites[0].lat = 1; }, '$.sites[0].lat');
+    failsAt((p) => { p.sites[0].blockedArc.heigthDeg = 1; }, '$.sites[0].blockedArc.heigthDeg');
+    failsAt((p) => { p.equipment.accessories[0].factr = 1; }, '$.equipment.accessories[0].factr');
+    failsAt((p) => { p.equipment.cameras[0].pixelSize = 1; }, '$.equipment.cameras[0].pixelSize');
+    failsAt((p) => { p.equipment.smartScopes[0].mount = 'eq'; }, '$.equipment.smartScopes[0].mount');
+    failsAt((p) => { p.trains[0].camera = 'x'; }, '$.trains[0].camera');
+    failsAt((p) => { p.trains[1].scopeId = 'x'; }, '$.trains[1].scopeId');
+    failsAt((p) => { p.plans[0].target = 'x'; }, '$.plans[0].target');
+    failsAt((p) => { p.equipment.extra = []; }, '$.equipment.extra');
+    failsAt((p) => { p.extra = 1; }, '$.extra');
+    const p = clone(full()) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    p._comment = 'x';
+    p.sites[0]._source = 'y';
+    p.sites[0].blockedArc._note = 'z';
+    p.trains[0]._why = 'w';
+    expect(() => validateProfile(p)).not.toThrow();
+  });
+
   it('rejects duplicate ids and dangling references', () => {
+    failsAt((p) => { p.trains[0].cameraId = 'nope'; }, '$.trains[0].cameraId');
     failsAt((p) => { p.sites[1].id = 's1'; }, '$.sites[1].id');
     failsAt((p) => { p.trains[0].scopeId = 'nope'; }, '$.trains[0].scopeId');
     failsAt((p) => { p.trains[0].accessoryIds = ['nope']; }, '$.trains[0].accessoryIds[0]');

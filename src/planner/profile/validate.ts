@@ -34,6 +34,15 @@ function obj(v: unknown, path: string): Obj {
   return v as Obj;
 }
 
+/** Rejects keys not in `keys`, except notes starting with `_`; catches misspelled fields. */
+function onlyKeys(o: Obj, path: string, keys: readonly string[]): void {
+  for (const k of Object.keys(o)) {
+    if (!k.startsWith('_') && !keys.includes(k)) {
+      throw new ProfileError(`${path}.${k}`, `unknown field (allowed: ${keys.join(', ')}; notes start with _)`);
+    }
+  }
+}
+
 function arr(v: unknown, path: string): unknown[] {
   if (!Array.isArray(v)) throw new ProfileError(path, 'expected an array');
   return v;
@@ -90,24 +99,32 @@ function withoutUndefined<T extends object>(o: T): T {
 function blockedArc(v: unknown, path: string): BlockedArc | null {
   if (v === null) return null;
   const o = obj(v, path);
+  onlyKeys(o, path, ['startAz', 'endAz', 'heightDeg']);
   const startAz = num(o, 'startAz', path, 0, 360);
   const endAz = num(o, 'endAz', path, 0, 360);
   const heightDeg = num(o, 'heightDeg', path, 0, 90);
-  if (startAz === 360 || endAz === 360) {
-    throw new ProfileError(`${path}.${startAz === 360 ? 'startAz' : 'endAz'}`, 'use 0 instead of 360');
-  }
   const span = (endAz - startAz + 360) % 360;
   if (span < MIN_ARC_DEG) {
-    throw new ProfileError(path, `arc must span at least ${MIN_ARC_DEG} degrees (start ${startAz}, end ${endAz})`);
+    throw new ProfileError(
+      path,
+      `arc must span at least ${MIN_ARC_DEG} degrees, and start and end must differ (start ${startAz}, end ${endAz}; 360 is the same direction as 0)`,
+    );
   }
   if (360 - span < MIN_ARC_DEG) {
-    throw new ProfileError(path, `arc must leave at least ${MIN_ARC_DEG} degrees unblocked; use null for no arc`);
+    throw new ProfileError(
+      path,
+      `arc must leave at least ${MIN_ARC_DEG} degrees unblocked (start ${startAz}, end ${endAz}); shorten it. Use null only when nothing is blocked`,
+    );
+  }
+  if (startAz === 360 || endAz === 360) {
+    throw new ProfileError(`${path}.${startAz === 360 ? 'startAz' : 'endAz'}`, 'use 0 instead of 360');
   }
   return { startAz, endAz, heightDeg };
 }
 
 function site(v: unknown, path: string): ProfileSite {
   const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'blockedArc']);
   if (o.blockedArc === undefined) throw new ProfileError(`${path}.blockedArc`, 'expected an arc object or null');
   return withoutUndefined({
     id: str(o, 'id', path),
@@ -121,6 +138,7 @@ function site(v: unknown, path: string): ProfileSite {
 
 function scope(v: unknown, path: string): ProfileScope {
   const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'focalLengthMm', 'apertureMm']);
   return withoutUndefined({
     id: str(o, 'id', path),
     name: str(o, 'name', path),
@@ -131,15 +149,18 @@ function scope(v: unknown, path: string): ProfileScope {
 
 function accessory(v: unknown, path: string): ProfileAccessory {
   const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'factor', 'effectiveFocalLengthMm']);
   return withoutUndefined({
     id: str(o, 'id', path),
     name: str(o, 'name', path),
     factor: optPositive(o, 'factor', path),
+    effectiveFocalLengthMm: optPositive(o, 'effectiveFocalLengthMm', path),
   });
 }
 
 function camera(v: unknown, path: string): ProfileCamera {
   const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx']);
   return withoutUndefined({
     id: str(o, 'id', path),
     name: str(o, 'name', path),
@@ -151,6 +172,7 @@ function camera(v: unknown, path: string): ProfileCamera {
 
 function smartScope(v: unknown, path: string): ProfileSmartScope {
   const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'mountMode', 'focalLengthMm', 'apertureMm', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx']);
   if (o.mountMode !== 'alt-az' && o.mountMode !== 'eq') {
     throw new ProfileError(`${path}.mountMode`, `expected "alt-az" or "eq", got ${JSON.stringify(o.mountMode)}`);
   }
@@ -169,6 +191,7 @@ function smartScope(v: unknown, path: string): ProfileSmartScope {
 function train(v: unknown, path: string): TrainEntry {
   const o = obj(v, path);
   if (o.kind === 'optical') {
+    onlyKeys(o, path, ['kind', 'id', 'name', 'scopeId', 'accessoryIds', 'cameraId']);
     return {
       kind: 'optical',
       id: str(o, 'id', path),
@@ -179,6 +202,7 @@ function train(v: unknown, path: string): TrainEntry {
     };
   }
   if (o.kind === 'smart') {
+    onlyKeys(o, path, ['kind', 'id', 'name', 'smartScopeId']);
     return {
       kind: 'smart',
       id: str(o, 'id', path),
@@ -191,6 +215,7 @@ function train(v: unknown, path: string): TrainEntry {
 
 function plan(v: unknown, path: string): ObservingPlan {
   const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'date', 'siteId', 'trainId', 'targetIds', 'notes']);
   const date = str(o, 'date', path);
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   const d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
@@ -221,10 +246,12 @@ function list<T extends { id: string }>(v: unknown, path: string, item: (x: unkn
 /** Checks a parsed JSON value and returns it as a Profile, or throws ProfileError with the field path. */
 export function validateProfile(input: unknown): Profile {
   const o = obj(input, '$');
+  onlyKeys(o, '$', ['version', 'sites', 'equipment', 'trains', 'plans']);
   if (o.version !== PROFILE_VERSION) {
     throw new ProfileError('$.version', `expected ${PROFILE_VERSION}, got ${JSON.stringify(o.version)}`);
   }
   const eq = obj(o.equipment, '$.equipment');
+  onlyKeys(eq, '$.equipment', ['scopes', 'accessories', 'cameras', 'smartScopes']);
   const profile: Profile = {
     version: PROFILE_VERSION,
     sites: list(o.sites, '$.sites', site),

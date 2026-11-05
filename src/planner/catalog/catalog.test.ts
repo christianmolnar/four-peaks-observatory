@@ -23,9 +23,9 @@ const dms = (s: string): number => {
 };
 
 describe('starter catalog', () => {
-  it('has 24 targets with unique ids', () => {
-    expect(starterTargets).toHaveLength(24);
-    expect(new Set(starterTargets.map((t) => t.id)).size).toBe(24);
+  it('has 25 targets with unique ids', () => {
+    expect(starterTargets).toHaveLength(25);
+    expect(new Set(starterTargets.map((t) => t.id)).size).toBe(25);
   });
 
   it.each([
@@ -42,6 +42,7 @@ describe('starter catalog', () => {
     for (const name of [
       'IC 405', 'NGC 2264', 'NGC 1499', 'M43', 'Running Man', 'NGC 2174',
       'NGC 2359', 'M81', 'M82', 'M51', 'Leo Triplet', 'M101',
+      "Markarian's Chain",
     ]) {
       expect(resolveTarget(name)).not.toBeNull();
     }
@@ -69,6 +70,13 @@ describe('alias resolver', () => {
     expect(resolveTarget("Bode's Galaxy")?.id).toBe('m81');
     expect(resolveTarget('bodes galaxy')?.id).toBe('m81');
     expect(resolveTarget('NGC 0224')?.id).toBe('m31');
+    for (const n of ["Markarian's Chain", 'Markarians Chain', 'M86', 'NGC 4406', 'M84', 'NGC 4374']) {
+      expect(resolveTarget(n)?.id).toBe('markarians-chain');
+    }
+  });
+
+  it('accepts "Messier 42" forms', () => {
+    for (const n of ['Messier 42', 'messier42', 'MESSIER 042']) expect(resolveTarget(n)?.id).toBe('m42');
   });
 
   it('returns null for unknown names and empty input', () => {

@@ -1,5 +1,5 @@
 {
- "source": "OpenNGC (github.com/mattiaverga/OpenNGC, database_files/NGC.csv, fetched 2026-11-05), J2000, CC-BY-SA-4.0. Leo Triplet is centred on NGC 3627 (M66). seasonMonths: months within 2 of the target's opposition, computed from RA only.",
+ "source": "OpenNGC (github.com/mattiaverga/OpenNGC, database_files/NGC.csv, fetched 2026-11-05), J2000, CC-BY-SA-4.0. Leo Triplet is centred on NGC 3627 (M66). Markarian's Chain has no OpenNGC entry of its own: it is anchored on NGC 4406 (M86), the middle of the chain, with M84 (NGC 4374) as an alias; no size is given because OpenNGC has none for the chain. seasonMonths: months within 2 of the target's opposition, computed from RA only.",
  "targets": [
   {
    "id": "ic405",
@@ -365,6 +365,29 @@
     6
    ],
    "openngc": "NGC4438"
+  },
+  {
+   "id": "markarians-chain",
+   "name": "Markarian's Chain",
+   "aliases": [
+    "Markarian's Chain",
+    "Markarians Chain",
+    "M86",
+    "NGC 4406",
+    "M84",
+    "NGC 4374"
+   ],
+   "raHours": 12.43659,
+   "decDeg": 12.94622,
+   "type": "galaxy",
+   "seasonMonths": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "openngc": "NGC4406"
   },
   {
    "id": "m101",

@@ -17,6 +17,7 @@ function find<T extends { id: string }>(xs: T[], id: string, what: string): T {
 /**
  * Turns a train into the inputs `optics` takes. Several accessories multiply;
  * if any lacks a factor the combined factor is left undefined (unknown, not 1).
+ * An accessory with an effective focal length replaces the scope's focal length.
  * Smart scopes map to a scope and camera built from their fixed values.
  */
 export function resolveTrain(profile: Profile, train: TrainEntry): ResolvedTrain {
@@ -32,9 +33,17 @@ export function resolveTrain(profile: Profile, train: TrainEntry): ResolvedTrain
       },
     };
   }
-  const scope = find(profile.equipment.scopes, train.scopeId, 'scope');
+  const baseScope = find(profile.equipment.scopes, train.scopeId, 'scope');
   const camera = find(profile.equipment.cameras, train.cameraId, 'camera');
-  const accessories = train.accessoryIds.map((id) => find(profile.equipment.accessories, id, 'accessory'));
+  const all = train.accessoryIds.map((id) => find(profile.equipment.accessories, id, 'accessory'));
+  // An accessory that replaces the optics fixes the focal length; it is not a multiplier.
+  const replacing = all.filter((a) => a.effectiveFocalLengthMm !== undefined);
+  if (replacing.length > 1) {
+    throw new Error(`Train "${train.id}" has more than one accessory with an effective focal length`);
+  }
+  const accessories = all.filter((a) => a.effectiveFocalLengthMm === undefined);
+  const scope: Scope =
+    replacing.length === 1 ? { ...baseScope, focalLengthMm: replacing[0].effectiveFocalLengthMm } : baseScope;
   const resolved: ResolvedTrain = { scope, camera };
   if (accessories.length > 0) {
     const known = accessories.every((a) => a.factor !== undefined);

@@ -30,7 +30,7 @@ export interface AstronomicalNight {
   /**
    * normal: the Sun crosses -18 deg going down and up.
    * none: the Sun never gets below -18 deg (start and end are null).
-   * polar-night: the Sun stays below -18 deg all day (start and end are null).
+   * polar-night: the Sun stays below -18 deg for the whole day, or dips below it at the last dusk before polar night and does not come back (start and end are null).
    */
   kind: 'normal' | 'none' | 'polar-night';
   /** Astronomical dusk, an absolute instant. */

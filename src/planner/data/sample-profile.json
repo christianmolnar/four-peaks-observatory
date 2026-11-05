@@ -1,5 +1,5 @@
 {
-  "_comment": "Sample profile, entered through the same schema as any user's. Fields starting with _ are notes and are ignored by the validator. A field is present only where a manufacturer page was read on 2026-11-05 (see _source); absent fields are unknown and optics reports them as missing. Elevation is unknown.",
+  "_comment": "Sample profile, entered through the same schema as any user's. Fields starting with _ are notes and are ignored by the validator; any other unknown field is rejected. A field is present only where a manufacturer page was read on 2026-11-05 (see _source); absent fields are unknown and optics reports them as missing. Elevation is unknown.",
   "version": 1,
   "sites": [
     {
@@ -25,7 +25,8 @@
       {
         "id": "hyperstar-v4",
         "name": "Celestron HyperStar v4",
-        "_source": "No factor: HyperStar replaces the secondary mirror and sets focal length itself (about f/1.9), so it is not a multiplier. Left unknown."
+        "effectiveFocalLengthMm": 540,
+        "_source": "starizona.com/products/hyperstar-c11-v4 (read 2026-11-05): f/1.9, 540 mm for the C11. HyperStar replaces the secondary mirror, so this is the whole scope's focal length, not a multiplier. A different Starizona page lists 684 mm for a C11 HyperStar without naming v4; not used."
       },
       {
         "id": "reducer-07",

@@ -29,11 +29,17 @@ export interface ProfileScope {
   apertureMm?: number;
 }
 
-/** Reducer (< 1), flattener (1) or extender (> 1); multiplies focal length. */
+/**
+ * Reducer (< 1), flattener (1) or extender (> 1) set `factor`, which multiplies
+ * the scope's focal length. An accessory that replaces the scope's optics (a
+ * HyperStar) sets `effectiveFocalLengthMm` instead: the focal length of the
+ * whole scope with it fitted. A train may carry at most one such accessory.
+ */
 export interface ProfileAccessory {
   id: string;
   name: string;
   factor?: number;
+  effectiveFocalLengthMm?: number;
 }
 
 export interface ProfileCamera {

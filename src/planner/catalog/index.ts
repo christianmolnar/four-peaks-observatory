@@ -32,10 +32,14 @@ export interface CatalogTarget {
 
 /**
  * Lookup key: lower case, apostrophes and spacing dropped, leading zeros
- * removed from a trailing catalog number ("NGC 0224", "ngc224" and "N G C 224" agree).
+ * removed from a trailing catalog number ("NGC 0224", "ngc224" and "N G C 224" agree); "Messier 42" is "M42".
  */
 export function normalizeName(name: string): string {
-  const key = name.toLowerCase().replace(/['’`]/g, '').replace(/[^a-z0-9]+/g, '');
+  const key = name
+    .toLowerCase()
+    .replace(/['’`]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .replace(/^messier(?=\d)/, 'm');
   return key.replace(/^([a-z]+)0+(\d)/, '$1$2');
 }
 
@@ -116,7 +120,7 @@ export function createResolver(
   return (name) => byKey.get(normalizeName(name)) ?? null;
 }
 
-/** Starter catalog: 24 targets from OpenNGC (see `data/targets.json`). */
+/** Starter catalog: 25 targets from OpenNGC (see `data/targets.json`). */
 export const starterTargets: readonly CatalogTarget[] = loadTargets(targetsData);
 
 export const resolveTarget = createResolver(starterTargets);
