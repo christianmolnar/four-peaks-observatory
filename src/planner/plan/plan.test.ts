@@ -113,15 +113,15 @@ describe('planTonight', () => {
     expect(plan.entries.filter((e) => !e.isPlanet)).toHaveLength(starterTargets.length);
   });
 
-  it('is sorted by score, highest first, and never-up targets score 0', () => {
-    const scores = plan.entries.map((e) => e.score.total);
+  it('is sorted by score, highest first (fitting targets first), and never-up targets score 0', () => {
+    const scores = plan.entries.filter((e) => e.fit !== 'too-large').map((e) => e.score.total);
     expect([...scores].sort((a, b) => b - a)).toEqual(scores);
     const never = plan.entries.filter((e) => e.usableMinutes === 0);
     expect(never.length).toBeGreaterThan(0);
     for (const e of never) {
       expect(e.score.total).toBe(0);
       expect(e.windows).toEqual([]);
-      expect(e.why).toMatch(/^Never clears/);
+      expect(e.why).toMatch(/Never clears/);
     }
   });
 
@@ -235,6 +235,26 @@ describe('fit', () => {
     expect(a.score.fit).toBe(-25);
     expect(b.score.fit).toBe(0);
     expect(a.score.usable).toBe(b.score.usable);
+  });
+
+  it('targets that do not fit sort below everything that fits, even with a higher score', () => {
+    const n = planTonight(base({ train: narrow }));
+    const kinds = n.entries.map((e) => e.fit === 'too-large');
+    expect(kinds).toContain(true);
+    expect(kinds).toContain(false);
+    expect(kinds.indexOf(true)).toBeGreaterThan(kinds.lastIndexOf(false));
+    const bestMiss = Math.max(...n.entries.filter((e) => e.fit === 'too-large').map((e) => e.score.total));
+    const worstFit = Math.min(...n.entries.filter((e) => e.fit !== 'too-large').map((e) => e.score.total));
+    expect(bestMiss).toBeGreaterThan(worstFit); // the order comes from the fit rule, not from the score
+  });
+
+  it('the why of a target that does not fit says so instead of recommending it', () => {
+    const n = planTonight(base({ train: narrow }));
+    const a = n.entries.find((e) => e.id === 'm42')!;
+    expect(a.why).toMatch(/^Does not fit this setup/);
+    expect(a.why).not.toContain('too large for the frame');
+    const w = planTonight(base({ train: wide }));
+    expect(w.entries.find((e) => e.id === 'm42')!.why).not.toMatch(/Does not fit/);
   });
 
   it('smart scopes get no fit math and no fit penalty, only altitude and horizon', () => {

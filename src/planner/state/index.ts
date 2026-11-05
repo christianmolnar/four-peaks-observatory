@@ -93,21 +93,110 @@ export function defaultTonightDate(now: Date, longitude: number): string {
 
 /** Friendly editor wording for a rejected arc; import errors keep the field path. */
 export function friendlyArcError(e: ProfileError): string {
-  if (/must differ|span at least/.test(e.message)) return 'Start and end must differ.';
-  if (/leave at least/.test(e.message)) return 'The arc is too wide: leave some of the horizon unblocked, or clear the horizon.';
+  if (/must differ|span at least/.test(e.message)) return 'Start and End must differ.';
+  if (/leave at least/.test(e.message)) return 'Too wide: leave some horizon open.';
   return e.message.replace(/^\$[^:]*: /, '');
 }
 
-export type NumberCheck = { ok: true; value: number } | { ok: false; error: string };
+/** The three horizon text boxes, exactly as typed. The only copy of the form's state. */
+export interface HorizonFields {
+  start: string;
+  end: string;
+  height: string;
+}
+export type HorizonField = keyof HorizonFields;
 
-/** Checks text from a number box (or a slider) against a range; the message says what is wrong. */
-export function checkNumberText(text: string, min: number, max: number, label: string, unit: string): NumberCheck {
-  if (text.trim() === '') return { ok: false, error: `${label}: enter a number.` };
-  const value = Number(text);
-  if (!Number.isFinite(value)) return { ok: false, error: `${label}: "${text}" is not a number.` };
-  if (value < min || value > max) return { ok: false, error: `${label} must be from ${min} to ${max} ${unit}.` };
+/** Limits of each box, in whole degrees. */
+export const HORIZON_RANGE: Record<HorizonField, { min: number; max: number }> = {
+  start: { min: 0, max: 359 },
+  end: { min: 0, max: 359 },
+  height: { min: 0, max: 90 },
+};
+export const MIN_ALTITUDE_RANGE = { min: 0, max: 89 } as const;
+export const DEFAULT_MIN_ALTITUDE = 20;
+/** What a new blocked arc starts as, and the fallback base when no horizon is saved. */
+export const DEFAULT_ARC: BlockedArc = { startAz: 90, endAz: 180, heightDeg: 30 };
+
+export function fieldsFromArc(arc: BlockedArc): HorizonFields {
+  return { start: String(arc.startAz), end: String(arc.endAz), height: String(arc.heightDeg) };
+}
+
+export const sameFields = (a: HorizonFields | null, b: HorizonFields | null): boolean =>
+  a === null || b === null ? a === b : a.start === b.start && a.end === b.end && a.height === b.height;
+
+const NUMBER_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+
+export type WholeDegrees = { ok: true; value: number } | { ok: false; error: string };
+
+/**
+ * Checks the text of a whole-degree box. The message is the one line shown under the box.
+ * `unit` is appended to the range message ("Use 0 to 359 degrees.").
+ */
+export function checkWholeDegrees(text: string, min: number, max: number, unit = ' degrees'): WholeDegrees {
+  const t = text.trim();
+  if (t === '') return { ok: false, error: `Enter a number from ${min} to ${max}.` };
+  if (!NUMBER_TEXT.test(t)) return { ok: false, error: `Numbers only, from ${min} to ${max}.` };
+  const value = Number(t);
+  if (!Number.isInteger(value)) return { ok: false, error: 'Whole degrees only.' };
+  if (value < min || value > max) return { ok: false, error: `Use ${min} to ${max}${unit}.` };
   return { ok: true, value };
 }
+
+export interface HorizonErrors {
+  start?: string;
+  end?: string;
+  height?: string;
+  /** The three numbers are fine but the arc is refused (start equals end, too wide). */
+  arc?: string;
+}
+
+/** The arc the fields spell, or null if any box is not a valid whole number in range. */
+function numbersOf(fields: HorizonFields): BlockedArc | null {
+  const s = checkWholeDegrees(fields.start, HORIZON_RANGE.start.min, HORIZON_RANGE.start.max);
+  const e = checkWholeDegrees(fields.end, HORIZON_RANGE.end.min, HORIZON_RANGE.end.max);
+  const h = checkWholeDegrees(fields.height, HORIZON_RANGE.height.min, HORIZON_RANGE.height.max);
+  return s.ok && e.ok && h.ok ? { startAz: s.value, endAz: e.value, heightDeg: h.value } : null;
+}
+
+/**
+ * Every message for the current text, computed from scratch on each call. Nothing is stored,
+ * so a message cannot outlive the text it was about. `arcCheck` is the profile validator's verdict on an arc.
+ */
+export function checkArcFields(fields: HorizonFields, arcCheck: (arc: BlockedArc) => string | null): HorizonErrors {
+  const errors: HorizonErrors = {};
+  for (const k of ['start', 'end', 'height'] as const) {
+    const c = checkWholeDegrees(fields[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
+    if (!c.ok) errors[k] = c.error;
+  }
+  const arc = numbersOf(fields);
+  if (arc) {
+    const message = arcCheck(arc);
+    if (message !== null) errors.arc = message;
+  }
+  return errors;
+}
+
+/**
+ * The arc the plan and the chart use while the boxes are being edited, and the slider positions.
+ * A box with a message falls back to `base` (the saved arc), never to a half-typed prefix. When the
+ * arc itself is refused, including the mix of a typed Start with a fallback End, Start and End both
+ * fall back. Valid whenever `base` is.
+ */
+export function effectiveArc(
+  fields: HorizonFields,
+  errors: HorizonErrors,
+  base: BlockedArc,
+  arcCheck: (arc: BlockedArc) => string | null,
+): BlockedArc {
+  const pick = (k: HorizonField, fallback: number): number => (errors[k] === undefined ? Number(fields[k]) : fallback);
+  const arc = { startAz: pick('start', base.startAz), endAz: pick('end', base.endAz), heightDeg: pick('height', base.heightDeg) };
+  return errors.arc !== undefined || arcCheck(arc) !== null ? { ...arc, startAz: base.startAz, endAz: base.endAz } : arc;
+}
+
+export const hasErrors = (e: HorizonErrors): boolean => Object.keys(e).length > 0;
+
+/** The arc the fields spell when they are all valid; null otherwise. */
+export const arcFromFields = numbersOf;
 
 /**
  * The evening date for a profile: its first site's longitude, or the

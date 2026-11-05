@@ -1,7 +1,11 @@
 import { ProfileError } from '../profile';
 import {
   CAPTURED_KEY,
-  checkNumberText,
+  arcFromFields,
+  checkArcFields,
+  checkWholeDegrees,
+  effectiveArc,
+  fieldsFromArc,
   friendlyArcError,
   PROFILE_KEY,
   defaultTonightDate,
@@ -109,20 +113,72 @@ describe('defaultTonightDate', () => {
   });
 });
 
-describe('checkNumberText', () => {
-  it('accepts numbers in range, including the ends and decimals', () => {
-    expect(checkNumberText('120', 0, 360, 'Start azimuth', 'deg')).toEqual({ ok: true, value: 120 });
-    expect(checkNumberText('0', 0, 360, 'x', 'deg')).toEqual({ ok: true, value: 0 });
-    expect(checkNumberText('42.5', 0, 90, 'x', 'deg')).toEqual({ ok: true, value: 42.5 });
+describe('checkWholeDegrees', () => {
+  it('accepts whole numbers in range, including both ends', () => {
+    expect(checkWholeDegrees('120', 0, 359)).toEqual({ ok: true, value: 120 });
+    expect(checkWholeDegrees('0', 0, 359)).toEqual({ ok: true, value: 0 });
+    expect(checkWholeDegrees('359', 0, 359)).toEqual({ ok: true, value: 359 });
   });
 
-  it('rejects empty, non-numeric and out-of-range text with a message', () => {
-    expect(checkNumberText('', 0, 90, 'Height', 'deg')).toEqual({ ok: false, error: 'Height: enter a number.' });
-    expect(checkNumberText('  ', 0, 90, 'Height', 'deg').ok).toBe(false);
-    expect(checkNumberText('abc', 0, 90, 'Height', 'deg')).toEqual({ ok: false, error: 'Height: "abc" is not a number.' });
-    expect(checkNumberText('91', 0, 90, 'Height', 'deg')).toEqual({ ok: false, error: 'Height must be from 0 to 90 deg.' });
-    expect(checkNumberText('-1', 0, 90, 'Height', 'deg').ok).toBe(false);
-    expect(checkNumberText('Infinity', 0, 90, 'Height', 'deg').ok).toBe(false);
+  it('gives the designer\'s one-line copy for each kind of bad text', () => {
+    const msg = (t: string, max = 359) => (checkWholeDegrees(t, 0, max) as { error: string }).error;
+    expect(msg('')).toBe('Enter a number from 0 to 359.');
+    expect(msg('  ')).toBe('Enter a number from 0 to 359.');
+    expect(msg('abc')).toBe('Numbers only, from 0 to 359.');
+    expect(msg('Infinity')).toBe('Numbers only, from 0 to 359.');
+    expect(msg('1.5')).toBe('Whole degrees only.');
+    expect(msg('500')).toBe('Use 0 to 359 degrees.');
+    expect(msg('-1')).toBe('Use 0 to 359 degrees.');
+    expect(msg('91', 90)).toBe('Use 0 to 90 degrees.');
+    expect((checkWholeDegrees('100', 0, 89, '') as { error: string }).error).toBe('Use 0 to 89.');
+  });
+});
+
+describe('effectiveArc', () => {
+  const base = { startAz: 120, endAz: 320, heightDeg: 42 };
+  const refuse = (a: { startAz: number; endAz: number }) => (a.startAz === a.endAz ? 'Start and End must differ.' : null);
+  const eff = (f: { start: string; end: string; height: string }) => effectiveArc(f, checkArcFields(f, refuse), base, refuse);
+
+  it('uses every box that is fine and the saved number for a box with a message', () => {
+    expect(eff({ start: '150', end: '320', height: '50' })).toEqual({ startAz: 150, endAz: 320, heightDeg: 50 });
+    expect(eff({ start: '500', end: '300', height: '50' })).toEqual({ startAz: 120, endAz: 300, heightDeg: 50 });
+    expect(eff({ start: '5', end: '320', height: '91' })).toEqual({ startAz: 5, endAz: 320, heightDeg: 42 });
+  });
+
+  it('never gives a refused arc: an arc error, or a typed Start meeting a fallback End, falls back', () => {
+    expect(eff({ start: '320', end: '320', height: '50' })).toEqual({ startAz: 120, endAz: 320, heightDeg: 50 });
+    expect(eff({ start: '320', end: '', height: '50' })).toEqual({ startAz: 120, endAz: 320, heightDeg: 50 });
+  });
+});
+
+describe('checkArcFields', () => {
+  const ok = () => null;
+  it('is computed from the text alone: same text, same answer', () => {
+    const f = fieldsFromArc({ startAz: 120, endAz: 320, heightDeg: 42 });
+    expect(checkArcFields(f, ok)).toEqual({});
+    expect(checkArcFields({ ...f, start: '500' }, ok)).toEqual({ start: 'Use 0 to 359 degrees.' });
+    expect(checkArcFields({ ...f, start: '500' }, ok)).toEqual({ start: 'Use 0 to 359 degrees.' });
+    expect(checkArcFields({ ...f, height: '91' }, ok)).toEqual({ height: 'Use 0 to 90 degrees.' });
+    expect(checkArcFields({ start: '', end: 'x', height: '1.5' }, ok)).toEqual({
+      start: 'Enter a number from 0 to 359.',
+      end: 'Numbers only, from 0 to 359.',
+      height: 'Whole degrees only.',
+    });
+  });
+
+  it('asks the validator about the arc only when all three boxes are fine', () => {
+    const calls: unknown[] = [];
+    const f = { start: '320', end: '320', height: '42' };
+    expect(checkArcFields(f, (a) => (calls.push(a), 'Start and End must differ.'))).toEqual({ arc: 'Start and End must differ.' });
+    expect(calls).toEqual([{ startAz: 320, endAz: 320, heightDeg: 42 }]);
+    calls.length = 0;
+    checkArcFields({ ...f, height: '' }, (a) => (calls.push(a), null));
+    expect(calls).toEqual([]);
+  });
+
+  it('arcFromFields gives the arc, or null when any box is bad', () => {
+    expect(arcFromFields({ start: '300', end: '60', height: '35' })).toEqual({ startAz: 300, endAz: 60, heightDeg: 35 });
+    expect(arcFromFields({ start: '300', end: '60', height: '95' })).toBeNull();
   });
 });
 
@@ -147,8 +203,8 @@ describe('friendlyArcError', () => {
     throw new Error('expected a ProfileError');
   };
   it('says what is wrong in words, with no field path', () => {
-    expect(msg({ startAz: 100, endAz: 100, heightDeg: 30 })).toBe('Start and end must differ.');
-    expect(msg({ startAz: 0, endAz: 359.99, heightDeg: 30 })).toMatch(/^The arc is too wide/);
+    expect(msg({ startAz: 100, endAz: 100, heightDeg: 30 })).toBe('Start and End must differ.');
+    expect(msg({ startAz: 0, endAz: 359.99, heightDeg: 30 })).toMatch(/^Too wide/);
     expect(msg({ startAz: 10, endAz: 50, heightDeg: 91 })).not.toContain('$');
   });
 });

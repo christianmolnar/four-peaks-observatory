@@ -240,6 +240,11 @@ function fitOf(train: PlanTrain, target: CatalogTarget): { fit: Fit; detail: str
 }
 
 function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number, time: (d: Date) => string): string {
+  const text = describeSky(e, horizonSet, minAltitude, time);
+  return e.fit === 'too-large' ? `Does not fit this setup (${e.fitDetail}). ${text}` : text;
+}
+
+function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number, time: (d: Date) => string): string {
   const limit = horizonSet ? `the horizon and ${minAltitude} deg minimum` : `the flat ${minAltitude} deg minimum (horizon not set)`;
   if (e.usableMinutes <= 0) {
     return `Never clears ${limit} tonight; it peaks at ${fmt(e.peakAltitude)} deg in the ${compass(e.peakAzimuth)}.`;
@@ -257,7 +262,6 @@ function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: n
   if (e.inSeason === false) parts.push('out of season');
   if (e.isPlanet) parts.push('planet');
   if (e.fit === 'fits') parts.push('fits the frame');
-  if (e.fit === 'too-large') parts.push('too large for the frame');
   if (e.fit === 'unknown') parts.push('fit unknown');
   return `${parts.join('; ')}.`;
 }
@@ -360,6 +364,8 @@ export function planTonight(
     return { ...partial, why: describe(partial, horizonSet, minAltitude, formatTime) };
   });
 
-  entries.sort((a, b) => b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || a.name.localeCompare(b.name));
+  // A target that does not fit the train is never ranked above one that does.
+  const misses = (e: PlanEntry): number => (e.fit === 'too-large' ? 1 : 0);
+  entries.sort((a, b) => misses(a) - misses(b) || b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || a.name.localeCompare(b.name));
   return { night, horizonSet, minAltitude, entries };
 }

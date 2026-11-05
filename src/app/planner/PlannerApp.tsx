@@ -8,16 +8,25 @@ import { arcToHorizonPoints, ProfileError, parseProfile } from '@/planner/profil
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
 import {
+  DEFAULT_ARC,
+  DEFAULT_MIN_ALTITUDE,
+  MIN_ALTITUDE_RANGE,
   PROFILE_KEY,
+  checkArcFields,
+  checkWholeDegrees,
   defaultDateForProfile,
+  effectiveArc,
+  fieldsFromArc,
   friendlyArcError,
   loadCaptured,
   loadProfile,
   sampleProfile,
   saveCaptured,
+  sameFields,
   saveProfile,
   withSiteArc,
 } from '@/planner/state';
+import type { HorizonField, HorizonFields } from '@/planner/state';
 import AltitudeChart from './AltitudeChart';
 import HorizonEditor from './HorizonEditor';
 import NumberSlider from './NumberSlider';
@@ -55,6 +64,8 @@ export interface PlannerAppProps {
   initialProfile?: Profile;
 }
 
+const fieldsOf = (arc: BlockedArc | null): HorizonFields | null => (arc ? fieldsFromArc(arc) : null);
+
 export default function PlannerApp({ initialDate, initialProfile }: PlannerAppProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
   const [notice, setNotice] = useState<string | null>(null);
@@ -62,14 +73,27 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [date, setDate] = useState<string>(initialDate ?? '');
   const [siteId, setSiteId] = useState<string>('');
   const [trainId, setTrainId] = useState<string>('');
-  const [minAltitude, setMinAltitude] = useState<number>(20);
-  const [draftArc, setDraftArc] = useState<BlockedArc | null | undefined>(undefined);
+  // The one copy of the form: what is in the boxes. Messages and the plan's numbers are derived from it.
+  const [fields, setFields] = useState<HorizonFields | null>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArc ?? null));
+  const [minAltText, setMinAltText] = useState<string>(String(DEFAULT_MIN_ALTITUDE));
+  const [justSaved, setJustSaved] = useState(false);
   const [captured, setCaptured] = useState<ReadonlySet<string>>(new Set());
   const [season, setSeason] = useState<SeasonFilter>('all');
   const [setup, setSetup] = useState<SetupFilter>('all');
   const [onlyUsable, setOnlyUsable] = useState(true);
+  const [showNoFit, setShowNoFit] = useState(false);
   const [selectedId, setSelectedId] = useState<string>('');
   const [zone, setZone] = useState<string>('');
+
+  /**
+   * The one place the form is set from saved data: Discard, Use sample horizon, a site change, an
+   * import and a profile reset all end here. `withMinAltitude` also puts Minimum altitude back to its default.
+   */
+  const loadForm = (arc: BlockedArc | null, withMinAltitude: boolean) => {
+    setFields(fieldsOf(arc));
+    setJustSaved(false);
+    if (withMinAltitude) setMinAltText(String(DEFAULT_MIN_ALTITUDE));
+  };
 
   // Browser-only state: saved profile, captured list, the clock.
   useEffect(() => {
@@ -86,6 +110,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       setProfile(r.profile);
       if (r.error) setImportError(r.error);
     }
+    loadForm(loaded.sites[0]?.blockedArc ?? null, true);
     if (!initialDate) {
       setDate(defaultDateForProfile(new Date(), loaded));
     }
@@ -93,9 +118,37 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
   const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];
-  const arc: BlockedArc | null = site ? (draftArc !== undefined ? draftArc : site.blockedArc) : null;
-  const dirty = site !== undefined && draftArc !== undefined && JSON.stringify(draftArc) !== JSON.stringify(site.blockedArc);
+  const savedFields = site ? fieldsOf(site.blockedArc) : null;
+  const dirty = site !== undefined && !sameFields(fields, savedFields);
+
+  const checkArc = (next: BlockedArc): string | null => {
+    if (!site) return 'No site.';
+    try {
+      withSiteArc(profile, site.id, next);
+    } catch (e) {
+      if (e instanceof ProfileError) return friendlyArcError(e);
+      throw e;
+    }
+    return null;
+  };
+
+  // Everything below is derived from the text on each render; nothing is stored about it.
+  const { errors, arc } = useMemo(() => {
+    if (!site || fields === null) return { errors: {}, arc: null as BlockedArc | null };
+    const errs = checkArcFields(fields, checkArc);
+    return { errors: errs, arc: effectiveArc(fields, errs, site.blockedArc ?? DEFAULT_ARC, checkArc) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkArc is a function of site and profile
+  }, [fields, site, profile]);
+  const sliderValues: Record<HorizonField, number> = {
+    start: arc?.startAz ?? 0,
+    end: arc?.endAz ?? 0,
+    height: arc?.heightDeg ?? 0,
+  };
   const horizon = useMemo(() => (arc ? arcToHorizonPoints(arc) : null), [arc]);
+
+  const minCheck = checkWholeDegrees(minAltText, MIN_ALTITUDE_RANGE.min, MIN_ALTITUDE_RANGE.max, '');
+  const minAltitude = minCheck.ok ? minCheck.value : DEFAULT_MIN_ALTITUDE;
+  const minAltError = minCheck.ok ? null : `${minCheck.error} Planning with ${DEFAULT_MIN_ALTITUDE} until fixed.`;
 
   const planResult = useMemo(() => {
     if (!site || !train || date === '') return null;
@@ -123,6 +176,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     if (!plan) return [];
     return plan.entries.filter((e) => {
       if (onlyUsable && e.usableMinutes <= 0) return false;
+      if (!showNoFit && setup !== 'too-large' && e.fit === 'too-large') return false;
       if (season === 'in' && e.inSeason !== true) return false;
       if (season === 'out' && e.inSeason !== false) return false;
       if (setup === 'fits' && e.fit !== 'fits') return false;
@@ -131,7 +185,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       if (setup === 'deep-sky' && e.isPlanet) return false;
       return true;
     });
-  }, [plan, onlyUsable, season, setup]);
+  }, [plan, onlyUsable, showNoFit, season, setup]);
 
   const selected = filtered.find((e) => e.id === selectedId) ?? filtered[0];
   const track = useMemo(() => {
@@ -148,25 +202,18 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     );
   }, [plan, selected, site, horizon, minAltitude]);
 
-  const checkArc = (next: BlockedArc | null): string | null => {
-    if (!site) return 'No site.';
-    try {
-      withSiteArc(profile, site.id, next);
-    } catch (e) {
-      if (e instanceof ProfileError) return friendlyArcError(e);
-      throw e;
-    }
-    return null;
+  const editField = (field: HorizonField, text: string) => {
+    setFields((f) => (f ? { ...f, [field]: text } : f));
+    setJustSaved(false);
   };
 
   const saveArc = () => {
-    if (!site || draftArc === undefined) return;
+    if (!site) return;
     try {
-      const next = withSiteArc(profile, site.id, draftArc);
+      const next = withSiteArc(profile, site.id, fields === null ? null : { startAz: Number(fields.start), endAz: Number(fields.end), heightDeg: Number(fields.height) });
       saveProfile(window.localStorage, next);
       setProfile(next);
-      setDraftArc(undefined);
-      setNotice('Horizon saved in this browser.');
+      setJustSaved(true);
     } catch (e) {
       setNotice(`Not saved: ${(e as Error).message}`);
     }
@@ -179,8 +226,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     } catch (e) {
       setNotice(`Could not clear the stored profile: ${(e as Error).message}`);
     }
-    setProfile(sampleProfile());
-    setDraftArc(undefined);
+    const sample = sampleProfile();
+    setProfile(sample);
+    loadForm(sample.sites[0]?.blockedArc ?? null, true);
     setSiteId('');
     setTrainId('');
     setImportError(null);
@@ -207,7 +255,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       saveProfile(window.localStorage, next);
       setProfile(next);
       setDate(defaultDateForProfile(new Date(), next));
-      setDraftArc(undefined);
+      loadForm(next.sites[0]?.blockedArc ?? null, true);
       setSiteId('');
       setTrainId('');
       setNotice(`Imported ${file.name}.`);
@@ -263,7 +311,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         )}
         <div className="flex flex-wrap items-end gap-4 mt-4">
           {importControl}
-          <button type="button" className={btn} onClick={resetSample}>Reset to sample</button>
+          <button type="button" className={btn} onClick={resetSample}>Replace profile with sample</button>
         </div>
       </div>
     );
@@ -279,21 +327,24 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         </p>
       </header>
 
-      {notice && (
-        <p role="status" className="bg-sky-400/15 border border-sky-300/40 rounded px-3 py-2 text-sky-100 font-normal text-sm">
-          {notice}
-        </p>
-      )}
-      {importError && (
-        <p role="alert" className="bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
-          {importError}
-        </p>
-      )}
-      {planResult?.error && (
-        <p role="alert" className="bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
-          Could not plan: {planResult.error}
-        </p>
-      )}
+      {/* Messages float at the bottom of the window, so showing one never pushes the page down. */}
+      <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl flex-col gap-2">
+        {notice && (
+          <p role="status" className="pointer-events-auto bg-slate-900 border border-sky-300/60 rounded px-3 py-2 text-sky-100 font-normal text-sm">
+            {notice}
+          </p>
+        )}
+        {importError && (
+          <p role="alert" className="pointer-events-auto bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+            {importError}
+          </p>
+        )}
+        {planResult?.error && (
+          <p role="alert" className="pointer-events-auto bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+            Could not plan: {planResult.error}
+          </p>
+        )}
+      </div>
 
       <section aria-labelledby="controls-heading" className={panel}>
         <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">TONIGHT</h2>
@@ -310,7 +361,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
               value={site.id}
               onChange={(e) => {
                 setSiteId(e.target.value);
-                setDraftArc(undefined);
+                loadForm(profile.sites.find((x) => x.id === e.target.value)?.blockedArc ?? null, true);
               }}
             >
               {profile.sites.map((s) => (
@@ -330,11 +381,12 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             id="min-alt"
             label="Minimum altitude"
             unit="deg"
-            min={0}
-            max={89}
-            step={1}
-            value={minAltitude}
-            onCommit={setMinAltitude}
+            min={MIN_ALTITUDE_RANGE.min}
+            max={MIN_ALTITUDE_RANGE.max}
+            text={minAltText}
+            sliderValue={minAltitude}
+            onText={setMinAltText}
+            error={minAltError}
           />
         </div>
         <p className="text-white/80 font-normal text-sm mt-2" data-testid="night-summary">
@@ -350,7 +402,10 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         <p className="text-white/80 font-normal text-sm mt-1" data-testid="horizon-summary">
           {arc === null
             ? 'Horizon not set: only the flat minimum altitude applies.'
-            : `Horizon: blocked ${arc.startAz}° (${compass(arc.startAz)}) to ${arc.endAz}° (${compass(arc.endAz)}), ${arc.heightDeg}° high.`}
+            : `Horizon: blocked ${arc.startAz}° (${compass(arc.startAz)}) to ${arc.endAz}° (${compass(arc.endAz)}), ${arc.heightDeg}° high.`}{' '}
+          <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            Edit horizon
+          </a>
         </p>
       </section>
 
@@ -377,6 +432,10 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
               <input type="checkbox" checked={onlyUsable} onChange={(e) => setOnlyUsable(e.target.checked)} className="accent-sky-400" />
               Only targets usable tonight
+            </label>
+            <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
+              <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="accent-sky-400" />
+              Show targets that do not fit
             </label>
             <button type="button" className={btn} onClick={exportCsv} disabled={!plan || filtered.length === 0}>
               Export CSV
@@ -443,7 +502,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                   </tr>
                   <tr className={`border-b border-white/10 ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
                     <td colSpan={9} className="pb-3 pl-8 pr-3 text-white/80">
-                      <p><span className="text-white">Why recommended:</span> {e.why}</p>
+                      <p><span className="text-white">{e.fit === 'too-large' ? 'Why it is listed:' : 'Why recommended:'}</span> {e.why}</p>
                       <p className="text-xs text-white/60 mt-1">
                         Score parts: usable {e.score.usable.toFixed(0)}, altitude {e.score.altitude.toFixed(0)}, season {e.score.season}, Moon {e.score.moon.toFixed(0)}, fit {e.score.fit}. Fit: {e.fitDetail}.
                       </p>
@@ -477,15 +536,25 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       )}
 
       <HorizonEditor
-        key={site.id}
         siteName={site.name}
-        arc={arc}
-        validate={checkArc}
-        onChange={setDraftArc}
+        fields={fields}
+        errors={errors}
+        preview={arc}
+        sliderValues={sliderValues}
         dirty={dirty}
+        saved={justSaved}
+        onField={editField}
         onSave={saveArc}
-        onDiscard={() => setDraftArc(undefined)}
-        onResetSample={resetSample}
+        onDiscard={() => loadForm(site.blockedArc, false)}
+        onUseSample={() => loadForm(sampleProfile().sites[0]?.blockedArc ?? null, true)}
+        onClear={() => {
+          setFields(null);
+          setJustSaved(false);
+        }}
+        onAdd={() => {
+          setFields(fieldsFromArc(DEFAULT_ARC));
+          setJustSaved(false);
+        }}
       />
 
       <section aria-labelledby="profile-heading" className={panel}>
@@ -499,6 +568,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             Export profile (JSON)
           </button>
           {importControl}
+          <button type="button" className={btn} onClick={resetSample}>Replace profile with sample</button>
         </div>
         <p className="text-white/60 font-normal text-xs mt-3">
           Imports are checked field by field; a rejected file changes nothing and the error names the field.

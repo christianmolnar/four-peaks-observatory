@@ -1,0 +1,64 @@
+PASS 1280px: the four message lines exist before any error
+PASS 1280px: Save, Discard, Use sample horizon and Clear horizon are at least 44 px tall  [{'Save horizon': 44, 'Discard changes': 44, 'Use sample horizon': 44, 'Clear horizon': 44}]
+PASS 1280px: boxes identical after 500 in Start  [message: '! Use 0 to 359 degrees.']
+PASS 1280px: boxes identical after 361 in Start  [message: '! Use 0 to 359 degrees.']
+PASS 1280px: boxes identical after 320 in Start (equals End)  [message: '! Start and End must differ.']
+PASS 1280px: boxes identical after 91 in Height  [message: '! Use 0 to 90 degrees.']
+PASS 1280px: boxes identical after 95 in Height  [message: '! Use 0 to 90 degrees.']
+PASS 1280px: boxes identical after empty Start  [message: '! Enter a number from 0 to 359.']
+PASS 1280px: boxes identical after 1.5 in Start  [message: '! Whole degrees only.']
+PASS 1280px: boxes identical after 100 in Minimum altitude  [message: '! Use 0 to 89. Planning with 20 until fixed.']
+PASS 1280px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Use sample horizon after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Discard changes after 320 in Start (equals End)  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Use sample horizon after 320 in Start (equals End)  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Discard changes after 91 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Use sample horizon after 91 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Discard changes after 95 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Use sample horizon after 95 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 1280px: first click on Clear horizon after 500 in Start
+PASS 1280px: first click on Clear horizon after 361 in Start
+PASS 1280px: first click on Clear horizon after 320 in Start (equals End)
+PASS 1280px: first click on Clear horizon after 91 in Height
+PASS 1280px: first click on Clear horizon after 95 in Height
+PASS 1280px: Save is inert while a horizon box is bad, nothing is stored
+PASS 1280px: after the box is fixed, first click on Save stores it  [{'startAz': 130, 'endAz': 320, 'heightDeg': 50}]
+PASS 1280px: bad Minimum altitude, first click on Save stores the original Start and End  [{'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
+PASS 1280px: reload shows the saved arc
+PASS 1280px: Minimum altitude is 20 with no message after Use sample horizon
+PASS 1280px: no page errors
+PASS 390px: the four message lines exist before any error
+PASS 390px: Save, Discard, Use sample horizon and Clear horizon are at least 44 px tall  [{'Save horizon': 44, 'Discard changes': 44, 'Use sample horizon': 44, 'Clear horizon': 44}]
+PASS 390px: boxes identical after 500 in Start  [message: '! Use 0 to 359 degrees.']
+PASS 390px: boxes identical after 361 in Start  [message: '! Use 0 to 359 degrees.']
+PASS 390px: boxes identical after 320 in Start (equals End)  [message: '! Start and End must differ.']
+PASS 390px: boxes identical after 91 in Height  [message: '! Use 0 to 90 degrees.']
+PASS 390px: boxes identical after 95 in Height  [message: '! Use 0 to 90 degrees.']
+PASS 390px: boxes identical after empty Start  [message: '! Enter a number from 0 to 359.']
+PASS 390px: boxes identical after 1.5 in Start  [message: '! Whole degrees only.']
+PASS 390px: boxes identical after 100 in Minimum altitude  [message: '! Use 0 to 89. Planning with 20 until fixed.']
+PASS 390px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Use sample horizon after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Discard changes after 320 in Start (equals End)  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Use sample horizon after 320 in Start (equals End)  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Discard changes after 91 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Use sample horizon after 91 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Discard changes after 95 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Use sample horizon after 95 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 390px: first click on Clear horizon after 500 in Start
+PASS 390px: first click on Clear horizon after 361 in Start
+PASS 390px: first click on Clear horizon after 320 in Start (equals End)
+PASS 390px: first click on Clear horizon after 91 in Height
+PASS 390px: first click on Clear horizon after 95 in Height
+PASS 390px: Save is inert while a horizon box is bad, nothing is stored
+PASS 390px: after the box is fixed, first click on Save stores it  [{'startAz': 130, 'endAz': 320, 'heightDeg': 50}]
+PASS 390px: bad Minimum altitude, first click on Save stores the original Start and End  [{'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
+PASS 390px: reload shows the saved arc
+PASS 390px: Minimum altitude is 20 with no message after Use sample horizon
+PASS 390px: no page errors
+
+62 of 62 checks passed

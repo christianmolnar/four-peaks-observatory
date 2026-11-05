@@ -7,11 +7,17 @@ import PlannerApp from './PlannerApp';
 const render = (profile = sampleProfile(), date = '2026-12-15') =>
   renderToStaticMarkup(<PlannerApp initialDate={date} initialProfile={profile} />);
 
+/** The sample profile with one train moved first, since the page opens on the first train. */
+const withTrainFirst = (id: string) => {
+  const p = sampleProfile();
+  return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
+};
+const wideProfile = () => withTrainFirst('wide-c11-hyperstar-2600');
 const siteId = sampleProfile().sites[0].id;
 const rows = (html: string) => (html.match(/<tr class="border-b border-white\/10/g) ?? []).length;
 
 describe('planner page', () => {
-  const html = render();
+  const html = render(wideProfile());
 
   it('renders the controls, the ranked table and the horizon editor', () => {
     expect(html).toContain('IMAGING PLANNER');
@@ -22,7 +28,7 @@ describe('planner page', () => {
     expect(html).toContain('Orion Nebula');
     expect(html).toContain('Why recommended');
     expect(html).toContain('Export CSV');
-    expect(html).toContain('Reset to sample');
+    expect(html).toContain('Replace profile with sample');
     expect(rows(html)).toBeGreaterThan(5);
   });
 
@@ -42,7 +48,7 @@ describe('planner page', () => {
   it('the empty-profile screen offers the import control it names', () => {
     const empty = render({ ...sampleProfile(), sites: [], plans: [] });
     expect(empty).toContain('for="profile-import"');
-    expect(empty).toContain('Reset to sample');
+    expect(empty).toContain('Replace profile with sample');
   });
 
   it('labels every control and gives both charts a text alternative', () => {
@@ -63,7 +69,7 @@ describe('planner page', () => {
   });
 
   it('clearing the arc shows "horizon not set" and the flat minimum in the list', () => {
-    const cleared = render(withSiteArc(sampleProfile(), siteId, null));
+    const cleared = render(withSiteArc(wideProfile(), siteId, null));
     expect(cleared).toContain('data-testid="horizon-not-set"');
     expect(cleared).toContain('Horizon not set: only the flat minimum altitude applies.');
     expect(cleared).toContain('flat 20 deg minimum (horizon not set)');
@@ -73,8 +79,8 @@ describe('planner page', () => {
   });
 
   it('changing the arc changes the usable windows in the list', () => {
-    const open = render(withSiteArc(sampleProfile(), siteId, null));
-    const wall = render(withSiteArc(sampleProfile(), siteId, { startAz: 90, endAz: 270, heightDeg: 80 }));
+    const open = render(withSiteArc(wideProfile(), siteId, null));
+    const wall = render(withSiteArc(wideProfile(), siteId, { startAz: 90, endAz: 270, heightDeg: 80 }));
     expect(rows(wall)).toBeLessThan(rows(open));
     expect(open).toMatch(/>Orion Nebula</);
     expect(wall).not.toMatch(/>Orion Nebula</);
