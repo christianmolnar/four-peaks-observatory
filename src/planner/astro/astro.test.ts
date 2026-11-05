@@ -164,6 +164,48 @@ describe('astronomical night', () => {
     }
   });
 
+  it('dawn matches an independent 1-minute scan of the Sun, and the Sun is below -18 at the midpoint', () => {
+    for (const lat of [51.5, 59.9, -54.8]) {
+      const site: Site = { latitude: lat, longitude: 0 };
+      for (let day = 0; day < 365; day += 5) {
+        const noon = new Date(Date.UTC(2026, 0, 1 + day, 12));
+        const n = astronomicalNight(site, noon);
+        if (n.kind !== 'normal') continue;
+        const mid = new Date((n.start!.getTime() + n.end!.getTime()) / 2);
+        expect(sunAltitudeAt(mid, site)).toBeLessThan(-18);
+        // Independent value: first minute after dusk+2min at which the Sun is back above -18.
+        let t = n.start!.getTime() + 2 * 60000;
+        while (sunAltitudeAt(new Date(t), site) < -18 && t < n.start!.getTime() + 36 * 3600000) {
+          t += 60000;
+        }
+        expect(Math.abs(t - n.end!.getTime())).toBeLessThanOrEqual(3 * 60000);
+      }
+    }
+  });
+
+  // Reproductions from the M1a round-2 review: nights of about 60 s.
+  it('finds a 60 s night that is ending (lat 54.174665, May)', () => {
+    const n = astronomicalNight(
+      { latitude: 54.174665, longitude: 0 },
+      new Date(Date.UTC(2026, 4, 10, 12)),
+    );
+    expect(n.kind).toBe('normal');
+    const seconds = (n.end!.getTime() - n.start!.getTime()) / 1000;
+    expect(seconds).toBeGreaterThan(0);
+    expect(seconds).toBeLessThan(180);
+  });
+
+  it('finds a 60 s night that is returning (lat 54.194972, August) instead of a day-long one', () => {
+    const n = astronomicalNight(
+      { latitude: 54.194972, longitude: 0 },
+      new Date(Date.UTC(2026, 7, 1, 12)),
+    );
+    expect(n.kind).toBe('normal');
+    const seconds = (n.end!.getTime() - n.start!.getTime()) / 1000;
+    expect(seconds).toBeGreaterThan(0);
+    expect(seconds).toBeLessThan(180);
+  });
+
   it('returns a typed result, not an error, on the last dusk before polar night (lat 85)', () => {
     const n = astronomicalNight(
       { latitude: 85, longitude: 0 },

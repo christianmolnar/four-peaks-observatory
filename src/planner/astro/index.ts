@@ -136,13 +136,18 @@ export function astronomicalNight(
     }
   }
 
-  // Start just after dusk: SearchAltitude can otherwise return the dusk instant itself.
-  const afterDusk = start.AddDays(1 / 1440);
+  // Search for dawn from the Sun's lowest point (anti-transit) after dusk, not from
+  // dusk plus a margin: a margin jumps over dawn when the night lasts under a minute.
+  const nadir = Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, start);
+  if (sunAlt(nadir.time.date) >= ASTRONOMICAL_TWILIGHT_DEG) {
+    // Dusk found but the Sun never gets (and stays) below -18: no night.
+    return { kind: 'none', start: null, end: null };
+  }
   const end = Astronomy.SearchAltitude(
     Astronomy.Body.Sun,
     observer,
     +1,
-    afterDusk,
+    nadir.time,
     1.5,
     ASTRONOMICAL_TWILIGHT_DEG,
   );
