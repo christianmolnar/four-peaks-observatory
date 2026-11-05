@@ -1,4 +1,4 @@
-import { seasonLabel } from '../plan';
+import { fitLabel, seasonLabel } from '../plan';
 import type { PlanEntry } from '../plan';
 
 export const CSV_HEADER = [
@@ -26,6 +26,22 @@ export function csvField(value: string | number): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+const csvTimeFormat = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+  timeZoneName: 'short',
+});
+
+/** Instant as "2026-12-15 20:17 MST": date, time and the viewer's zone, so a sheet row stands alone. */
+export function formatCsvTime(d: Date): string {
+  const p = Object.fromEntries(csvTimeFormat.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
+}
+
 export interface CsvOptions {
   /** Formats an instant for the sheet (time zone is the caller's choice). */
   formatTime: (d: Date) => string;
@@ -44,7 +60,7 @@ export function planToCsv(entries: readonly PlanEntry[], options: CsvOptions): s
       e.isPlanet ? 'yes' : 'no',
       seasonLabel(e.seasonMonths),
       e.inSeason === null ? '' : e.inSeason ? 'yes' : 'no',
-      e.fit,
+      fitLabel(e),
       e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join('; '),
       (e.usableMinutes / 60).toFixed(2),
       e.peakAltitude.toFixed(1),

@@ -26,6 +26,25 @@ describe('planner page', () => {
     expect(rows(html)).toBeGreaterThan(5);
   });
 
+  it('shows the why, score parts and fit detail as text under each row, not as hover titles', () => {
+    expect(html).toContain('Why recommended:');
+    expect(html).toContain('Score parts: usable');
+    expect(html).toContain('Fit: ');
+    expect(html).not.toContain('title="usable');
+    expect(html).not.toMatch(/Hover a score/);
+  });
+
+  it('says only what is true about data leaving the browser', () => {
+    expect(html).toContain('stay in this browser');
+    expect(html).not.toContain('nothing is sent anywhere');
+  });
+
+  it('the empty-profile screen offers the import control it names', () => {
+    const empty = render({ ...sampleProfile(), sites: [], plans: [] });
+    expect(empty).toContain('for="profile-import"');
+    expect(empty).toContain('Reset to sample');
+  });
+
   it('labels every control and gives both charts a text alternative', () => {
     for (const id of ['plan-date', 'plan-site', 'plan-train', 'f-season', 'f-setup', 'profile-import', 'arc-start-number', 'arc-end-number', 'arc-height-number']) {
       expect(html).toContain(`for="${id}"`);

@@ -24,7 +24,16 @@ export interface LoadedProfile {
  * bad text stays in storage until the user saves or resets.
  */
 export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
-  const text = storage.getItem(PROFILE_KEY);
+  let text: string | null;
+  try {
+    text = storage.getItem(PROFILE_KEY);
+  } catch (e) {
+    return {
+      profile: sampleProfile(),
+      error: `Saved profile could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`,
+      stored: false,
+    };
+  }
   if (text === null) return { profile: sampleProfile(), error: null, stored: false };
   try {
     return { profile: parseProfile(text), error: null, stored: true };
@@ -70,13 +79,65 @@ export function withSiteArc(profile: Profile, siteId: string, arc: BlockedArc | 
 }
 
 /**
- * The evening date to plan for, YYYY-MM-DD in the clock's local time: today,
- * except between midnight and 06:00, when the night still running began yesterday.
+ * The evening date to plan for, YYYY-MM-DD in the site's local mean solar
+ * time (from its longitude, so no time zone is needed and the browser's zone
+ * does not matter): today, except between midnight and 06:00, when the night
+ * still running began yesterday.
  */
-export function defaultTonightDate(now: Date): string {
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getHours() < 6 ? 1 : 0));
+export function defaultTonightDate(now: Date, longitude: number): string {
+  const local = new Date(now.getTime() + (longitude / 15) * 3600000);
+  const d = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - (local.getUTCHours() < 6 ? 1 : 0)));
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
+/** Friendly editor wording for a rejected arc; import errors keep the field path. */
+export function friendlyArcError(e: ProfileError): string {
+  if (/must differ|span at least/.test(e.message)) return 'Start and end must differ.';
+  if (/leave at least/.test(e.message)) return 'The arc is too wide: leave some of the horizon unblocked, or clear the horizon.';
+  return e.message.replace(/^\$[^:]*: /, '');
+}
+
+/** What a number box and slider pair is typing right now. `base` is the committed value when the text was entered. */
+export interface NumberDraft {
+  text: string;
+  base: number;
+}
+
+export interface NumberView {
+  /** Text for the number box. */
+  text: string;
+  /** Message to show, or null. */
+  error: string | null;
+}
+
+/**
+ * What the number box shows and which error stands, derived from the typed
+ * draft and the committed `value` on every render so it cannot go stale.
+ * - No draft, or a draft the page has since moved away from (Discard, Reset,
+ *   a site change), shows the committed value.
+ * - A draft that was accepted shows as typed ("1.0" stays "1.0").
+ * - A rejected draft keeps its text and message while the committed value is
+ *   unchanged and `validate` still refuses it; once it would be accepted (the
+ *   other azimuth moved) the box falls back to the committed value.
+ * `validate` is pure: a message, or null when `onCommit` would accept the number.
+ */
+export function numberView(
+  draft: NumberDraft | null,
+  value: number,
+  min: number,
+  max: number,
+  label: string,
+  unit: string,
+  validate: (n: number) => string | null,
+): NumberView {
+  const shownValue: NumberView = { text: String(value), error: null };
+  if (draft === null) return shownValue;
+  const c = checkNumberText(draft.text, min, max, label, unit);
+  if (c.ok && c.value === value) return { text: draft.text, error: null };
+  const error = c.ok ? validate(c.value) : c.error;
+  if (error !== null && draft.base === value) return { text: draft.text, error };
+  return shownValue;
 }
 
 export type NumberCheck = { ok: true; value: number } | { ok: false; error: string };

@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { moonIllumination } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
-import { planToCsv } from '@/planner/export';
+import { formatCsvTime, planToCsv } from '@/planner/export';
 import { arcToHorizonPoints, ProfileError, parseProfile } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
-import { altitudeTrack, compass, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
-import type { PlanEntry } from '@/planner/plan';
+import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
 import {
   PROFILE_KEY,
   defaultTonightDate,
+  friendlyArcError,
   loadCaptured,
   loadProfile,
   sampleProfile,
@@ -48,19 +48,6 @@ function download(filename: string, text: string, mime: string, bom = false): vo
   URL.revokeObjectURL(url);
 }
 
-function fitText(e: PlanEntry): string {
-  switch (e.fit) {
-    case 'fits':
-      return 'Fits';
-    case 'too-large':
-      return 'Too large';
-    case 'unknown':
-      return 'Fit unknown';
-    default:
-      return e.isPlanet ? 'Planet' : 'Smart scope';
-  }
-}
-
 export interface PlannerAppProps {
   /** For tests and previews: fixes the evening date (YYYY-MM-DD) instead of reading the clock. */
   initialDate?: string;
@@ -86,17 +73,24 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   // Browser-only state: saved profile, captured list, the clock.
   useEffect(() => {
-    if (!initialDate) setDate(defaultTonightDate(new Date()));
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     try {
       setCaptured(loadCaptured(window.localStorage));
     } catch (e) {
       setNotice(`Captured list could not be read: ${(e as Error).message}`);
     }
-    if (!initialProfile) {
-      const r = loadProfile(window.localStorage);
+    let loaded = initialProfile;
+    if (!loaded) {
+      const r = loadProfile({ getItem: (k) => window.localStorage.getItem(k) }); // the getter itself throws when storage is blocked
+      loaded = r.profile;
       setProfile(r.profile);
       if (r.error) setImportError(r.error);
+    }
+    if (!initialDate) {
+      // The site's date, from its longitude; with no site, the browser's own longitude.
+      const now = new Date();
+      const lon = loaded.sites[0]?.longitude ?? (-now.getTimezoneOffset() / 60) * 15;
+      setDate(defaultTonightDate(now, lon));
     }
   }, [initialDate, initialProfile]);
 
@@ -157,15 +151,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     );
   }, [plan, selected, site, horizon, minAltitude]);
 
-  const tryArc = (next: BlockedArc | null): string | null => {
+  const checkArc = (next: BlockedArc | null): string | null => {
     if (!site) return 'No site.';
     try {
       withSiteArc(profile, site.id, next);
     } catch (e) {
-      if (e instanceof ProfileError) return e.message;
+      if (e instanceof ProfileError) return friendlyArcError(e);
       throw e;
     }
-    setDraftArc(next);
     return null;
   };
 
@@ -184,7 +177,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   const resetSample = () => {
     if (!window.confirm('Replace the stored profile with the sample profile?')) return;
-    window.localStorage.removeItem(PROFILE_KEY);
+    try {
+      window.localStorage.removeItem(PROFILE_KEY);
+    } catch (e) {
+      setNotice(`Could not clear the stored profile: ${(e as Error).message}`);
+    }
     setProfile(sampleProfile());
     setDraftArc(undefined);
     setSiteId('');
@@ -222,7 +219,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     if (!plan) return;
     download(
       `planner-${date}.csv`,
-      planToCsv(filtered, { formatTime, captured }),
+      planToCsv(filtered, { formatTime: formatCsvTime, captured }),
       'text/csv;charset=utf-8',
       true,
     );
@@ -234,14 +231,38 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
   const panel = 'bg-black/70 rounded-lg border border-white/10 p-6';
 
+  const importControl = (
+    <div>
+      <label htmlFor="profile-import" className="block text-white/90 font-normal text-sm mb-1">Import profile (JSON)</label>
+      <input
+        id="profile-import"
+        type="file"
+        accept="application/json,.json"
+        onChange={(e) => {
+          void importProfile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+        className="text-white/90 font-normal text-sm"
+      />
+    </div>
+  );
+
   if (!site || !train) {
     return (
       <div className={panel}>
         <h1 className="text-2xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/90 font-normal mt-4">
-          The profile needs at least one site and one train. Import a profile or reset to the sample.
+          The profile needs at least one site and one train. Import a profile below, or reset to the sample.
         </p>
-        <button type="button" className={`${btn} mt-4`} onClick={resetSample}>Reset to sample</button>
+        {importError && (
+          <p role="alert" className="bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm mt-4">
+            {importError}
+          </p>
+        )}
+        <div className="flex flex-wrap items-end gap-4 mt-4">
+          {importControl}
+          <button type="button" className={btn} onClick={resetSample}>Reset to sample</button>
+        </div>
       </div>
     );
   }
@@ -252,7 +273,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       <header>
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/80 font-normal text-sm mt-2">
-          Preview. Your profile, horizon and captured list stay in this browser; nothing is sent anywhere.
+          Preview. Your profile, horizon and captured list stay in this browser; the planner does not send any of it anywhere.
         </p>
       </header>
 
@@ -311,10 +332,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             max={89}
             step={1}
             value={minAltitude}
-            onCommit={(n) => {
-              setMinAltitude(n);
-              return null;
-            }}
+            onCommit={setMinAltitude}
           />
         </div>
         <p className="text-white/80 font-normal text-sm mt-2" data-testid="night-summary">
@@ -370,7 +388,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           <p className="text-white/90 font-normal">No targets match these filters.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1150px] text-left text-sm font-normal text-white/90" data-testid="target-table">
+            <table className="w-full min-w-[820px] text-left text-sm font-normal text-white/90" data-testid="target-table">
               <caption className="sr-only">Targets ranked for tonight</caption>
               <thead className="text-white">
                 <tr className="border-b border-white/20">
@@ -382,13 +400,13 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                   <th scope="col" className="py-2 pr-3">Peak</th>
                   <th scope="col" className="py-2 pr-3">Usable window</th>
                   <th scope="col" className="py-2 pr-3">Moon</th>
-                  <th scope="col" className="py-2 pr-3">Score</th>
-                  <th scope="col" className="py-2">Why recommended</th>
+                  <th scope="col" className="py-2">Score</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((e, i) => (
-                  <tr key={e.id} className={`border-b border-white/10 align-top ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
+                  <Fragment key={e.id}>
+                  <tr className={`align-top ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
                     <td className="py-2 pr-3">
                       <input
                         type="checkbox"
@@ -411,7 +429,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                       {e.isPlanet && <span className="ml-2 rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
                     </th>
                     <td className="py-2 pr-3 whitespace-nowrap">{e.isPlanet ? 'n/a' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`}</td>
-                    <td className="py-2 pr-3" title={e.fitDetail}>{fitText(e)}</td>
+                    <td className="py-2 pr-3">{fitLabel(e)}</td>
                     <td className="py-2 pr-3 whitespace-nowrap">{e.peakAltitude.toFixed(0)}° {compass(e.peakAzimuth)} at {formatTime(e.peakTime)}</td>
                     <td className="py-2 pr-3 whitespace-nowrap">
                       {e.windows.length === 0
@@ -419,16 +437,24 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                         : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', ')}
                     </td>
                     <td className="py-2 pr-3 whitespace-nowrap">{(e.moonIllumination * 100).toFixed(0)}% lit, {e.moonSeparation.toFixed(0)}° away{e.moonUp ? '' : ' (down)'}</td>
-                    <td className="py-2 pr-3" title={`usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}`}>{e.score.total}</td>
-                    <td className="py-2 min-w-80">{e.why}</td>
+                    <td className="py-2">{e.score.total}</td>
                   </tr>
+                  <tr className={`border-b border-white/10 ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
+                    <td colSpan={9} className="pb-3 pl-8 pr-3 text-white/80">
+                      <p><span className="text-white">Why recommended:</span> {e.why}</p>
+                      <p className="text-xs text-white/60 mt-1">
+                        Score parts: usable {e.score.usable.toFixed(0)}, altitude {e.score.altitude.toFixed(0)}, season {e.score.season}, Moon {e.score.moon.toFixed(0)}, fit {e.score.fit}. Fit: {e.fitDetail}.
+                      </p>
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
           </div>
         )}
         <p className="text-white/60 font-normal text-xs mt-3">
-          Score: usable hours up to 50, peak altitude up to 30, in season 10, Moon up to -20, does not fit -25. Hover a score for its parts.
+          Score: usable hours up to 50, peak altitude up to 30, in season 10, Moon up to -20, does not fit -25. Each row lists its score parts and fit detail under it.
         </p>
       </section>
 
@@ -451,7 +477,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       <HorizonEditor
         siteName={site.name}
         arc={arc}
-        onChange={tryArc}
+        validate={checkArc}
+        onChange={setDraftArc}
         dirty={dirty}
         onSave={saveArc}
         onDiscard={() => setDraftArc(undefined)}
@@ -468,19 +495,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           >
             Export profile (JSON)
           </button>
-          <div>
-            <label htmlFor="profile-import" className="block text-white/90 font-normal text-sm mb-1">Import profile (JSON)</label>
-            <input
-              id="profile-import"
-              type="file"
-              accept="application/json,.json"
-              onChange={(e) => {
-                void importProfile(e.target.files?.[0]);
-                e.target.value = '';
-              }}
-              className="text-white/90 font-normal text-sm"
-            />
-          </div>
+          {importControl}
         </div>
         <p className="text-white/60 font-normal text-xs mt-3">
           Imports are checked field by field; a rejected file changes nothing and the error names the field.

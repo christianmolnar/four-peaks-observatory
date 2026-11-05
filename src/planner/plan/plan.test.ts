@@ -291,3 +291,57 @@ describe('helpers', () => {
     expect(seasonLabel([])).toBe('');
   });
 });
+
+describe('score and peak details (each pins a rule the list depends on)', () => {
+  const wall = arcToHorizonPoints({ startAz: 150, endAz: 210, heightDeg: 50 });
+  const walled = planTonight(base({ horizon: wall }));
+  const fullWall = planTonight(base({ horizon: arcToHorizonPoints({ startAz: 90, endAz: 270, heightDeg: 60 }) }));
+  const open = planTonight(base());
+
+  it('the peak is the highest point while usable, not the highest of the night', () => {
+    const m42Open = open.entries.find((e) => e.id === 'm42')!;
+    const m42 = walled.entries.find((e) => e.id === 'm42')!;
+    expect(m42.usableMinutes).toBeGreaterThan(0);
+    // The wall hides the due-south transit, so the usable peak is clearly lower.
+    expect(m42.peakAltitude).toBeLessThan(m42Open.peakAltitude - 3);
+    for (const e of walled.entries.filter((x) => x.usableMinutes > 0)) {
+      expect(e.peakAltitude).toBeGreaterThanOrEqual(limitAltitudeAt(wall, e.peakAzimuth, 20) - 1e-9);
+      const inWindow = e.windows.some((w) => e.peakTime >= w.start && e.peakTime <= w.end);
+      expect(inWindow).toBe(true);
+    }
+  });
+
+  it('a planet\'s Moon separation is its real angle to the Moon at the peak', () => {
+    const planets = open.entries.filter((e) => e.isPlanet);
+    for (const p of planets) {
+      const body = (p.source as { body: Parameters<typeof bodyAltAz>[0] }).body;
+      const expected = angularSeparation(bodyAltAz('Moon', p.peakTime, site), bodyAltAz(body, p.peakTime, site));
+      expect(p.moonSeparation).toBeCloseTo(expected, 9);
+    }
+    expect(new Set(planets.map((p) => p.moonSeparation.toFixed(1))).size).toBeGreaterThan(1);
+  });
+
+  it('the Moon only costs points while it is up at the peak', () => {
+    // Find a date with a lit Moon that is down for some targets and up for others.
+    let found: { up: number; down: number } | null = null;
+    for (let day = 1; day <= 28 && !found; day++) {
+      const p = planTonight(base({ date: `2026-12-${String(day).padStart(2, '0')}` }));
+      if (p.entries[0] === undefined) continue;
+      const usable = p.entries.filter((e) => e.usableMinutes > 0);
+      const down = usable.filter((e) => !e.moonUp && e.moonIllumination > 0.3);
+      const up = usable.filter((e) => e.moonUp && e.moonIllumination > 0.3);
+      if (down.length > 0 && up.length > 0) {
+        found = { up: up.length, down: down.length };
+        for (const e of down) expect(e.score.moon).toBe(0);
+        expect(up.some((e) => e.score.moon < 0)).toBe(true);
+      }
+    }
+    expect(found).not.toBeNull();
+  });
+
+  it('a target that never clears the limit scores 0 even when its parts are positive', () => {
+    const blocked = fullWall.entries.filter((e) => e.usableMinutes === 0 && (e.score.altitude > 0 || e.score.season > 0));
+    expect(blocked.length).toBeGreaterThan(0);
+    for (const e of blocked) expect(e.score.total).toBe(0);
+  });
+});

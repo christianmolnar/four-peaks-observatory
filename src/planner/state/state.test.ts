@@ -2,6 +2,8 @@ import { ProfileError } from '../profile';
 import {
   CAPTURED_KEY,
   checkNumberText,
+  friendlyArcError,
+  numberView,
   PROFILE_KEY,
   defaultTonightDate,
   loadCaptured,
@@ -92,11 +94,19 @@ describe('withSiteArc', () => {
 });
 
 describe('defaultTonightDate', () => {
-  it('is today in the evening and yesterday between midnight and 06:00', () => {
-    expect(defaultTonightDate(new Date(2026, 10, 5, 21, 0))).toBe('2026-11-05');
-    expect(defaultTonightDate(new Date(2026, 10, 5, 9, 0))).toBe('2026-11-05');
-    expect(defaultTonightDate(new Date(2026, 10, 5, 2, 30))).toBe('2026-11-04');
-    expect(defaultTonightDate(new Date(2026, 0, 1, 1, 0))).toBe('2025-12-31');
+  const PHX = -112; // Phoenix area; MST is UTC-7
+  const SYD = 151.2;
+  it('is today in the evening and yesterday between midnight and 06:00, in the site clock', () => {
+    expect(defaultTonightDate(new Date(Date.UTC(2026, 10, 6, 4, 0)), PHX)).toBe('2026-11-05'); // 21:00 MST Nov 5
+    expect(defaultTonightDate(new Date(Date.UTC(2026, 10, 5, 16, 0)), PHX)).toBe('2026-11-05'); // 09:00
+    expect(defaultTonightDate(new Date(Date.UTC(2026, 10, 5, 9, 30)), PHX)).toBe('2026-11-04'); // 02:30
+    expect(defaultTonightDate(new Date(Date.UTC(2026, 0, 1, 8, 0)), PHX)).toBe('2025-12-31'); // 01:00 MST Jan 1
+  });
+
+  it('uses the site, not the clock zone: Sydney site at 22:00 Phoenix time on Dec 19 is the Dec 20 night', () => {
+    const now = new Date(Date.UTC(2026, 11, 20, 5, 0)); // 22:00 MST Dec 19
+    expect(defaultTonightDate(now, SYD)).toBe('2026-12-20');
+    expect(defaultTonightDate(now, PHX)).toBe('2026-12-19');
   });
 });
 
@@ -114,5 +124,77 @@ describe('checkNumberText', () => {
     expect(checkNumberText('91', 0, 90, 'Height', 'deg')).toEqual({ ok: false, error: 'Height must be from 0 to 90 deg.' });
     expect(checkNumberText('-1', 0, 90, 'Height', 'deg').ok).toBe(false);
     expect(checkNumberText('Infinity', 0, 90, 'Height', 'deg').ok).toBe(false);
+  });
+});
+
+describe('loadProfile with unusable storage', () => {
+  it('falls back to the sample with a message when reading storage throws', () => {
+    const blocked = { getItem: () => { throw new DOMException('denied', 'SecurityError'); } };
+    const r = loadProfile(blocked);
+    expect(r.profile).toEqual(sampleProfile());
+    expect(r.stored).toBe(false);
+    expect(r.error).toMatch(/could not be read.*denied/);
+  });
+});
+
+describe('friendlyArcError', () => {
+  const id = sampleProfile().sites[0].id;
+  const msg = (arc: { startAz: number; endAz: number; heightDeg: number }) => {
+    try {
+      withSiteArc(sampleProfile(), id, arc);
+    } catch (e) {
+      if (e instanceof ProfileError) return friendlyArcError(e);
+    }
+    throw new Error('expected a ProfileError');
+  };
+  it('says what is wrong in words, with no field path', () => {
+    expect(msg({ startAz: 100, endAz: 100, heightDeg: 30 })).toBe('Start and end must differ.');
+    expect(msg({ startAz: 0, endAz: 359.99, heightDeg: 30 })).toMatch(/^The arc is too wide/);
+    expect(msg({ startAz: 10, endAz: 50, heightDeg: 91 })).not.toContain('$');
+  });
+});
+
+// numberView drives NumberSlider: the box text and message are derived from the draft and the
+// committed value, so these sequences are what a user sees after typing, Discard, Reset, and so on.
+describe('numberView (slider and number box stay in sync)', () => {
+  const ok = () => null;
+  const view = (d: { text: string; base: number } | null, value: number, validate: (n: number) => string | null = ok) =>
+    numberView(d, value, 0, 359, 'Start azimuth', 'deg', validate);
+
+  it('shows the committed value when nothing was typed', () => {
+    expect(view(null, 120)).toEqual({ text: '120', error: null });
+  });
+
+  it('keeps accepted text as typed while it matches the value', () => {
+    expect(view({ text: '150.0', base: 120 }, 150)).toEqual({ text: '150.0', error: null });
+  });
+
+  it('Discard: after typing 150 (accepted) the value goes back to 120, and the box follows', () => {
+    expect(view({ text: '150', base: 120 }, 120)).toEqual({ text: '120', error: null });
+  });
+
+  it('Reset: a typed height of 77 is replaced when the value returns to 42', () => {
+    expect(view({ text: '77', base: 42 }, 42)).toEqual({ text: '42', error: null });
+  });
+
+  it('a rejected value keeps its text and message while the value is unchanged', () => {
+    const refuse = (n: number) => (n === 320 ? 'Start and end must differ.' : null);
+    expect(view({ text: '320', base: 120 }, 120, refuse)).toEqual({ text: '320', error: 'Start and end must differ.' });
+  });
+
+  it('reject, then the other field changes: the old error and text go away', () => {
+    const refuse = (n: number) => (n === 320 ? 'Start and end must differ.' : null);
+    expect(view({ text: '320', base: 120 }, 120, refuse).error).not.toBeNull();
+    // End azimuth moved away from 320: 320 would now be accepted, so the box shows 120 again.
+    expect(view({ text: '320', base: 120 }, 120, ok)).toEqual({ text: '120', error: null });
+  });
+
+  it('a rejected draft is dropped when the value changes from outside (site change)', () => {
+    expect(view({ text: '361', base: 120 }, 90)).toEqual({ text: '90', error: null });
+  });
+
+  it('range and number errors come from checkNumberText', () => {
+    expect(view({ text: '361', base: 120 }, 120).error).toBe('Start azimuth must be from 0 to 359 deg.');
+    expect(view({ text: '', base: 120 }, 120).error).toBe('Start azimuth: enter a number.');
   });
 });

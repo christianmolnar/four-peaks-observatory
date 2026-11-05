@@ -205,6 +205,20 @@ export function compass(az: number): string {
   return names[Math.round((((az % 360) + 360) % 360) / 45) % 8];
 }
 
+/** Plain words for an entry's fit, for the page and the CSV. */
+export function fitLabel(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
+  switch (e.fit) {
+    case 'fits':
+      return 'Fits';
+    case 'too-large':
+      return 'Too large';
+    case 'unknown':
+      return 'Fit unknown';
+    default:
+      return e.isPlanet ? 'Planet' : 'Smart scope';
+  }
+}
+
 function scoreOf(parts: Omit<ScoreParts, 'total'>, usable: boolean): ScoreParts {
   const sum = parts.usable + parts.altitude + parts.season + parts.moon + parts.fit;
   return { ...parts, total: usable ? Math.max(0, Math.min(100, Math.round(sum))) : 0 };

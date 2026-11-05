@@ -1,2 +1,2 @@
-export { CSV_HEADER, csvField, planToCsv } from './csv';
+export { CSV_HEADER, csvField, formatCsvTime, planToCsv } from './csv';
 export type { CsvOptions } from './csv';

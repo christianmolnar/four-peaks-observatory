@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { checkNumberText } from '@/planner/state';
+import { checkNumberText, numberView } from '@/planner/state';
+import type { NumberDraft } from '@/planner/state';
 
 export interface NumberSliderProps {
   id: string;
@@ -12,36 +13,32 @@ export interface NumberSliderProps {
   /** Slider step; the number box accepts any decimal in range. */
   step: number;
   value: number;
-  /** Applies the value; returns an error message, or null when it was accepted. */
-  onCommit: (value: number) => string | null;
+  /** Pure check: a message when the value would be refused, else null. Runs on every render. */
+  validate?: (value: number) => string | null;
+  /** Applies a value that passed `validate`. */
+  onCommit: (value: number) => void;
 }
 
 /**
  * A range slider and a number box for one value, kept in sync both ways.
  * A typed value that is empty, not a number, out of range or refused by
- * `onCommit` shows a message and leaves the committed value (and slider) alone.
+ * `validate` shows a message and leaves the committed value (and slider) alone.
+ * The box text and message are derived from the draft and `value` each render
+ * (see `numberView`), so Discard, Reset or a change elsewhere cannot leave them stale.
  */
-export default function NumberSlider({ id, label, unit, min, max, step, value, onCommit }: NumberSliderProps) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export default function NumberSlider({ id, label, unit, min, max, step, value, validate = () => null, onCommit }: NumberSliderProps) {
+  const [draft, setDraft] = useState<NumberDraft | null>(null);
   const errorId = `${id}-error`;
 
-  const apply = (text: string): string | null => {
+  const view = numberView(draft, value, min, max, label, unit, validate);
+  const enter = (text: string) => {
+    setDraft({ text, base: value });
     const c = checkNumberText(text, min, max, label, unit);
-    return c.ok ? onCommit(c.value) : c.error;
+    if (c.ok && validate(c.value) === null) onCommit(c.value);
   };
 
-  const onSlider = (text: string) => {
-    setDraft(null);
-    setError(apply(text));
-  };
-
-  const onNumber = (text: string) => {
-    setDraft(text);
-    setError(apply(text));
-  };
-
-  const shown = draft ?? String(value);
+  const shown = view.text;
+  const error = view.error;
   const inputClass =
     'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
   return (
@@ -57,7 +54,7 @@ export default function NumberSlider({ id, label, unit, min, max, step, value, o
           max={max}
           step={step}
           value={Math.min(max, Math.max(min, value))}
-          onChange={(e) => onSlider(e.target.value)}
+          onChange={(e) => enter(e.target.value)}
           className="flex-1 accent-sky-400"
         />
         <input
@@ -68,7 +65,7 @@ export default function NumberSlider({ id, label, unit, min, max, step, value, o
           max={max}
           step={0.1}
           value={shown}
-          onChange={(e) => onNumber(e.target.value)}
+          onChange={(e) => enter(e.target.value)}
           aria-invalid={error !== null}
           aria-describedby={error ? errorId : undefined}
           className={`${inputClass} w-24`}

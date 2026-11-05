@@ -38,8 +38,10 @@ export function describeArc(arc: BlockedArc | null): string {
 export interface HorizonEditorProps {
   siteName: string;
   arc: BlockedArc | null;
-  /** Applies a new arc (or null); returns an error message, or null when accepted. */
-  onChange: (arc: BlockedArc | null) => string | null;
+  /** Pure check of an arc: a message when it would be refused, else null. */
+  validate: (arc: BlockedArc | null) => string | null;
+  /** Applies an arc that passed `validate`. */
+  onChange: (arc: BlockedArc | null) => void;
   dirty: boolean;
   onSave: () => void;
   onDiscard: () => void;
@@ -48,7 +50,7 @@ export interface HorizonEditorProps {
 
 const DEFAULT_ARC: BlockedArc = { startAz: 90, endAz: 180, heightDeg: 30 };
 
-export default function HorizonEditor({ siteName, arc, onChange, dirty, onSave, onDiscard, onResetSample }: HorizonEditorProps) {
+export default function HorizonEditor({ siteName, arc, validate, onChange, dirty, onSave, onDiscard, onResetSample }: HorizonEditorProps) {
   const points = arc ? arcToHorizonPoints(arc) : null;
   const summary = describeArc(arc);
   const btn =
@@ -133,6 +135,7 @@ export default function HorizonEditor({ siteName, arc, onChange, dirty, onSave, 
                 max={359}
                 step={1}
                 value={arc.startAz}
+                validate={(n) => validate({ ...arc, startAz: n })}
                 onCommit={(n) => onChange({ ...arc, startAz: n })}
               />
               <NumberSlider
@@ -143,6 +146,7 @@ export default function HorizonEditor({ siteName, arc, onChange, dirty, onSave, 
                 max={359}
                 step={1}
                 value={arc.endAz}
+                validate={(n) => validate({ ...arc, endAz: n })}
                 onCommit={(n) => onChange({ ...arc, endAz: n })}
               />
               <NumberSlider
@@ -153,6 +157,7 @@ export default function HorizonEditor({ siteName, arc, onChange, dirty, onSave, 
                 max={90}
                 step={1}
                 value={arc.heightDeg}
+                validate={(n) => validate({ ...arc, heightDeg: n })}
                 onCommit={(n) => onChange({ ...arc, heightDeg: n })}
               />
               <p className="text-white/60 font-normal text-xs mb-3">

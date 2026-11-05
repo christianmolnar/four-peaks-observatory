@@ -2,7 +2,7 @@ import { starterTargets } from '../catalog';
 import { planTonight } from '../plan';
 import type { PlanTrain } from '../plan';
 import { opticalTrain } from '../optics';
-import { CSV_HEADER, csvField, planToCsv } from './csv';
+import { CSV_HEADER, csvField, formatCsvTime, planToCsv } from './csv';
 
 /** Minimal RFC 4180 reader, to check the writer against something independent of it. */
 function parseCsv(text: string): string[][] {
@@ -82,5 +82,28 @@ describe('planToCsv', () => {
 
   it('with no entries gives just the header', () => {
     expect(parseCsv(planToCsv([], { formatTime }))).toEqual([[...CSV_HEADER]]);
+  });
+});
+
+describe('CSV readability', () => {
+  it('writes Fit as plain words, never the code', () => {
+    const smartPlan = planTonight({
+      site: { latitude: 40, longitude: -105 },
+      horizon: null,
+      minAltitude: 20,
+      date: '2026-12-15',
+      train: { kind: 'smart', name: 's', optics: null },
+      targets: starterTargets,
+    });
+    const text = planToCsv(smartPlan.entries, { formatTime: () => 't' });
+    expect(text).not.toContain('not-applicable');
+    const fit = parseCsv(text).slice(1).map((r) => r[CSV_HEADER.indexOf('Fit')]);
+    expect(new Set(fit)).toEqual(new Set(['Smart scope', 'Planet']));
+    const optical = parseCsv(planToCsv(plan.entries, { formatTime: () => 't' })).slice(1).map((r) => r[CSV_HEADER.indexOf('Fit')]);
+    expect(optical).toEqual(expect.arrayContaining(['Fits', 'Too large']));
+  });
+
+  it('formats times with date, time and zone', () => {
+    expect(formatCsvTime(new Date(Date.UTC(2026, 11, 15, 3, 7)))).toMatch(/^2026-12-1[45] \d\d:\d\d \S+/);
   });
 });
