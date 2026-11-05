@@ -93,29 +93,8 @@ export function bodyAltAz(body: BodyName, when: Date, site: Site): AltAz {
 
 const HOUR_MS = 3600000;
 
-/**
- * Instant of the Sun's lowest altitude after `dusk`, a descending crossing.
- * The lowest point is near the Sun's anti-transit but not at it: the Sun's
- * declination is changing, so it can fall a few minutes before or after. A
- * night of under two minutes can sit wholly after the anti-transit that
- * precedes its dusk, so then that anti-transit, not the next one a day later,
- * is the anchor. The altitude is unimodal over the bracket (it holds no
- * transit), so a golden-section search finds the minimum.
- */
-function lowestSunTime(
-  observer: Astronomy.Observer,
-  sunAlt: (d: Date) => number,
-  dusk: Astronomy.AstroTime,
-): Date {
-  const duskMs = dusk.date.getTime();
-  const next = Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, dusk).time.date;
-  // Dusk falls between transit and the lowest point, at most about 12 h before it.
-  const anchor =
-    next.getTime() - duskMs > 18 * HOUR_MS
-      ? Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, dusk.AddDays(-1)).time.date
-      : next;
-  let lo = duskMs;
-  let hi = anchor.getTime() + 3 * HOUR_MS;
+/** Golden-section minimum of the Sun's altitude on [lo, hi], which must hold no transit. */
+function minimiseSunAlt(sunAlt: (d: Date) => number, lo: number, hi: number): Date {
   const phi = (Math.sqrt(5) - 1) / 2;
   let a = hi - phi * (hi - lo);
   let b = lo + phi * (hi - lo);
@@ -137,6 +116,87 @@ function lowestSunTime(
     }
   }
   return new Date((lo + hi) / 2);
+}
+
+/**
+ * Instant of the Sun's lowest altitude after `dusk`, a descending crossing.
+ * The lowest point is near the Sun's anti-transit but not at it: the Sun's
+ * declination is changing, so it can fall a few minutes before or after. A
+ * night of under two minutes can sit wholly after the anti-transit that
+ * precedes its dusk, so then that anti-transit, not the next one a day later,
+ * is the anchor. The altitude is unimodal over the bracket (it holds no
+ * transit), so a golden-section search finds the minimum.
+ */
+function lowestSunTime(
+  observer: Astronomy.Observer,
+  sunAlt: (d: Date) => number,
+  dusk: Astronomy.AstroTime,
+): Date {
+  const duskMs = dusk.date.getTime();
+  const next = Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, dusk).time.date;
+  // Dusk falls between transit and the lowest point, at most about 12 h before it.
+  const anchor =
+    next.getTime() - duskMs > 18 * HOUR_MS
+      ? Astronomy.SearchHourAngle(Astronomy.Body.Sun, observer, 12, dusk.AddDays(-0.5)).time.date
+      : next;
+  return minimiseSunAlt(sunAlt, duskMs, anchor.getTime() + 3 * HOUR_MS);
+}
+
+/**
+ * Instant of the Sun's lowest altitude in the night that holds `reference`
+ * (the Sun is below -18 there). The anti-transit nearest the reference anchors
+ * a window of 6 h either side, wide enough to hold the lowest point and short
+ * of the transits, so the altitude is unimodal in it.
+ */
+function lowestSunTimeAround(
+  observer: Astronomy.Observer,
+  sunAlt: (d: Date) => number,
+  reference: Date,
+): Date {
+  const refMs = reference.getTime();
+  const first = Astronomy.SearchHourAngle(
+    Astronomy.Body.Sun,
+    observer,
+    12,
+    Astronomy.MakeTime(new Date(refMs - 18 * HOUR_MS)),
+  ).time.date;
+  const second = Astronomy.SearchHourAngle(
+    Astronomy.Body.Sun,
+    observer,
+    12,
+    Astronomy.MakeTime(new Date(first.getTime() + 6 * HOUR_MS)),
+  ).time.date;
+  const anchor =
+    Math.abs(first.getTime() - refMs) <= Math.abs(second.getTime() - refMs) ? first : second;
+  return minimiseSunAlt(sunAlt, anchor.getTime() - 6 * HOUR_MS, anchor.getTime() + 6 * HOUR_MS);
+}
+
+/**
+ * Dusk of the night whose lowest point is `nadir`: bisects -18 deg between the
+ * Sun's transit before it (above -18) and the nadir. The engine's backward
+ * search is not used because it misplaces a crossing the Sun barely reaches.
+ * Returns null when the Sun is already below -18 at that transit (a day-long dark).
+ */
+function duskBefore(
+  observer: Astronomy.Observer,
+  sunAlt: (d: Date) => number,
+  nadir: Date,
+): Date | null {
+  const transit = Astronomy.SearchHourAngle(
+    Astronomy.Body.Sun,
+    observer,
+    0,
+    Astronomy.MakeTime(new Date(nadir.getTime() - 21.6 * HOUR_MS)),
+  ).time.date;
+  let light = transit.getTime();
+  let dark = nadir.getTime();
+  if (sunAlt(new Date(light)) < ASTRONOMICAL_TWILIGHT_DEG) return null;
+  for (let i = 0; i < 50; i++) {
+    const mid = (light + dark) / 2;
+    if (sunAlt(new Date(mid)) < ASTRONOMICAL_TWILIGHT_DEG) dark = mid;
+    else light = mid;
+  }
+  return new Date(dark);
 }
 
 const REFINE_WINDOW_MS = 10 * 60000;
@@ -178,21 +238,18 @@ export function astronomicalNight(
     return Astronomy.Horizon(d, observer, eq.ra, eq.dec).altitude;
   };
 
-  let start: Astronomy.AstroTime | null;
+  // Dawn is searched from the Sun's true lowest point, not from dusk plus a margin (a
+  // margin jumps over dawn when the night lasts under a minute).
+  let start: Date;
+  let nadir: Date;
   if (sunAlt(reference) < ASTRONOMICAL_TWILIGHT_DEG) {
-    start = Astronomy.SearchAltitude(
-      Astronomy.Body.Sun,
-      observer,
-      -1,
-      reference,
-      -1,
-      ASTRONOMICAL_TWILIGHT_DEG,
-    );
-    if (!start) {
-      return { kind: 'polar-night', start: null, end: null };
-    }
+    // Inside a night: find its lowest point, then its dusk before that.
+    nadir = lowestSunTimeAround(observer, sunAlt, reference);
+    const dusk = duskBefore(observer, sunAlt, nadir);
+    if (!dusk) return { kind: 'polar-night', start: null, end: null };
+    start = dusk;
   } else {
-    start = Astronomy.SearchAltitude(
+    const dusk = Astronomy.SearchAltitude(
       Astronomy.Body.Sun,
       observer,
       -1,
@@ -200,14 +257,12 @@ export function astronomicalNight(
       1,
       ASTRONOMICAL_TWILIGHT_DEG,
     );
-    if (!start) {
-      return { kind: 'none', start: null, end: null };
-    }
+    if (!dusk) return { kind: 'none', start: null, end: null };
+    nadir = lowestSunTime(observer, sunAlt, dusk);
+    // The engine can report a crossing the Sun only grazes; trust the lowest point.
+    if (sunAlt(nadir) >= ASTRONOMICAL_TWILIGHT_DEG) return { kind: 'none', start: null, end: null };
+    start = dusk.date;
   }
-
-  // Dawn is searched from the Sun's true lowest point after dusk, not from dusk plus a
-  // margin (a margin jumps over dawn when the night lasts under a minute).
-  const nadir = lowestSunTime(observer, sunAlt, start);
   const end = Astronomy.SearchAltitude(
     Astronomy.Body.Sun,
     observer,
@@ -222,7 +277,7 @@ export function astronomicalNight(
   }
   return {
     kind: 'normal',
-    start: start.date,
+    start,
     end: refineCrossing(sunAlt, end.date, nadir),
   };
 }

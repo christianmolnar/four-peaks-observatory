@@ -245,6 +245,48 @@ describe('astronomical night', () => {
     expect(Math.abs(lengthSeconds(site, from) - truth)).toBeLessThanOrEqual(3);
   });
 
+  it('measures the whole night when the reference is inside a night of about 4 minutes (lat 51.25268, July)', () => {
+    // Review carry item 1: the old backward search returned 0.5 s here against 246.7 s true.
+    const site: Site = { latitude: 51.25268, longitude: 94.27453 };
+    const reference = new Date('2022-07-19T17:51:30.008Z');
+    expect(sunAltitudeAt(reference, site)).toBeLessThan(-18);
+    const truth = scanSeconds(site, new Date(reference.getTime() - 3600000));
+    expect(truth).toBeGreaterThan(200);
+    const n = astronomicalNight(site, reference);
+    expect(n.kind).toBe('normal');
+    expect(n.start!.getTime()).toBeLessThanOrEqual(reference.getTime());
+    expect(n.end!.getTime()).toBeGreaterThanOrEqual(reference.getTime());
+    expect(Math.abs((n.end!.getTime() - n.start!.getTime()) / 1000 - truth)).toBeLessThanOrEqual(3);
+  });
+
+  it('gives the same night from every reference position inside it', () => {
+    const site: Site = { latitude: 51.25268, longitude: 94.27453 };
+    const base = astronomicalNight(site, new Date('2022-07-19T12:00:00Z'));
+    expect(base.kind).toBe('normal');
+    const s = base.start!.getTime();
+    const e = base.end!.getTime();
+    for (const f of [0.02, 0.25, 0.5, 0.75, 0.98]) {
+      const n = astronomicalNight(site, new Date(s + f * (e - s)));
+      expect(n.kind).toBe('normal');
+      expect(Math.abs(n.start!.getTime() - s)).toBeLessThanOrEqual(3000);
+      expect(Math.abs(n.end!.getTime() - e)).toBeLessThanOrEqual(3000);
+    }
+  });
+
+  it('does not report polar night when the Sun never gets below -18 (nadir at -18, lat 55.55960812050098)', () => {
+    // Review carry item 2: a night of hundredths of a second came back as polar-night.
+    const n = astronomicalNight(
+      { latitude: 55.55960812050098, longitude: 45.3 },
+      new Date('2026-05-05T08:58:48Z'),
+    );
+    expect(n.kind).not.toBe('polar-night');
+    if (n.kind === 'normal') {
+      expect(n.end!.getTime()).toBeGreaterThan(n.start!.getTime());
+    } else {
+      expect(n.start).toBeNull();
+    }
+  });
+
   it('reports none just above the threshold latitude, never a day', () => {
     const n = astronomicalNight(
       { latitude: 71.22139, longitude: 0 },
