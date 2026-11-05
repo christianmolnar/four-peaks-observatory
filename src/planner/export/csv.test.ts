@@ -69,7 +69,7 @@ describe('planToCsv', () => {
     expect(rows[1][1]).toBe('Cone, "Tree" Nebula');
   });
 
-  it('writes windows, why (which holds commas?) and captured flags', () => {
+  it('writes windows, why text and captured flags', () => {
     const first = plan.entries[0];
     const rows = parseCsv(planToCsv(plan.entries, { formatTime, captured: new Set([first.id]) }));
     const col = (name: string) => CSV_HEADER.indexOf(name as (typeof CSV_HEADER)[number]);

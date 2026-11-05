@@ -7,6 +7,6 @@ const createJestConfig = nextJest({ dir: './' });
 module.exports = createJestConfig({
   rootDir: '../..',
   testEnvironment: 'node',
-  testMatch: ['<rootDir>/src/planner/**/*.test.ts'],
+  testMatch: ['<rootDir>/src/planner/**/*.test.ts', '<rootDir>/src/app/planner/**/*.test.tsx'],
   moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
 });
