@@ -142,23 +142,16 @@ function lowestSunTime(
 const REFINE_WINDOW_MS = 10 * 60000;
 
 /**
- * Bisects the -18 deg crossing next to the engine's estimate `seed`, which is
- * off by tens of seconds when the night lasts about a minute (the Sun's
- * altitude is nearly flat there). `nadir` is on the dark side of the crossing.
- * `side` -1 is dusk (Sun above -18 before the crossing), +1 is dawn. If the
- * bracket does not hold the estimate is returned unchanged.
+ * Bisects the dawn crossing of -18 deg next to the engine's estimate `seed`.
+ * The estimate is off by up to tens of seconds when the night lasts about a
+ * minute, because the Sun's altitude is nearly flat there; dusk is accurate.
+ * `nadir` is on the dark side. If the bracket does not hold, the estimate is
+ * returned unchanged.
  */
-function refineCrossing(
-  sunAlt: (d: Date) => number,
-  seed: Date,
-  nadir: Date,
-  side: -1 | 1,
-): Date {
-  let light = seed.getTime() + side * REFINE_WINDOW_MS; // expected: Sun above -18
+function refineCrossing(sunAlt: (d: Date) => number, seed: Date, nadir: Date): Date {
+  let light = seed.getTime() + REFINE_WINDOW_MS; // Sun above -18
   let dark = nadir.getTime();
-  if ((side === -1 ? light >= dark : light <= dark) || sunAlt(new Date(light)) < ASTRONOMICAL_TWILIGHT_DEG) {
-    return seed;
-  }
+  if (light <= dark || sunAlt(new Date(light)) < ASTRONOMICAL_TWILIGHT_DEG) return seed;
   for (let i = 0; i < 50; i++) {
     const mid = (light + dark) / 2;
     if (sunAlt(new Date(mid)) < ASTRONOMICAL_TWILIGHT_DEG) dark = mid;
@@ -229,8 +222,8 @@ export function astronomicalNight(
   }
   return {
     kind: 'normal',
-    start: refineCrossing(sunAlt, start.date, nadir, -1),
-    end: refineCrossing(sunAlt, end.date, nadir, +1),
+    start: start.date,
+    end: refineCrossing(sunAlt, end.date, nadir),
   };
 }
 
