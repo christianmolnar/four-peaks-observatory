@@ -1,0 +1,123 @@
+{
+  "_comment": "Sample profile, entered through the same schema as any user's. Fields starting with _ are notes and are ignored by the validator. A field is present only where a manufacturer page was read on 2026-11-05 (see _source); absent fields are unknown and optics reports them as missing. Elevation is unknown.",
+  "version": 1,
+  "sites": [
+    {
+      "id": "fountain-hills",
+      "name": "Fountain Hills, AZ",
+      "latitude": 33.6115,
+      "longitude": -111.719,
+      "blockedArc": { "startAz": 120, "endAz": 320, "heightDeg": 42 },
+      "_source": "Owner-entered; arc and height from the owner (2026-11-05)."
+    }
+  ],
+  "equipment": {
+    "scopes": [
+      {
+        "id": "c11-edgehd",
+        "name": "Celestron C11 EdgeHD",
+        "focalLengthMm": 2800,
+        "apertureMm": 279.4,
+        "_source": "celestron.com/products/edgehd-11-optical-tube-assembly-cge-dovetail: aperture 279.4mm (11\"), focal length 2800mm"
+      }
+    ],
+    "accessories": [
+      {
+        "id": "hyperstar-v4",
+        "name": "Celestron HyperStar v4",
+        "_source": "No factor: HyperStar replaces the secondary mirror and sets focal length itself (about f/1.9), so it is not a multiplier. Left unknown."
+      },
+      {
+        "id": "reducer-07",
+        "name": "Celestron 0.7x focal reducer",
+        "factor": 0.7,
+        "_source": "Factor is in the product name: celestron.com/products/reducer-lens-7x-edgehd-1100 (Reducer Lens .7x EdgeHD 11)"
+      },
+      {
+        "id": "powermate-25",
+        "name": "TeleVue 2.5x Powermate",
+        "factor": 2.5,
+        "_source": "Factor is in the product name (Tele Vue Powermate 2.5x)"
+      }
+    ],
+    "cameras": [
+      {
+        "id": "asi2600mc-duo",
+        "name": "ZWO ASI2600MC Duo",
+        "pixelSizeUm": 3.76,
+        "sensorWidthPx": 6248,
+        "sensorHeightPx": 4176,
+        "_source": "zwoastro.com/product/asi2600mc-duo/: 3.76um pixel, resolution 6248x4176"
+      },
+      {
+        "id": "asi533mc",
+        "name": "ZWO ASI533MC",
+        "pixelSizeUm": 3.76,
+        "sensorWidthPx": 3008,
+        "sensorHeightPx": 3008,
+        "_source": "zwoastro.com/product/asi533/: pixel size 3.76um, resolution 3008x3008"
+      },
+      {
+        "id": "asi676mc",
+        "name": "ZWO ASI676MC",
+        "pixelSizeUm": 2,
+        "sensorWidthPx": 3552,
+        "sensorHeightPx": 3552,
+        "_source": "zwoastro.com/product/asi676/: pixel size 2um, resolution 3552x3552"
+      }
+    ],
+    "smartScopes": [
+      {
+        "id": "seestar-s50",
+        "name": "ZWO Seestar S50",
+        "mountMode": "alt-az",
+        "focalLengthMm": 250,
+        "apertureMm": 50,
+        "sensorWidthPx": 1920,
+        "sensorHeightPx": 1080,
+        "_source": "zwoastro.com/product/seestar-s50/: aperture 50mm, focal length 250mm, resolution 1920x1080. Pixel size not read on that page; left unknown."
+      },
+      {
+        "id": "seestar-s50-pro",
+        "name": "ZWO Seestar S50 Pro",
+        "mountMode": "alt-az",
+        "apertureMm": 50,
+        "_source": "zwoastro.com/product/seestar-s50-pro/: 50mm aperture. Other specs not read; left unknown."
+      },
+      {
+        "id": "seestar-s30-pro",
+        "name": "ZWO Seestar S30 Pro",
+        "mountMode": "alt-az",
+        "_source": "No spec read; left unknown."
+      },
+      {
+        "id": "unistellar-odyssey",
+        "name": "Unistellar Odyssey",
+        "mountMode": "alt-az",
+        "_source": "No spec read; left unknown."
+      }
+    ]
+  },
+  "trains": [
+    { "kind": "optical", "id": "planet-c11-676", "name": "C11 + ASI676MC (planets)", "scopeId": "c11-edgehd", "accessoryIds": [], "cameraId": "asi676mc" },
+    { "kind": "optical", "id": "planet-c11-powermate-676", "name": "C11 + 2.5x Powermate + ASI676MC (planets)", "scopeId": "c11-edgehd", "accessoryIds": ["powermate-25"], "cameraId": "asi676mc" },
+    { "kind": "optical", "id": "deep-c11-2600", "name": "C11 f/10 + ASI2600MC Duo", "scopeId": "c11-edgehd", "accessoryIds": [], "cameraId": "asi2600mc-duo" },
+    { "kind": "optical", "id": "deep-c11-reducer-2600", "name": "C11 + 0.7x reducer + ASI2600MC Duo", "scopeId": "c11-edgehd", "accessoryIds": ["reducer-07"], "cameraId": "asi2600mc-duo" },
+    { "kind": "optical", "id": "wide-c11-hyperstar-2600", "name": "C11 + HyperStar v4 + ASI2600MC Duo", "scopeId": "c11-edgehd", "accessoryIds": ["hyperstar-v4"], "cameraId": "asi2600mc-duo" },
+    { "kind": "smart", "id": "smart-seestar-s50", "name": "Seestar S50", "smartScopeId": "seestar-s50" },
+    { "kind": "smart", "id": "smart-seestar-s50-pro", "name": "Seestar S50 Pro", "smartScopeId": "seestar-s50-pro" },
+    { "kind": "smart", "id": "smart-seestar-s30-pro", "name": "Seestar S30 Pro", "smartScopeId": "seestar-s30-pro" },
+    { "kind": "smart", "id": "smart-unistellar-odyssey", "name": "Unistellar Odyssey", "smartScopeId": "unistellar-odyssey" }
+  ],
+  "plans": [
+    {
+      "id": "example-orion",
+      "name": "Orion region, C11 + reducer",
+      "date": "2026-12-05",
+      "siteId": "fountain-hills",
+      "trainId": "deep-c11-reducer-2600",
+      "targetIds": ["m42", "ngc1977"],
+      "notes": ""
+    }
+  ]
+}
