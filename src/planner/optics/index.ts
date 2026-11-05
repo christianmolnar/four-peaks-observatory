@@ -52,7 +52,10 @@ export function effectiveFocalLengthMm(
 ): number | undefined {
   const f = positive('focalLengthMm', scope.focalLengthMm);
   if (f === undefined) return undefined;
-  const k = positive('accessory factor', accessory?.factor) ?? 1;
+  if (accessory === undefined) return f;
+  // An accessory without a factor is unknown, not factor 1: do not guess.
+  const k = positive('accessory factor', accessory.factor);
+  if (k === undefined) return undefined;
   return f * k;
 }
 
@@ -79,6 +82,8 @@ export function opticalTrain(
   if (camera.pixelSizeUm === undefined) missing.push('camera.pixelSizeUm');
   if (camera.sensorWidthPx === undefined) missing.push('camera.sensorWidthPx');
   if (camera.sensorHeightPx === undefined) missing.push('camera.sensorHeightPx');
+  if (scope.apertureMm === undefined) missing.push('scope.apertureMm');
+  if (accessory !== undefined && accessory.factor === undefined) missing.push('accessory.factor');
 
   const focalLengthMm = effectiveFocalLengthMm(scope, accessory);
   const aperture = positive('apertureMm', scope.apertureMm);

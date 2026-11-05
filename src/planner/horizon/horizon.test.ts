@@ -8,7 +8,7 @@ import type { HorizonPoint } from './index';
 import { targetAltAz } from '../astro';
 import type { Site } from '../astro';
 
-const phoenix: Site = { latitude: 33.6115, longitude: -111.719 };
+const boulder: Site = { latitude: 40.0, longitude: -105.0 };
 
 describe('horizonAltitudeAt', () => {
   const pts: HorizonPoint[] = [
@@ -63,14 +63,14 @@ describe('horizonAltitudeAt', () => {
 });
 
 describe('usableWindows', () => {
-  // Winter night in Phoenix, 2026-01-15 ~02:00 UTC to ~13:00 UTC (7 pm to 6 am MST).
+  // Winter night at the fixture site, 2026-01-15 ~02:00 UTC to ~13:00 UTC .
   const start = new Date(Date.UTC(2026, 0, 16, 2, 0));
   const end = new Date(Date.UTC(2026, 0, 16, 13, 0));
 
   it('gives one all-night window for a circumpolar target', () => {
     // Dec +88: altitude stays within ~33.6 +/- 2 degrees all night.
     const r = usableWindows({
-      raHours: 2.5, decDeg: 88, site: phoenix, minAltitude: 20, start, end,
+      raHours: 2.5, decDeg: 88, site: boulder, minAltitude: 20, start, end,
     });
     expect(r.windows).toHaveLength(1);
     expect(r.windows[0].start.getTime()).toBe(start.getTime());
@@ -79,7 +79,7 @@ describe('usableWindows', () => {
 
   it('gives no window for a target that never rises', () => {
     const r = usableWindows({
-      raHours: 12, decDeg: -80, site: phoenix, minAltitude: 20, start, end,
+      raHours: 12, decDeg: -80, site: boulder, minAltitude: 20, start, end,
     });
     expect(r.windows).toEqual([]);
   });
@@ -90,7 +90,7 @@ describe('usableWindows', () => {
     let raAtMid = 0;
     let bestAlt = -90;
     for (let ra = 0; ra < 24; ra += 0.01) {
-      const alt = targetAltAz(ra, 0, mid, phoenix).altitude;
+      const alt = targetAltAz(ra, 0, mid, boulder).altitude;
       if (alt > bestAlt) { bestAlt = alt; raAtMid = ra; }
     }
     // A wall of 80 deg across due south (az 150..210) blocks the transit.
@@ -99,12 +99,12 @@ describe('usableWindows', () => {
       { az: 210, alt: 80 }, { az: 220, alt: 0 },
     ];
     const open = usableWindows({
-      raHours: raAtMid, decDeg: 0, site: phoenix, horizon: [{ az: 0, alt: 0 }],
+      raHours: raAtMid, decDeg: 0, site: boulder, horizon: [{ az: 0, alt: 0 }],
       minAltitude: 10, start, end,
     });
     expect(open.windows).toHaveLength(1);
     const blocked = usableWindows({
-      raHours: raAtMid, decDeg: 0, site: phoenix, horizon: wall,
+      raHours: raAtMid, decDeg: 0, site: boulder, horizon: wall,
       minAltitude: 10, start, end,
     });
     expect(blocked.horizonSet).toBe(true);
@@ -115,31 +115,31 @@ describe('usableWindows', () => {
     const gapMid = (a.end.getTime() + b.start.getTime()) / 2;
     expect(Math.abs(gapMid - mid.getTime())).toBeLessThan(40 * 60000);
     // Edges sit at the blocking azimuths: at each edge the target is at the wall.
-    const atEnd = targetAltAz(raAtMid, 0, a.end, phoenix);
+    const atEnd = targetAltAz(raAtMid, 0, a.end, boulder);
     expect(atEnd.azimuth).toBeGreaterThan(140);
     expect(atEnd.azimuth).toBeLessThan(155);
   });
 
   it('reports horizonSet:false and applies only the flat minimum when no horizon is given', () => {
     const flat = usableWindows({
-      raHours: 2.5, decDeg: 88, site: phoenix, minAltitude: 20, start, end,
+      raHours: 2.5, decDeg: 88, site: boulder, minAltitude: 20, start, end,
     });
     expect(flat.horizonSet).toBe(false);
     const empty = usableWindows({
-      raHours: 2.5, decDeg: 88, site: phoenix, horizon: [], minAltitude: 20, start, end,
+      raHours: 2.5, decDeg: 88, site: boulder, horizon: [], minAltitude: 20, start, end,
     });
     expect(empty.horizonSet).toBe(false);
     expect(empty.windows).toEqual(flat.windows);
     // A raised minimum shortens the window by the same rule, with no hidden obstruction.
     const high = usableWindows({
-      raHours: 2.5, decDeg: 88, site: phoenix, minAltitude: 80, start, end,
+      raHours: 2.5, decDeg: 88, site: boulder, minAltitude: 80, start, end,
     });
     expect(high.windows).toEqual([]);
   });
 
   it('rejects an inverted range', () => {
     expect(() =>
-      usableWindows({ raHours: 1, decDeg: 1, site: phoenix, minAltitude: 0, start: end, end: start }),
+      usableWindows({ raHours: 1, decDeg: 1, site: boulder, minAltitude: 0, start: end, end: start }),
     ).toThrow(RangeError);
   });
 });

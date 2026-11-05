@@ -136,16 +136,19 @@ export function astronomicalNight(
     }
   }
 
+  // Start just after dusk: SearchAltitude can otherwise return the dusk instant itself.
+  const afterDusk = start.AddDays(1 / 1440);
   const end = Astronomy.SearchAltitude(
     Astronomy.Body.Sun,
     observer,
     +1,
-    start,
+    afterDusk,
     1.5,
     ASTRONOMICAL_TWILIGHT_DEG,
   );
   if (!end) {
-    throw new Error('Astronomical dawn not found within 1.5 days of dusk');
+    // Last dusk before polar night: the Sun dips below -18 and never comes back up.
+    return { kind: 'polar-night', start: null, end: null };
   }
   return { kind: 'normal', start: start.date, end: end.date };
 }

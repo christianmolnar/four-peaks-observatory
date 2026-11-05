@@ -45,14 +45,34 @@ describe('opticalTrain', () => {
     expect(Math.abs(t.imageScale! - 0.8251)).toBeLessThan(0.01);
     expect(t.focalRatio).toBeUndefined();
     expect(t.fovWidthArcmin).toBeUndefined();
-    expect(t.missing).toEqual(['camera.sensorWidthPx', 'camera.sensorHeightPx']);
+    expect(t.missing).toEqual([
+      'camera.sensorWidthPx',
+      'camera.sensorHeightPx',
+      'scope.apertureMm',
+    ]);
   });
 
   it('returns undefined values for empty inputs, never a guess', () => {
     const t = opticalTrain({}, {});
     expect(t.imageScale).toBeUndefined();
     expect(t.focalLengthMm).toBeUndefined();
-    expect(t.missing).toHaveLength(4);
+    expect(t.missing).toHaveLength(5);
+  });
+
+  it('does not guess when an accessory has no factor', () => {
+    const t = opticalTrain(sct, camera, { name: '0.7x reducer' });
+    expect(t.imageScale).toBeUndefined();
+    expect(t.focalLengthMm).toBeUndefined();
+    expect(t.focalRatio).toBeUndefined();
+    expect(t.fovWidthArcmin).toBeUndefined();
+    expect(t.missing).toEqual(['accessory.factor']);
+    expect(imageScale(sct, camera, { name: 'flattener' })).toBeUndefined();
+  });
+
+  it('lists aperture as missing when focal ratio cannot be computed', () => {
+    const t = opticalTrain({ focalLengthMm: 2032 }, camera);
+    expect(t.focalRatio).toBeUndefined();
+    expect(t.missing).toEqual(['scope.apertureMm']);
   });
 
   it('throws on non-positive values', () => {
