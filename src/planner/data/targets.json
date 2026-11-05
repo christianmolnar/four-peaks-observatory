@@ -1,0 +1,594 @@
+{
+ "source": "OpenNGC (github.com/mattiaverga/OpenNGC, database_files/NGC.csv, fetched 2026-11-05), J2000, CC-BY-SA-4.0. Leo Triplet is centred on NGC 3627 (M66). seasonMonths: months within 2 of the target's opposition, computed from RA only.",
+ "targets": [
+  {
+   "id": "ic405",
+   "name": "Flaming Star Nebula",
+   "aliases": [
+    "IC 405",
+    "Flaming Star",
+    "Flaming Star Nebula"
+   ],
+   "raHours": 5.27486,
+   "decDeg": 34.3562,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 50.0,
+    "minor": 30.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    10,
+    11,
+    12
+   ],
+   "openngc": "IC0405"
+  },
+  {
+   "id": "ic410",
+   "name": "Tadpoles Nebula",
+   "aliases": [
+    "IC 410",
+    "Tadpoles",
+    "Tadpole Nebula"
+   ],
+   "raHours": 5.37833,
+   "decDeg": 33.3667,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 40.0,
+    "minor": 30.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    10,
+    11,
+    12
+   ],
+   "openngc": "IC0410"
+  },
+  {
+   "id": "ngc2264",
+   "name": "Christmas Tree Cluster and Cone Nebula",
+   "aliases": [
+    "NGC 2264",
+    "Cone Nebula",
+    "Christmas Tree Cluster",
+    "Christmas Tree"
+   ],
+   "raHours": 6.68285,
+   "decDeg": 9.8955,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 11.4,
+    "minor": 11.4
+   },
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    11,
+    12
+   ],
+   "openngc": "NGC2264"
+  },
+  {
+   "id": "ngc1499",
+   "name": "California Nebula",
+   "aliases": [
+    "NGC 1499",
+    "California Nebula",
+    "California"
+   ],
+   "raHours": 4.05401,
+   "decDeg": 36.3675,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 160.0,
+    "minor": 40.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    10,
+    11,
+    12
+   ],
+   "openngc": "NGC1499"
+  },
+  {
+   "id": "m42",
+   "name": "Orion Nebula",
+   "aliases": [
+    "M42",
+    "NGC 1976",
+    "Orion Nebula",
+    "Great Orion Nebula"
+   ],
+   "raHours": 5.58791,
+   "decDeg": -5.3897,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 90.0,
+    "minor": 60.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    10,
+    11,
+    12
+   ],
+   "openngc": "NGC1976"
+  },
+  {
+   "id": "m43",
+   "name": "De Mairan's Nebula",
+   "aliases": [
+    "M43",
+    "NGC 1982",
+    "De Mairan's Nebula",
+    "Mairan's Nebula"
+   ],
+   "raHours": 5.59205,
+   "decDeg": -5.2675,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 20.0,
+    "minor": 15.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    10,
+    11,
+    12
+   ],
+   "openngc": "NGC1982"
+  },
+  {
+   "id": "ngc1977",
+   "name": "Running Man Nebula",
+   "aliases": [
+    "NGC 1977",
+    "Running Man",
+    "Running Man Nebula"
+   ],
+   "raHours": 5.58772,
+   "decDeg": -4.8443,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 10.2,
+    "minor": 10.2
+   },
+   "seasonMonths": [
+    1,
+    2,
+    10,
+    11,
+    12
+   ],
+   "openngc": "NGC1977"
+  },
+  {
+   "id": "ngc2174",
+   "name": "Monkey Head Nebula",
+   "aliases": [
+    "NGC 2174",
+    "Monkey Head",
+    "Monkey Head Nebula"
+   ],
+   "raHours": 6.15656,
+   "decDeg": 20.6596,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 40.0,
+    "minor": 30.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    11,
+    12
+   ],
+   "openngc": "NGC2174"
+  },
+  {
+   "id": "ngc2359",
+   "name": "Thor's Helmet",
+   "aliases": [
+    "NGC 2359",
+    "Thor's Helmet",
+    "Thors Helmet"
+   ],
+   "raHours": 7.30861,
+   "decDeg": -13.2272,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 10.0,
+    "minor": 5.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    11,
+    12
+   ],
+   "openngc": "NGC2359"
+  },
+  {
+   "id": "ngc2237",
+   "name": "Rosette Nebula",
+   "aliases": [
+    "NGC 2237",
+    "Rosette Nebula",
+    "Rosette"
+   ],
+   "raHours": 6.51517,
+   "decDeg": 5.0492,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 80.0,
+    "minor": 50.0
+   },
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    11,
+    12
+   ],
+   "openngc": "NGC2237"
+  },
+  {
+   "id": "m81",
+   "name": "Bode's Galaxy",
+   "aliases": [
+    "M81",
+    "NGC 3031",
+    "Bode's Galaxy",
+    "Bodes Galaxy"
+   ],
+   "raHours": 9.92588,
+   "decDeg": 69.0653,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 21.63,
+    "minor": 11.25
+   },
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "openngc": "NGC3031"
+  },
+  {
+   "id": "m82",
+   "name": "Cigar Galaxy",
+   "aliases": [
+    "M82",
+    "NGC 3034",
+    "Cigar Galaxy"
+   ],
+   "raHours": 9.93131,
+   "decDeg": 69.6794,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 10.99,
+    "minor": 5.11
+   },
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "openngc": "NGC3034"
+  },
+  {
+   "id": "m51",
+   "name": "Whirlpool Galaxy",
+   "aliases": [
+    "M51",
+    "NGC 5194",
+    "Whirlpool Galaxy",
+    "Whirlpool"
+   ],
+   "raHours": 13.49797,
+   "decDeg": 47.1952,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 13.71,
+    "minor": 11.67
+   },
+   "seasonMonths": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "openngc": "NGC5194"
+  },
+  {
+   "id": "leo-triplet",
+   "name": "Leo Triplet",
+   "aliases": [
+    "Leo Triplet",
+    "M66",
+    "NGC 3627",
+    "M65",
+    "NGC 3623",
+    "NGC 3628"
+   ],
+   "raHours": 11.33749,
+   "decDeg": 12.9915,
+   "type": "galaxy",
+   "seasonMonths": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "openngc": "NGC3627"
+  },
+  {
+   "id": "ngc4438",
+   "name": "The Eyes (NGC 4438 and NGC 4435)",
+   "aliases": [
+    "NGC 4438",
+    "NGC 4435",
+    "The Eyes",
+    "Eyes Galaxies"
+   ],
+   "raHours": 12.46266,
+   "decDeg": 13.0088,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 9.16,
+    "minor": 4.02
+   },
+   "seasonMonths": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "openngc": "NGC4438"
+  },
+  {
+   "id": "m101",
+   "name": "Pinwheel Galaxy",
+   "aliases": [
+    "M101",
+    "NGC 5457",
+    "Pinwheel Galaxy"
+   ],
+   "raHours": 14.05348,
+   "decDeg": 54.3489,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 23.99,
+    "minor": 23.07
+   },
+   "seasonMonths": [
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "openngc": "NGC5457"
+  },
+  {
+   "id": "m31",
+   "name": "Andromeda Galaxy",
+   "aliases": [
+    "M31",
+    "NGC 224",
+    "Andromeda Galaxy",
+    "Andromeda"
+   ],
+   "raHours": 0.71232,
+   "decDeg": 41.2691,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 177.83,
+    "minor": 69.66
+   },
+   "seasonMonths": [
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "openngc": "NGC0224"
+  },
+  {
+   "id": "m33",
+   "name": "Triangulum Galaxy",
+   "aliases": [
+    "M33",
+    "NGC 598",
+    "Triangulum Galaxy",
+    "Triangulum Pinwheel"
+   ],
+   "raHours": 1.56414,
+   "decDeg": 30.6602,
+   "type": "galaxy",
+   "sizeArcmin": {
+    "major": 62.09,
+    "minor": 36.73
+   },
+   "seasonMonths": [
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "openngc": "NGC0598"
+  },
+  {
+   "id": "ngc7000",
+   "name": "North America Nebula",
+   "aliases": [
+    "NGC 7000",
+    "North America Nebula",
+    "North America"
+   ],
+   "raHours": 20.98809,
+   "decDeg": 44.5288,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 120.0,
+    "minor": 30.0
+   },
+   "seasonMonths": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "openngc": "NGC7000"
+  },
+  {
+   "id": "m8",
+   "name": "Lagoon Nebula",
+   "aliases": [
+    "M8",
+    "NGC 6523",
+    "Lagoon Nebula",
+    "Lagoon"
+   ],
+   "raHours": 18.06146,
+   "decDeg": -24.3802,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 45.0,
+    "minor": 30.0
+   },
+   "seasonMonths": [
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "openngc": "NGC6523"
+  },
+  {
+   "id": "m20",
+   "name": "Trifid Nebula",
+   "aliases": [
+    "M20",
+    "NGC 6514",
+    "Trifid Nebula",
+    "Trifid"
+   ],
+   "raHours": 18.04503,
+   "decDeg": -22.9719,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 28.0,
+    "minor": 28.0
+   },
+   "seasonMonths": [
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "openngc": "NGC6514"
+  },
+  {
+   "id": "m16",
+   "name": "Eagle Nebula",
+   "aliases": [
+    "M16",
+    "NGC 6611",
+    "Eagle Nebula",
+    "Eagle"
+   ],
+   "raHours": 18.31338,
+   "decDeg": -13.8072,
+   "type": "nebula",
+   "sizeArcmin": {
+    "major": 120.0,
+    "minor": 25.0
+   },
+   "seasonMonths": [
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "openngc": "NGC6611"
+  },
+  {
+   "id": "m27",
+   "name": "Dumbbell Nebula",
+   "aliases": [
+    "M27",
+    "NGC 6853",
+    "Dumbbell Nebula",
+    "Dumbbell"
+   ],
+   "raHours": 19.99344,
+   "decDeg": 22.721,
+   "type": "planetary-nebula",
+   "sizeArcmin": {
+    "major": 6.7,
+    "minor": 6.7
+   },
+   "seasonMonths": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "openngc": "NGC6853"
+  },
+  {
+   "id": "m13",
+   "name": "Hercules Globular Cluster",
+   "aliases": [
+    "M13",
+    "NGC 6205",
+    "Hercules Globular Cluster",
+    "Hercules Cluster",
+    "Great Globular Cluster"
+   ],
+   "raHours": 16.6949,
+   "decDeg": 36.4613,
+   "type": "globular-cluster",
+   "sizeArcmin": {
+    "major": 16.5,
+    "minor": 16.5
+   },
+   "seasonMonths": [
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "openngc": "NGC6205"
+  }
+ ]
+}
