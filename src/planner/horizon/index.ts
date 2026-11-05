@@ -1,5 +1,5 @@
 import { targetAltAz } from '../astro';
-import type { Site } from '../astro';
+import type { AltAz, Site } from '../astro';
 
 export interface HorizonPoint {
   /** Degrees clockwise from north, 0 <= az < 360. */
@@ -75,10 +75,7 @@ export function limitAltitudeAt(
   return h === null ? minAltitude : Math.max(h, minAltitude);
 }
 
-export interface UsableWindowsInput {
-  raHours: number;
-  decDeg: number;
-  site: Site;
+interface WindowsCommon {
   /** Omit or leave empty when the horizon has not been measured. */
   horizon?: readonly HorizonPoint[] | null;
   /** Flat minimum altitude in degrees, applied on top of any horizon. */
@@ -89,13 +86,30 @@ export interface UsableWindowsInput {
   stepMinutes?: number;
 }
 
+export interface UsableWindowsInput extends WindowsCommon {
+  raHours: number;
+  decDeg: number;
+  site: Site;
+}
+
+/** Same as `UsableWindowsInput` for any moving body: `altAzAt` gives its position at an instant. */
+export interface TrackWindowsInput extends WindowsCommon {
+  altAzAt: (when: Date) => AltAz;
+}
+
 /**
  * Intervals within [start, end] in which a fixed J2000 target is above both
  * the horizon (if set) and the minimum altitude. A target blocked mid-interval
  * yields two windows; a target above the limit throughout yields one.
  */
 export function usableWindows(input: UsableWindowsInput): UsableWindows {
-  const { raHours, decDeg, site, minAltitude, start, end } = input;
+  const { raHours, decDeg, site, ...rest } = input;
+  return usableWindowsOnTrack({ ...rest, altAzAt: (d) => targetAltAz(raHours, decDeg, d, site) });
+}
+
+/** `usableWindows` for a body given by its alt/az track (a planet, for example). */
+export function usableWindowsOnTrack(input: TrackWindowsInput): UsableWindows {
+  const { altAzAt, minAltitude, start, end } = input;
   const step = (input.stepMinutes ?? 5) * 60000;
   if (!(step > 0)) throw new RangeError('stepMinutes must be positive');
   if (!Number.isFinite(minAltitude)) throw new RangeError('minAltitude must be a number');
@@ -107,7 +121,7 @@ export function usableWindows(input: UsableWindowsInput): UsableWindows {
   const horizonSet = points !== null;
 
   const margin = (t: number): number => {
-    const r = targetAltAz(raHours, decDeg, new Date(t), site);
+    const r = altAzAt(new Date(t));
     return r.altitude - limitAltitudeAt(points, r.azimuth, minAltitude);
   };
   const refine = (inside: number, outside: number): number => {
