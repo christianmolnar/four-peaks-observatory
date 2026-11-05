@@ -9,7 +9,7 @@ import type { BlockedArc, Profile } from '@/planner/profile';
 import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
 import {
   PROFILE_KEY,
-  defaultTonightDate,
+  defaultDateForProfile,
   friendlyArcError,
   loadCaptured,
   loadProfile,
@@ -87,10 +87,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       if (r.error) setImportError(r.error);
     }
     if (!initialDate) {
-      // The site's date, from its longitude; with no site, the browser's own longitude.
-      const now = new Date();
-      const lon = loaded.sites[0]?.longitude ?? (-now.getTimezoneOffset() / 60) * 15;
-      setDate(defaultTonightDate(now, lon));
+      setDate(defaultDateForProfile(new Date(), loaded));
     }
   }, [initialDate, initialProfile]);
 
@@ -194,8 +191,12 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     const next = new Set(captured);
     if (next.has(id)) next.delete(id);
     else next.add(id);
+    try {
+      saveCaptured(window.localStorage, next);
+    } catch (e) {
+      setNotice(`Not saved, so the tick is lost on reload: ${(e as Error).message}`);
+    }
     setCaptured(next);
-    saveCaptured(window.localStorage, next);
   };
 
   const importProfile = async (file: File | undefined) => {
@@ -205,13 +206,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       const next = parseProfile(await file.text());
       saveProfile(window.localStorage, next);
       setProfile(next);
+      setDate(defaultDateForProfile(new Date(), next));
       setDraftArc(undefined);
       setSiteId('');
       setTrainId('');
       setNotice(`Imported ${file.name}.`);
     } catch (e) {
       if (e instanceof ProfileError) setImportError(`Import rejected, ${e.message}`);
-      else throw e;
+      else setImportError(`Import failed, nothing was changed: ${(e as Error).message}`);
     }
   };
 
@@ -475,6 +477,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       )}
 
       <HorizonEditor
+        key={site.id}
         siteName={site.name}
         arc={arc}
         validate={checkArc}

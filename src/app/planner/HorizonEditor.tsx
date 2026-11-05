@@ -135,6 +135,7 @@ export default function HorizonEditor({ siteName, arc, validate, onChange, dirty
                 max={359}
                 step={1}
                 value={arc.startAz}
+                resetKey={arc}
                 validate={(n) => validate({ ...arc, startAz: n })}
                 onCommit={(n) => onChange({ ...arc, startAz: n })}
               />
@@ -146,6 +147,7 @@ export default function HorizonEditor({ siteName, arc, validate, onChange, dirty
                 max={359}
                 step={1}
                 value={arc.endAz}
+                resetKey={arc}
                 validate={(n) => validate({ ...arc, endAz: n })}
                 onCommit={(n) => onChange({ ...arc, endAz: n })}
               />
@@ -157,6 +159,7 @@ export default function HorizonEditor({ siteName, arc, validate, onChange, dirty
                 max={90}
                 step={1}
                 value={arc.heightDeg}
+                resetKey={arc}
                 validate={(n) => validate({ ...arc, heightDeg: n })}
                 onCommit={(n) => onChange({ ...arc, heightDeg: n })}
               />

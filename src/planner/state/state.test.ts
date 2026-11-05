@@ -3,7 +3,6 @@ import {
   CAPTURED_KEY,
   checkNumberText,
   friendlyArcError,
-  numberView,
   PROFILE_KEY,
   defaultTonightDate,
   loadCaptured,
@@ -151,50 +150,5 @@ describe('friendlyArcError', () => {
     expect(msg({ startAz: 100, endAz: 100, heightDeg: 30 })).toBe('Start and end must differ.');
     expect(msg({ startAz: 0, endAz: 359.99, heightDeg: 30 })).toMatch(/^The arc is too wide/);
     expect(msg({ startAz: 10, endAz: 50, heightDeg: 91 })).not.toContain('$');
-  });
-});
-
-// numberView drives NumberSlider: the box text and message are derived from the draft and the
-// committed value, so these sequences are what a user sees after typing, Discard, Reset, and so on.
-describe('numberView (slider and number box stay in sync)', () => {
-  const ok = () => null;
-  const view = (d: { text: string; base: number } | null, value: number, validate: (n: number) => string | null = ok) =>
-    numberView(d, value, 0, 359, 'Start azimuth', 'deg', validate);
-
-  it('shows the committed value when nothing was typed', () => {
-    expect(view(null, 120)).toEqual({ text: '120', error: null });
-  });
-
-  it('keeps accepted text as typed while it matches the value', () => {
-    expect(view({ text: '150.0', base: 120 }, 150)).toEqual({ text: '150.0', error: null });
-  });
-
-  it('Discard: after typing 150 (accepted) the value goes back to 120, and the box follows', () => {
-    expect(view({ text: '150', base: 120 }, 120)).toEqual({ text: '120', error: null });
-  });
-
-  it('Reset: a typed height of 77 is replaced when the value returns to 42', () => {
-    expect(view({ text: '77', base: 42 }, 42)).toEqual({ text: '42', error: null });
-  });
-
-  it('a rejected value keeps its text and message while the value is unchanged', () => {
-    const refuse = (n: number) => (n === 320 ? 'Start and end must differ.' : null);
-    expect(view({ text: '320', base: 120 }, 120, refuse)).toEqual({ text: '320', error: 'Start and end must differ.' });
-  });
-
-  it('reject, then the other field changes: the old error and text go away', () => {
-    const refuse = (n: number) => (n === 320 ? 'Start and end must differ.' : null);
-    expect(view({ text: '320', base: 120 }, 120, refuse).error).not.toBeNull();
-    // End azimuth moved away from 320: 320 would now be accepted, so the box shows 120 again.
-    expect(view({ text: '320', base: 120 }, 120, ok)).toEqual({ text: '120', error: null });
-  });
-
-  it('a rejected draft is dropped when the value changes from outside (site change)', () => {
-    expect(view({ text: '361', base: 120 }, 90)).toEqual({ text: '90', error: null });
-  });
-
-  it('range and number errors come from checkNumberText', () => {
-    expect(view({ text: '361', base: 120 }, 120).error).toBe('Start azimuth must be from 0 to 359 deg.');
-    expect(view({ text: '', base: 120 }, 120).error).toBe('Start azimuth: enter a number.');
   });
 });

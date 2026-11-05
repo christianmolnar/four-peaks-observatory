@@ -98,48 +98,6 @@ export function friendlyArcError(e: ProfileError): string {
   return e.message.replace(/^\$[^:]*: /, '');
 }
 
-/** What a number box and slider pair is typing right now. `base` is the committed value when the text was entered. */
-export interface NumberDraft {
-  text: string;
-  base: number;
-}
-
-export interface NumberView {
-  /** Text for the number box. */
-  text: string;
-  /** Message to show, or null. */
-  error: string | null;
-}
-
-/**
- * What the number box shows and which error stands, derived from the typed
- * draft and the committed `value` on every render so it cannot go stale.
- * - No draft, or a draft the page has since moved away from (Discard, Reset,
- *   a site change), shows the committed value.
- * - A draft that was accepted shows as typed ("1.0" stays "1.0").
- * - A rejected draft keeps its text and message while the committed value is
- *   unchanged and `validate` still refuses it; once it would be accepted (the
- *   other azimuth moved) the box falls back to the committed value.
- * `validate` is pure: a message, or null when `onCommit` would accept the number.
- */
-export function numberView(
-  draft: NumberDraft | null,
-  value: number,
-  min: number,
-  max: number,
-  label: string,
-  unit: string,
-  validate: (n: number) => string | null,
-): NumberView {
-  const shownValue: NumberView = { text: String(value), error: null };
-  if (draft === null) return shownValue;
-  const c = checkNumberText(draft.text, min, max, label, unit);
-  if (c.ok && c.value === value) return { text: draft.text, error: null };
-  const error = c.ok ? validate(c.value) : c.error;
-  if (error !== null && draft.base === value) return { text: draft.text, error };
-  return shownValue;
-}
-
 export type NumberCheck = { ok: true; value: number } | { ok: false; error: string };
 
 /** Checks text from a number box (or a slider) against a range; the message says what is wrong. */
@@ -149,4 +107,14 @@ export function checkNumberText(text: string, min: number, max: number, label: s
   if (!Number.isFinite(value)) return { ok: false, error: `${label}: "${text}" is not a number.` };
   if (value < min || value > max) return { ok: false, error: `${label} must be from ${min} to ${max} ${unit}.` };
   return { ok: true, value };
+}
+
+/**
+ * The evening date for a profile: its first site's longitude, or the
+ * browser's own (from its UTC offset in minutes, as `getTimezoneOffset` gives it)
+ * when the profile has no site.
+ */
+export function defaultDateForProfile(now: Date, profile: Profile): string {
+  const lon = profile.sites[0]?.longitude ?? (-now.getTimezoneOffset() / 60) * 15;
+  return defaultTonightDate(now, lon);
 }

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { checkNumberText, numberView } from '@/planner/state';
-import type { NumberDraft } from '@/planner/state';
+import { checkNumberText } from '@/planner/state';
 
 export interface NumberSliderProps {
   id: string;
@@ -12,31 +11,70 @@ export interface NumberSliderProps {
   max: number;
   /** Slider step; the number box accepts any decimal in range. */
   step: number;
+  /** The committed value. The parent owns it; this control never holds a second copy. */
   value: number;
-  /** Pure check: a message when the value would be refused, else null. Runs on every render. */
+  /** Pure check: a message when the value would be refused, else null. */
   validate?: (value: number) => string | null;
   /** Applies a value that passed `validate`. */
   onCommit: (value: number) => void;
+  /**
+   * Anything else that can change what is committed without this control
+   * changing `value` (Discard, Reset, a site change, an import, another field).
+   * When it changes, the typed draft and its message are thrown away.
+   */
+  resetKey?: unknown;
 }
 
+interface Edit {
+  /** Text being typed in the box; null when the user is not editing it. */
+  draft: string | null;
+  /** Why the last attempt was refused; null when there is none. */
+  error: string | null;
+}
+const NO_EDIT: Edit = { draft: null, error: null };
+
 /**
- * A range slider and a number box for one value, kept in sync both ways.
- * A typed value that is empty, not a number, out of range or refused by
- * `validate` shows a message and leaves the committed value (and slider) alone.
- * The box text and message are derived from the draft and `value` each render
- * (see `numberView`), so Discard, Reset or a change elsewhere cannot leave them stale.
+ * A range slider and a number box for one committed value.
+ * - The slider commits immediately and ends any edit of the box.
+ * - The box holds a local draft only while it is being edited. Typing changes
+ *   nothing outside the box. Enter or leaving the box commits the draft if it
+ *   is valid; otherwise the box shows the message and the committed value is
+ *   untouched. Escape drops the draft.
+ * - When `value` or `resetKey` changes, the draft and message are dropped.
  */
-export default function NumberSlider({ id, label, unit, min, max, step, value, validate = () => null, onCommit }: NumberSliderProps) {
-  const [draft, setDraft] = useState<NumberDraft | null>(null);
+export default function NumberSlider({ id, label, unit, min, max, step, value, validate = () => null, onCommit, resetKey }: NumberSliderProps) {
+  const [edit, setEdit] = useState<Edit>(NO_EDIT);
+  const [seen, setSeen] = useState({ value, resetKey });
+  if (seen.value !== value || seen.resetKey !== resetKey) {
+    // The committed state moved under us: render again with no draft (React re-renders before painting).
+    setSeen({ value, resetKey });
+    setEdit(NO_EDIT);
+  }
   const errorId = `${id}-error`;
 
-  const view = numberView(draft, value, min, max, label, unit, validate);
-  const enter = (text: string) => {
-    setDraft({ text, base: value });
+  /** Commits text if it is valid, else keeps it and shows why. */
+  const tryCommit = (text: string) => {
     const c = checkNumberText(text, min, max, label, unit);
-    if (c.ok && validate(c.value) === null) onCommit(c.value);
+    const error = c.ok ? validate(c.value) : c.error;
+    if (c.ok && error === null) {
+      setEdit(NO_EDIT);
+      onCommit(c.value);
+    } else {
+      setEdit({ draft: text, error });
+    }
+  };
+  const slide = (text: string) => {
+    const n = Number(text);
+    const error = validate(n);
+    if (error === null) {
+      setEdit(NO_EDIT);
+      onCommit(n);
+    } else {
+      setEdit({ draft: null, error });
+    }
   };
 
+  const view = { text: edit.draft ?? String(value), error: edit.error };
   const shown = view.text;
   const error = view.error;
   const inputClass =
@@ -54,7 +92,7 @@ export default function NumberSlider({ id, label, unit, min, max, step, value, v
           max={max}
           step={step}
           value={Math.min(max, Math.max(min, value))}
-          onChange={(e) => enter(e.target.value)}
+          onChange={(e) => slide(e.target.value)}
           className="flex-1 accent-sky-400"
         />
         <input
@@ -65,7 +103,18 @@ export default function NumberSlider({ id, label, unit, min, max, step, value, v
           max={max}
           step={0.1}
           value={shown}
-          onChange={(e) => enter(e.target.value)}
+          onChange={(e) => setEdit({ draft: e.target.value, error: null })}
+          onBlur={() => {
+            if (edit.draft !== null) tryCommit(edit.draft);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (edit.draft !== null) tryCommit(edit.draft);
+            } else if (e.key === 'Escape') {
+              setEdit(NO_EDIT);
+            }
+          }}
           aria-invalid={error !== null}
           aria-describedby={error ? errorId : undefined}
           className={`${inputClass} w-24`}
