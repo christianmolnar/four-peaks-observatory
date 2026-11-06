@@ -121,9 +121,6 @@ export function fieldsFromArc(arc: BlockedArc): HorizonFields {
   return { start: String(arc.startAz), end: String(arc.endAz), height: String(arc.heightDeg) };
 }
 
-export const sameFields = (a: HorizonFields | null, b: HorizonFields | null): boolean =>
-  a === null || b === null ? a === b : a.start === b.start && a.end === b.end && a.height === b.height;
-
 const NUMBER_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)$/;
 
 export type WholeDegrees = { ok: true; value: number } | { ok: false; error: string };
@@ -141,6 +138,19 @@ export function checkWholeDegrees(text: string, min: number, max: number, unit =
   if (value < min || value > max) return { ok: false, error: `Use ${min} to ${max}${unit}.` };
   return { ok: true, value };
 }
+
+/**
+ * True when two sets of boxes mean the same arc: boxes that hold valid whole numbers compare by
+ * number (0150 is 150), anything else by its text.
+ */
+export const sameFields = (a: HorizonFields | null, b: HorizonFields | null): boolean => {
+  if (a === null || b === null) return a === b;
+  return (['start', 'end', 'height'] as const).every((k) => {
+    const x = checkWholeDegrees(a[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
+    const y = checkWholeDegrees(b[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
+    return x.ok && y.ok ? x.value === y.value : a[k] === b[k];
+  });
+};
 
 export interface HorizonErrors {
   start?: string;
@@ -192,11 +202,6 @@ export function effectiveArc(
   const arc = { startAz: pick('start', base.startAz), endAz: pick('end', base.endAz), heightDeg: pick('height', base.heightDeg) };
   return errors.arc !== undefined || arcCheck(arc) !== null ? { ...arc, startAz: base.startAz, endAz: base.endAz } : arc;
 }
-
-export const hasErrors = (e: HorizonErrors): boolean => Object.keys(e).length > 0;
-
-/** The arc the fields spell when they are all valid; null otherwise. */
-export const arcFromFields = numbersOf;
 
 /**
  * The evening date for a profile: its first site's longitude, or the

@@ -14,6 +14,10 @@ export interface NumberSliderProps {
   onText: (text: string) => void;
   /** The message for the current text, or null. Computed by the parent on every render. */
   error: string | null;
+  /** Called when the box or the slider gets focus. */
+  onFocus?: () => void;
+  /** Lines the message slot reserves. Two for a long message in a narrow column. */
+  lines?: 1 | 2;
 }
 
 /**
@@ -22,7 +26,7 @@ export interface NumberSliderProps {
  * The message line is always in the page, with a fixed height, so showing or
  * clearing a message never moves anything below it.
  */
-export default function NumberSlider({ id, label, unit, min, max, text, sliderValue, onText, error }: NumberSliderProps) {
+export default function NumberSlider({ id, label, unit, min, max, text, sliderValue, onText, error, onFocus, lines = 1 }: NumberSliderProps) {
   const msgId = `${id}-msg`;
   return (
     <div className="mb-3">
@@ -39,6 +43,7 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
           step={1}
           value={text}
           onChange={(e) => onText(e.target.value)}
+          onFocus={onFocus}
           aria-invalid={error !== null}
           aria-describedby={msgId}
           className={`h-11 w-20 shrink-0 rounded-lg bg-black/60 px-2 text-right text-white font-normal text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-400 ${
@@ -53,10 +58,11 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
           step={1}
           value={sliderValue}
           onChange={(e) => onText(e.target.value)}
+          onFocus={onFocus}
           className="h-11 min-w-0 flex-1 accent-sky-400"
         />
       </div>
-      <p id={msgId} aria-live="polite" className="h-5 text-sm leading-5 text-orange-300 font-normal overflow-hidden">
+      <p id={msgId} aria-live="polite" className={`${lines === 2 ? 'h-10' : 'h-5'} text-sm leading-5 text-orange-300 font-normal overflow-hidden`}>
         {error && (
           <>
             <span aria-hidden="true">! </span>

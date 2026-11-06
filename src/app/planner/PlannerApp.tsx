@@ -26,7 +26,7 @@ import {
   saveProfile,
   withSiteArc,
 } from '@/planner/state';
-import type { HorizonField, HorizonFields } from '@/planner/state';
+import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AltitudeChart from './AltitudeChart';
 import HorizonEditor from './HorizonEditor';
 import NumberSlider from './NumberSlider';
@@ -64,6 +64,9 @@ export interface PlannerAppProps {
   initialProfile?: Profile;
 }
 
+/** How long a toast stays up. */
+const TOAST_MS = 6000;
+
 const fieldsOf = (arc: BlockedArc | null): HorizonFields | null => (arc ? fieldsFromArc(arc) : null);
 
 export default function PlannerApp({ initialDate, initialProfile }: PlannerAppProps) {
@@ -76,6 +79,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   // The one copy of the form: what is in the boxes. Messages and the plan's numbers are derived from it.
   const [fields, setFields] = useState<HorizonFields | null>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArc ?? null));
   const [minAltText, setMinAltText] = useState<string>(String(DEFAULT_MIN_ALTITUDE));
+  // The Minimum altitude in effect when the current run of typing began (set on focus). While the text is
+  // bad the plan keeps this number, never a half-typed prefix.
+  const [minAltAnchor, setMinAltAnchor] = useState<number>(DEFAULT_MIN_ALTITUDE);
   const [justSaved, setJustSaved] = useState(false);
   const [captured, setCaptured] = useState<ReadonlySet<string>>(new Set());
   const [season, setSeason] = useState<SeasonFilter>('all');
@@ -92,7 +98,10 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const loadForm = (arc: BlockedArc | null, withMinAltitude: boolean) => {
     setFields(fieldsOf(arc));
     setJustSaved(false);
-    if (withMinAltitude) setMinAltText(String(DEFAULT_MIN_ALTITUDE));
+    if (withMinAltitude) {
+      setMinAltText(String(DEFAULT_MIN_ALTITUDE));
+      setMinAltAnchor(DEFAULT_MIN_ALTITUDE);
+    }
   };
 
   // Browser-only state: saved profile, captured list, the clock.
@@ -116,6 +125,18 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     }
   }, [initialDate, initialProfile]);
 
+  // Toasts clear themselves, so none of them stays over a button.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), TOAST_MS);
+    return () => clearTimeout(t);
+  }, [notice]);
+  useEffect(() => {
+    if (!importError || profile.sites.length === 0 || profile.trains.length === 0) return;
+    const t = setTimeout(() => setImportError(null), TOAST_MS);
+    return () => clearTimeout(t);
+  }, [importError, profile]);
+
   const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
   const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];
   const savedFields = site ? fieldsOf(site.blockedArc) : null;
@@ -134,21 +155,25 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   // Everything below is derived from the text on each render; nothing is stored about it.
   const { errors, arc } = useMemo(() => {
-    if (!site || fields === null) return { errors: {}, arc: null as BlockedArc | null };
+    if (!site || fields === null) return { errors: {} as HorizonErrors, arc: null as BlockedArc | null };
     const errs = checkArcFields(fields, checkArc);
     return { errors: errs, arc: effectiveArc(fields, errs, site.blockedArc ?? DEFAULT_ARC, checkArc) };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- checkArc is a function of site and profile
   }, [fields, site, profile]);
+  // A slider follows its own box whenever the box holds a valid number, even when the arc is refused
+  // (so an arrow key can step across the other end). Only a box with a message falls back to the preview.
   const sliderValues: Record<HorizonField, number> = {
-    start: arc?.startAz ?? 0,
-    end: arc?.endAz ?? 0,
-    height: arc?.heightDeg ?? 0,
+    start: errors.start === undefined && fields ? Number(fields.start) : (arc?.startAz ?? 0),
+    end: errors.end === undefined && fields ? Number(fields.end) : (arc?.endAz ?? 0),
+    height: errors.height === undefined && fields ? Number(fields.height) : (arc?.heightDeg ?? 0),
   };
-  const horizon = useMemo(() => (arc ? arcToHorizonPoints(arc) : null), [arc]);
+  // The plan, the list and the altitude chart use the saved arc: the draft only previews in the horizon editor.
+  const savedArc = site?.blockedArc ?? null;
+  const horizon = useMemo(() => (savedArc ? arcToHorizonPoints(savedArc) : null), [savedArc]);
 
   const minCheck = checkWholeDegrees(minAltText, MIN_ALTITUDE_RANGE.min, MIN_ALTITUDE_RANGE.max, '');
-  const minAltitude = minCheck.ok ? minCheck.value : DEFAULT_MIN_ALTITUDE;
-  const minAltError = minCheck.ok ? null : `${minCheck.error} Planning with ${DEFAULT_MIN_ALTITUDE} until fixed.`;
+  const minAltitude = minCheck.ok ? minCheck.value : minAltAnchor;
+  const minAltError = minCheck.ok ? null : `${minCheck.error} Planning with ${minAltitude} until fixed.`;
 
   const planResult = useMemo(() => {
     if (!site || !train || date === '') return null;
@@ -330,17 +355,17 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       {/* Messages float at the bottom of the window, so showing one never pushes the page down. */}
       <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl flex-col gap-2">
         {notice && (
-          <p role="status" className="pointer-events-auto bg-slate-900 border border-sky-300/60 rounded px-3 py-2 text-sky-100 font-normal text-sm">
+          <p role="status" className="pointer-events-none bg-slate-900 border border-sky-300/60 rounded px-3 py-2 text-sky-100 font-normal text-sm">
             {notice}
           </p>
         )}
         {importError && (
-          <p role="alert" className="pointer-events-auto bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
             {importError}
           </p>
         )}
         {planResult?.error && (
-          <p role="alert" className="pointer-events-auto bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
             Could not plan: {planResult.error}
           </p>
         )}
@@ -348,7 +373,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
       <section aria-labelledby="controls-heading" className={panel}>
         <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">TONIGHT</h2>
-        <div className="grid gap-4 md:grid-cols-4 items-start">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 items-start">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
             <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
@@ -385,8 +410,13 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             max={MIN_ALTITUDE_RANGE.max}
             text={minAltText}
             sliderValue={minAltitude}
-            onText={setMinAltText}
+            onText={(t) => {
+              if (t.trim() === '') setMinAltAnchor(minAltitude); // emptying the box starts a new run of typing
+              setMinAltText(t);
+            }}
+            onFocus={() => setMinAltAnchor(minAltitude)}
             error={minAltError}
+            lines={2}
           />
         </div>
         <p className="text-white/80 font-normal text-sm mt-2" data-testid="night-summary">
@@ -400,9 +430,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           {zone && `Times are in your browser's time zone (${zone}).`}
         </p>
         <p className="text-white/80 font-normal text-sm mt-1" data-testid="horizon-summary">
-          {arc === null
+          {savedArc === null
             ? 'Horizon not set: only the flat minimum altitude applies.'
-            : `Horizon: blocked ${arc.startAz}° (${compass(arc.startAz)}) to ${arc.endAz}° (${compass(arc.endAz)}), ${arc.heightDeg}° high.`}{' '}
+            : `Horizon: blocked ${savedArc.startAz}° (${compass(savedArc.startAz)}) to ${savedArc.endAz}° (${compass(savedArc.endAz)}), ${savedArc.heightDeg}° high.`}{' '}
           <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
             Edit horizon
           </a>

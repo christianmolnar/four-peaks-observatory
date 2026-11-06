@@ -1,7 +1,6 @@
 import { ProfileError } from '../profile';
 import {
   CAPTURED_KEY,
-  arcFromFields,
   checkArcFields,
   checkWholeDegrees,
   effectiveArc,
@@ -13,8 +12,10 @@ import {
   loadProfile,
   sampleProfile,
   saveCaptured,
+  sameFields,
   saveProfile,
   withSiteArc,
+  defaultDateForProfile,
 } from './index';
 
 function memory(initial: Record<string, string> = {}) {
@@ -176,9 +177,25 @@ describe('checkArcFields', () => {
     expect(calls).toEqual([]);
   });
 
-  it('arcFromFields gives the arc, or null when any box is bad', () => {
-    expect(arcFromFields({ start: '300', end: '60', height: '35' })).toEqual({ startAz: 300, endAz: 60, heightDeg: 35 });
-    expect(arcFromFields({ start: '300', end: '60', height: '95' })).toBeNull();
+  it('sameFields compares valid boxes by number, so 0150 is 150 and 12.0 is 12', () => {
+    const saved = { start: '120', end: '320', height: '45' };
+    expect(sameFields({ ...saved, height: '045' }, saved)).toBe(true);
+    expect(sameFields({ ...saved, start: '0120' }, saved)).toBe(true);
+    expect(sameFields({ ...saved, start: '121' }, saved)).toBe(false);
+    expect(sameFields({ ...saved, start: '12.0' }, { ...saved, start: '12' })).toBe(true);
+    expect(sameFields({ ...saved, start: '' }, saved)).toBe(false);
+    expect(sameFields(null, null)).toBe(true);
+    expect(sameFields(null, saved)).toBe(false);
+  });
+});
+
+describe('defaultDateForProfile', () => {
+  it('a profile with no site uses the browser longitude (not 0)', () => {
+    // 10:00 UTC on Dec 20. At the browser's UTC-7 it is 03:00 that day, so the night began Dec 19;
+    // at longitude 0 it would be 10:00, so Dec 20.
+    const now = new Date('2026-12-20T10:00:00Z');
+    now.getTimezoneOffset = () => 420;
+    expect(defaultDateForProfile(now, { ...sampleProfile(), sites: [] })).toBe('2026-12-19');
   });
 });
 

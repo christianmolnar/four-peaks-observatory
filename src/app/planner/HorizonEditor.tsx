@@ -90,7 +90,7 @@ export default function HorizonEditor({
   const status = invalid ? 'Fix the highlighted box to save' : dirty ? 'Unsaved changes' : saved ? 'Saved' : '';
 
   return (
-    <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-black/70 rounded-lg border border-white/10 p-6 scroll-mt-4">
+    <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-black/70 rounded-lg border border-white/10 p-6 scroll-mt-24">
       <div className="col-start-1 row-start-1 flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
         <h2 id="horizon-heading" className="basis-full text-xl font-light text-white tracking-[0.15em]">
           HORIZON: {siteName.toUpperCase()}
@@ -152,7 +152,7 @@ export default function HorizonEditor({
               60°
             </text>
           </svg>
-          <p className="text-white/80 font-normal text-sm mt-2">{summary}</p>
+          <p className="text-white/80 font-normal text-sm leading-5 mt-2 min-h-[100px] md:min-h-0">{summary}</p>
         </div>
 
         <form
@@ -163,7 +163,7 @@ export default function HorizonEditor({
           }}
         >
           {fields === null ? (
-            <div className="min-h-[288px]">
+            <div className="min-h-[300px]">
               <p className="text-white/80 font-normal text-sm mb-3">
                 No obstruction is entered, so the planner uses the flat minimum altitude only. It does not guess a horizon.
               </p>
@@ -172,7 +172,7 @@ export default function HorizonEditor({
               </button>
             </div>
           ) : (
-            <div className="min-h-[288px]">
+            <div className="min-h-[300px]">
               {FIELDS.map(({ key, id, label }) => (
                 <NumberSlider
                   key={key}

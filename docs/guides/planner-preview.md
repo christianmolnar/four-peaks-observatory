@@ -8,15 +8,16 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
 2. Date defaults to tonight at the site (from its longitude; before 06:00 site time it is the night that began yesterday), whatever the browser's zone. Times are shown in the browser's time zone, because the profile's site has no time zone field.
 3. Horizon editor (Start, End, Height). Typing and sliding edit a draft; only "Save horizon" stores it.
    - Click "Edit horizon" next to the "Horizon:" line in Tonight: the page jumps to the editor.
-   - Type `200` in Start, key by key: the slider, the chart and the "Horizon:" line follow as soon as the text is a valid whole number. The status line says "Unsaved changes". Nothing is stored until you click "Save horizon" (or press Enter in a box while the form is valid).
-   - Type `500` in Start: a line under the box says "Use 0 to 359 degrees.", the slider and the plan go back to the saved Start, "Save horizon" is greyed and the status line says "Fix the highlighted box to save". Same for `361`, for `91` or `95` in Height ("Use 0 to 90 degrees."), for an empty box, and for `1.5` ("Whole degrees only.").
+   - Type `200` in Start, key by key: the slider and the polar chart in the editor follow as soon as the text is a valid whole number. The status line says "Unsaved changes". The "Horizon:" line, the target list and the altitude chart plan from the saved arc, so they change only when you click "Save horizon" (or press Enter in a box while the form is valid). Nothing is stored before that.
+   - A slider follows its own box whenever the box holds a valid number, so the arrow keys step one degree at a time across the other end (Start 318, then ArrowRight: 319, 320, 321 ...).
+   - Type `500` in Start: a line under the box says "Use 0 to 359 degrees.", the slider goes back to the saved Start and the plan never left it, "Save horizon" is greyed and the status line says "Fix the highlighted box to save". Same for `361`, for `91` or `95` in Height ("Use 0 to 90 degrees."), for an empty box, and for `1.5` ("Whole degrees only.").
    - Type `320` in Start while End is 320: "Start and End must differ." under both boxes.
    - Leaving a box (Tab, a click elsewhere) and Escape do nothing. Pressing Enter in a box saves only if the form is valid.
-   - Nothing on the page moves when a message appears, so the first click on "Discard changes", "Use sample horizon", "Clear horizon" or "Save horizon" works right after bad typing. "Discard changes" puts the three boxes back to the saved arc.
+   - The buttons and the target list keep their page position on every key, because the list does not follow the draft and every message line has its height reserved. So the first click on "Discard changes", "Use sample horizon", "Clear horizon" or "Save horizon" works right after bad typing. "Discard changes" puts the three boxes back to the saved arc.
    - "Use sample horizon" loads the sample arc into the boxes as an unsaved draft ("Discard changes" undoes it) and puts Minimum altitude back to 20. The whole-profile wipe is "Replace profile with sample" in the Profile section.
    - A different site, an import and "Replace profile with sample" also set the boxes from the saved arc and Minimum altitude to 20; nothing typed survives.
    - Tab order: Start box, Start slider, End box, End slider, Height box, Height slider, Save, Discard, Use sample horizon, Clear horizon, "Horizon as a table".
-   - Minimum altitude (Tonight) works on its own: it applies as soon as the text is a whole number from 0 to 89, with no Save. While it is invalid the plan uses 20 and the line under the box says so ("Use 0 to 89. Planning with 20 until fixed.").
+   - Minimum altitude (Tonight) works on its own: it applies as soon as the text is a whole number from 0 to 89, with no Save. While it is invalid the plan keeps the value that was in effect when you began typing (taken when the box gets focus, or when you empty it), never a half-typed prefix, and the line under the box names it ("Use 0 to 89. Planning with 30 until fixed."). Its message slot reserves two lines.
    - Bad Minimum altitude does not block "Save horizon".
 4. Raise the height to 80 and save: southern targets drop out of the list. "Clear horizon" is also a draft: badge "Horizon not set" and the flat minimum altitude in each "why" once saved; "Discard changes" brings the arc back.
 5. "Save horizon" then reload: the arc persists, status line empty. "Replace profile with sample" (Profile section, asks first) restores the default.
@@ -39,6 +40,8 @@ jsdom has no layout, so it cannot see a button move. `docs/guides/planner-layout
 
 It starts its own `next dev` on a free port and stops it afterwards; pass a URL to use a server you already run. Exit code 0 means every check passed.
 
-Last recorded run: `docs/guides/planner-layout-check.out.txt` (62 of 62 checks).
+It also measures, after every key and every drag step, the page position of the four buttons and the target list (typing 500 in Start, 91 and 95 in Height, slider drags), that Clear horizon and Add a blocked arc leave Save horizon in place, that no message line is clipped at 1280, 1024, 768, 640, 390 and 360 px, that a click on Save horizon under a toast works and the toast clears, and that Edit horizon lands below the site header.
+
+Last recorded run: `docs/guides/planner-layout-check.out.txt` (88 of 88 checks).
 
 Not done yet from the design review: chart beside the list, cards on phones, jargon renames.

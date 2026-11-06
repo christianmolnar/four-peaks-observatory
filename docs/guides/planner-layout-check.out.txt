@@ -8,6 +8,13 @@ PASS 1280px: boxes identical after 95 in Height  [message: '! Use 0 to 90 degree
 PASS 1280px: boxes identical after empty Start  [message: '! Enter a number from 0 to 359.']
 PASS 1280px: boxes identical after 1.5 in Start  [message: '! Whole degrees only.']
 PASS 1280px: boxes identical after 100 in Minimum altitude  [message: '! Use 0 to 89. Planning with 20 until fixed.']
+PASS 1280px: buttons and target list identical after every key of 500 in Start  [3 keys]
+PASS 1280px: buttons and target list identical after every key of 91 in Height  [2 keys]
+PASS 1280px: buttons and target list identical after every key of 95 in Height  [2 keys]
+PASS 1280px: buttons and target list identical after every step of a Start slider drag  [7 steps]
+PASS 1280px: buttons and target list identical after every step of a Height slider drag  [5 steps]
+PASS 1280px: Save horizon does not move on Clear horizon  [[652, 2878, 166.34, 44] -> [652, 2878, 166.34, 44]]
+PASS 1280px: Save horizon does not move on Add a blocked arc  [[652, 2878, 166.34, 44] -> [652, 2878, 166.34, 44]]
 PASS 1280px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 1280px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 1280px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
@@ -28,6 +35,9 @@ PASS 1280px: after the box is fixed, first click on Save stores it  [{'startAz':
 PASS 1280px: bad Minimum altitude, first click on Save stores the original Start and End  [{'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
 PASS 1280px: reload shows the saved arc
 PASS 1280px: Minimum altitude is 20 with no message after Use sample horizon
+PASS 1280px: first click on Save horizon under the toast saves  [toast still up when clicked: True; stored {'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
+PASS 1280px: the toast clears itself
+PASS 1280px: Edit horizon puts the heading below the site header  [header bottom 161.9375, heading top 198]
 PASS 1280px: no page errors
 PASS 390px: the four message lines exist before any error
 PASS 390px: Save, Discard, Use sample horizon and Clear horizon are at least 44 px tall  [{'Save horizon': 44, 'Discard changes': 44, 'Use sample horizon': 44, 'Clear horizon': 44}]
@@ -39,6 +49,13 @@ PASS 390px: boxes identical after 95 in Height  [message: '! Use 0 to 90 degrees
 PASS 390px: boxes identical after empty Start  [message: '! Enter a number from 0 to 359.']
 PASS 390px: boxes identical after 1.5 in Start  [message: '! Whole degrees only.']
 PASS 390px: boxes identical after 100 in Minimum altitude  [message: '! Use 0 to 89. Planning with 20 until fixed.']
+PASS 390px: buttons and target list identical after every key of 500 in Start  [3 keys]
+PASS 390px: buttons and target list identical after every key of 91 in Height  [2 keys]
+PASS 390px: buttons and target list identical after every key of 95 in Height  [2 keys]
+PASS 390px: buttons and target list identical after every step of a Start slider drag  [7 steps]
+PASS 390px: buttons and target list identical after every step of a Height slider drag  [5 steps]
+PASS 390px: Save horizon does not move on Clear horizon  [[49, 3792.23, 292, 44] -> [49, 3792.23, 292, 44]]
+PASS 390px: Save horizon does not move on Add a blocked arc  [[49, 3792.23, 292, 44] -> [49, 3792.23, 292, 44]]
 PASS 390px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 390px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 390px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
@@ -59,6 +76,15 @@ PASS 390px: after the box is fixed, first click on Save stores it  [{'startAz': 
 PASS 390px: bad Minimum altitude, first click on Save stores the original Start and End  [{'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
 PASS 390px: reload shows the saved arc
 PASS 390px: Minimum altitude is 20 with no message after Use sample horizon
+PASS 390px: first click on Save horizon under the toast saves  [toast still up when clicked: True; stored {'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
+PASS 390px: the toast clears itself
+PASS 390px: Edit horizon puts the heading below the site header  [header bottom 85.34375, heading top 190.234375]
 PASS 390px: no page errors
+PASS 1280px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 1024px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 768px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 640px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 390px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 360px: no message line is clipped (scrollHeight <= clientHeight)
 
-62 of 62 checks passed
+88 of 88 checks passed

@@ -12,6 +12,13 @@ This script checks, at 1280 and 390 px:
      top 20 percent of the button (the part that missed before). Save is checked three ways: it is
      inert while a horizon box is bad; one click saves once the box is fixed; one click saves when
      only Minimum altitude was bad.
+  3. After EVERY key (not only before and after), the four action buttons and the target list keep
+     their page position while typing 500 in Start, 91 and 95 in Height, and dragging a slider.
+     Clear horizon and Add a blocked arc leave Save horizon where it was.
+  4. At 1280, 1024, 768, 640, 390 and 360 px no message line is clipped (scrollHeight <= clientHeight)
+     for bad Start, End, Height and Minimum altitude text.
+  5. A toast never takes a click: after an import, a real click on Save horizon, scrolled under the
+     toast, works first time; the toast clears itself. "Edit horizon" lands below the site header.
 
 Run (needs Playwright for Python and its Chromium; the repo itself does not depend on either):
   python3 docs/guides/planner-layout-check.py                  # starts its own next dev on a free port, stops it after
@@ -91,6 +98,47 @@ class Planner:
     def boxes(self):
         return {n: self.box(n) for n in BUTTONS}
 
+    def list_box(self):
+        """Page position and size of the target list, so a changing row count shows up."""
+        return self.p.evaluate("""() => { const e = document.querySelector('[data-testid=target-table]');
+            if (!e) return null; const r = e.getBoundingClientRect();
+            return [r.x + scrollX, r.y + scrollY, r.width, r.height].map(v => Math.round(v * 100) / 100); }""")
+
+    def snap(self):
+        return {**self.boxes(), "target list": self.list_box()}
+
+    def clipped(self):
+        """Message slots whose text does not fit (scrollHeight above clientHeight)."""
+        return self.p.evaluate("""(ids) => ids.filter(id => { const e = document.getElementById(id);
+            return e && e.scrollHeight > e.clientHeight; })""", MSG_IDS)
+
+    def each_key(self, field_id, text):
+        """Snapshots after the click and select-all, then after every key press."""
+        el = self.p.locator(f"#{field_id}-number")
+        el.click()
+        self.p.keyboard.press("Control+A")
+        snaps = [self.snap()]
+        for ch in text:
+            self.p.keyboard.press(ch)
+            snaps.append(self.snap())
+        return snaps
+
+    def drag_slider(self, label, fractions):
+        """Real mouse drag along a slider; snapshots after every move."""
+        sl = self.p.get_by_role("slider", name=label)
+        sl.scroll_into_view_if_needed()
+        b = sl.bounding_box()
+        y = b["y"] + b["height"] / 2
+        self.p.mouse.move(b["x"] + b["width"] * fractions[0], y)
+        self.p.mouse.down()
+        snaps = []
+        for f in fractions[1:]:
+            self.p.mouse.move(b["x"] + b["width"] * f, y, steps=3)
+            snaps.append(self.snap())
+        self.p.mouse.up()
+        snaps.append(self.snap())
+        return snaps
+
     def type(self, field_id, text):
         """Real key presses, one per character, into the number box."""
         el = self.p.locator(f"#{field_id}-number")
@@ -167,6 +215,29 @@ def run_viewport(pw, url, label, width, height, shots):
         if shots and field == "arc-start" and text == "500":
             page.screenshot(path=os.path.join(shots, f"{label}-bad-start.png"), full_page=True)
 
+    # 1b. After EVERY key: buttons and the target list stay at the same page position.
+    for name, field, text in [("500 in Start", "arc-start", "500"), ("91 in Height", "arc-height", "91"), ("95 in Height", "arc-height", "95")]:
+        app.fresh()
+        before = app.snap()
+        snaps = app.each_key(field, text)
+        moved = [i for i, sn in enumerate(snaps) if sn != before]
+        record(f"{label}: buttons and target list identical after every key of {name}", not moved,
+               f"changed after key index {moved}: {snaps[moved[0]]} vs {before}" if moved else f"{len(snaps) - 1} keys")
+    for name, bar, fractions in [("Start", "Start azimuth", [0.3, 0.1, 0.5, 0.9, 1.0, 0.0, 0.6]), ("Height", "Height slider", [0.4, 0.1, 0.9, 1.0, 0.0])]:
+        app.fresh()
+        before = app.snap()
+        snaps = app.drag_slider(bar + " slider" if "slider" not in bar else bar, fractions)
+        # Dragging commits nothing: the list stays; only the buttons' own page position must hold.
+        moved = [i for i, sn in enumerate(snaps) if sn != before]
+        record(f"{label}: buttons and target list identical after every step of a {name} slider drag", not moved,
+               f"changed at steps {moved}: {snaps[moved[0]]} vs {before}" if moved else f"{len(snaps)} steps")
+    app.fresh()
+    save_before = app.box("Save horizon")
+    app.mouse_click("Clear horizon")
+    record(f"{label}: Save horizon does not move on Clear horizon", app.box("Save horizon") == save_before, f"{save_before} -> {app.box('Save horizon')}")
+    app.p.get_by_role("button", name="Add a blocked arc").click()
+    record(f"{label}: Save horizon does not move on Add a blocked arc", app.box("Save horizon") == save_before, f"{save_before} -> {app.box('Save horizon')}")
+
     # 2. First mouse click, no Tab or Enter after the last key.
     for name, field, text in [b for b in BAD if b[1] != "min-alt"][:5]:
         for button in ["Discard changes", "Use sample horizon"]:
@@ -210,8 +281,61 @@ def run_viewport(pw, url, label, width, height, shots):
     app.mouse_click("Use sample horizon")
     record(f"{label}: Minimum altitude is 20 with no message after Use sample horizon", app.value("min-alt") == "20" and app.msg("min-alt-msg") == "")
 
+    # A toast takes no click and clears itself.
+    app.fresh()
+    page.get_by_role("button", name="Export profile (JSON)").scroll_into_view_if_needed()
+    with page.expect_download() as dl:
+        page.get_by_role("button", name="Export profile (JSON)").click()
+    path = dl.value.path()
+    page.set_input_files("#profile-import", path)
+    page.wait_for_selector("[role=status]")
+    toast = page.locator("[role=status]").first
+    app.type("arc-height", "50")
+    page.get_by_role("button", name="Save horizon", exact=True).scroll_into_view_if_needed()
+    tb = toast.bounding_box()
+    if tb:  # put Save horizon right under the toast, scrolling the page
+        sb = app.box("Save horizon")
+        target_y = tb["y"] + tb["height"] / 2 - sb[3] / 2
+        page.evaluate(f"window.scrollTo(0, {sb[1]} - {target_y})")
+    still_up = page.locator("[role=status]").count() > 0
+    app.mouse_click("Save horizon", 0.5)
+    record(f"{label}: first click on Save horizon under the toast saves", app.stored_arc() == {"startAz": 120, "endAz": 320, "heightDeg": 50},
+           f"toast still up when clicked: {still_up}; stored {app.stored_arc()}")
+    page.wait_for_function("document.querySelectorAll('[role=status]').length === 0", timeout=9000)
+    record(f"{label}: the toast clears itself", True)
+
+    # Edit horizon lands below the site header.
+    app.fresh()
+    page.evaluate("window.scrollTo(0, 0)")
+    page.get_by_role("link", name="Edit horizon").click()
+    page.wait_for_timeout(600)
+    head = page.evaluate("""() => { let bottom = 0;
+        for (const e of document.querySelectorAll('body *')) { const c = getComputedStyle(e);
+          if ((c.position === 'fixed' || c.position === 'sticky') && e.id !== 'x') { const r = e.getBoundingClientRect();
+            if (r.top <= 1 && r.height < 300 && r.width > innerWidth / 2) bottom = Math.max(bottom, r.bottom); } }
+        return [bottom, document.getElementById('horizon-heading').getBoundingClientRect().top]; }""")
+    record(f"{label}: Edit horizon puts the heading below the site header", head[1] >= head[0], f"header bottom {head[0]}, heading top {head[1]}")
+
     record(f"{label}: no page errors", not errors, "; ".join(errors))
     browser.close()
+
+
+def run_widths(pw, url):
+    """No message line is clipped at any width, for the bad texts that gave the longest messages."""
+    cases = [("Minimum altitude", "min-alt", ["100", "", "1.5"]), ("Start", "arc-start", ["500", "", "1.5", "320"]),
+             ("End", "arc-end", ["500", "", "1.5", "120"]), ("Height", "arc-height", ["95", "", "1.5"])]
+    for width in [1280, 1024, 768, 640, 390, 360]:
+        browser = pw.chromium.launch()
+        page = browser.new_page(viewport={"width": width, "height": 900})
+        app = Planner(page, url)
+        bad = []
+        for name, field, texts in cases:
+            for text in texts:
+                app.fresh()
+                app.type(field, text)
+                bad += [f"{name} {text!r}: {m}" for m in app.clipped()]
+        record(f"{width}px: no message line is clipped (scrollHeight <= clientHeight)", not bad, "; ".join(bad))
+        browser.close()
 
 
 def main():
@@ -229,6 +353,7 @@ def main():
         with sync_playwright() as pw:
             run_viewport(pw, url, "1280px", 1280, 900, shots)
             run_viewport(pw, url, "390px", 390, 844, shots)
+            run_widths(pw, url)
     finally:
         if proc:
             stop_server(proc)

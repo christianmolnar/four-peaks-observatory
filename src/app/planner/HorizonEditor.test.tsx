@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
@@ -47,6 +47,15 @@ async function type(u: U, name: string, text: string) {
   }
   expect(el.value).toBe(text);
 }
+/**
+ * One arrow key on a focused range input. jsdom has no native slider behaviour, so after the real key events
+ * this does what a browser does: moves the slider's own value by one step and fires the change.
+ */
+async function arrow(u: U, el: HTMLInputElement, key: 'ArrowRight' | 'ArrowLeft') {
+  expect(document.activeElement).toBe(el);
+  await u.keyboard(`{${key}}`);
+  fireEvent.change(el, { target: { value: String(Number(el.value) + (key === 'ArrowRight' ? 1 : -1)) } });
+}
 const slide = (name: string, value: string) => fireEvent.change(slider(name), { target: { value } });
 
 /** Everything the page shows about the three horizon boxes and Minimum altitude. */
@@ -82,10 +91,12 @@ describe('draft and commit', () => {
     const u = user();
     await type(u, START, '150');
     expect(slider(START).value).toBe('150');
-    expect(summary()).toContain('150°');
+    expect(summary()).toContain('120°'); // the plan uses the saved arc until Save
+    expect(screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent).toContain('from 150 deg'); // the chart previews
     expect(status()).toBe('Unsaved changes');
     expect(stored()).toBeNull();
     await u.click(button('Save horizon'));
+    expect(summary()).toContain('150°');
     expect(storedArc()).toEqual({ startAz: 150, endAz: 320, heightDeg: 42 });
     expect(status()).toBe('Saved');
     await type(u, START, '151');
@@ -133,13 +144,44 @@ describe('draft and commit', () => {
     app();
     slide(START, '200');
     expect(box(START).value).toBe('200');
-    expect(summary()).toContain('200°');
-    slide(START, '320'); // equals End: refused, the slider goes back to the plan's number
+    expect(summary()).toContain('120°');
+    slide(START, '320'); // equals End: refused, but the slider still follows its own box
     expect(box(START).value).toBe('320');
     expect(msg(START)).toBe('Start and End must differ.');
     expect(msg(END)).toBe('Start and End must differ.');
-    expect(slider(START).value).toBe('120');
+    expect(slider(START).value).toBe('320');
     expect(summary()).toContain('120°');
+  });
+
+  it('arrow keys on the Start slider cross End one degree at a time: 318 then five presses gives 319 to 323', async () => {
+    app();
+    const u = user();
+    await type(u, START, '318');
+    await u.tab();
+    expect(document.activeElement).toBe(slider(START));
+    const seen: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      await arrow(u, slider(START), 'ArrowRight');
+      seen.push(box(START).value);
+      expect(slider(START).value).toBe(box(START).value);
+    }
+    expect(seen).toEqual(['319', '320', '321', '322', '323']);
+    expect(msg(START)).toBe('');
+  });
+
+  it('arrow keys on the End slider cross Start one degree at a time: 122 then four presses gives 121 to 118', async () => {
+    app();
+    const u = user();
+    await type(u, END, '122');
+    await u.tab();
+    expect(document.activeElement).toBe(slider(END));
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await arrow(u, slider(END), 'ArrowLeft');
+      seen.push(box(END).value);
+      expect(slider(END).value).toBe(box(END).value);
+    }
+    expect(seen).toEqual(['121', '120', '119', '118']);
   });
 
   it('whole degrees only: the box refuses a decimal with a message, the slider stays', async () => {
@@ -205,7 +247,8 @@ describe.each([
     const horizon = summary();
     await type(u, name, text);
     expect(msg(name)).toBe(message);
-    expect(slider(name).value).toBe(original);
+    // A box with a message that is not a number in range leaves the slider alone; a refused arc made of two good numbers does not.
+    expect(slider(name).value).toBe(text === '320' ? '320' : original);
     expect(summary()).toBe(horizon);
     expect(button('Save horizon').disabled).toBe(true);
     expect(status()).toBe('Fix the highlighted box to save');
@@ -234,6 +277,41 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(msg(MINALT)).toBe('');
     expect(slider(MINALT).value).toBe('35');
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull(); // a plan input, not a saved draft
+  });
+
+  it('from a saved 30, typing 450 key by key ends on 30 and the message names 30, never a prefix', async () => {
+    app();
+    const u = user();
+    await type(u, MINALT, '30');
+    const rows = screen.getByTestId('target-table').textContent;
+    expect(msg(MINALT)).toBe('');
+    await u.clear(box(MINALT)); // a new run of typing begins here, with 30 in effect
+    for (const key of '450') {
+      await u.keyboard(key);
+      if (box(MINALT).value === '450') {
+        expect(slider(MINALT).value).toBe('30');
+        expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
+        expect(screen.getByTestId('target-table').textContent).toBe(rows);
+      }
+    }
+    expect(box(MINALT).value).toBe('450');
+    expect(slider(MINALT).value).toBe('30');
+    expect(screen.getByTestId('target-table').textContent).toBe(rows);
+  });
+
+  it('a bad Minimum altitude keeps 30 whether it is emptied or has a digit added', async () => {
+    app();
+    const u = user();
+    await type(u, MINALT, '30');
+    const rows = screen.getByTestId('target-table').textContent;
+    await u.clear(box(MINALT));
+    expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 30 until fixed.');
+    expect(slider(MINALT).value).toBe('30');
+    await type(u, MINALT, '30');
+    await u.keyboard('0'); // 300, appended to the 30 in effect
+    expect(box(MINALT).value).toBe('300');
+    expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
+    expect(screen.getByTestId('target-table').textContent).toBe(rows);
   });
 
   it('empty and decimal boxes say what is wrong', async () => {
@@ -476,6 +554,95 @@ describe('Save after bad typing, then reload', () => {
     render(<PlannerApp initialDate="2026-12-15" />);
     await waitFor(() => expect(box(START).value).toBe('300'));
     expect(box(END).value).toBe('60');
+  });
+});
+
+describe('the target list plans from the saved arc until Save', () => {
+  const rows = () => screen.getByTestId('target-table').textContent;
+
+  it('typing 500 in Start, key by key, never changes the list or the Tonight summary', async () => {
+    app();
+    const u = user();
+    const before = [rows(), summary()];
+    await u.clear(box(START));
+    for (const key of '500') {
+      await u.keyboard(key);
+      expect([rows(), summary()]).toEqual(before);
+    }
+  });
+
+  it('a valid draft (Height 80) previews in the chart only; Save moves the list', async () => {
+    app();
+    const u = user();
+    const before = [rows(), summary()];
+    await type(u, HEIGHT, '80');
+    expect([rows(), summary()]).toEqual(before);
+    expect(screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent).toContain('up to 80 deg');
+    await u.click(button('Save horizon'));
+    expect(rows()).not.toBe(before[0]);
+    expect(summary()).toContain('80°');
+  });
+
+  it('Minimum altitude still applies live', async () => {
+    app();
+    const u = user();
+    const before = rows();
+    await type(u, MINALT, '60');
+    expect(rows()).not.toBe(before);
+  });
+
+  it('a number written differently is the same arc: 0120 over a saved 120 is no change, and 045 saves as 45 and reads Saved', async () => {
+    app();
+    const u = user();
+    fireEvent.change(box(START), { target: { value: '0120' } });
+    expect(box(START).value).toBe('0120');
+    expect(status()).toBe('');
+    expect(button('Save horizon').disabled).toBe(true);
+    fireEvent.change(box(HEIGHT), { target: { value: '045' } });
+    expect(box(HEIGHT).value).toBe('045');
+    expect(status()).toBe('Unsaved changes');
+    await u.click(button('Save horizon'));
+    expect(storedArc()).toEqual({ startAz: 120, endAz: 320, heightDeg: 45 });
+    expect(status()).toBe('Saved');
+    expect(button('Save horizon').disabled).toBe(true);
+  });
+});
+
+describe('toasts clear themselves and never take a click', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('the notice carries pointer-events-none up its chain and is gone after the timeout; Save then works first time', async () => {
+    jest.useFakeTimers();
+    app();
+    const u = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    await u.click(button('Replace profile with sample'));
+    const toast = screen.getByRole('status');
+    expect(toast.textContent).toBe('Sample profile restored.');
+    for (let el: HTMLElement | null = toast; el && el !== document.body; el = el.parentElement) {
+      if (el.className.includes('fixed')) break;
+      expect(el.className).toContain('pointer-events-none');
+    }
+    expect(toast.parentElement?.className).toContain('pointer-events-none');
+    act(() => {
+      jest.advanceTimersByTime(7000);
+    });
+    expect(screen.queryByRole('status')).toBeNull();
+    await type(u, HEIGHT, '50');
+    await u.click(button('Save horizon'));
+    expect(storedArc()).toEqual({ startAz: 120, endAz: 320, heightDeg: 50 });
+  });
+
+  it('an error toast also clears and is click-through', async () => {
+    jest.useFakeTimers();
+    window.localStorage.setItem(PROFILE_KEY, '{not json');
+    render(<PlannerApp initialDate="2026-12-15" />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.className).toContain('pointer-events-none');
+    expect(alert.parentElement?.className).toContain('pointer-events-none');
+    act(() => {
+      jest.advanceTimersByTime(9000);
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
 
