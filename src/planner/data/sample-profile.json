@@ -103,9 +103,8 @@
       {
         "id": "ice-2in",
         "name": "ICE 2\" light-pollution filter",
-        "kind": "broadband-LP",
         "sizeMm": 48,
-        "_source": "Owner list only. Probably ICE LiPo (didymium, broadband), not confirmed; no passband, UV/IR or f-ratio data published, so those are left unknown (astro-filters-owned.md section 3)."
+        "_source": "Owner list only. Possibly ICE LiPo (didymium, broadband), not confirmed, so the kind is left unknown too; no passband, UV/IR or f-ratio data published, so those are left unknown (astro-filters-owned.md section 3)."
       },
       {
         "id": "idas-lps-p2",

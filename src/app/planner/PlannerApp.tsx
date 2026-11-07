@@ -463,7 +463,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             </select>
             <p id="plan-filter-msg" className="mt-1 h-10 overflow-hidden text-sm leading-5 text-white/70 font-normal">
               {train.kind === 'optical' && profile.equipment.filters.length === 0
-                ? 'This profile has no filters. Replace profile with sample loads the sample list.'
+                ? 'No filters. Use Replace profile with sample.'
                 : ''}
             </p>
           </div>
@@ -639,6 +639,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           optics={trainInfo.optics}
           camera={trainInfo.camera}
           filter={trainInfo.filter}
+          site={site}
           formatTime={formatTime}
         />
       )}

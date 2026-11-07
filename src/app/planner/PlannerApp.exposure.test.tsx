@@ -39,6 +39,11 @@ describe('Exposure panel', () => {
       expect(within(p).getAllByText(`${label}, estimate`)).toHaveLength(3);
     }
     expect(p.textContent).toMatch(/range \d+ to \d+ s/);
+    // every numeric row of every card carries a range, Sub count included
+    for (const row of ['Sub length', 'Sub count', 'Total light', 'Overhead', 'Elapsed', 'Finish']) {
+      for (const dt of within(p).getAllByText(`${row}, estimate`)) expect(dt.nextElementSibling!.textContent).toMatch(/range|after lost frames/);
+    }
+    expect(within(p).getAllByText(/^\d+ \(range \d+ to \d+ subs\)$/)).toHaveLength(3);
     expect(p.textContent).toMatch(/setup 30, dithers/);
     expect(p.textContent).toMatch(/Estimates for tonight, not predictions/);
   });
@@ -168,11 +173,11 @@ describe('Filter selector and its warnings', () => {
     expect(filterSelect().disabled).toBe(false);
   });
 
-  it('a profile without filters says so and offers the sample list', () => {
+  it('a profile without filters says so and names the action, short enough for its two-line box', () => {
     const p = sampleProfile();
     app({ ...p, trains: p.trains.map((t) => (t.kind === 'optical' ? { ...t, filterId: undefined } : t)), equipment: { ...p.equipment, filters: [] } });
     expect(filterSelect().options).toHaveLength(1);
-    expect(document.getElementById('plan-filter-msg')!.textContent).toMatch(/no filters.*sample list/);
+    expect(document.getElementById('plan-filter-msg')!.textContent).toMatch(/^No filters\. Use Replace profile with sample\.$/);
   });
 
   it('a train whose scope has no aperture says what is missing instead of guessing', () => {
@@ -183,6 +188,39 @@ describe('Filter selector and its warnings', () => {
       trains: [...p.trains].sort((a) => (a.id === HYPERSTAR ? -1 : 1)),
     });
     expect(panel().textContent).toMatch(/Not enough data in the profile for an estimate\. Missing: train\.focalRatio/);
+  });
+});
+
+// The flip rule is fed the real meridian crossing (hour angle zero), not the highest point while usable.
+// Dates and numbers come from the sample site on 2026-12-15 with the HyperStar train and no filter.
+describe('meridian flip, through the whole page', () => {
+  const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
+    await user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
+    await user.click(within(panel()).getByText('Quick & Beautiful'));
+    return radio(/Quick/).closest('label')!.textContent ?? '';
+  };
+  it('North America Nebula already past the meridian: no flip, overhead 33.7 min (the peak is only the window start)', async () => {
+    const user = userEvent.setup();
+    app();
+    const quick = await pick(user, /North America Nebula/);
+    expect(quick).toMatch(/Overhead, estimate33\.7 min/);
+    expect(quick).toMatch(/meridian flip 0$|meridian flip 0Elapsed/);
+    expect(warnings()).not.toMatch(/meridian flip/i);
+  });
+  it('Hercules Globular Cluster, rising, window ends long before the crossing: no flip', async () => {
+    const user = userEvent.setup();
+    app();
+    const quick = await pick(user, /Hercules Globular Cluster/);
+    expect(quick).toMatch(/meridian flip 0/);
+    expect(warnings()).not.toMatch(/meridian flip/i);
+  });
+  it("Thor's Helmet crosses 43 minutes into its window: the flip is counted and noted", async () => {
+    const user = userEvent.setup();
+    app();
+    const quick = await pick(user, /Thor's Helmet/);
+    expect(quick).toMatch(/meridian flip 10/);
+    expect(warnings()).toMatch(/A meridian flip falls inside this session and adds 10 minutes/);
+    expect(warnings()).not.toMatch(/highest point/);
   });
 });
 

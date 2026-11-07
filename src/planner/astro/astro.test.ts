@@ -2,7 +2,9 @@ import {
   astronomicalNight,
   bodyAltAz,
   moonIllumination,
+  hourAngleHours,
   moonSeparation,
+  nextMeridianTransit,
   targetAltAz,
 } from './index';
 import type { Site } from './types';
@@ -351,5 +353,33 @@ describe('moon', () => {
     expect(Math.abs(anti - 180)).toBeLessThan(0.3);
     // Separation of poles is 180 apart and any point is 90 from the pole when on the equator.
     expect(moonSeparation(0, 90, when, boulder) + moonSeparation(0, -90, when, boulder)).toBeCloseTo(180, 4);
+  });
+});
+
+describe('nextMeridianTransit', () => {
+  const from = new Date('2026-12-15T02:00:00Z');
+  it('is the highest point of a fixed target, due south, within one sidereal day', () => {
+    const t = nextMeridianTransit(SIRIUS.ra, SIRIUS.dec, from, boulder);
+    const ahead = (t.getTime() - from.getTime()) / 3600000;
+    expect(ahead).toBeGreaterThanOrEqual(0);
+    expect(ahead).toBeLessThan(23.94);
+    const at = targetAltAz(SIRIUS.ra, SIRIUS.dec, t, boulder);
+    expect(Math.abs(at.azimuth - 180)).toBeLessThan(0.1);
+    // Independent: transit altitude = 90 - |latitude - declination|, give or take precession.
+    expect(at.altitude).toBeCloseTo(90 - (40 + 16.716116), 1);
+    for (const dm of [-10, 10]) {
+      expect(targetAltAz(SIRIUS.ra, SIRIUS.dec, new Date(t.getTime() + dm * 60000), boulder).altitude).toBeLessThan(at.altitude);
+    }
+    expect(Math.abs(hourAngleHours(SIRIUS.ra, SIRIUS.dec, t, boulder))).toBeLessThan(1e-4);
+  });
+  it('a target that crossed a minute ago crosses again about a sidereal day later, not now', () => {
+    const t = nextMeridianTransit(SIRIUS.ra, SIRIUS.dec, from, boulder);
+    const later = nextMeridianTransit(SIRIUS.ra, SIRIUS.dec, new Date(t.getTime() + 60000), boulder);
+    expect((later.getTime() - t.getTime()) / 3600000).toBeCloseTo(23.934, 2);
+  });
+  it('hour angle is negative before the crossing and positive after', () => {
+    const t = nextMeridianTransit(SIRIUS.ra, SIRIUS.dec, from, boulder);
+    expect(hourAngleHours(SIRIUS.ra, SIRIUS.dec, new Date(t.getTime() - 3600000), boulder)).toBeCloseTo(-1.0027, 2);
+    expect(hourAngleHours(SIRIUS.ra, SIRIUS.dec, new Date(t.getTime() + 3600000), boulder)).toBeCloseTo(1.0027, 2);
   });
 });

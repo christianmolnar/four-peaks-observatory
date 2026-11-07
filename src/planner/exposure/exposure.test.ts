@@ -107,6 +107,9 @@ describe('filter warnings', () => {
     const w = filterWarnings(N, filter('zwo-duo-band'), duo);
     expect(codes(w)).toEqual(['filter-rated-slower']);
     expect(w[0].text).toMatch(/up to 8 degrees \(published\)/);
+    // The bands exceed the shift, and the text says so with the calculated figure.
+    expect(w[0].text).toMatch(/narrowest band is 15 nm, wider than the 5\.2 nm shift at Ha \(calculated\), so the bands still cover the line/);
+    expect(w[0].text).toMatch(/At f\/1\.93 the beam edge/);
     // Its 15 nm band would pass the calculated rule at this speed (5.3 < 7.5): the published limit decides.
     expect(edgeShiftNm(N, 656.3)).toBeLessThan(15 * 0.5);
     expect(filterWarnings(3.7, filter('zwo-duo-band'), duo)).toEqual([]); // 3.7 -> 7.7 degrees, inside 8
@@ -337,6 +340,7 @@ describe('planExposure with fixed inputs', () => {
         expect(lo).toBeLessThan(hi);
       };
       inside(m.subSeconds, m.subSecondsRange);
+      inside(m.subCount, m.subCountRange);
       inside(m.overhead.totalMin, m.overheadRangeMin);
       inside(m.elapsedMin, m.elapsedRangeMin);
       expect(m.usableIntegrationRangeMin[1]).toBe(m.integrationMin);
@@ -345,6 +349,26 @@ describe('planExposure with fixed inputs', () => {
       expect(m.finishRange![1].getTime()).toBeGreaterThan(m.finish!.getTime());
     }
     for (const row of r.marginal) expect(row.label).toBe('estimate');
+  });
+  it('the sub count range is the same light at the long and the short end of the sub-length range', () => {
+    for (const m of [quick, balanced, deep]) {
+      const light = m.subCount * m.subSeconds;
+      expect(m.subCountRange[0]).toBe(Math.floor(light / m.subSecondsRange[1]));
+      expect(m.subCountRange[1]).toBe(Math.ceil(light / m.subSecondsRange[0]));
+    }
+    expect(quick.subCountRange).toEqual([90, 208]); // 2700 s of light: 2700 / 30 s = 90, 2700 / 13 s = 207.7
+    const none = plan({ usableMinutes: 0 }).modes.quick;
+    expect(none.subCountRange).toEqual([0, 0]);
+  });
+  it('the finish range spans the whole elapsed range, not just the in-session overhead', () => {
+    const st = START.getTime();
+    for (const m of [quick, balanced, deep]) {
+      const [lo, hi] = m.finishRange!;
+      // setup starts 30 min before the first usable minute: finish = that + elapsed
+      expect(hi.getTime()).toBe(st - 30 * 60000 + Math.round(m.elapsedRangeMin[1] * 60000));
+      expect(lo.getTime()).toBeGreaterThanOrEqual(st + m.integrationMin * 60000);
+      expect((hi.getTime() - lo.getTime()) / 60000).toBeGreaterThan(10);
+    }
   });
   it('the sub-length range is wider when an input had to be assumed', () => {
     const known = quick.subSecondsRange;

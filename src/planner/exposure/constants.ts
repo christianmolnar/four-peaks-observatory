@@ -78,7 +78,7 @@ export const MIN_SUB_S = 10;
 export const MAX_SUB_S = 300;
 /** ASSUMPTION: the lengths a sub is rounded to (nearest on a log scale). */
 export const SUB_STEPS_S: readonly number[] = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300];
-/** ASSUMPTION: multiplier on the sky-limited minimum. */
+/** ASSUMPTION: the sub-length range is this wide (factor each way) when every input is known. */
 export const SUB_RANGE_FACTOR = 1.5;
 /** ASSUMPTION: the sub-length range is this wide (factor each way) when an input was assumed. */
 export const SUB_RANGE_FACTOR_ASSUMED = 2;
@@ -130,6 +130,7 @@ export const REJECT_FRACTION_MAX = 0.2;
 
 // ---- Marginal benefit -----------------------------------------------------
 
+/** 30, 60, 90 and 120 minutes: the steps the planner brief asks for (spec section 07, Quality per Hour). */
 export const MARGINAL_MINUTES: readonly number[] = [30, 60, 90, 120];
 /** ASSUMPTION: unmodelled noise (dark current, pattern, drift) takes up to this share of the ideal gain. */
 export const SNR_GAIN_LOSS_MAX = 0.3;
@@ -143,5 +144,11 @@ export const UNDERSAMPLED_ABOVE_ARCSEC = 2.0;
 
 // ---- Moon note --------------------------------------------------------------
 
+/** ASSUMPTION: the Moon note appears when the Moon is up, at least this lit and closer than this to the target. */
 export const MOON_NOTE_ILLUMINATION = 0.5;
 export const MOON_NOTE_SEPARATION_DEG = 60;
+
+// ---- Sky --------------------------------------------------------------------
+
+/** ASSUMPTION: Bortle class used until the user sets one; the planner does not know the owner's sky. */
+export const DEFAULT_BORTLE = 6;

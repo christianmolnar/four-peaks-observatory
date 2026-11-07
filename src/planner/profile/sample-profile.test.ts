@@ -49,6 +49,7 @@ describe('sample profile', () => {
       expect(byId('idas-lps-p2').blocksUvIr).toBeUndefined();
       expect(byId('idas-lps-p2').ratedMinFRatio).toBeUndefined();
       expect(byId('ice-2in').passbandWidthNm).toBeUndefined();
+      expect(byId('ice-2in').kind).toBeUndefined(); // the research marks the product ambiguous: kind not known
       expect(byId('orion-sky-glow').kind).toBeUndefined(); // visual or imaging version: not known
     });
   });

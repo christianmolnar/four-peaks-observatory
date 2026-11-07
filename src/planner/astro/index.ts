@@ -76,6 +76,38 @@ export function targetAltAz(
   return { altitude: hor.altitude, azimuth: hor.azimuth };
 }
 
+const SIDEREAL_PER_SOLAR = 1.00273790935;
+
+/** Hour angle of a fixed target in hours, wrapped to [-12, 12): negative before the meridian, zero on it. */
+export function hourAngleHours(raHours: number, decDeg: number, when: Date, site: Site): number {
+  assertCoords(raHours, decDeg);
+  assertDate(when);
+  assertSite(site);
+  const time = Astronomy.MakeTime(when);
+  const j2000 = Astronomy.VectorFromSphere(new Astronomy.Spherical(decDeg, raHours * 15, 1), time);
+  const eq = Astronomy.EquatorFromVector(Astronomy.RotateVector(Astronomy.Rotation_EQJ_EQD(time), j2000));
+  const ha = Astronomy.SiderealTime(time) + site.longitude / 15 - eq.ra;
+  return ((((ha + 12) % 24) + 24) % 24) - 12;
+}
+
+/**
+ * The first time at or after `from` when a fixed target crosses the local meridian (hour angle zero).
+ * Always within one sidereal day of `from`; callers decide whether it falls in their session.
+ */
+export function nextMeridianTransit(raHours: number, decDeg: number, from: Date, site: Site): Date {
+  let t = from.getTime();
+  const ha0 = hourAngleHours(raHours, decDeg, from, site);
+  // Hours until the hour angle next reaches zero (0 if it is zero now).
+  const wait = ha0 === 0 ? 0 : ha0 < 0 ? -ha0 : 24 - ha0;
+  t += (wait / SIDEREAL_PER_SOLAR) * 3600000;
+  // Refine: precession and nutation move the apparent RA a little over the wait.
+  for (let i = 0; i < 3; i++) {
+    const ha = hourAngleHours(raHours, decDeg, new Date(t), site);
+    t -= (ha / SIDEREAL_PER_SOLAR) * 3600000;
+  }
+  return new Date(t);
+}
+
 /** Alt/az of the Sun, Moon or a planet (topocentric, no refraction). */
 export function bodyAltAz(body: BodyName, when: Date, site: Site): AltAz {
   assertDate(when);

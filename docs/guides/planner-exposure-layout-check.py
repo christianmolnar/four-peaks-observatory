@@ -16,6 +16,15 @@ on the sample profile with the evening set to 2026-12-15:
      a smart scope.
   5. Keyboard: Tab from the Bortle box lands on the chosen mode radio, arrows move the choice, and the word
      "Selected" is on exactly one card (the choice is not colour only).
+  6. Sweep (the one that found the round-1 defects): for 3 trains, 6 targets (short usable windows, capped-sub
+     notes, a roomy one), Bortle 1 and 9, Quick and Deep and every filter option, no element of the page may change
+     its page position or size (the text inside the cards, the warnings box and the filter line is exempt; their
+     boxes are not). The repro of the round-1 verdict (Thor's Helmet, ASI533MC train, Apertura) is also driven with
+     real key presses only.
+  7. Empty filter list (a v1 profile): the instruction under the Filter box is fully visible at 1024, 1279, 1280,
+     1440, 1920, 2560 and 390 px.
+  8. The marginal table has no cell wider than its box at 390 px (no inner sideways scroll).
+Sections: --only modes,filters,smart,sweep,empty (default: all).
 
 Run (needs Playwright for Python and its Chromium; the repo itself depends on neither):
   ~/tools/shots/bin/python docs/guides/planner-exposure-layout-check.py          # starts its own next dev, stops it after
@@ -97,19 +106,42 @@ CLIP_JS = """() => {
   const line = document.querySelector('[data-testid=exposure-filter]');
   const panel = document.querySelector('section[aria-labelledby=exposure-heading]');
   const bad = [];
-  // The reserved height is the CSS minimum. The content must fit inside it, or the area grows and the page below moves.
-  const reserved = (e) => parseFloat(getComputedStyle(e).minHeight);
-  const need = (e) => { const c = e.cloneNode(true); c.style.minHeight = '0'; c.style.height = 'auto'; e.parentNode.appendChild(c);
-    const h = c.getBoundingClientRect().height; c.remove(); return Math.ceil(h); };
-  const areaNeed = need(area), lineNeed = need(line);
-  if (areaNeed > reserved(area) + 0.5) bad.push('warnings need ' + areaNeed + 'px, reserved ' + reserved(area));
-  if (lineNeed > reserved(line) + 0.5) bad.push('filter line needs ' + lineNeed + 'px, reserved ' + reserved(line));
-  for (const e of panel.querySelectorAll('*')) {
-    if (e.closest('.overflow-x-auto')) continue;
+  // The warnings box has a fixed height and its own scrollbar; it must show that scrollbar and keep its height.
+  const cs = getComputedStyle(area);
+  if (cs.overflowY !== 'scroll') bad.push('warnings box does not always show its scrollbar (overflow-y ' + cs.overflowY + ')');
+  if (area.offsetWidth - area.clientWidth < 4) bad.push('warnings scrollbar not drawn');
+  // The filter line must fit its fixed height.
+  if (line.scrollHeight > line.clientHeight + 1) bad.push('filter line clipped: ' + line.scrollHeight + ' of ' + line.clientHeight);
+  // Nothing in the panel (the marginal table included) is wider than its own box, and the page does not scroll sideways.
+  for (const e of panel.querySelectorAll('*:not(caption)')) {
+    if (e === area || area.contains(e)) continue;
     if (e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline') bad.push('sideways: ' + e.tagName + ' ' + (e.textContent || '').slice(0, 30));
   }
+  const tbl = document.querySelector('[data-testid=marginal-table]');
+  if (tbl && tbl.getBoundingClientRect().right > panel.getBoundingClientRect().right + 1) bad.push('marginal table wider than the panel');
   if (document.documentElement.scrollWidth > innerWidth) bad.push('page scrolls sideways');
-  return { bad, areaNeed, lineNeed, areaReserved: reserved(area), lineReserved: reserved(line), text: area.textContent };
+  return { bad, areaHeight: area.clientHeight, areaScrolls: area.scrollHeight > area.clientHeight + 1, areaNeed: area.scrollHeight, lineNeed: line.scrollHeight, lineHeight: line.clientHeight, text: area.textContent };
+}"""
+
+# Every element of the page with its page position and size, except the text inside the cards' rows, the warnings
+# box and the filter line (those boxes themselves are included). Returned flat, with a label per element.
+SNAP_JS = """() => {
+  const area = document.querySelector('[data-testid=exposure-warnings]');
+  const line = document.querySelector('[data-testid=exposure-filter]');
+  const out = [];
+  for (const e of document.body.querySelectorAll('*')) {
+    if ((e !== area && area.contains(e)) || (e !== line && line.contains(e)) || e.closest('dl')) continue;
+    if (e.closest('[data-testid=target-table]') || e.closest('script,style,svg,nextjs-portal,next-route-announcer,nav,header')) continue;
+    const r = e.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    // Fixed and sticky things (toast area, site header) follow the scroll, not the layout.
+    let pinned = false;
+    for (let n = e; n; n = n.parentElement) { const pos = getComputedStyle(n).position; if (pos === 'fixed' || pos === 'sticky') { pinned = true; break; } }
+    if (pinned) continue;
+    const id = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.getAttribute('data-testid') ? '[' + e.getAttribute('data-testid') + ']' : '');
+    out.push([id, Math.round((r.x + scrollX) * 10) / 10, Math.round((r.y + scrollY) * 10) / 10, Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10, (e.textContent || '').slice(0, 24).replace(/\\s+/g, ' ')]);
+  }
+  return out;
 }"""
 
 
@@ -119,7 +151,8 @@ class Page:
         self.seen = set()
         self.max_need = 0
         self.max_line = 0
-        self.reserved = (0, 0)
+        self.area_height = 0
+        self.scrolled_states = 0
 
     def fresh(self, train="wide-c11-hyperstar-2600"):
         self.p.goto(self.url)
@@ -137,7 +170,8 @@ class Page:
         r = self.p.evaluate(CLIP_JS)
         self.max_need = max(self.max_need, r["areaNeed"])
         self.max_line = max(self.max_line, r["lineNeed"])
-        self.reserved = (r["areaReserved"], r["lineReserved"])
+        self.area_height = r["areaHeight"]
+        self.scrolled_states += 1 if r["areaScrolls"] else 0
         for line in r["text"].split("Warning")[1:] + r["text"].split("Note")[1:]:
             self.seen.add(line[:40])
         return r
@@ -171,7 +205,7 @@ def check_modes(pg, label):
         n = pg.p.evaluate("[...document.querySelectorAll('section[aria-labelledby=exposure-heading] span')].filter(s => s.textContent === 'Selected' && getComputedStyle(s).visibility !== 'hidden').length")
         selected_words.append(n)
     record(f"{label}: arrow keys change the mode and nothing in the panel or below it moves", not bad, "; ".join(bad))
-    record(f"{label}: warnings and cards not clipped, nothing scrolls sideways, across mode changes", not clip, "; ".join(clip))
+    record(f"{label}: warnings scrollbar visible, filter line and marginal table fit, nothing scrolls sideways, across mode changes", not clip, "; ".join(clip))
     record(f"{label}: the word Selected is on exactly one card at every step (not colour only)", selected_words == [1, 1, 1, 1], str(selected_words))
     # Real mouse: move, press, hold 90 ms, release, on each card.
     bad = []
@@ -217,7 +251,7 @@ def check_filters(pg, label, train, modes=("quick", "balanced", "deep")):
             c = pg.clip()
             clip += [f"{mode} filter #{i}: {x}" for x in c["bad"]]
     record(f"{label}: stepping all {n_options} filters in 3 modes with ArrowDown moves nothing (cards, warnings area, table, heading, Filter box)", not bad, "; ".join(bad[:4]))
-    record(f"{label}: warnings and filter line fit the room reserved (warnings: most needed {pg.max_need}px of {pg.reserved[0]:.0f}; filter line: {pg.max_line}px of {pg.reserved[1]:.0f})", not clip, "; ".join(clip[:4]))
+    record(f"{label}: warnings box keeps its {pg.area_height}px and its visible scrollbar (most needed {pg.max_need}px; scrolls in {pg.scrolled_states} states); filter line fits; nothing wider than its box", not clip, "; ".join(clip[:4]))
 
 
 def check_smart(pg, label):
@@ -230,31 +264,176 @@ def check_smart(pg, label):
     record(f"{label}: Filter box and its message line keep their size on a smart scope, and it is disabled", a == b and disabled, f"{a} vs {b}, disabled={disabled}")
 
 
-def run(pw, url, label, width, height, shots):
-    browser = pw.chromium.launch()
+SWEEP_TRAINS = ["wide-c11-hyperstar-2600", "deep-c11-reducer-533", "deep-c11-2600"]
+# Short usable windows on 2026-12-15 (North America Nebula 66 min, Hercules cluster 22, Thor's Helmet 86), one roomy
+# (Orion Nebula), and two more; capped-sub notes come from Bortle 1 with narrow filters on the slow C11 trains.
+SWEEP_TARGETS = ["North America Nebula", "Hercules Globular Cluster", "Thor's Helmet", "Orion Nebula", "Rosette Nebula", "Triangulum Galaxy"]
+
+
+def diff(a, b):
+    """Elements whose size changed first (the cause), then those that only moved (the effect)."""
+    if len(a) != len(b):
+        return [f"{len(a)} elements became {len(b)}"]
+    changed = [(x, y) for x, y in zip(a, b) if x[:5] != y[:5]]
+    sized = [(x, y) for x, y in changed if x[3:5] != y[3:5]]
+    # deepest first: the last element in document order whose own size changed is the innermost cause
+    pick = sized[::-1] + [c for c in changed if c not in sized]
+    return [f"{x[0]} '{x[5]}': {x[1:5]} -> {y[1:5]}" for x, y in pick]
+
+
+def pick_target(pg, name):
+    loc = pg.p.locator("[data-testid=target-table] button", has_text=name)
+    if loc.count() == 0:
+        return False
+    loc.first.click()
+    pg.p.wait_for_timeout(60)
+    return True
+
+
+def check_sweep(pg, label):
+    """Every combination must leave every element where it was: one baseline per (train, target), then all of Bortle x mode x filter."""
+    bad, states, skipped, scrolled = [], 0, [], 0
+    for train in SWEEP_TRAINS:
+        pg.fresh(train)
+        n_options = pg.p.evaluate("document.getElementById('plan-filter').options.length")
+        pg.p.get_by_label("Show targets that do not fit").check()  # so every target is listed on every train
+        for target in SWEEP_TARGETS:
+            if not pick_target(pg, target):
+                skipped.append(f"{train}/{target}")
+                continue
+            pg.p.wait_for_selector("section[aria-labelledby=exposure-heading] input[name=exposure-mode]")
+            base = None
+            for bortle in ("1", "9"):
+                pg.p.select_option("#exposure-bortle", bortle)
+                for mode in ("quick", "deep"):
+                    pg.p.locator(f"input[name=exposure-mode][value={mode}]").check(force=True)
+                    for i in range(n_options):
+                        pg.p.select_option("#plan-filter", index=i)
+                        snap = pg.p.evaluate(SNAP_JS)
+                        states += 1
+                        c = pg.clip()
+                        scrolled += 1 if c["areaScrolls"] else 0
+                        if base is None:
+                            base = snap
+                        d = diff(base, snap)
+                        if d:
+                            bad.append(f"{label} {train}/{target}/Bortle {bortle}/{mode}/filter #{i}: {d[0]} (+{len(d) - 1} more)")
+                        bad += [f"{train}/{target}/{bortle}/{mode}/#{i}: {x}" for x in c["bad"]]
+    record(f"{label}: sweep of {states} states (3 trains, targets with short windows, Bortle 1 and 9, Quick and Deep, every filter): no element moves or changes size; the warnings box scrolled in {scrolled}", not bad and states > 0, "; ".join(bad[:3]) + (f" ... {len(bad)} in all" if len(bad) > 3 else ""))
+    record(f"{label}: sweep covered every target asked for", not skipped, "; ".join(skipped[:6]))
+
+
+def key_repro(pg, label):
+    """The round-1 verdict repro with real key presses only: Thor's Helmet, ASI533MC, Apertura, 2026-12-15."""
+    pg.fresh("deep-c11-reducer-533")
+    pg.p.locator("[data-testid=target-table] button", has_text="Thor's Helmet").first.focus()
+    pg.p.keyboard.press("Enter")
+    pg.p.wait_for_selector("section[aria-labelledby=exposure-heading] input[name=exposure-mode]")
+    pg.p.locator("#plan-filter").focus()
+    pg.p.keyboard.press("Home")
+    base = pg.p.evaluate(SNAP_JS)
+    bad, steps = [], 0
+    labels = pg.p.evaluate("[...document.getElementById('plan-filter').options].map(o => o.text)")
+    target_idx = next(i for i, t in enumerate(labels) if t.startswith("Apertura"))
+    for mode_keys in ([], ["ArrowLeft"], ["ArrowRight", "ArrowRight"], ["ArrowLeft"]):
+        # filter by keyboard: Home, then ArrowDown to Apertura, then Home again
+        for state in ("none", "apertura"):
+            pg.p.locator("#plan-filter").focus()
+            pg.p.keyboard.press("Home")
+            if state == "apertura":
+                for _ in range(target_idx):
+                    pg.p.keyboard.press("ArrowDown")
+            pg.p.wait_for_timeout(40)
+            d = diff(base, pg.p.evaluate(SNAP_JS))
+            steps += 1
+            if d:
+                bad.append(f"{state}: {d[0]}")
+        pg.p.locator("input[name=exposure-mode]:checked").focus()
+        for k in mode_keys:
+            pg.p.keyboard.press(k)
+            pg.p.wait_for_timeout(40)
+            d = diff(base, pg.p.evaluate(SNAP_JS))
+            steps += 1
+            if d:
+                bad.append(f"{k} -> {pg.mode()}: {d[0]}")
+    record(f"{label}: Thor's Helmet + ASI533MC + Apertura with real key presses only ({steps} steps, Quick/Balanced/Deep): nothing moves", not bad, "; ".join(bad[:3]))
+
+
+def v1_profile():
+    """The sample profile as version 1 stored it: no filter library, no per-train filter."""
+    import json
+    d = json.load(open(os.path.join(REPO, "src", "planner", "data", "sample-profile.json")))
+    d["version"] = 1
+    del d["equipment"]["filters"]
+    for t in d["trains"]:
+        t.pop("filterId", None)
+    return d
+
+
+EMPTY_WIDTHS = [(1024, 800), (1279, 800), (1280, 900), (1440, 900), (1920, 1080), (2560, 1440), (390, 844)]
+EMPTY_JS = """() => {
+  const m = document.getElementById('plan-filter-msg');
+  const r = m.getBoundingClientRect();
+  return { text: m.textContent, need: m.scrollHeight, have: m.clientHeight, width: Math.round(r.width), height: Math.round(r.height),
+           options: document.getElementById('plan-filter').options.length, pageSideways: document.documentElement.scrollWidth > innerWidth };
+}"""
+
+
+def check_empty(pw, url):
+    """A v1 profile has no filters; the instruction under the Filter box must be read in full at every width."""
+    import json
+    profile = json.dumps(v1_profile())
+    for w, h in EMPTY_WIDTHS:
+        browser = pw.chromium.launch(ignore_default_args=["--hide-scrollbars"])
+        page = browser.new_page(viewport={"width": w, "height": h})
+        page.goto(url)
+        page.evaluate("p => localStorage.setItem('fpo-planner-profile-v1', p)", profile)
+        page.reload()
+        page.wait_for_selector("#plan-train")
+        page.select_option("#plan-train", "deep-c11-reducer-533")
+        r = page.evaluate(EMPTY_JS)
+        ok = r["options"] == 1 and r["text"].strip() != "" and r["need"] <= r["have"] and not r["pageSideways"]
+        record(f"empty filter list at {w}px: whole instruction visible (needs {r['need']}px of {r['have']}px, box {r['width']}x{r['height']}): \"{r['text']}\"", ok, "")
+        browser.close()
+
+
+def run(pw, url, label, width, height, shots, only):
+    browser = pw.chromium.launch(ignore_default_args=["--hide-scrollbars"])
     page = browser.new_page(viewport={"width": width, "height": height})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     pg = Page(page, url)
-    check_modes(pg, label)
-    check_filters(pg, label + " HyperStar f/1.9", "wide-c11-hyperstar-2600")
-    check_filters(pg, label + " ASI533MC f/7", "deep-c11-reducer-533")
-    check_smart(pg, label)
-    record(f"{label}: distinct warning messages seen while sweeping: {len(pg.seen)}", len(pg.seen) >= 3, f"{len(pg.seen)}")
+    want = lambda k: only is None or k in only
+    if want("modes"):
+        check_modes(pg, label)
+    if want("filters"):
+        check_filters(pg, label + " HyperStar f/1.9", "wide-c11-hyperstar-2600")
+        check_filters(pg, label + " ASI533MC f/7", "deep-c11-reducer-533")
+    if want("smart"):
+        check_smart(pg, label)
+        record(f"{label}: distinct warning messages seen while sweeping: {len(pg.seen)}", len(pg.seen) >= 3, f"{len(pg.seen)}")
+    if want("sweep"):
+        check_sweep(pg, label)
+        key_repro(pg, label)
     # What the panel looks like, for the record.
-    pg.fresh("wide-c11-hyperstar-2600")
-    pg.p.select_option("#plan-filter", "optolong-lextreme")
-    pg.p.wait_for_timeout(100)
-    print(f"--- {label} panel text (HyperStar, L-eXtreme, Balanced) ---")
-    print(pg.p.evaluate("document.querySelector('section[aria-labelledby=exposure-heading]').innerText")[:1800])
-    if shots:
-        pg.p.locator("section[aria-labelledby=exposure-heading]").screenshot(path=os.path.join(shots, f"exposure-{width}.png"))
+    if want("smart"):
+        pg.fresh("wide-c11-hyperstar-2600")
+        pg.p.select_option("#plan-filter", "optolong-lextreme")
+        pg.p.wait_for_timeout(100)
+        print(f"--- {label} panel text (HyperStar, L-eXtreme, Balanced) ---")
+        print(pg.p.evaluate("document.querySelector('section[aria-labelledby=exposure-heading]').innerText")[:1800])
+        if shots:
+            pg.p.locator("section[aria-labelledby=exposure-heading]").screenshot(path=os.path.join(shots, f"exposure-{width}.png"))
     record(f"{label}: no page errors", not errors, "; ".join(errors[:2]))
     browser.close()
 
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    only = None
+    if "--only" in sys.argv:
+        only = sys.argv[sys.argv.index("--only") + 1].split(",")
+        args = [a for a in args if a != sys.argv[sys.argv.index("--only") + 1]]
     shots = None
     if "--shots" in sys.argv:
         shots = sys.argv[sys.argv.index("--shots") + 1]
@@ -266,8 +445,10 @@ def main():
         proc, url = start_server()
     try:
         with sync_playwright() as pw:
-            run(pw, url, "1280px", 1280, 900, shots)
-            run(pw, url, "390px", 390, 844, shots)
+            if only is None or "empty" in only:
+                check_empty(pw, url)
+            run(pw, url, "1280px", 1280, 900, shots, only)
+            run(pw, url, "390px", 390, 844, shots, only)
     finally:
         if proc:
             stop_server(proc)

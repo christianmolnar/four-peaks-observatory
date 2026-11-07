@@ -103,24 +103,32 @@ export interface FitCamera {
 }
 
 const nm = (x: number) => x.toFixed(1);
+/** Focal ratio as printed: f/1.93, f/7, f/10. */
+const fr = (x: number) => String(Number(x.toFixed(2)));
 
 /** Filter-fit warnings for one train: beam speed, missing UV/IR cut, visual-first filter on a colour camera. */
 export function filterWarnings(fRatio: number, filter: ProfileFilter | null, camera: FitCamera): ExposureWarning[] {
   const out: ExposureWarning[] = [];
-  const shiftText = `At f/${fRatio.toFixed(1)} the beam edge shifts a passband about ${nm(edgeShiftNm(fRatio, HA_NM))} nm at Ha and ${nm(edgeShiftNm(fRatio, OIII_NM))} nm at OIII (estimate).`;
+  const shiftText = `At f/${fr(fRatio)} the beam edge shifts a passband about ${nm(edgeShiftNm(fRatio, HA_NM))} nm at Ha and ${nm(edgeShiftNm(fRatio, OIII_NM))} nm at OIII (estimate).`;
   if (filter) {
     const name = filter.name;
+    // A published angle limit can be conservative: say so when the calculated shift is smaller than the narrowest band.
+    const haShift = edgeShiftNm(fRatio, HA_NM);
+    const bandsNote =
+      filter.narrowestBandNm !== undefined && haShift < filter.narrowestBandNm
+        ? ` Its narrowest band is ${filter.narrowestBandNm} nm, wider than the ${nm(haShift)} nm shift at Ha (calculated), so the bands still cover the line; the limit is the maker's, worth testing before ruling it out.`
+        : '';
     if (filter.ratedMinFRatio !== undefined && fRatio < filter.ratedMinFRatio) {
       out.push({
         code: 'filter-rated-slower',
         severity: 'warning',
-        text: `${name} is rated for f/${filter.ratedMinFRatio} and slower (published); this train is f/${fRatio.toFixed(1)}. ${shiftText}`,
+        text: `${name} is rated for f/${filter.ratedMinFRatio} and slower (published); this train is f/${fr(fRatio)}. ${shiftText}`,
       });
     } else if (filter.maxIncidentAngleDeg !== undefined && beamHalfAngleDeg(fRatio) > filter.maxIncidentAngleDeg) {
       out.push({
         code: 'filter-rated-slower',
         severity: 'warning',
-        text: `${name} is rated for beam angles up to ${filter.maxIncidentAngleDeg} degrees (published); this train reaches ${beamHalfAngleDeg(fRatio).toFixed(1)}. ${shiftText}`,
+        text: `${name} is rated for beam angles up to ${filter.maxIncidentAngleDeg} degrees (published); this train reaches ${beamHalfAngleDeg(fRatio).toFixed(1)}. ${shiftText}${bandsNote}`,
       });
     } else if (
       filter.ratedMinFRatio === undefined &&
@@ -327,7 +335,7 @@ export interface ExposureInput {
   usableMinutes: number;
   /** When imaging can begin (first usable time); null: no clock times are computed. */
   acquisitionStart: Date | null;
-  /** Meridian crossing; a flip is added when it falls inside the session. */
+  /** The next meridian crossing (hour angle zero) at or after acquisitionStart; null when it is not known. A flip is added when it falls inside the session. */
   transitTime: Date | null;
 }
 
@@ -342,6 +350,8 @@ export interface ModeEstimate {
   subSeconds: number;
   subSecondsRange: Range;
   subCount: number;
+  /** Frames needed for the same light if the sub were at the long or the short end of subSecondsRange. */
+  subCountRange: Range;
   integrationMin: number;
   /** After clouds, trails and rejected frames. */
   usableIntegrationRangeMin: Range;
@@ -352,6 +362,7 @@ export interface ModeEstimate {
   elapsedRangeMin: Range;
   /** Finish of imaging (after setup, which is done before the first usable minute); null without a start time. */
   finish: Date | null;
+  /** Spans the full elapsedRangeMin (setup starts SETUP_MIN before the first usable minute); never earlier than start plus the light. */
   finishRange: readonly [Date, Date] | null;
   warnings: ExposureWarning[];
 }
@@ -381,6 +392,12 @@ function checkInput(i: ExposureInput): void {
   if (!(i.sky.moonIllumination >= 0 && i.sky.moonIllumination <= 1)) {
     throw new RangeError(`moonIllumination must be 0 to 1: ${i.sky.moonIllumination}`);
   }
+}
+
+/** Frames for the same light with longer subs (fewer) or shorter subs (more). */
+function subCountRangeFor(count: number, subSeconds: number, subRange: Range): Range {
+  const light = count * subSeconds;
+  return [Math.floor(light / subRange[1]), Math.ceil(light / subRange[0])];
 }
 
 const minutesLater = (d: Date, m: number) => new Date(d.getTime() + m * 60000);
@@ -483,20 +500,22 @@ export function planExposure(input: ExposureInput): ExposureReport {
         modeWarnings.push({
           code: 'meridian-flip',
           severity: 'note',
-          text: `A meridian flip falls inside this session and adds ${MERIDIAN_FLIP_MIN} minutes (the highest point stands in for the crossing).`,
+          text: `A meridian flip falls inside this session and adds ${MERIDIAN_FLIP_MIN} minutes (the target crosses the meridian during the session).`,
         });
       }
     }
+    const subRange: Range = [Math.max(1, Math.round(subSeconds / rangeFactor)), Math.round(subSeconds * rangeFactor)];
     const integrationMin = round1((count * subSeconds) / 60);
     const inSessionOverhead = overhead.ditherMin + overhead.autofocusMin + overhead.meridianFlipMin;
     const elapsedMin = round1(integrationMin + overhead.totalMin);
     const overheadRangeMin: Range = [round1(overhead.totalMin * OVERHEAD_RANGE[0]), round1(overhead.totalMin * OVERHEAD_RANGE[1])];
     const finish = input.acquisitionStart && count > 0 ? minutesLater(input.acquisitionStart, integrationMin + inSessionOverhead) : null;
+    const setupBegin = input.acquisitionStart ? minutesLater(input.acquisitionStart, -SETUP_MIN) : null;
     const finishRange: readonly [Date, Date] | null =
-      input.acquisitionStart && count > 0
+      input.acquisitionStart && setupBegin && count > 0
         ? [
-            minutesLater(input.acquisitionStart, integrationMin + inSessionOverhead * OVERHEAD_RANGE[0]),
-            minutesLater(input.acquisitionStart, integrationMin + inSessionOverhead * OVERHEAD_RANGE[1]),
+            new Date(Math.max(minutesLater(input.acquisitionStart, integrationMin).getTime(), minutesLater(setupBegin, round1(integrationMin + overheadRangeMin[0])).getTime())),
+            minutesLater(setupBegin, round1(integrationMin + overheadRangeMin[1])),
           ]
         : null;
 
@@ -536,8 +555,9 @@ export function planExposure(input: ExposureInput): ExposureReport {
       modeLabel: spec.label,
       modeRangeMin: spec.rangeMin,
       subSeconds,
-      subSecondsRange: [Math.max(1, Math.round(subSeconds / rangeFactor)), Math.round(subSeconds * rangeFactor)],
+      subSecondsRange: subRange,
       subCount: count,
+      subCountRange: subCountRangeFor(count, subSeconds, subRange),
       integrationMin,
       usableIntegrationRangeMin: [round1(integrationMin * (1 - REJECT_FRACTION_MAX)), integrationMin],
       overhead,
