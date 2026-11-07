@@ -1,0 +1,302 @@
+{
+ "_source": "JPL Horizons API (ssd.jpl.nasa.gov/api/horizons.api), retrieved 2026-11-06. Observer: geodetic lon -111.719, lat 33.6115, 0.5 km (the sample profile's site), airless apparent az/el, QUANTITIES 4,10,13,14,23,43. Instants given as JD to 6 decimals, so they are 0.03 s off the round times. Diameters are the target's equatorial diameter as Horizons prints it (Ang-diam).",
+ "positions": [
+  {
+   "body": "Mercury",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 287.57266,
+   "altitudeDeg": -56.30491,
+   "illuminatedPercent": 89.8089,
+   "diameterArcsec": 5.236959,
+   "obsSubLatDeg": -2.232,
+   "phaseAngleDeg": 37.2333,
+   "elongationDeg": 14.8458
+  },
+  {
+   "body": "Mercury",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 301.586481,
+   "altitudeDeg": -57.030021,
+   "illuminatedPercent": 50.95958,
+   "diameterArcsec": 7.556243,
+   "obsSubLatDeg": -6.390417,
+   "phaseAngleDeg": 88.9003,
+   "elongationDeg": 27.5247
+  },
+  {
+   "body": "Mercury",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 22.653287,
+   "altitudeDeg": -34.419242,
+   "illuminatedPercent": 6.33768,
+   "diameterArcsec": 11.09844,
+   "obsSubLatDeg": 9.145755,
+   "phaseAngleDeg": 150.8381,
+   "elongationDeg": 12.2697
+  },
+  {
+   "body": "Venus",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 343.589466,
+   "altitudeDeg": -65.39205,
+   "illuminatedPercent": 31.13451,
+   "diameterArcsec": 36.6696,
+   "obsSubLatDeg": -0.719781,
+   "phaseAngleDeg": 112.1671,
+   "elongationDeg": 42.52
+  },
+  {
+   "body": "Venus",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 312.581176,
+   "altitudeDeg": -65.882736,
+   "illuminatedPercent": 77.23671,
+   "diameterArcsec": 14.12253,
+   "obsSubLatDeg": -0.246453,
+   "phaseAngleDeg": 56.9935,
+   "elongationDeg": 37.769
+  },
+  {
+   "body": "Venus",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 21.039843,
+   "altitudeDeg": -30.070788,
+   "illuminatedPercent": 98.00342,
+   "diameterArcsec": 9.882655,
+   "obsSubLatDeg": -0.530659,
+   "phaseAngleDeg": 16.2462,
+   "elongationDeg": 11.4369
+  },
+  {
+   "body": "Moon",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 348.619357,
+   "altitudeDeg": -72.032355,
+   "illuminatedPercent": 13.78465,
+   "diameterArcsec": 1787.026,
+   "obsSubLatDeg": 6.308735,
+   "phaseAngleDeg": 136.4112
+  },
+  {
+   "body": "Moon",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 273.234002,
+   "altitudeDeg": 50.627091,
+   "illuminatedPercent": 43.7561,
+   "diameterArcsec": 1947.813,
+   "obsSubLatDeg": -5.807267,
+   "phaseAngleDeg": 97.1737
+  },
+  {
+   "body": "Moon",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 45.81692,
+   "altitudeDeg": -15.375374,
+   "illuminatedPercent": 10.84853,
+   "diameterArcsec": 1933.72,
+   "obsSubLatDeg": -5.561875,
+   "phaseAngleDeg": 141.5388
+  },
+  {
+   "body": "Mars",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 51.646186,
+   "altitudeDeg": -26.411708,
+   "illuminatedPercent": 90.10132,
+   "diameterArcsec": 8.207407,
+   "obsSubLatDeg": 22.875349,
+   "phaseAngleDeg": 36.676,
+   "elongationDeg": 99.5772
+  },
+  {
+   "body": "Mars",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 118.417082,
+   "altitudeDeg": 61.940717,
+   "illuminatedPercent": 97.4761,
+   "diameterArcsec": 12.73211,
+   "obsSubLatDeg": 19.246541,
+   "phaseAngleDeg": 18.2824,
+   "elongationDeg": 148.3024
+  },
+  {
+   "body": "Mars",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 287.128624,
+   "altitudeDeg": -17.842778,
+   "illuminatedPercent": 89.71849,
+   "diameterArcsec": 5.969638,
+   "obsSubLatDeg": 26.33604,
+   "phaseAngleDeg": 37.4042,
+   "elongationDeg": 72.9771
+  },
+  {
+   "body": "Jupiter",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 56.300409,
+   "altitudeDeg": -21.237684,
+   "illuminatedPercent": 99.20345,
+   "diameterArcsec": 39.67134,
+   "obsSubLatDeg": -0.439478,
+   "phaseAngleDeg": 10.2409,
+   "elongationDeg": 106.0903
+  },
+  {
+   "body": "Jupiter",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 128.457484,
+   "altitudeDeg": 64.911984,
+   "illuminatedPercent": 99.70066,
+   "diameterArcsec": 43.60408,
+   "obsSubLatDeg": -0.355937,
+   "phaseAngleDeg": 6.2726,
+   "elongationDeg": 143.9335
+  },
+  {
+   "body": "Jupiter",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 314.191742,
+   "altitudeDeg": -28.822978,
+   "illuminatedPercent": 99.53859,
+   "diameterArcsec": 32.62386,
+   "obsSubLatDeg": -0.476057,
+   "phaseAngleDeg": 7.7899,
+   "elongationDeg": 45.9027
+  },
+  {
+   "body": "Saturn",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 204.606025,
+   "altitudeDeg": 54.679689,
+   "illuminatedPercent": 99.77428,
+   "diameterArcsec": 18.55428,
+   "obsSubLatDeg": -7.466813,
+   "phaseAngleDeg": 5.4463,
+   "elongationDeg": 114.9195
+  },
+  {
+   "body": "Saturn",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 282.376493,
+   "altitudeDeg": -11.442234,
+   "illuminatedPercent": 99.96559,
+   "diameterArcsec": 16.12027,
+   "obsSubLatDeg": -11.459996,
+   "phaseAngleDeg": 2.1256,
+   "elongationDeg": 20.5114
+  },
+  {
+   "body": "Saturn",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 78.861503,
+   "altitudeDeg": -2.244866,
+   "illuminatedPercent": 99.72969,
+   "diameterArcsec": 17.30466,
+   "obsSubLatDeg": -17.133832,
+   "phaseAngleDeg": 5.9604,
+   "elongationDeg": 72.7351
+  },
+  {
+   "body": "Uranus",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 100.421439,
+   "altitudeDeg": 53.193744,
+   "illuminatedPercent": 99.99817,
+   "diameterArcsec": 3.818602,
+   "obsSubLatDeg": 74.180046,
+   "phaseAngleDeg": 0.4903
+  },
+  {
+   "body": "Uranus",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 272.624672,
+   "altitudeDeg": 35.154433,
+   "illuminatedPercent": 99.94374,
+   "diameterArcsec": 3.56613,
+   "obsSubLatDeg": 73.239852,
+   "phaseAngleDeg": 2.7182
+  },
+  {
+   "body": "Uranus",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 41.71232,
+   "altitudeDeg": -22.199484,
+   "illuminatedPercent": 99.98114,
+   "diameterArcsec": 3.480492,
+   "obsSubLatDeg": 77.784739,
+   "phaseAngleDeg": 1.5736
+  },
+  {
+   "body": "Neptune",
+   "at": "2026-12-05T04:00:00.029Z",
+   "azimuthDeg": 213.157124,
+   "altitudeDeg": 50.841166,
+   "illuminatedPercent": 99.97558,
+   "diameterArcsec": 2.311158,
+   "obsSubLatDeg": -20.015989,
+   "phaseAngleDeg": 1.7906
+  },
+  {
+   "body": "Neptune",
+   "at": "2027-03-15T04:00:00.029Z",
+   "azimuthDeg": 285.87985,
+   "altitudeDeg": -21.974691,
+   "illuminatedPercent": 99.99926,
+   "diameterArcsec": 2.213256,
+   "obsSubLatDeg": -19.320919,
+   "phaseAngleDeg": 0.3127
+  },
+  {
+   "body": "Neptune",
+   "at": "2027-07-01T07:59:59.971Z",
+   "azimuthDeg": 94.890448,
+   "altitudeDeg": 9.71554,
+   "illuminatedPercent": 99.97106,
+   "diameterArcsec": 2.29101,
+   "obsSubLatDeg": -18.185994,
+   "phaseAngleDeg": 1.9494
+  }
+ ],
+ "transits": [
+  {
+   "body": "Jupiter",
+   "timeUtc": "2027-03-16T05:17:00Z",
+   "toleranceMin": 1,
+   "altitudeDeg": 72.777921,
+   "azimuthDeg": 180.427881
+  },
+  {
+   "body": "Saturn",
+   "timeUtc": "2027-03-15T20:53:00Z",
+   "toleranceMin": 1,
+   "altitudeDeg": 60.155927,
+   "azimuthDeg": 180.501534
+  },
+  {
+   "body": "Mars",
+   "timeUtc": "2027-03-16T05:38:00Z",
+   "toleranceMin": 1,
+   "altitudeDeg": 74.009405,
+   "azimuthDeg": 180.262217
+  }
+ ],
+ "_transitsNote": "Horizons R_T_S_ONLY='TVH', 1 minute step, 2027-03-15 12:00 to 2027-03-16 12:00 UT; times to the minute.",
+ "oppositions": [
+  {
+   "body": "Saturn",
+   "timeUtc": "2026-10-04T12:12:54Z",
+   "horizonsElongationDeg": 177.2864
+  },
+  {
+   "body": "Jupiter",
+   "timeUtc": "2027-02-11T00:17:05Z",
+   "horizonsElongationDeg": 178.9457
+  },
+  {
+   "body": "Mars",
+   "timeUtc": "2027-02-19T15:44:17Z",
+   "horizonsElongationDeg": 175.5366
+  }
+ ],
+ "_oppositionsNote": "Instants are the library's heliocentric opposition (Earth and planet on one ecliptic longitude line). Horizons' geocentric Sun-observer-target elongation at those instants (query CENTER 500@399) is 175 to 179 degrees, the near-180 of an opposition. The dates were not checked against a published almanac."
+}
