@@ -1,0 +1,124 @@
+import { tonightsNight } from '../plan';
+import { arcToHorizonPoints } from '../profile';
+import { buildGuide } from './guide';
+import type { GuideItem, GuideSection } from './guide';
+import { dispersionArcsec, dispersionAltitudeDeg, planetCard, rotationClip } from './index';
+
+const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 500 };
+const night = tonightsNight(SITE, '2027-03-15');
+const ARC = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const NATIVE = { name: 'C11 + ASI676MC (planets)', scaleArcsecPx: (206.265 * 2) / 2800, nominal: false };
+const POWERMATE = { name: 'C11 + 2.5x Powermate + ASI676MC (planets)', scaleArcsecPx: (206.265 * 2) / 7000, nominal: true };
+const time = (d: Date) => d.toISOString().slice(11, 16);
+
+const guideFor = (body: 'Jupiter' | 'Saturn' | 'Venus' | 'Moon', trains = [NATIVE, POWERMATE]) => {
+  const card = planetCard({ body, site: SITE, night, horizon: ARC, minAltitude: 20, apertureMm: 279.4, imageScaleArcsecPx: NATIVE.scaleArcsecPx, fieldArcmin: 8.72 });
+  return { card, sections: buildGuide({ card, apertureMm: 279.4, trains, formatTime: time }) };
+};
+const items = (sections: GuideSection[]): GuideItem[] => sections.flatMap((s) => s.items);
+const item = (sections: GuideSection[], id: string): GuideItem => {
+  const i = items(sections).find((x) => x.id === id);
+  if (!i) throw new Error(`no item ${id}`);
+  return i;
+};
+
+describe('the lucky-imaging guide', () => {
+  it('covers every step the spec lists, in sections', () => {
+    const { sections } = guideFor('Jupiter');
+    const ids = items(sections).map((i) => i.id);
+    for (const want of ['focus', 'exposure', 'histogram', 'roi', 'fps', 'ser', 'clip', 'session', 'dispersion', 'high', 'stack', 'sharpen', 'colour', 'native', 'extender']) {
+      expect(ids).toContain(want);
+    }
+    expect(sections.map((s) => s.id)).toEqual(['before', 'camera', 'clip', 'adc', 'process', 'train']);
+  });
+
+  it('every item has a basis label, and no text prints undefined or NaN', () => {
+    for (const body of ['Jupiter', 'Saturn', 'Venus', 'Moon'] as const) {
+      for (const i of items(guideFor(body).sections)) {
+        expect(['computed', 'sourced', 'assumption', 'practice', 'not-verified']).toContain(i.basis);
+        expect(i.text).not.toMatch(/undefined|NaN|null/);
+        expect(i.title.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('clip length is the card\'s rotation clip, in seconds, and the period basis is named', () => {
+    const { card, sections } = guideFor('Jupiter');
+    const rot = rotationClip('Jupiter', card.apparentDiameterArcsec, 279.4)!;
+    const clip = item(sections, 'clip');
+    expect(clip.text).toContain(`Up to ${Math.round(rot.suggestedS)} s per clip`);
+    expect(clip.text).toMatch(/rotation period 9\.925 h, sourced/);
+    expect(clip.text).toMatch(/computed; the half is an assumption/);
+  });
+
+  it('session length is its own item and says it is not the clip length; it counts the clips', () => {
+    const { card, sections } = guideFor('Jupiter');
+    const session = item(sections, 'session');
+    expect(session.title).toMatch(/not the clip length/);
+    expect(session.text).toMatch(/about 30 minutes \(assumption\)/);
+    const clipS = Math.round(card.rotation!.suggestedS);
+    expect(session.text).toContain(`clips of ${clipS} s with 30 s between them`);
+    expect(session.text).toContain(`${Math.round(card.usableMinutes)} minutes`);
+    expect(item(sections, 'clip').id).not.toBe(session.id);
+  });
+
+  it('a planet whose rotation allows more than the cap is held to the cap and says why', () => {
+    const { sections } = guideFor('Venus');
+    expect(item(sections, 'clip').text).toMatch(/Up to 180 s per clip/);
+    expect(item(sections, 'clip').text).toMatch(/clips are held to 180 s/);
+    expect(item(sections, 'clip').text).toMatch(/assumption/);
+  });
+
+  it('the Moon gets no rotation limit and a mosaic', () => {
+    const { card, sections } = guideFor('Moon');
+    expect(item(sections, 'clip').text).toMatch(/does not rotate under the camera/);
+    expect(item(sections, 'clip').text).toContain(`${card.mosaicPanelsPerSide} by ${card.mosaicPanelsPerSide} panels`);
+  });
+
+  it('dispersion numbers are the computed ones, and the threshold altitude is the 279.4 mm figure', () => {
+    const { card, sections } = guideFor('Jupiter');
+    const d = item(sections, 'dispersion');
+    expect(d.text).toContain(`60°: ${dispersionArcsec(60).toFixed(2)}"`);
+    expect(d.text).toContain(`30°: ${dispersionArcsec(30).toFixed(2)}"`);
+    expect(d.basis).toBe('computed');
+    const high = item(sections, 'high');
+    expect(high.text).toContain(`at ${Math.round(dispersionAltitudeDeg(279.4))}°`);
+    expect(high.text).toMatch(/an ADC might help/);
+    expect(high.text).toContain(`peaks at ${Math.round(card.peak.altitude)}°`);
+  });
+
+  it('ASIAIR is never claimed to work: the only mention is marked not verified', () => {
+    const { sections } = guideFor('Jupiter');
+    const mentions = items(sections).filter((i) => /ASIAIR/.test(i.text));
+    expect(mentions.map((i) => i.id)).toEqual(['ser']);
+    expect(mentions[0].basis).toBe('not-verified');
+    expect(mentions[0].text).toMatch(/not verified/);
+  });
+
+  it('the extender line is nominal and not verified; the native line comes first and says near the limit', () => {
+    const { sections } = guideFor('Jupiter');
+    const native = item(sections, 'native');
+    expect(native.text).toMatch(/0\.15 arcsec per pixel against a sampling limit of 0\.18/);
+    expect(native.text).toMatch(/near the limit \(computed\)/);
+    expect(native.text).toMatch(/assumed 2 arcsec \(assumption\)/);
+    const ext = item(sections, 'extender');
+    expect(ext.text).toMatch(/nominal 0\.06 arcsec per pixel, oversampled \(computed\)/);
+    expect(ext.text).toMatch(/no stated camera spacing/);
+    expect(ext.text).toMatch(/not verified/);
+    const order = items(sections).map((i) => i.id);
+    expect(order.indexOf('native')).toBeLessThan(order.indexOf('extender'));
+  });
+
+  it('the ROI is a multiple of 16 and grows for Saturn because of the rings', () => {
+    const jup = item(guideFor('Jupiter').sections, 'roi').text;
+    const sat = item(guideFor('Saturn').sections, 'roi').text;
+    const px = (t: string) => Number(/about (\d+) pixels square/.exec(t)![1]);
+    expect(px(jup) % 16).toBe(0);
+    expect(px(sat) % 16).toBe(0);
+    expect(sat).toMatch(/With the rings/);
+  });
+
+  it('without a native or extender train the train section is left out rather than invented', () => {
+    expect(guideFor('Jupiter', []).sections.map((s) => s.id)).not.toContain('train');
+  });
+});
