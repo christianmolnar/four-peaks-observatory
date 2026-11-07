@@ -14,6 +14,56 @@ describe('sample profile', () => {
     expect(profile.equipment.cameras).toHaveLength(3);
     expect(profile.equipment.smartScopes).toHaveLength(4);
     expect(profile.trains.map((t) => t.kind).filter((k) => k === 'smart')).toHaveLength(4);
+    expect(profile.version).toBe(2);
+  });
+
+  describe('owner filters', () => {
+    const byId = (id: string) => profile.equipment.filters.find((f) => f.id === id)!;
+    const raw = (sample as { equipment: { filters: { id: string; _source?: string }[] } }).equipment.filters;
+
+    it('lists the twelve filters of the gear list, every one with a source note', () => {
+      expect(profile.equipment.filters.map((f) => f.id).sort()).toEqual([
+        'apertura-moon-skyglow', 'astronomik-cls-ccd', 'baader-neodymium', 'baader-uvir-cut', 'ice-2in',
+        'idas-lps-p2', 'idas-lps-p3', 'optolong-ha-7nm', 'optolong-lextreme', 'orion-skyglow-ultrablock',
+        'orion-sky-glow', 'zwo-duo-band',
+      ].sort());
+      expect(raw).toHaveLength(12);
+      for (const f of raw) expect((f._source ?? '').length).toBeGreaterThan(20);
+    });
+
+    it('sizes: all 48 mm except the IDAS LPS-P3 at 52 mm', () => {
+      for (const f of profile.equipment.filters) expect(f.sizeMm).toBe(f.id === 'idas-lps-p3' ? 52 : 48);
+    });
+
+    it('carries the researched values', () => {
+      expect(byId('astronomik-cls-ccd')).toMatchObject({ kind: 'broadband-LP', blocksUvIr: true, ratedMinFRatio: 1.8, passbandWidthNm: 120 });
+      expect(byId('zwo-duo-band')).toMatchObject({ kind: 'dual-band', maxIncidentAngleDeg: 8, narrowestBandNm: 15 });
+      expect(byId('optolong-lextreme')).toMatchObject({ kind: 'dual-band', narrowestBandNm: 7, blocksUvIr: true });
+      expect(byId('baader-uvir-cut')).toMatchObject({ kind: 'UV-IR cut', blocksUvIr: true });
+      expect(byId('apertura-moon-skyglow').kind).toBe('visual-only');
+    });
+
+    it('leaves what the research did not find unknown, never filled', () => {
+      expect(byId('optolong-lextreme').ratedMinFRatio).toBeUndefined(); // standard version: no published rating
+      expect(byId('zwo-duo-band').blocksUvIr).toBeUndefined();
+      expect(byId('idas-lps-p2').blocksUvIr).toBeUndefined();
+      expect(byId('idas-lps-p2').ratedMinFRatio).toBeUndefined();
+      expect(byId('ice-2in').passbandWidthNm).toBeUndefined();
+      expect(byId('orion-sky-glow').kind).toBeUndefined(); // visual or imaging version: not known
+    });
+  });
+
+  it('records the camera windows: the 533 has no UV/IR cut, the Duo and 676 do; all are colour with low read noise', () => {
+    const cam = (id: string) => profile.equipment.cameras.find((c) => c.id === id)!;
+    expect(cam('asi533mc').hasUvIrCut).toBe(false);
+    expect(cam('asi2600mc-duo').hasUvIrCut).toBe(true);
+    expect(cam('asi676mc').hasUvIrCut).toBe(true);
+    for (const c of profile.equipment.cameras) expect(c).toMatchObject({ colour: true, readNoiseClass: 'low' });
+  });
+
+  it('has a 533 train so the missing UV/IR cut can be planned for', () => {
+    const t = profile.trains.find((x) => x.id === 'deep-c11-reducer-533')!;
+    expect(resolveTrain(profile, t).cameraSpec?.hasUvIrCut).toBe(false);
   });
 
   it('references only catalog targets', () => {

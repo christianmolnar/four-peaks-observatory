@@ -1,6 +1,6 @@
 {
-  "_comment": "Sample profile, entered through the same schema as any user's. Fields starting with _ are notes and are ignored by the validator; any other unknown field is rejected. A field is present only where a manufacturer page was read on 2026-11-05 (see _source); absent fields are unknown and optics reports them as missing. Elevation is unknown.",
-  "version": 1,
+  "_comment": "Sample profile, entered through the same schema as any user's. Fields starting with _ are notes and are ignored by the validator; any other unknown field is rejected. A field is present only where a manufacturer page was read on 2026-11-05 (see _source); absent fields are unknown and optics reports them as missing. Elevation is unknown. Filters, camera windows and read-noise class added 2026-11-07 from ~/Token/docs/reference/equipment.md (owner list, sizes as the owner states them) and ~/Token/research/astro-filters-owned.md, filter-choice.md, equipment-specs.json (web reads 2026-11-06); a filter or camera value is absent where the research found none.",
+  "version": 2,
   "sites": [
     {
       "id": "fountain-hills",
@@ -48,7 +48,10 @@
         "pixelSizeUm": 3.76,
         "sensorWidthPx": 6248,
         "sensorHeightPx": 4176,
-        "_source": "zwoastro.com/product/asi2600mc-duo/: 3.76um pixel, resolution 6248x4176"
+        "colour": true,
+        "hasUvIrCut": true,
+        "readNoiseClass": "low",
+        "_source": "zwoastro.com/product/asi2600mc-duo/: 3.76um pixel, resolution 6248x4176. Added 2026-11-07: Duo window is UV/IR-cut (zwoastro.com/product/zwo-protective-window-for-asi-cameras: D60 UV/IR-cut for ASI2600MC Pro/Duo); read noise 0.9 to 4.2 e by gain (zwoastro.com/product/asi2600mc-duo/); MC = one-shot colour"
       },
       {
         "id": "asi533mc",
@@ -56,7 +59,10 @@
         "pixelSizeUm": 3.76,
         "sensorWidthPx": 3008,
         "sensorHeightPx": 3008,
-        "_source": "zwoastro.com/product/asi533/: pixel size 3.76um, resolution 3008x3008"
+        "colour": true,
+        "hasUvIrCut": false,
+        "readNoiseClass": "low",
+        "_source": "zwoastro.com/product/asi533/: pixel size 3.76um, resolution 3008x3008. Added 2026-11-07: 533 window is anti-reflection only, no UV/IR cut (zwoastro.com/product/zwo-protective-window-for-asi-cameras lists D32 AR for the ASI533 series); read noise about 1.0 e (zwoastro.com/product/asi533-pro-series/); MC = one-shot colour"
       },
       {
         "id": "asi676mc",
@@ -64,7 +70,118 @@
         "pixelSizeUm": 2,
         "sensorWidthPx": 3552,
         "sensorHeightPx": 3552,
-        "_source": "zwoastro.com/product/asi676/: pixel size 2um, resolution 3552x3552"
+        "colour": true,
+        "hasUvIrCut": true,
+        "readNoiseClass": "low",
+        "_source": "zwoastro.com/product/asi676/: pixel size 2um, resolution 3552x3552. Added 2026-11-07: 676MC window is UV/IR-cut coated (zwoastro.com/product/asi676/); read noise 0.56 to 2.9 e (manual); MC = one-shot colour"
+      }
+    ],
+    "filters": [
+      {
+        "id": "astronomik-cls-ccd",
+        "name": "Astronomik CLS CCD",
+        "kind": "broadband-LP",
+        "sizeMm": 48,
+        "bandpassNotes": "Passes 450 to 520 nm and 640 to 690 nm; blocks about 520 to 640 nm",
+        "passbandWidthNm": 120,
+        "narrowestBandNm": 50,
+        "blocksUvIr": true,
+        "ratedMinFRatio": 1.8,
+        "_source": "astronomik.com/en/Light-Pollution-Filters/CLS-CCD/ and /Astronomik-CLS-CCD-2-M48/10208200 (read 2026-11-06): bands 450-520 and 640-690 nm (70 + 50 nm), integrated IR-blocking layer, suitable for f/1.8 to f/15. Size: owner list (2\" M48)."
+      },
+      {
+        "id": "zwo-duo-band",
+        "name": "ZWO Duo-Band",
+        "kind": "dual-band",
+        "sizeMm": 48,
+        "bandpassNotes": "Ha 15 nm, OIII 35 nm",
+        "passbandWidthNm": 50,
+        "narrowestBandNm": 15,
+        "maxIncidentAngleDeg": 8,
+        "_source": "zwoastro.com/product/duo-band-filters (read 2026-11-06): Ha 15 nm, OIII 35 nm, incident angle should be less than 8 degrees. UV/IR cut not listed, so blocksUvIr is left unknown. Size: owner list."
+      },
+      {
+        "id": "ice-2in",
+        "name": "ICE 2\" light-pollution filter",
+        "kind": "broadband-LP",
+        "sizeMm": 48,
+        "_source": "Owner list only. Probably ICE LiPo (didymium, broadband), not confirmed; no passband, UV/IR or f-ratio data published, so those are left unknown (astro-filters-owned.md section 3)."
+      },
+      {
+        "id": "idas-lps-p2",
+        "name": "IDAS LPS-P2",
+        "kind": "broadband-LP",
+        "sizeMm": 48,
+        "_source": "Owner list. Broadband light-pollution filter (cloudbreakoptics.com via search summary); UV/IR cut, passband width and f-ratio rating not found, left unknown."
+      },
+      {
+        "id": "idas-lps-p3",
+        "name": "IDAS LPS-P3",
+        "kind": "broadband-LP",
+        "sizeMm": 52,
+        "blocksUvIr": true,
+        "_source": "Owner says 52 mm (confirmed 2026-11-07; vendors list 48 mm, check the rim). UV and NIR blocking per vendors (starizona.com/products/idas-lps-p3, via search summary, VENDOR). No passband width or f-ratio rating found, left unknown."
+      },
+      {
+        "id": "apertura-moon-skyglow",
+        "name": "Apertura Moon and Skyglow",
+        "kind": "visual-only",
+        "sizeMm": 48,
+        "_source": "Owner list (size as the owner states it). Sold as a visual eyepiece filter, 1.25\" (highpointscientific.com/apertura-1-25-moon-and-skyglow-filter); no passband published, UV/IR unknown."
+      },
+      {
+        "id": "orion-sky-glow",
+        "name": "Orion Sky Glow",
+        "sizeMm": 48,
+        "_source": "Owner list. Kind left unknown: Orion sells both a visual Sky Glow Broadband and a SkyGlow imaging filter (astro-filters-owned.md section 3); check the box."
+      },
+      {
+        "id": "orion-skyglow-ultrablock",
+        "name": "Orion Skyglow Ultrablock",
+        "kind": "visual-only",
+        "sizeMm": 48,
+        "bandpassNotes": "UHC-type: passes Hb, OIII, Ha; blocks mercury and sodium 99.9%; passband width not published",
+        "_source": "Owner list. telescopicwatch.com/orion-ultrablock-narrowband-filter-review/ (page read) covers visual use only; Orion says not generally for photography (search summary). Kind visual-only follows astro-filters-owned.md (visual-first). UV/IR unknown."
+      },
+      {
+        "id": "baader-neodymium",
+        "name": "Baader neodymium Moon and Skyglow",
+        "kind": "visual-only",
+        "sizeMm": 48,
+        "blocksUvIr": true,
+        "_source": "Owner list. Neodymium-doped glass, a visual-contrast filter; IR-cut coated per Baader datasheet via search summary (agenaastro.com, VENDOR). Kind visual-only follows astro-filters-owned.md (Moon and planets only, opinion)."
+      },
+      {
+        "id": "baader-uvir-cut",
+        "name": "Baader UV/IR cut",
+        "kind": "UV-IR cut",
+        "sizeMm": 48,
+        "bandpassNotes": "420 to 685 nm (CMOS-optimised) or 420 to 680 nm (older); which one is owned is not recorded",
+        "passbandWidthNm": 260,
+        "blocksUvIr": true,
+        "ratedMinFRatio": 1.8,
+        "_source": "eu.lunaticoastro.com/?p=1614 (page read: 420 to 680 nm) and optcorp.com / astronome.fr (CMOS 420 to 685 nm, f/15 to f/1.8, retailers); width 260 nm is the narrower version. Size: owner list."
+      },
+      {
+        "id": "optolong-ha-7nm",
+        "name": "Optolong H-alpha 7 nm",
+        "kind": "narrowband",
+        "sizeMm": 48,
+        "bandpassNotes": "H-alpha, 7 nm",
+        "passbandWidthNm": 7,
+        "narrowestBandNm": 7,
+        "_source": "Owner list (added 2026-11-07, size to confirm; 48 mm per the owner's all-48 statement). Bandwidth is in the product name. UV/IR cut and f-ratio rating not researched, left unknown."
+      },
+      {
+        "id": "optolong-lextreme",
+        "name": "Optolong L-eXtreme (standard)",
+        "kind": "dual-band",
+        "sizeMm": 48,
+        "bandpassNotes": "Ha 7 nm + OIII 7 nm",
+        "passbandWidthNm": 14,
+        "narrowestBandNm": 7,
+        "blocksUvIr": true,
+        "_source": "Owner list (standard version, no F2; size 48 mm per the owner's all-48 statement). 7 nm Ha and OIII, blocking 300 to 1000 nm (telescopescanada.ca / highpointscientific.com listings, VENDOR). The standard version's f-ratio rating was not found, left unknown; the F2 version is rated f/2 to f/3.3 (optolong.com/cms/document/detail/id/279.html), so the standard is judged by the shift formula."
       }
     ],
     "smartScopes": [
@@ -104,6 +221,7 @@
     { "kind": "optical", "id": "planet-c11-powermate-676", "name": "C11 + 2.5x Powermate + ASI676MC (planets)", "scopeId": "c11-edgehd", "accessoryIds": ["powermate-25"], "cameraId": "asi676mc" },
     { "kind": "optical", "id": "deep-c11-2600", "name": "C11 f/10 + ASI2600MC Duo", "scopeId": "c11-edgehd", "accessoryIds": [], "cameraId": "asi2600mc-duo" },
     { "kind": "optical", "id": "deep-c11-reducer-2600", "name": "C11 + 0.7x reducer + ASI2600MC Duo", "scopeId": "c11-edgehd", "accessoryIds": ["reducer-07"], "cameraId": "asi2600mc-duo" },
+    { "kind": "optical", "id": "deep-c11-reducer-533", "name": "C11 + 0.7x reducer + ASI533MC", "scopeId": "c11-edgehd", "accessoryIds": ["reducer-07"], "cameraId": "asi533mc" },
     { "kind": "optical", "id": "wide-c11-hyperstar-2600", "name": "C11 + HyperStar v4 + ASI2600MC Duo", "scopeId": "c11-edgehd", "accessoryIds": ["hyperstar-v4"], "cameraId": "asi2600mc-duo" },
     { "kind": "smart", "id": "smart-seestar-s50", "name": "Seestar S50", "smartScopeId": "seestar-s50" },
     { "kind": "smart", "id": "smart-seestar-s50-pro", "name": "Seestar S50 Pro", "smartScopeId": "seestar-s50-pro" },

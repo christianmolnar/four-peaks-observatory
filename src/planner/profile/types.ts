@@ -1,5 +1,8 @@
-/** Bump when the JSON shape changes incompatibly. */
-export const PROFILE_VERSION = 1;
+/**
+ * Bump when the JSON shape changes. Older versions are migrated on load
+ * (see `migrate.ts`): 1 -> 2 adds the filter library.
+ */
+export const PROFILE_VERSION = 2;
 
 /**
  * One contiguous blocked arc, clockwise from `startAz` to `endAz` (degrees from
@@ -42,12 +45,52 @@ export interface ProfileAccessory {
   effectiveFocalLengthMm?: number;
 }
 
+/** Rough read-noise bracket; the exposure module maps it to a number (an assumption it names). */
+export type ReadNoiseClass = 'low' | 'medium' | 'high';
+
 export interface ProfileCamera {
   id: string;
   name: string;
   pixelSizeUm?: number;
   sensorWidthPx?: number;
   sensorHeightPx?: number;
+  /** One-shot colour (Bayer) sensor. Absent: unknown. */
+  colour?: boolean;
+  /** The camera's own window cuts UV and IR. false: it does not (a filter must). Absent: unknown. */
+  hasUvIrCut?: boolean;
+  readNoiseClass?: ReadNoiseClass;
+}
+
+export type FilterKind =
+  | 'broadband-LP'
+  | 'dual-band'
+  | 'tri-band'
+  | 'narrowband'
+  | 'UV-IR cut'
+  | 'visual-only';
+
+/**
+ * A filter in the library. Every value but id and name is optional: absent
+ * means unknown, never a default. Wavelengths in nm.
+ */
+export interface ProfileFilter {
+  id: string;
+  name: string;
+  kind?: FilterKind;
+  /** Cell or glass diameter, mm. */
+  sizeMm?: number;
+  /** Free text, e.g. "Ha 15 nm, OIII 35 nm". */
+  bandpassNotes?: string;
+  /** Sum of the passband widths. Needed for the exposure estimate; absent: the kind's default is used and flagged. */
+  passbandWidthNm?: number;
+  /** Width of the narrowest passband; used to judge the angle shift. */
+  narrowestBandNm?: number;
+  /** The filter itself cuts UV and IR. */
+  blocksUvIr?: boolean;
+  /** Published slowest-allowed beam: the fastest focal ratio the maker rates it for. */
+  ratedMinFRatio?: number;
+  /** Published largest incident angle (degrees from the axis). */
+  maxIncidentAngleDeg?: number;
 }
 
 /** Fixed optics and sensor in one body. */
@@ -69,6 +112,8 @@ export interface OpticalTrainEntry {
   scopeId: string;
   accessoryIds: string[];
   cameraId: string;
+  /** Library filter in use; absent: no filter. */
+  filterId?: string;
 }
 
 export interface SmartTrainEntry {
@@ -100,6 +145,7 @@ export interface Profile {
     accessories: ProfileAccessory[];
     cameras: ProfileCamera[];
     smartScopes: ProfileSmartScope[];
+    filters: ProfileFilter[];
   };
   trains: TrainEntry[];
   plans: ObservingPlan[];

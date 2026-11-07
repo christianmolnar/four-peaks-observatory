@@ -1,3 +1,4 @@
+import { migrateProfile } from './migrate';
 import { PROFILE_VERSION } from './types';
 import type {
   BlockedArc,
@@ -5,6 +6,9 @@ import type {
   Profile,
   ProfileAccessory,
   ProfileCamera,
+  ProfileFilter,
+  FilterKind,
+  ReadNoiseClass,
   ProfileScope,
   ProfileSite,
   ProfileSmartScope,
@@ -158,15 +162,52 @@ function accessory(v: unknown, path: string): ProfileAccessory {
   });
 }
 
+function optBool(o: Obj, key: string, path: string): boolean | undefined {
+  if (o[key] === undefined) return undefined;
+  if (typeof o[key] !== 'boolean') throw new ProfileError(`${path}.${key}`, `expected true or false, got ${JSON.stringify(o[key])}`);
+  return o[key] as boolean;
+}
+
+const READ_NOISE_CLASSES: readonly ReadNoiseClass[] = ['low', 'medium', 'high'];
+const FILTER_KINDS: readonly FilterKind[] = ['broadband-LP', 'dual-band', 'tri-band', 'narrowband', 'UV-IR cut', 'visual-only'];
+
 function camera(v: unknown, path: string): ProfileCamera {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx']);
+  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx', 'colour', 'hasUvIrCut', 'readNoiseClass']);
+  if (o.readNoiseClass !== undefined && !READ_NOISE_CLASSES.includes(o.readNoiseClass as ReadNoiseClass)) {
+    throw new ProfileError(`${path}.readNoiseClass`, `expected one of ${READ_NOISE_CLASSES.join(', ')}, got ${JSON.stringify(o.readNoiseClass)}`);
+  }
   return withoutUndefined({
     id: str(o, 'id', path),
     name: str(o, 'name', path),
     pixelSizeUm: optPositive(o, 'pixelSizeUm', path),
     sensorWidthPx: optPositiveInt(o, 'sensorWidthPx', path),
     sensorHeightPx: optPositiveInt(o, 'sensorHeightPx', path),
+    colour: optBool(o, 'colour', path),
+    hasUvIrCut: optBool(o, 'hasUvIrCut', path),
+    readNoiseClass: o.readNoiseClass as ReadNoiseClass | undefined,
+  });
+}
+
+function filter(v: unknown, path: string): ProfileFilter {
+  const o = obj(v, path);
+  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg']);
+  if (o.kind !== undefined && !FILTER_KINDS.includes(o.kind as FilterKind)) {
+    throw new ProfileError(`${path}.kind`, `expected one of ${FILTER_KINDS.join(', ')}, got ${JSON.stringify(o.kind)}`);
+  }
+  const angle = optPositive(o, 'maxIncidentAngleDeg', path);
+  if (angle !== undefined && angle >= 90) throw new ProfileError(`${path}.maxIncidentAngleDeg`, `expected less than 90, got ${angle}`);
+  return withoutUndefined({
+    id: str(o, 'id', path),
+    name: str(o, 'name', path),
+    kind: o.kind as FilterKind | undefined,
+    sizeMm: optPositive(o, 'sizeMm', path),
+    bandpassNotes: o.bandpassNotes === undefined ? undefined : str(o, 'bandpassNotes', path),
+    passbandWidthNm: optPositive(o, 'passbandWidthNm', path),
+    narrowestBandNm: optPositive(o, 'narrowestBandNm', path),
+    blocksUvIr: optBool(o, 'blocksUvIr', path),
+    ratedMinFRatio: optPositive(o, 'ratedMinFRatio', path),
+    maxIncidentAngleDeg: angle,
   });
 }
 
@@ -191,15 +232,16 @@ function smartScope(v: unknown, path: string): ProfileSmartScope {
 function train(v: unknown, path: string): TrainEntry {
   const o = obj(v, path);
   if (o.kind === 'optical') {
-    onlyKeys(o, path, ['kind', 'id', 'name', 'scopeId', 'accessoryIds', 'cameraId']);
-    return {
-      kind: 'optical',
+    onlyKeys(o, path, ['kind', 'id', 'name', 'scopeId', 'accessoryIds', 'cameraId', 'filterId']);
+    return withoutUndefined({
+      kind: 'optical' as const,
       id: str(o, 'id', path),
       name: str(o, 'name', path),
       scopeId: str(o, 'scopeId', path),
       accessoryIds: strings(o, 'accessoryIds', path),
       cameraId: str(o, 'cameraId', path),
-    };
+      filterId: o.filterId === undefined ? undefined : str(o, 'filterId', path),
+    });
   }
   if (o.kind === 'smart') {
     onlyKeys(o, path, ['kind', 'id', 'name', 'smartScopeId']);
@@ -244,14 +286,15 @@ function list<T extends { id: string }>(v: unknown, path: string, item: (x: unkn
 }
 
 /** Checks a parsed JSON value and returns it as a Profile, or throws ProfileError with the field path. */
-export function validateProfile(input: unknown): Profile {
+export function validateProfile(raw: unknown): Profile {
+  const input = migrateProfile(raw);
   const o = obj(input, '$');
   onlyKeys(o, '$', ['version', 'sites', 'equipment', 'trains', 'plans']);
   if (o.version !== PROFILE_VERSION) {
     throw new ProfileError('$.version', `expected ${PROFILE_VERSION}, got ${JSON.stringify(o.version)}`);
   }
   const eq = obj(o.equipment, '$.equipment');
-  onlyKeys(eq, '$.equipment', ['scopes', 'accessories', 'cameras', 'smartScopes']);
+  onlyKeys(eq, '$.equipment', ['scopes', 'accessories', 'cameras', 'smartScopes', 'filters']);
   const profile: Profile = {
     version: PROFILE_VERSION,
     sites: list(o.sites, '$.sites', site),
@@ -260,6 +303,7 @@ export function validateProfile(input: unknown): Profile {
       accessories: list(eq.accessories, '$.equipment.accessories', accessory),
       cameras: list(eq.cameras, '$.equipment.cameras', camera),
       smartScopes: list(eq.smartScopes, '$.equipment.smartScopes', smartScope),
+      filters: list(eq.filters, '$.equipment.filters', filter),
     },
     trains: list(o.trains, '$.trains', train),
     plans: list(o.plans, '$.plans', plan),
@@ -270,6 +314,7 @@ export function validateProfile(input: unknown): Profile {
   const accessories = ids(profile.equipment.accessories);
   const cameras = ids(profile.equipment.cameras);
   const smart = ids(profile.equipment.smartScopes);
+  const filters = ids(profile.equipment.filters);
   const mustExist = (set: Set<string>, id: string, path: string, what: string): void => {
     if (!set.has(id)) throw new ProfileError(path, `unknown ${what} "${id}"`);
   };
@@ -278,6 +323,7 @@ export function validateProfile(input: unknown): Profile {
     if (t.kind === 'optical') {
       mustExist(scopes, t.scopeId, `${p}.scopeId`, 'scope');
       mustExist(cameras, t.cameraId, `${p}.cameraId`, 'camera');
+      if (t.filterId !== undefined) mustExist(filters, t.filterId, `${p}.filterId`, 'filter');
       t.accessoryIds.forEach((a, j) => mustExist(accessories, a, `${p}.accessoryIds[${j}]`, 'accessory'));
     } else {
       mustExist(smart, t.smartScopeId, `${p}.smartScopeId`, 'smart scope');
@@ -305,7 +351,7 @@ export function emptyProfile(): Profile {
   return {
     version: PROFILE_VERSION,
     sites: [],
-    equipment: { scopes: [], accessories: [], cameras: [], smartScopes: [] },
+    equipment: { scopes: [], accessories: [], cameras: [], smartScopes: [], filters: [] },
     trains: [],
     plans: [],
   };

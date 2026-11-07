@@ -79,6 +79,26 @@ export function withSiteArc(profile: Profile, siteId: string, arc: BlockedArc | 
 }
 
 /**
+ * A copy of the profile with one optical train's filter set (or cleared with null),
+ * run through the validator. Throws ProfileError for an unknown filter, and for a
+ * smart-scope train, which has no filter slot. The profile is unchanged on error.
+ */
+export function withTrainFilter(profile: Profile, trainId: string, filterId: string | null): Profile {
+  const train = profile.trains.find((t) => t.id === trainId);
+  if (!train) throw new ProfileError('$.trains', `unknown train "${trainId}"`);
+  if (train.kind !== 'optical') throw new ProfileError('$.trains', `train "${trainId}" is a smart scope and has no filter`);
+  return validateProfile({
+    ...profile,
+    trains: profile.trains.map((t) => {
+      if (t.id !== trainId || t.kind !== 'optical') return t;
+      const next = { ...t };
+      delete next.filterId;
+      return filterId === null ? next : { ...next, filterId };
+    }),
+  });
+}
+
+/**
  * The evening date to plan for, YYYY-MM-DD in the site's local mean solar
  * time (from its longitude, so no time zone is needed and the browser's zone
  * does not matter): today, except between midnight and 06:00, when the night

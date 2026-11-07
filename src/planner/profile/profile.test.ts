@@ -3,6 +3,7 @@ import {
   arcToHorizonPoints,
   emptyProfile,
   parseProfile,
+  migrateProfile,
   validateProfile,
 } from './index';
 import { horizonAltitudeAt, limitAltitudeAt } from '../horizon';
@@ -10,7 +11,7 @@ import type { Profile } from './index';
 
 // Neutral fixture; no real gear or places.
 const full = (): Profile => ({
-  version: 1,
+  version: 2,
   sites: [
     { id: 's1', name: 'Test Ridge', latitude: 40, longitude: -105, elevationM: 1500, blockedArc: { startAz: 100, endAz: 200, heightDeg: 30 } },
     { id: 's2', name: 'Open Field', latitude: -33, longitude: 151, blockedArc: null },
@@ -18,11 +19,15 @@ const full = (): Profile => ({
   equipment: {
     scopes: [{ id: 'sc', name: 'Scope', focalLengthMm: 1000, apertureMm: 200 }],
     accessories: [{ id: 'ac', name: 'Reducer', factor: 0.8 }],
-    cameras: [{ id: 'cm', name: 'Cam', pixelSizeUm: 4, sensorWidthPx: 4000, sensorHeightPx: 3000 }],
+    cameras: [{ id: 'cm', name: 'Cam', pixelSizeUm: 4, sensorWidthPx: 4000, sensorHeightPx: 3000, colour: true, hasUvIrCut: false, readNoiseClass: 'low' }],
     smartScopes: [{ id: 'sm', name: 'Smart', mountMode: 'eq', focalLengthMm: 250 }],
+    filters: [
+      { id: 'f1', name: 'Test dual', kind: 'dual-band', sizeMm: 48, bandpassNotes: 'Ha 7, OIII 7', passbandWidthNm: 14, narrowestBandNm: 7, blocksUvIr: true, ratedMinFRatio: 3, maxIncidentAngleDeg: 8 },
+      { id: 'f2', name: 'Bare filter' },
+    ],
   },
   trains: [
-    { kind: 'optical', id: 't1', name: 'Main', scopeId: 'sc', accessoryIds: ['ac'], cameraId: 'cm' },
+    { kind: 'optical', id: 't1', name: 'Main', scopeId: 'sc', accessoryIds: ['ac'], cameraId: 'cm', filterId: 'f1' },
     { kind: 'smart', id: 't2', name: 'Smart', smartScopeId: 'sm' },
   ],
   plans: [{ id: 'p1', name: 'Night', date: '2026-12-05', siteId: 's1', trainId: 't1', targetIds: ['m42'], notes: 'bring dew heater' }],
@@ -61,7 +66,20 @@ describe('validateProfile', () => {
     failsAt((p) => { p.trains[0].kind = 'weird'; }, '$.trains[0].kind');
     failsAt((p) => { p.plans[0].date = '2026-02-30'; }, '$.plans[0].date');
     failsAt((p) => { p.plans[0].targetIds = [3]; }, '$.plans[0].targetIds[0]');
-    failsAt((p) => { p.version = 2; }, '$.version');
+    failsAt((p) => { p.version = 3; }, '$.version');
+    failsAt((p) => { p.version = 0; }, '$.version');
+    failsAt((p) => { p.equipment.filters[0].kind = 'rainbow'; }, '$.equipment.filters[0].kind');
+    failsAt((p) => { p.equipment.filters[0].sizeMm = -48; }, '$.equipment.filters[0].sizeMm');
+    failsAt((p) => { p.equipment.filters[0].blocksUvIr = 'yes'; }, '$.equipment.filters[0].blocksUvIr');
+    failsAt((p) => { p.equipment.filters[0].ratedMinFRatio = 0; }, '$.equipment.filters[0].ratedMinFRatio');
+    failsAt((p) => { p.equipment.filters[0].maxIncidentAngleDeg = 90; }, '$.equipment.filters[0].maxIncidentAngleDeg');
+    failsAt((p) => { p.equipment.filters[0].bandwith = 7; }, '$.equipment.filters[0].bandwith');
+    failsAt((p) => { p.equipment.filters[1].id = 'f1'; }, '$.equipment.filters[1].id');
+    failsAt((p) => { delete p.equipment.filters; }, '$.equipment.filters');
+    failsAt((p) => { p.equipment.cameras[0].readNoiseClass = 'tiny'; }, '$.equipment.cameras[0].readNoiseClass');
+    failsAt((p) => { p.equipment.cameras[0].hasUvIrCut = 'no'; }, '$.equipment.cameras[0].hasUvIrCut');
+    failsAt((p) => { p.trains[0].filterId = 'nope'; }, '$.trains[0].filterId');
+    failsAt((p) => { p.trains[0].filterId = ''; }, '$.trains[0].filterId');
     failsAt((p) => { delete p.equipment; }, '$.equipment');
   });
 
@@ -201,5 +219,67 @@ describe('arcToHorizonPoints', () => {
 
   it('refuses arcs too narrow to place their edges', () => {
     expect(() => arcToHorizonPoints({ startAz: 10, endAz: 10.001, heightDeg: 5 })).toThrow(RangeError);
+  });
+});
+
+describe('filters and the v1 -> v2 migration', () => {
+  // A profile as the v1 app saved it: no filters, no camera window or colour fields.
+  const v1Text = JSON.stringify({
+    version: 1,
+    sites: [{ id: 's1', name: 'Saved Ridge', latitude: 40, longitude: -105, blockedArc: { startAz: 100, endAz: 200, heightDeg: 33 } }],
+    equipment: {
+      scopes: [{ id: 'sc', name: 'Scope', focalLengthMm: 1000, apertureMm: 200 }],
+      accessories: [{ id: 'ac', name: 'Reducer', factor: 0.8 }],
+      cameras: [{ id: 'cm', name: 'Cam', pixelSizeUm: 4, sensorWidthPx: 4000, sensorHeightPx: 3000 }],
+      smartScopes: [{ id: 'sm', name: 'Smart', mountMode: 'eq' }],
+    },
+    trains: [{ kind: 'optical', id: 't1', name: 'Main', scopeId: 'sc', accessoryIds: ['ac'], cameraId: 'cm' }],
+    plans: [{ id: 'p1', name: 'Night', date: '2026-12-05', siteId: 's1', trainId: 't1', targetIds: ['m42'], notes: 'kept' }],
+  });
+
+  it('loads a saved v1 profile as v2, keeps every field, and adds an empty filter library', () => {
+    const p = parseProfile(v1Text);
+    expect(p.version).toBe(2);
+    expect(p.equipment.filters).toEqual([]);
+    const old = JSON.parse(v1Text);
+    expect(p.sites).toEqual(old.sites);
+    expect(p.equipment.scopes).toEqual(old.equipment.scopes);
+    expect(p.equipment.accessories).toEqual(old.equipment.accessories);
+    expect(p.equipment.cameras).toEqual(old.equipment.cameras);
+    expect(p.equipment.smartScopes).toEqual(old.equipment.smartScopes);
+    expect(p.trains).toEqual(old.trains);
+    expect(p.plans).toEqual(old.plans);
+    expect(p.trains[0]).not.toHaveProperty('filterId');
+  });
+
+  it('migrateProfile does not mutate its input and leaves unknown versions to the validator', () => {
+    const input = JSON.parse(v1Text);
+    const before = JSON.stringify(input);
+    expect((migrateProfile(input) as { version: number }).version).toBe(2);
+    expect(JSON.stringify(input)).toBe(before);
+    expect(migrateProfile({ version: 7 })).toEqual({ version: 7 });
+    expect(migrateProfile(null)).toBeNull();
+    expect(migrateProfile([1])).toEqual([1]);
+  });
+
+  it('a v1 profile whose equipment is not an object still fails at the equipment path', () => {
+    expect(() => validateProfile({ version: 1, sites: [], equipment: 5, trains: [], plans: [] })).toThrow(/^\$\.equipment: expected an object/);
+  });
+
+  it('a v1 file with a stray filters list gets the empty list, since v1 had no such field', () => {
+    const o = JSON.parse(v1Text);
+    o.equipment.filters = [{ id: 'f', name: 'F' }];
+    expect(validateProfile(o).equipment.filters).toEqual([]);
+  });
+
+  it('keeps a filter with only an id and a name: unknown values stay absent', () => {
+    const p = validateProfile(full());
+    expect(p.equipment.filters[1]).toEqual({ id: 'f2', name: 'Bare filter' });
+  });
+
+  it('round-trips a train with a filter through JSON', () => {
+    const p = validateProfile(JSON.parse(JSON.stringify(full())));
+    expect((p.trains[0] as { filterId?: string }).filterId).toBe('f1');
+    expect(p.equipment.cameras[0]).toMatchObject({ colour: true, hasUvIrCut: false, readNoiseClass: 'low' });
   });
 });

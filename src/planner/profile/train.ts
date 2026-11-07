@@ -1,11 +1,15 @@
 import type { Accessory, Camera, Scope } from '../optics';
-import type { Profile, TrainEntry } from './types';
+import type { Profile, ProfileCamera, ProfileFilter, TrainEntry } from './types';
 
 export interface ResolvedTrain {
   scope: Scope;
   camera: Camera;
   /** Combined accessory, or undefined when the train has none. */
   accessory?: Accessory;
+  /** The profile's camera record (colour, UV/IR window, read noise); undefined for smart scopes. */
+  cameraSpec?: ProfileCamera;
+  /** The library filter the train names; undefined when it has none. */
+  filter?: ProfileFilter;
 }
 
 function find<T extends { id: string }>(xs: T[], id: string, what: string): T {
@@ -44,7 +48,8 @@ export function resolveTrain(profile: Profile, train: TrainEntry): ResolvedTrain
   const accessories = all.filter((a) => a.effectiveFocalLengthMm === undefined);
   const scope: Scope =
     replacing.length === 1 ? { ...baseScope, focalLengthMm: replacing[0].effectiveFocalLengthMm } : baseScope;
-  const resolved: ResolvedTrain = { scope, camera };
+  const resolved: ResolvedTrain = { scope, camera, cameraSpec: camera };
+  if (train.filterId !== undefined) resolved.filter = find(profile.equipment.filters, train.filterId, 'filter');
   if (accessories.length > 0) {
     const known = accessories.every((a) => a.factor !== undefined);
     resolved.accessory = {

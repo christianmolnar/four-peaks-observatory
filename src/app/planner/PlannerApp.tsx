@@ -4,8 +4,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { moonIllumination } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
 import { formatCsvTime, planToCsv } from '@/planner/export';
-import { arcToHorizonPoints, ProfileError, parseProfile } from '@/planner/profile';
+import { arcToHorizonPoints, ProfileError, parseProfile, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
+import { exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
 import {
   DEFAULT_ARC,
@@ -25,9 +26,11 @@ import {
   sameFields,
   saveProfile,
   withSiteArc,
+  withTrainFilter,
 } from '@/planner/state';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AltitudeChart from './AltitudeChart';
+import ExposurePanel from './ExposurePanel';
 import HorizonEditor from './HorizonEditor';
 import NumberSlider from './NumberSlider';
 
@@ -240,6 +243,33 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     );
   }, [plan, selected, site, horizon, minAltitude]);
 
+  // What the Exposure panel needs from the train: optics numbers, the camera record and the chosen filter.
+  const trainInfo = useMemo(() => {
+    if (!train || train.kind !== 'optical') return { optics: null, camera: null, filter: null };
+    try {
+      const r = resolveTrain(profile, train);
+      return { optics: planTrainFor(profile, train).optics, camera: r.cameraSpec ?? null, filter: r.filter ?? null };
+    } catch {
+      return { optics: null, camera: null, filter: null }; // the plan already reports an unresolved train
+    }
+  }, [profile, train]);
+  const selectedTarget = selected ? starterTargets.find((t) => t.id === selected.id) : undefined;
+
+  const chooseFilter = (filterId: string) => {
+    if (!train) return;
+    try {
+      const next = withTrainFilter(profile, train.id, filterId === '' ? null : filterId);
+      setProfile(next);
+      try {
+        saveProfile(window.localStorage, next);
+      } catch (e) {
+        setNotice(`Filter choice not saved, so it is lost on reload: ${(e as Error).message}`);
+      }
+    } catch (e) {
+      setNotice(`Filter not changed: ${(e as Error).message}`);
+    }
+  };
+
   const editField = (field: HorizonField, text: string) => {
     setFields((f) => (f ? { ...f, [field]: text } : f));
     setJustSaved(false);
@@ -386,7 +416,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
       <section aria-labelledby="controls-heading" className={panel}>
         <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">TONIGHT</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 items-start">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 items-start">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
             <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
@@ -414,6 +444,28 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                 <option key={t.id} value={t.id}>{t.name}{t.kind === 'smart' ? ' (smart scope)' : ''}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label htmlFor="plan-filter" className="block text-white/90 font-normal text-sm mb-1">Filter</label>
+            <select
+              id="plan-filter"
+              className={`${field} w-full`}
+              value={train.kind === 'optical' ? (train.filterId ?? '') : ''}
+              disabled={train.kind !== 'optical'}
+              aria-describedby="plan-filter-msg"
+              onChange={(e) => chooseFilter(e.target.value)}
+            >
+              <option value="">{train.kind === 'optical' ? 'No filter' : 'Built in (smart scope)'}</option>
+              {train.kind === 'optical' &&
+                profile.equipment.filters.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}{f.sizeMm !== undefined ? ` (${f.sizeMm} mm)` : ''}</option>
+                ))}
+            </select>
+            <p id="plan-filter-msg" className="mt-1 h-10 overflow-hidden text-sm leading-5 text-white/70 font-normal">
+              {train.kind === 'optical' && profile.equipment.filters.length === 0
+                ? 'This profile has no filters. Replace profile with sample loads the sample list.'
+                : ''}
+            </p>
           </div>
           <NumberSlider
             id="min-alt"
@@ -578,6 +630,17 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             formatTime={formatTime}
           />
         </section>
+      )}
+
+      {selected && plan && (
+        <ExposurePanel
+          entry={selected}
+          target={selectedTarget ? exposureTargetFrom(selectedTarget) : { id: selected.id, name: selected.name }}
+          optics={trainInfo.optics}
+          camera={trainInfo.camera}
+          filter={trainInfo.filter}
+          formatTime={formatTime}
+        />
       )}
 
       <HorizonEditor

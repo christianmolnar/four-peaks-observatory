@@ -15,6 +15,7 @@ import {
   sameFields,
   saveProfile,
   withSiteArc,
+  withTrainFilter,
   defaultDateForProfile,
 } from './index';
 
@@ -223,5 +224,42 @@ describe('friendlyArcError', () => {
     expect(msg({ startAz: 100, endAz: 100, heightDeg: 30 })).toBe('Start and End must differ.');
     expect(msg({ startAz: 0, endAz: 359.99, heightDeg: 30 })).toMatch(/^Too wide/);
     expect(msg({ startAz: 10, endAz: 50, heightDeg: 91 })).not.toContain('$');
+  });
+});
+
+describe('train filter', () => {
+  const p = sampleProfile();
+  const train = (pr: ReturnType<typeof sampleProfile>, id: string) => pr.trains.find((t) => t.id === id) as { filterId?: string };
+
+  it('sets and clears a filter on an optical train, leaving the input alone', () => {
+    const set = withTrainFilter(p, 'wide-c11-hyperstar-2600', 'astronomik-cls-ccd');
+    expect(train(set, 'wide-c11-hyperstar-2600').filterId).toBe('astronomik-cls-ccd');
+    expect(train(p, 'wide-c11-hyperstar-2600').filterId).toBeUndefined();
+    const cleared = withTrainFilter(set, 'wide-c11-hyperstar-2600', null);
+    expect(train(cleared, 'wide-c11-hyperstar-2600')).not.toHaveProperty('filterId');
+    expect(cleared).toEqual(p);
+  });
+  it('changing it twice keeps the last choice and touches no other train', () => {
+    const a = withTrainFilter(withTrainFilter(p, 'deep-c11-2600', 'zwo-duo-band'), 'deep-c11-2600', 'idas-lps-p3');
+    expect(train(a, 'deep-c11-2600').filterId).toBe('idas-lps-p3');
+    expect(a.trains.filter((t) => t.id !== 'deep-c11-2600')).toEqual(p.trains.filter((t) => t.id !== 'deep-c11-2600'));
+  });
+  it('refuses an unknown filter, an unknown train and a smart scope', () => {
+    expect(() => withTrainFilter(p, 'deep-c11-2600', 'nope')).toThrow(ProfileError);
+    expect(() => withTrainFilter(p, 'nope', null)).toThrow(/unknown train/);
+    expect(() => withTrainFilter(p, 'smart-seestar-s50', 'zwo-duo-band')).toThrow(/smart scope/);
+  });
+  it('a saved v1 profile in storage loads migrated, with its horizon and no filters', () => {
+    const v1 = { ...JSON.parse(JSON.stringify(p)), version: 1 };
+    delete v1.equipment.filters;
+    for (const t of v1.trains) delete t.filterId;
+    v1.sites[0].blockedArc = { startAz: 100, endAz: 200, heightDeg: 33 };
+    const store = memory({ [PROFILE_KEY]: JSON.stringify(v1) });
+    const r = loadProfile(store);
+    expect(r.error).toBeNull();
+    expect(r.stored).toBe(true);
+    expect(r.profile.version).toBe(2);
+    expect(r.profile.equipment.filters).toEqual([]);
+    expect(r.profile.sites[0].blockedArc).toEqual({ startAz: 100, endAz: 200, heightDeg: 33 });
   });
 });
