@@ -23,7 +23,15 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
 5. "Save horizon" then reload: the arc persists, status line empty. "Replace profile with sample" (Profile section, asks first) restores the default.
 6. Targets: pick the train "C11 f/10 + ASI2600MC Duo". Targets that do not fit the field are not listed. Tick "Show targets that do not fit": they appear below every row that fits, and their text reads "Does not fit this setup (...)" under "Why it is listed". Rows that fit still read "Why recommended".
 7. "Export CSV": header row, one row per listed target, names with commas quoted.
-8. Import a profile with `latitude: 120`: the error names `$.sites[0].latitude`.
+8. Filter and Exposure (select a target row first; the panel sits below the altitude chart):
+   - "Filter" in Tonight lists "No filter" and the twelve sample filters; the choice belongs to the train, is saved with the profile, and shows again after a reload. A smart scope has the box disabled ("Built in"). A profile saved before filters existed has none: the line under the box says so, and "Replace profile with sample" loads the sample list (it also resets the horizon).
+   - The Exposure panel has "Sky darkness (Bortle class)" (starts at 6, an assumption, not saved), a line describing the chosen filter (unknown values say "unknown" or "not published"), and three mode cards: Quick & Beautiful, Balanced (chosen at first) and Deep Project. Each card shows sub length, sub count, total light, overhead (setup, dithers, autofocus, meridian flip), elapsed time and finish time, every row labelled "estimate" with a range.
+   - Tab from the Bortle box lands on the chosen card; the arrow keys move the choice, a click works too, and the word "Selected" marks it (not colour only). Changing the mode moves nothing on the page.
+   - "Warnings and notes" lists, each tagged Warning or Note: filter rated slower than the train (try the HyperStar train with "Optolong L-eXtreme (standard)"; the CLS CCD gives none), no UV/IR cut (the "C11 + 0.7x reducer + ASI533MC" train with no filter or "IDAS LPS-P2"; "Baader UV/IR cut" clears it), a visual filter on a colour camera (try "Apertura Moon and Skyglow"), image scale, Moon, usable-time limits, short-session and Ou4 notes.
+   - "What more time buys": 30, 60, 90, 120 minutes at x1.00, x1.41, x1.73, x2.00 of the signal-to-noise (square root of time: 4 times the time is 2 times the signal-to-noise), with a range and the assumption written under it. There is no best stop time.
+   - Planets show a one-line message (deep-sky only); smart scopes say an optical train is needed.
+   - Surface brightness is not in the catalog, so Quick says the short-session rule cannot rank the target (clusters and planetary nebulae count as bright).
+9. Import a profile with `latitude: 120`: the error names `$.sites[0].latitude`.
 
 ## Automated
 
@@ -31,6 +39,8 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
 - `src/app/planner/HorizonEditor.test.tsx` types key by key through the whole page: every row of the round-2 and round-3 failure tables (bad values, Discard, Use sample horizon, Replace profile, site change, import, Minimum altitude after each), Save and reload, Enter, blur, tab order.
 - `src/app/planner/PlannerApp.fit.test.tsx`: targets that do not fit are hidden by default, sort last, and are not "recommended".
 - `src/app/planner/PlannerApp.wiring.test.tsx`: default date, blocked or full storage, CSV time format.
+- `src/planner/exposure/exposure.test.ts`: the estimate with fixed inputs, every warning branch, the edge-shift formula (f/1.9: Ha 5.3 nm, OIII 4.1 nm), the marginal table. `src/app/planner/PlannerApp.exposure.test.tsx`: the panel and Filter box with real key events, saved choice, smart scope, planets.
+- `src/planner/profile`: the v1 to v2 migration (a saved v1 profile keeps all its data and gets an empty filter list) and filter validation.
 
 ## Layout check (real browser)
 
@@ -45,3 +55,5 @@ It also measures, after every key and every drag step, the page position of the 
 Last recorded run: `docs/guides/planner-layout-check.out.txt` (88 of 88 checks).
 
 Not done yet from the design review: chart beside the list, cards on phones, jargon renames.
+
+`docs/guides/planner-exposure-layout-check.py` does the same for the Exposure panel and Filter box at 1280 and 390 px: Tab and arrow keys and real mouse clicks on the mode cards, and ArrowDown through all twelve filters in every mode on the HyperStar and ASI533MC trains. Cards, warnings area, marginal table, the Edit horizon heading and the Filter box must keep their page position and size; the warnings and the filter line must fit the height reserved for them. Run it the same way (`~/tools/shots/bin/python docs/guides/planner-exposure-layout-check.py`); last run: `docs/guides/planner-exposure-layout-check.out.txt` (24 of 24).

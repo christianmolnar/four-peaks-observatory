@@ -416,7 +416,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
       <section aria-labelledby="controls-heading" className={panel}>
         <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">TONIGHT</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 items-start">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr] items-start">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
             <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />

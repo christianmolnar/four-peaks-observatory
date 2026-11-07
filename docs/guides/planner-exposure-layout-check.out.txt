@@ -1,0 +1,27 @@
+PASS 1280px: Tab from the Bortle box lands on the chosen mode radio  [exposure-mode:balanced]
+PASS 1280px: arrow keys change the mode and nothing in the panel or below it moves
+PASS 1280px: warnings and cards not clipped, nothing scrolls sideways, across mode changes
+PASS 1280px: the word Selected is on exactly one card at every step (not colour only)  [[1, 1, 1, 1]]
+PASS 1280px: a real mouse click on each card chooses it and nothing moves
+PASS 1280px HyperStar f/1.9: stepping all 13 filters in 3 modes with ArrowDown moves nothing (cards, warnings area, table, heading, Filter box)
+PASS 1280px HyperStar f/1.9: warnings and filter line fit the room reserved (warnings: most needed 96px of 192; filter line: 60px of 80)
+PASS 1280px ASI533MC f/7: stepping all 13 filters in 3 modes with ArrowDown moves nothing (cards, warnings area, table, heading, Filter box)
+PASS 1280px ASI533MC f/7: warnings and filter line fit the room reserved (warnings: most needed 152px of 192; filter line: 60px of 80)
+PASS 1280px: Filter box and its message line keep their size on a smart scope, and it is disabled  [[40, 32, 200.15625] vs [40, 32, 200.15625], disabled=True]
+PASS 1280px: distinct warning messages seen while sweeping: 25  [25]
+--- 1280px panel text (HyperStar, L-eXtreme, Balanced) ---
+PASS 1280px: no page errors
+PASS 390px: Tab from the Bortle box lands on the chosen mode radio  [exposure-mode:balanced]
+PASS 390px: arrow keys change the mode and nothing in the panel or below it moves
+PASS 390px: warnings and cards not clipped, nothing scrolls sideways, across mode changes
+PASS 390px: the word Selected is on exactly one card at every step (not colour only)  [[1, 1, 1, 1]]
+PASS 390px: a real mouse click on each card chooses it and nothing moves
+PASS 390px HyperStar f/1.9: stepping all 13 filters in 3 modes with ArrowDown moves nothing (cards, warnings area, table, heading, Filter box)
+PASS 390px HyperStar f/1.9: warnings and filter line fit the room reserved (warnings: most needed 296px of 480; filter line: 120px of 144)
+PASS 390px ASI533MC f/7: stepping all 13 filters in 3 modes with ArrowDown moves nothing (cards, warnings area, table, heading, Filter box)
+PASS 390px ASI533MC f/7: warnings and filter line fit the room reserved (warnings: most needed 452px of 480; filter line: 120px of 144)
+PASS 390px: Filter box and its message line keep their size on a smart scope, and it is disabled  [[40, 32, 292] vs [40, 32, 292], disabled=True]
+PASS 390px: distinct warning messages seen while sweeping: 25  [25]
+--- 390px panel text (HyperStar, L-eXtreme, Balanced) ---
+PASS 390px: no page errors
+24 of 24 checks passed
