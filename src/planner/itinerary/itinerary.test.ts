@@ -269,12 +269,13 @@ describe('the schedule', () => {
   it('the totals count a train or filter change only when the slot behind it runs', () => {
     const first = build([item('m31', { mode: 'quick' })]).slots[0];
     // Cut the night so that Flaming Star's window leaves 1.2 minutes after the changeover: too little for one sub, so it takes no time.
-    const earliest = first.end.getTime() + 21 * MIN;
+    const change = changeoverBetween({ trainId: REDUCER_533, filterId: null }, { trainId: NATIVE_2600, filterId: 'zwo-duo-band' }).minutes;
+    const earliest = first.end.getTime() + change * MIN;
     const night = { ...NIGHT, end: new Date(earliest + 1.2 * MIN) };
     const plan = build([item('m31', { mode: 'quick' }), item('ic405', { mode: 'quick', trainId: NATIVE_2600, filterId: 'zwo-duo-band' })], { night });
     expect(plan.slots[0].integrationMin).toBeGreaterThan(0);
     expect(plan.slots[1].end.getTime()).toBe(plan.slots[1].start.getTime());
-    expect(plan.slots[1].warnings.map((w) => w.code)).toContain('no-time');
+    expect(plan.slots[1].warnings.map((w) => w.text)).toContain("1 min is left in Flaming Star Nebula's window, too little for one sub.");
     expect(plan.totals.filterChanges).toBe(0);
     expect(plan.totals.trainChanges).toBe(0);
     expect(plan.totals.changeoverMin).toBe(0);
