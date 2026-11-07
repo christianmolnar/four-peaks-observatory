@@ -409,9 +409,9 @@ def run(pw, url, label, width, height, shots, only):
     if want("filters"):
         check_filters(pg, label + " HyperStar f/1.9", "wide-c11-hyperstar-2600")
         check_filters(pg, label + " ASI533MC f/7", "deep-c11-reducer-533")
+        record(f"{label}: distinct warning messages seen while sweeping: {len(pg.seen)}", len(pg.seen) >= 3, f"{len(pg.seen)}")
     if want("smart"):
         check_smart(pg, label)
-        record(f"{label}: distinct warning messages seen while sweeping: {len(pg.seen)}", len(pg.seen) >= 3, f"{len(pg.seen)}")
     if want("sweep"):
         check_sweep(pg, label)
         key_repro(pg, label)
