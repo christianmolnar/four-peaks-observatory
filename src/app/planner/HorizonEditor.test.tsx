@@ -35,6 +35,9 @@ const storedArc = () => JSON.parse(stored() as string).sites[0].blockedArc;
 const user = () => userEvent.setup();
 type U = ReturnType<typeof user>;
 
+/** A pause in typing longer than the run boundary (600 ms in PlannerApp). */
+const pause = () => act(() => new Promise<void>((r) => setTimeout(r, 750)));
+
 const app = (profile = sampleProfile()) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
 
 /** Replaces the box content with real key presses, one key at a time; the box stays focused. */
@@ -285,7 +288,8 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     await type(u, MINALT, '30');
     const rows = screen.getByTestId('target-table').textContent;
     expect(msg(MINALT)).toBe('');
-    await u.clear(box(MINALT)); // a new run of typing begins here, with 30 in effect
+    await pause(); // 30 is now the value in effect; a new run of typing begins
+    await u.clear(box(MINALT));
     for (const key of '450') {
       await u.keyboard(key);
       if (box(MINALT).value === '450') {
@@ -304,14 +308,95 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     const u = user();
     await type(u, MINALT, '30');
     const rows = screen.getByTestId('target-table').textContent;
+    await pause();
     await u.clear(box(MINALT));
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 30 until fixed.');
     expect(slider(MINALT).value).toBe('30');
     await type(u, MINALT, '30');
+    await pause();
     await u.keyboard('0'); // 300, appended to the 30 in effect
     expect(box(MINALT).value).toBe('300');
     expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
     expect(screen.getByTestId('target-table').textContent).toBe(rows);
+  });
+
+  // Backspace and one-run rules: real key events, one at a time.
+  it('45 in effect, Backspace twice: plan, slider and message name 45, never the prefix 4', async () => {
+    app();
+    const u = user();
+    await type(u, MINALT, '45');
+    await u.tab();
+    await u.click(box(MINALT)); // focus: 45 is in effect
+    const rows45 = screen.getByTestId('target-table').textContent;
+    await u.keyboard('{End}{Backspace}');
+    expect(box(MINALT).value).toBe('4'); // 4 is a valid number and applies live
+    await u.keyboard('{Backspace}');
+    expect(box(MINALT).value).toBe('');
+    expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 45 until fixed.');
+    expect(slider(MINALT).value).toBe('45');
+    expect(screen.getByTestId('target-table').textContent).toBe(rows45);
+  });
+
+  it('default 20, Backspace twice: plan stays 20 and the list keeps its rows', async () => {
+    app();
+    const u = user();
+    const rows20 = screen.getByTestId('target-table').textContent;
+    const count = screen.getByTestId('target-table').querySelectorAll('tbody tr').length;
+    await u.click(box(MINALT));
+    await u.keyboard('{End}{Backspace}');
+    expect(box(MINALT).value).toBe('2');
+    await u.keyboard('{Backspace}');
+    expect(box(MINALT).value).toBe('');
+    expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 20 until fixed.');
+    expect(slider(MINALT).value).toBe('20');
+    expect(screen.getByTestId('target-table').textContent).toBe(rows20);
+    expect(screen.getByTestId('target-table').querySelectorAll('tbody tr').length).toBe(count);
+  });
+
+  it('focus capture: 30 set, Tab away, click, select all, 450 without clearing: the message names 30', async () => {
+    app();
+    const u = user();
+    await type(u, MINALT, '30');
+    await u.tab(); // leaves the box
+    const rows30 = screen.getByTestId('target-table').textContent;
+    await u.click(box(MINALT));
+    await u.keyboard('{Control>}a{/Control}');
+    for (const key of '450') await u.keyboard(key);
+    expect(box(MINALT).value).toBe('450');
+    expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
+    expect(slider(MINALT).value).toBe('30');
+    expect(screen.getByTestId('target-table').textContent).toBe(rows30);
+  });
+
+  it('one run: click, 30, select all, 450 with no pause names the value before the run (20), not 30', async () => {
+    app();
+    const u = user();
+    await u.click(box(MINALT));
+    await u.keyboard('{Control>}a{/Control}30');
+    expect(box(MINALT).value).toBe('30');
+    await u.keyboard('{Control>}a{/Control}450');
+    expect(box(MINALT).value).toBe('450');
+    expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 20 until fixed.'); // within one run
+    expect(slider(MINALT).value).toBe('20');
+  });
+
+  it('a pause ends the run: type 30, pause, select all, 450: the message names 30', async () => {
+    app();
+    const u = user();
+    await u.click(box(MINALT));
+    await u.keyboard('{Control>}a{/Control}30');
+    await pause();
+    await u.keyboard('{Control>}a{/Control}450');
+    expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
+    expect(slider(MINALT).value).toBe('30');
+  });
+
+  it('Enter ends the run: type 30, Enter, select all, 450: the message names 30', async () => {
+    app();
+    const u = user();
+    await u.click(box(MINALT));
+    await u.keyboard('{Control>}a{/Control}30{Enter}{Control>}a{/Control}450');
+    expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
   });
 
   it('empty and decimal boxes say what is wrong', async () => {

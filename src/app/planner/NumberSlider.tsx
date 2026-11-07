@@ -16,6 +16,8 @@ export interface NumberSliderProps {
   error: string | null;
   /** Called when the box or the slider gets focus. */
   onFocus?: () => void;
+  /** Called when Enter is pressed in the box. */
+  onEnter?: () => void;
   /** Lines the message slot reserves. Two for a long message in a narrow column. */
   lines?: 1 | 2;
 }
@@ -26,7 +28,7 @@ export interface NumberSliderProps {
  * The message line is always in the page, with a fixed height, so showing or
  * clearing a message never moves anything below it.
  */
-export default function NumberSlider({ id, label, unit, min, max, text, sliderValue, onText, error, onFocus, lines = 1 }: NumberSliderProps) {
+export default function NumberSlider({ id, label, unit, min, max, text, sliderValue, onText, error, onFocus, onEnter, lines = 1 }: NumberSliderProps) {
   const msgId = `${id}-msg`;
   return (
     <div className="mb-3">
@@ -44,6 +46,7 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
           value={text}
           onChange={(e) => onText(e.target.value)}
           onFocus={onFocus}
+          onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(); }}
           aria-invalid={error !== null}
           aria-describedby={msgId}
           className={`h-11 w-20 shrink-0 rounded-lg bg-black/60 px-2 text-right text-white font-normal text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-400 ${

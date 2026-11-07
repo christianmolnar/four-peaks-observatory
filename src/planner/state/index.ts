@@ -187,7 +187,7 @@ export function checkArcFields(fields: HorizonFields, arcCheck: (arc: BlockedArc
 }
 
 /**
- * The arc the plan and the chart use while the boxes are being edited, and the slider positions.
+ * The arc the chart previews while the boxes are being edited, and the slider positions (the plan itself uses the saved arc).
  * A box with a message falls back to `base` (the saved arc), never to a half-typed prefix. When the
  * arc itself is refused, including the mix of a typed Start with a fallback End, Start and End both
  * fall back. Valid whenever `base` is.

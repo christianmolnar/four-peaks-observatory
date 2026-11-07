@@ -18,7 +18,9 @@ This script checks, at 1280 and 390 px:
   4. At 1280, 1024, 768, 640, 390 and 360 px no message line is clipped (scrollHeight <= clientHeight)
      for bad Start, End, Height and Minimum altitude text.
   5. A toast never takes a click: after an import, a real click on Save horizon, scrolled under the
-     toast, works first time; the toast clears itself. "Edit horizon" lands below the site header.
+     toast, works first time; the toast clears itself. "Edit horizon" lands below the nav (item 6).
+  6. At all six widths, by mouse and by Enter, once scrollY has stopped changing, a hit test finds the
+     Edit horizon heading and Clear horizon on screen and not covered by the nav.
 
 Run (needs Playwright for Python and its Chromium; the repo itself does not depend on either):
   python3 docs/guides/planner-layout-check.py                  # starts its own next dev on a free port, stops it after
@@ -304,20 +306,55 @@ def run_viewport(pw, url, label, width, height, shots):
     page.wait_for_function("document.querySelectorAll('[role=status]').length === 0", timeout=9000)
     record(f"{label}: the toast clears itself", True)
 
-    # Edit horizon lands below the site header.
-    app.fresh()
-    page.evaluate("window.scrollTo(0, 0)")
-    page.get_by_role("link", name="Edit horizon").click()
-    page.wait_for_timeout(600)
-    head = page.evaluate("""() => { let bottom = 0;
-        for (const e of document.querySelectorAll('body *')) { const c = getComputedStyle(e);
-          if ((c.position === 'fixed' || c.position === 'sticky') && e.id !== 'x') { const r = e.getBoundingClientRect();
-            if (r.top <= 1 && r.height < 300 && r.width > innerWidth / 2) bottom = Math.max(bottom, r.bottom); } }
-        return [bottom, document.getElementById('horizon-heading').getBoundingClientRect().top]; }""")
-    record(f"{label}: Edit horizon puts the heading below the site header", head[1] >= head[0], f"header bottom {head[0]}, heading top {head[1]}")
-
     record(f"{label}: no page errors", not errors, "; ".join(errors))
     browser.close()
+
+
+def settled_scroll_y(page):
+    """Waits until scrollY stops changing (smooth scrolling is on in globals.css), then returns it."""
+    last, still = None, 0
+    for _ in range(100):
+        y = page.evaluate("window.scrollY")
+        still = still + 1 if y == last else 0
+        if still >= 5:
+            return y
+        last = y
+        page.wait_for_timeout(100)
+    raise RuntimeError("the page never stopped scrolling")
+
+
+def check_edit_horizon(app, width, how):
+    """After the scroll settles, the heading and Clear horizon are visible and nothing fixed covers them."""
+    page = app.p
+    app.fresh()
+    page.evaluate("window.scrollTo({top: 0, behavior: 'instant'})")
+    settled_scroll_y(page)
+    link = page.get_by_role("link", name="Edit horizon")
+    if how == "mouse":
+        link.scroll_into_view_if_needed()
+        settled_scroll_y(page)
+        b = link.bounding_box()
+        page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+        page.mouse.down()
+        page.wait_for_timeout(90)
+        page.mouse.up()
+    else:
+        link.focus()
+        page.keyboard.press("Enter")
+    settled_scroll_y(page)
+    res = page.evaluate("""() => {
+        const out = {};
+        const targets = { heading: document.getElementById('horizon-heading'),
+                          clear: [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Clear horizon') };
+        for (const [name, el] of Object.entries(targets)) {
+          const r = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.top + 2);
+          out[name] = { top: Math.round(r.top), bottom: Math.round(r.bottom), onscreen: r.top >= 0 && r.bottom <= innerHeight,
+                        free: hit !== null && (el === hit || el.contains(hit) || hit.contains(el)) && !hit.closest('nav, header') };
+        }
+        return out; }""")
+    ok = all(v["onscreen"] and v["free"] for v in res.values())
+    record(f"{width}px: Edit horizon by {how}: heading and Clear horizon are not under the nav (hit test, scroll settled)", ok, json.dumps(res))
 
 
 def run_widths(pw, url):
@@ -335,6 +372,8 @@ def run_widths(pw, url):
                 app.type(field, text)
                 bad += [f"{name} {text!r}: {m}" for m in app.clipped()]
         record(f"{width}px: no message line is clipped (scrollHeight <= clientHeight)", not bad, "; ".join(bad))
+        for how in ("mouse", "Enter"):
+            check_edit_horizon(app, width, how)
         browser.close()
 
 

@@ -90,7 +90,7 @@ export default function HorizonEditor({
   const status = invalid ? 'Fix the highlighted box to save' : dirty ? 'Unsaved changes' : saved ? 'Saved' : '';
 
   return (
-    <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-black/70 rounded-lg border border-white/10 p-6 scroll-mt-24">
+    <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-black/70 rounded-lg border border-white/10 p-6 scroll-mt-44">
       <div className="col-start-1 row-start-1 flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
         <h2 id="horizon-heading" className="basis-full text-xl font-light text-white tracking-[0.15em]">
           HORIZON: {siteName.toUpperCase()}

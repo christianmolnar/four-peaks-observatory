@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { moonIllumination } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
 import { formatCsvTime, planToCsv } from '@/planner/export';
@@ -66,6 +66,8 @@ export interface PlannerAppProps {
 
 /** How long a toast stays up. */
 const TOAST_MS = 6000;
+/** A pause this long with no keystroke ends a run of typing in Minimum altitude. */
+const MIN_ALT_PAUSE_MS = 600;
 
 const fieldsOf = (arc: BlockedArc | null): HorizonFields | null => (arc ? fieldsFromArc(arc) : null);
 
@@ -76,12 +78,15 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [date, setDate] = useState<string>(initialDate ?? '');
   const [siteId, setSiteId] = useState<string>('');
   const [trainId, setTrainId] = useState<string>('');
-  // The one copy of the form: what is in the boxes. Messages and the plan's numbers are derived from it.
+  // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
   const [fields, setFields] = useState<HorizonFields | null>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArc ?? null));
   const [minAltText, setMinAltText] = useState<string>(String(DEFAULT_MIN_ALTITUDE));
-  // The Minimum altitude in effect when the current run of typing began (set on focus). While the text is
-  // bad the plan keeps this number, never a half-typed prefix.
+  // The Minimum altitude in effect when the current run of typing began. While the text is bad the plan
+  // keeps this number, never a half-typed prefix. A run ends on focus, Enter, or a pause (MIN_ALT_PAUSE_MS
+  // with no keystroke); only then does the anchor move to the current valid value.
   const [minAltAnchor, setMinAltAnchor] = useState<number>(DEFAULT_MIN_ALTITUDE);
+  const minAltRef = useRef<number>(DEFAULT_MIN_ALTITUDE); // the value the plan uses now, for the run boundary
+  const minAltTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [captured, setCaptured] = useState<ReadonlySet<string>>(new Set());
   const [season, setSeason] = useState<SeasonFilter>('all');
@@ -90,6 +95,13 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [showNoFit, setShowNoFit] = useState(false);
   const [selectedId, setSelectedId] = useState<string>('');
   const [zone, setZone] = useState<string>('');
+
+  const endMinAltRun = () => {
+    if (minAltTimer.current) clearTimeout(minAltTimer.current);
+    minAltTimer.current = null;
+    setMinAltAnchor(minAltRef.current);
+  };
+  useEffect(() => () => { if (minAltTimer.current) clearTimeout(minAltTimer.current); }, []);
 
   /**
    * The one place the form is set from saved data: Discard, Use sample horizon, a site change, an
@@ -173,6 +185,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   const minCheck = checkWholeDegrees(minAltText, MIN_ALTITUDE_RANGE.min, MIN_ALTITUDE_RANGE.max, '');
   const minAltitude = minCheck.ok ? minCheck.value : minAltAnchor;
+  minAltRef.current = minAltitude;
   const minAltError = minCheck.ok ? null : `${minCheck.error} Planning with ${minAltitude} until fixed.`;
 
   const planResult = useMemo(() => {
@@ -411,10 +424,12 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             text={minAltText}
             sliderValue={minAltitude}
             onText={(t) => {
-              if (t.trim() === '') setMinAltAnchor(minAltitude); // emptying the box starts a new run of typing
               setMinAltText(t);
+              if (minAltTimer.current) clearTimeout(minAltTimer.current);
+              minAltTimer.current = setTimeout(endMinAltRun, MIN_ALT_PAUSE_MS);
             }}
-            onFocus={() => setMinAltAnchor(minAltitude)}
+            onFocus={endMinAltRun}
+            onEnter={endMinAltRun}
             error={minAltError}
             lines={2}
           />

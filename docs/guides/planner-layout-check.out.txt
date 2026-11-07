@@ -37,7 +37,6 @@ PASS 1280px: reload shows the saved arc
 PASS 1280px: Minimum altitude is 20 with no message after Use sample horizon
 PASS 1280px: first click on Save horizon under the toast saves  [toast still up when clicked: True; stored {'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
 PASS 1280px: the toast clears itself
-PASS 1280px: Edit horizon puts the heading below the site header  [header bottom 161.9375, heading top 198]
 PASS 1280px: no page errors
 PASS 390px: the four message lines exist before any error
 PASS 390px: Save, Discard, Use sample horizon and Clear horizon are at least 44 px tall  [{'Save horizon': 44, 'Discard changes': 44, 'Use sample horizon': 44, 'Clear horizon': 44}]
@@ -78,13 +77,24 @@ PASS 390px: reload shows the saved arc
 PASS 390px: Minimum altitude is 20 with no message after Use sample horizon
 PASS 390px: first click on Save horizon under the toast saves  [toast still up when clicked: True; stored {'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
 PASS 390px: the toast clears itself
-PASS 390px: Edit horizon puts the heading below the site header  [header bottom 85.34375, heading top 190.234375]
 PASS 390px: no page errors
 PASS 1280px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 1280px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
+PASS 1280px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 PASS 1024px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 1024px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
+PASS 1024px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 PASS 768px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 768px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
+PASS 768px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 PASS 640px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 640px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
+PASS 640px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 229, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 PASS 390px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 390px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 285, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
+PASS 390px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 285, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 PASS 360px: no message line is clipped (scrollHeight <= clientHeight)
+PASS 360px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 285, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
+PASS 360px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 285, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 
-88 of 88 checks passed
+98 of 98 checks passed
