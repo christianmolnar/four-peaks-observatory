@@ -42,6 +42,7 @@ import {
   SUB_STEPS_S,
   UNDERSAMPLED_ABOVE_ARCSEC,
   UNKNOWN_KIND_BANDWIDTH_NM,
+  VISUAL_OR_IMAGING_NAME,
 } from './constants';
 import type { ExposureMode } from './constants';
 
@@ -78,6 +79,7 @@ export type WarningCode =
   | 'filter-rated-slower'
   | 'filter-uvir-missing'
   | 'filter-visual-colour'
+  | 'filter-kind-unknown'
   | 'inputs-assumed'
   | 'sampling'
   | 'moon-near'
@@ -112,11 +114,12 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
   const shiftText = `At f/${fr(fRatio)} the beam edge shifts a passband about ${nm(edgeShiftNm(fRatio, HA_NM))} nm at Ha and ${nm(edgeShiftNm(fRatio, OIII_NM))} nm at OIII (estimate).`;
   if (filter) {
     const name = filter.name;
-    // A published angle limit can be conservative: say so when the calculated shift is smaller than the narrowest band.
+    // A published angle limit can be conservative: say so when the calculated shift is smaller than half the
+    // narrowest band (the line moves from the band's centre toward its edge, so half the band is the room it has).
     const haShift = edgeShiftNm(fRatio, HA_NM);
     const bandsNote =
-      filter.narrowestBandNm !== undefined && haShift < filter.narrowestBandNm
-        ? ` Its narrowest band is ${filter.narrowestBandNm} nm, wider than the ${nm(haShift)} nm shift at Ha (calculated), so the bands still cover the line; the limit is the maker's, worth testing before ruling it out.`
+      filter.narrowestBandNm !== undefined && haShift < filter.narrowestBandNm * SHIFT_BAND_FRACTION
+        ? ` Its narrowest band is ${filter.narrowestBandNm} nm, so half of it (${nm(filter.narrowestBandNm * SHIFT_BAND_FRACTION)} nm) is wider than the ${nm(haShift)} nm shift at Ha (calculated): the bands still cover the line. The limit is the maker's, worth testing before ruling it out.`
         : '';
     if (filter.ratedMinFRatio !== undefined && fRatio < filter.ratedMinFRatio) {
       out.push({
@@ -149,6 +152,13 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
           filter.blocksUvIr === false
             ? `This camera has no UV/IR cut and ${name} does not block UV/IR: expect bloated stars and colour casts. Stack a UV/IR cut filter.`
             : `This camera has no UV/IR cut and it is not known that ${name} blocks UV/IR: expect bloated stars and colour casts unless it does. Add a UV/IR cut filter.`,
+      });
+    }
+    if (filter.kind === undefined && camera.colour === true && VISUAL_OR_IMAGING_NAME.test(name)) {
+      out.push({
+        code: 'filter-kind-unknown',
+        severity: 'note',
+        text: `${name}: its kind is not set. Orion sells a visual and an imaging version under this name. If yours is the visual one, expect a colour cast on a colour camera and do not use it for imaging; check the box (research note, not verified for your unit).`,
       });
     }
     if (filter.kind === 'visual-only' && camera.colour === true) {
@@ -301,6 +311,8 @@ export interface MarginalRow {
   relativeSnrRange: readonly [number, number];
   /** Gain over the previous row in percent; null for the first row. */
   gainPercent: number | null;
+  /** Range for gainPercent: the gain between the two rows' lossy values, and the ideal gain; null for the first row. */
+  gainPercentRange: readonly [number, number] | null;
   /** The usable time tonight covers this row. */
   availableTonight: boolean;
   label: typeof ESTIMATE;
@@ -312,11 +324,13 @@ export function marginalBenefit(usableMinutes: number): MarginalRow[] {
   return MARGINAL_MINUTES.map((minutes, i) => {
     const rel = Math.sqrt(minutes / base);
     const prev = i === 0 ? null : Math.sqrt(MARGINAL_MINUTES[i - 1] / base);
+    const lossy = (r: number) => 1 + (r - 1) * (1 - SNR_GAIN_LOSS_MAX);
     return {
       minutes,
       relativeSnr: rel,
       relativeSnrRange: [1 + (rel - 1) * (1 - SNR_GAIN_LOSS_MAX), rel],
       gainPercent: prev === null ? null : (rel / prev - 1) * 100,
+      gainPercentRange: prev === null ? null : [(lossy(rel) / lossy(prev) - 1) * 100, (rel / prev - 1) * 100],
       availableTonight: minutes <= usableMinutes,
       label: ESTIMATE,
     };
@@ -504,7 +518,8 @@ export function planExposure(input: ExposureInput): ExposureReport {
         });
       }
     }
-    const subRange: Range = [Math.max(1, Math.round(subSeconds / rangeFactor)), Math.round(subSeconds * rangeFactor)];
+    // The range stays inside the module's own limits: no sub shorter than MIN_SUB_S or longer than MAX_SUB_S.
+    const subRange: Range = [Math.max(MIN_SUB_S, Math.round(subSeconds / rangeFactor)), Math.min(MAX_SUB_S, Math.round(subSeconds * rangeFactor))];
     const integrationMin = round1((count * subSeconds) / 60);
     const inSessionOverhead = overhead.ditherMin + overhead.autofocusMin + overhead.meridianFlipMin;
     const elapsedMin = round1(integrationMin + overhead.totalMin);

@@ -108,11 +108,32 @@ describe('filter warnings', () => {
     expect(codes(w)).toEqual(['filter-rated-slower']);
     expect(w[0].text).toMatch(/up to 8 degrees \(published\)/);
     // The bands exceed the shift, and the text says so with the calculated figure.
-    expect(w[0].text).toMatch(/narrowest band is 15 nm, wider than the 5\.2 nm shift at Ha \(calculated\), so the bands still cover the line/);
+    expect(w[0].text).toMatch(/narrowest band is 15 nm, so half of it \(7\.5 nm\) is wider than the 5\.2 nm shift at Ha \(calculated\): the bands still cover the line/);
     expect(w[0].text).toMatch(/At f\/1\.93 the beam edge/);
     // Its 15 nm band would pass the calculated rule at this speed (5.3 < 7.5): the published limit decides.
     expect(edgeShiftNm(N, 656.3)).toBeLessThan(15 * 0.5);
     expect(filterWarnings(3.7, filter('zwo-duo-band'), duo)).toEqual([]); // 3.7 -> 7.7 degrees, inside 8
+  });
+  it('the bands note compares the shift with half the narrowest band, not the whole band', () => {
+    // 6 nm band at f/1.93: shift 5.2 nm is under the whole band (6) but over half of it (3). The note must not appear.
+    const narrow: ProfileFilter = { id: 'n', name: 'Narrow angle-rated', narrowestBandNm: 6, maxIncidentAngleDeg: 8 };
+    const w = filterWarnings(N, narrow, duo);
+    expect(codes(w)).toEqual(['filter-rated-slower']);
+    expect(w[0].text).toMatch(/up to 8 degrees \(published\)/);
+    expect(w[0].text).not.toMatch(/bands still cover the line/);
+    // 12 nm band: half is 6, over the 5.2 nm shift, so the note appears with the half-band figure.
+    const wide: ProfileFilter = { id: 'w', name: 'Wide angle-rated', narrowestBandNm: 12, maxIncidentAngleDeg: 8 };
+    expect(filterWarnings(N, wide, duo)[0].text).toMatch(/half of it \(6\.0 nm\) is wider than the 5\.2 nm shift/);
+  });
+  it('Orion Sky Glow, kind not set, gets a conditional note on a colour camera only', () => {
+    const w = filterWarnings(7, filter('orion-sky-glow'), duo);
+    expect(codes(w)).toEqual(['filter-kind-unknown']);
+    expect(w[0].severity).toBe('note');
+    expect(w[0].text).toMatch(/visual and an imaging version/);
+    expect(filterWarnings(7, filter('orion-sky-glow'), { colour: false, hasUvIrCut: true })).toEqual([]);
+    // a filter with a kind, or another unnamed one (ICE), gets no such note
+    expect(codes(filterWarnings(7, filter('apertura-moon-skyglow'), duo))).toEqual(['filter-visual-colour']);
+    expect(codes(filterWarnings(7, { id: 'i', name: 'ICE 2 inch' }, duo))).toEqual([]);
   });
   it('a published f-ratio rating decides: slower than the train warns, equal does not', () => {
     const f: ProfileFilter = { id: 'x', name: 'Rated 3', ratedMinFRatio: 3, narrowestBandNm: 100 };
@@ -156,7 +177,7 @@ describe('filter warnings', () => {
     }
     expect(codes(filterWarnings(10, filter('apertura-moon-skyglow'), { colour: false }))).toEqual([]);
     expect(codes(filterWarnings(10, filter('apertura-moon-skyglow'), {}))).toEqual([]);
-    expect(codes(filterWarnings(10, filter('orion-sky-glow'), duo))).toEqual([]); // kind unknown
+    expect(filterWarnings(10, filter('orion-sky-glow'), duo).filter((w) => w.severity === 'warning')).toEqual([]); // kind unknown: a note, never a warning
   });
 
   it('can raise several at once, each with its own code', () => {
@@ -545,5 +566,39 @@ describe('input checks fail loudly', () => {
     expect(() => planExposure(base({ usableMinutes: NaN }))).toThrow(RangeError);
     expect(() => planExposure(base({ sky: { bortle: 5, moonIllumination: 1.5, moonSeparationDeg: 90, moonUp: true } }))).toThrow(RangeError);
     expect(() => planExposure(base({ sky: { bortle: 5, moonIllumination: -0.1, moonSeparationDeg: 90, moonUp: true } }))).toThrow(RangeError);
+  });
+});
+
+describe('sub-length range stays inside the module limits', () => {
+  const hot = (over: Partial<ExposureInput> = {}) =>
+    plan({ sky: { bortle: 9, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false }, filter: null, camera: { ...duo, readNoiseClass: 'low' }, train: { focalRatio: 1.93, imageScale: 1.4 }, ...over });
+  it('a 10 s sub shows a range from 10 s, not below MIN_SUB_S', () => {
+    const r = hot();
+    for (const m of MODE_ORDER.map((k) => r.modes[k])) {
+      if (m.subSeconds === 10) expect(m.subSecondsRange[0]).toBe(10);
+      expect(m.subSecondsRange[0]).toBeGreaterThanOrEqual(10);
+    }
+    expect(r.modes.quick.subSeconds).toBe(10);
+    expect(r.modes.quick.subSecondsRange).toEqual([10, 15]);
+  });
+  it('a 300 s sub shows a range up to 300 s, not beyond MAX_SUB_S', () => {
+    const r = plan({ filter: filter('optolong-lextreme'), train: { focalRatio: 10, imageScale: 0.28 }, sky: { bortle: 1, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false } });
+    expect(r.modes.deep.subSeconds).toBe(300);
+    expect(r.modes.deep.subSecondsRange).toEqual([200, 300]);
+    expect(r.modes.deep.subSecondsRange[1]).toBeLessThanOrEqual(300);
+  });
+});
+
+describe('gain between marginal rows has its own range', () => {
+  it('each row after the first gives the gain between lossy values and the ideal gain', () => {
+    const rows = marginalBenefit(400);
+    expect(rows[0].gainPercentRange).toBeNull();
+    // python3: lossy(r)=1+(r-1)*0.7; (lossy(sqrt2)/1-1)*100 = 28.99, (sqrt2-1)*100 = 41.42
+    expect(rows[1].gainPercentRange![0]).toBeCloseTo(28.99, 1);
+    expect(rows[1].gainPercentRange![1]).toBeCloseTo(41.42, 1);
+    for (const r of rows.slice(1)) {
+      expect(r.gainPercentRange![1]).toBeCloseTo(r.gainPercent!, 9);
+      expect(r.gainPercentRange![0]).toBeLessThan(r.gainPercentRange![1]);
+    }
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { nextMeridianTransit } from '@/planner/astro';
 import type { Site } from '@/planner/astro';
 import {
@@ -58,6 +58,51 @@ function WarningList({ warnings }: { warnings: ExposureWarning[] }) {
   );
 }
 
+/** How many list items reach below the bottom edge of the box (fully or in part), so the reader is told to scroll. */
+export function countHiddenBelow(boxBottom: number, itemBottoms: readonly number[]): number {
+  return itemBottoms.filter((b) => b > boxBottom + 1).length;
+}
+
+/**
+ * The warnings box: a fixed height with its own scrollbar, plus one reserved line under it that says
+ * "N more below, scroll" when something is cut off (a phone's thin overlay scrollbar is easy to miss).
+ * The line is always there, so the cue appearing moves nothing.
+ */
+function WarningsBox({ warnings }: { warnings: ExposureWarning[] }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [below, setBelow] = useState(0);
+  const measure = useCallback(() => {
+    const el = box.current;
+    if (!el) return;
+    const bottom = el.getBoundingClientRect().bottom;
+    setBelow(countHiddenBelow(bottom, [...el.querySelectorAll('li')].map((li) => li.getBoundingClientRect().bottom)));
+  }, []);
+  useLayoutEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, warnings]);
+  return (
+    <>
+      <div
+        ref={box}
+        onScroll={measure}
+        className="h-[26rem] md:h-[16.5rem] overflow-y-scroll pr-2 [scrollbar-color:rgba(255,255,255,0.5)_rgba(255,255,255,0.1)]"
+        role="region"
+        aria-labelledby="exposure-warnings-heading"
+        tabIndex={0}
+        aria-live="polite"
+        data-testid="exposure-warnings"
+      >
+        <WarningList warnings={warnings} />
+      </div>
+      <p className="mt-1 h-5 text-xs text-sky-200" data-testid="exposure-warnings-cue">
+        {below > 0 ? `${below} more below, scroll` : ''}
+      </p>
+    </>
+  );
+}
+
 /** `room` reserves the height of the longest the row can wrap to, so a different number never changes the card's height. */
 function Row({ label, room, children }: { label: string; room: string; children: React.ReactNode }) {
   return (
@@ -107,7 +152,8 @@ function ModeCard({ m, checked, onSelect, formatTime }: { m: ModeEstimate; check
 /**
  * The Exposure panel for the selected target: three mode cards, the marginal-benefit rows, and the warnings.
  * Every number is an estimate and says so. The panel's size does not depend on the chosen mode, filter or
- * sky: the cards always hold the same rows and the warnings area keeps a fixed minimum height.
+ * sky: the cards always hold the same rows, each row reserves the height of its longest wrap, and the warnings
+ * box has a fixed height (it scrolls, and says so when it does).
  */
 export default function ExposurePanel({ entry, target, optics, camera, filter, site, formatTime }: ExposurePanelProps) {
   const [mode, setMode] = useState<ExposureMode>('balanced');
@@ -191,7 +237,8 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
 
       <fieldset className="mt-2">
         <legend className="text-white/90 font-normal text-sm mb-2">Mode</legend>
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* One column below 1024 px: three cards side by side are narrow enough at 768 px for a row to wrap past its reserved height. */}
+        <div className="grid gap-4 lg:grid-cols-3">
           {MODE_ORDER.map((m) => (
             <ModeCard key={m} m={report.modes[m]} checked={mode === m} onSelect={() => setMode(m)} formatTime={formatTime} />
           ))}
@@ -200,17 +247,8 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
 
       {/* Fixed text: a heading that named the mode would wrap to two lines for the longer names and push everything below it. */}
       <h3 id="exposure-warnings-heading" className="text-white font-normal text-base mt-6 mb-2">Warnings and notes for the chosen mode</h3>
-      {/* A fixed height with its own always-visible scrollbar: whatever the mode, filter or target says, nothing below this box moves. */}
-      <div
-        className="h-[26rem] md:h-[16.5rem] overflow-y-scroll pr-2 [scrollbar-color:rgba(255,255,255,0.5)_rgba(255,255,255,0.1)]"
-        role="region"
-        aria-labelledby="exposure-warnings-heading"
-        tabIndex={0}
-        aria-live="polite"
-        data-testid="exposure-warnings"
-      >
-        <WarningList warnings={warnings} />
-      </div>
+      {/* Whatever the mode, filter or target says, nothing below this box moves; see WarningsBox. */}
+      <WarningsBox warnings={warnings} />
 
       <h3 className="text-white font-normal text-base mt-6 mb-2">What more time buys (estimate)</h3>
       <table className="w-full table-fixed text-left text-xs md:text-sm font-normal text-white/90" data-testid="marginal-table">
@@ -219,7 +257,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
           <tr className="border-b border-white/20 align-bottom">
             <th scope="col" className="w-[4.25rem] py-2 pr-2">Light</th>
             <th scope="col" className="py-2 pr-2">Signal-to-noise vs 30 min, estimate (range)</th>
-            <th scope="col" className="w-[4.5rem] md:w-auto py-2 pr-2">Gain on the step before</th>
+            <th scope="col" className="w-[6.5rem] md:w-auto py-2 pr-2">Gain on the step before, estimate (range)</th>
             <th scope="col" className="py-2">Tonight</th>
           </tr>
         </thead>
@@ -231,7 +269,16 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
                 x{r.relativeSnr.toFixed(2)}
                 <span className="block text-white/70">range x{r.relativeSnrRange[0].toFixed(2)} to x{r.relativeSnrRange[1].toFixed(2)}</span>
               </td>
-              <td className="py-2 pr-2 tabular-nums">{r.gainPercent === null ? 'baseline' : `+${r.gainPercent.toFixed(0)}%`}</td>
+              <td className="py-2 pr-2 tabular-nums">
+                {r.gainPercent === null || r.gainPercentRange === null ? (
+                  'baseline'
+                ) : (
+                  <>
+                    +{r.gainPercent.toFixed(0)}%
+                    <span className="block text-white/70">range +{r.gainPercentRange[0].toFixed(0)}% to +{r.gainPercentRange[1].toFixed(0)}%</span>
+                  </>
+                )}
+              </td>
               <td className="py-2">{r.availableTonight ? 'enough usable time' : `only ${Math.round(entry.usableMinutes)} usable min`}</td>
             </tr>
           ))}

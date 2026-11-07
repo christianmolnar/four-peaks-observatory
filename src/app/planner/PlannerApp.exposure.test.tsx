@@ -5,6 +5,7 @@ import { render, screen, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { countHiddenBelow } from './ExposurePanel';
 
 // The Exposure panel and the filter selector, driven with real events on the whole page.
 
@@ -232,5 +233,46 @@ describe('Exposure panel for a planet', () => {
     const planetButton = within(screen.getByTestId('target-table')).getAllByRole('button')[0];
     await user.click(planetButton);
     expect(panel().textContent).toMatch(/for deep-sky targets/);
+  });
+});
+
+describe('Gain column and the overflow cue', () => {
+  it('the Gain column says estimate in its heading and gives a range in each row', () => {
+    app();
+    const table = screen.getByTestId('marginal-table');
+    expect(within(table).getByRole('columnheader', { name: /Gain on the step before, estimate \(range\)/ })).toBeTruthy();
+    const rows = within(table).getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
+    expect(rows[0]).toMatch(/baseline/);
+    expect(rows[1]).toMatch(/\+41%range \+29% to \+41%/);
+    expect(rows[2]).toMatch(/\+22%range \+17% to \+22%/);
+    expect(rows[3]).toMatch(/\+15%range \+12% to \+15%/);
+  });
+
+  it('the cue under the warnings box is empty when everything fits and names the hidden count when it does not', async () => {
+    const user = userEvent.setup();
+    const rect = (bottom: number) => ({ x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom, toJSON: () => ({}) }) as DOMRect;
+    const spy = jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.getAttribute('data-testid') === 'exposure-warnings') return rect(100);
+      if (this.tagName === 'LI') return rect(250); // every warning ends below the box
+      return rect(0);
+    });
+    try {
+      app();
+      await user.selectOptions(filterSelect(), 'optolong-lextreme'); // warns at f/1.93
+      const items = screen.getByTestId('exposure-warnings').querySelectorAll('li').length;
+      expect(items).toBeGreaterThan(0);
+      expect(screen.getByTestId('exposure-warnings-cue').textContent).toBe(`${items} more below, scroll`);
+    } finally {
+      spy.mockRestore();
+    }
+    cleanup();
+    app();
+    expect(screen.getByTestId('exposure-warnings-cue').textContent).toBe('');
+  });
+
+  it('counts only the items that reach below the box edge', () => {
+    expect(countHiddenBelow(100, [40, 99, 101, 103])).toBe(1);
+    expect(countHiddenBelow(100, [])).toBe(0);
+    expect(countHiddenBelow(100, [101])).toBe(0); // within 1 px: not hidden
   });
 });

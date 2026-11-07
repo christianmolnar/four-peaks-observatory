@@ -57,7 +57,10 @@ export const READ_NOISE_E: Readonly<Record<'low' | 'medium' | 'high', number>> =
 export const DEFAULT_READ_NOISE_CLASS = 'medium' as const;
 /** ASSUMPTION: passband (nm) when neither the filter nor its kind says; 400 to 700 nm, no filter. */
 export const NO_FILTER_BANDWIDTH_NM = 300;
-/** ASSUMPTION: typical total passband width per filter kind, used only when the filter has no width. */
+/**
+ * ASSUMPTION: typical total passband width per filter kind, used only when the filter has no width
+ * (UNKNOWN_KIND_BANDWIDTH_NM is the same, for a filter whose kind is not set either).
+ */
 export const KIND_BANDWIDTH_NM: Readonly<Record<FilterKind, number>> = {
   'broadband-LP': 150,
   'dual-band': 50,
@@ -67,6 +70,12 @@ export const KIND_BANDWIDTH_NM: Readonly<Record<FilterKind, number>> = {
   'visual-only': 150,
 };
 export const UNKNOWN_KIND_BANDWIDTH_NM = 150;
+/**
+ * Names that are sold in a visual and an imaging version, so a filter with this name and no kind may be the
+ * visual one. Source: ~/Token/research/astro-filters-owned.md section 3 (Orion Sky Glow: SKU 5561 imaging 2" and a
+ * visual 2" Sky Glow Broadband). A note, not a warning: it depends on which one the owner has.
+ */
+export const VISUAL_OR_IMAGING_NAME = /sky ?glow/i;
 /**
  * ASSUMPTION: moonlight adds to the sky as 1 + gain * illuminated fraction * closeness, where
  * closeness falls linearly from 1 at 0 degrees to 0 at MOON_FALLOFF_DEG. Only while the Moon is up.
