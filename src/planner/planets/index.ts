@@ -156,14 +156,11 @@ export function moonPhaseName(phaseLongitudeDeg: number): (typeof MOON_PHASE_NAM
   return MOON_PHASE_NAMES[Math.floor(((l + 22.5) % 360) / 45)];
 }
 
-export interface PlanetCardInput {
+export interface PlanetSkyInput {
   body: CardBody;
   site: Site;
   /** A normal astronomical night. */
   night: AstronomicalNight;
-  /** Saved horizon points, or null when none is set. */
-  horizon: readonly HorizonPoint[] | null;
-  minAltitude: number;
   /** The telescope's aperture; without it no clip, dispersion or sampling number is given. */
   apertureMm?: number;
   /** Arcsec per pixel of the train in use; without it no size in pixels is given. */
@@ -172,51 +169,113 @@ export interface PlanetCardInput {
   fieldArcmin?: number;
 }
 
-export interface PlanetCard {
-  body: CardBody;
-  /** At the middle of the night. */
+export interface PlanetCardInput extends PlanetSkyInput {
+  /** Saved horizon points, or null when none is set. */
+  horizon: readonly HorizonPoint[] | null;
+  minAltitude: number;
+}
+
+/**
+ * What about a planet tonight does not depend on the horizon or the minimum altitude: its size, phase, events, culmination,
+ * and a cache of its position at every instant asked for. Computing this is the slow part; `clipPlanet` is cheap and is
+ * what runs again when the minimum altitude or the horizon changes.
+ */
+export interface PlanetSky {
+  input: PlanetSkyInput;
+  /** Position at an instant, remembered: the same instant is computed once. */
+  altAzAt: (d: Date) => AltAz;
   at: Date;
   apparentDiameterArcsec: number;
   illuminatedFraction: number;
   phaseAngleDeg: number;
-  /** Moon only. */
   moonPhase: { name: string; longitudeDeg: number } | null;
   elongationDeg: number;
-  /** Mercury and Venus: the sky the elongation is in. The Moon too (waxing = evening). */
   elongationSide: 'evening' | 'morning' | null;
-  /** Opposition (Mars to Neptune), greatest elongation (Mercury, Venus) or full Moon, nearest to `at`. */
   event: NearestEvent;
-  /** Days from `at` to the event, negative when it is past. */
   eventDays: number;
-  /** Saturn only; null for every other body (the library gives it for Saturn alone). */
   ringTiltDeg: number | null;
+  culmination: { time: Date; altitude: number; azimuth: number; insideNight: boolean };
+  dispersionAltitudeDeg: number | null;
+  rotation: RotationClip | null;
+  diameterPx: number | null;
+  mosaicPanelsPerSide: number | null;
+}
+
+export interface PlanetCard extends Omit<PlanetSky, 'input' | 'altAzAt'> {
+  body: CardBody;
   windows: TimeWindow[];
   usableMinutes: number;
   /** Usable minutes above both the limit and the dispersion altitude; null when the aperture is unknown. */
   goodMinutes: number | null;
-  /** The altitude above which dispersion stays within one resolution element; null without the aperture. */
-  dispersionAltitudeDeg: number | null;
   peak: { altitude: number; azimuth: number; time: Date; usable: boolean };
-  /** The meridian crossing nearest the middle of the night. */
-  culmination: { time: Date; altitude: number; azimuth: number; insideNight: boolean };
   dispersionAtPeakArcsec: number | null;
   /** Samples every 10 minutes from two hours before the night to exactly two hours after it, with the limit at each azimuth. */
   track: TrackPoint[];
-  rotation: RotationClip | null;
-  /** Apparent diameter on the sensor in pixels; null without a scale. */
-  diameterPx: number | null;
-  /** Moon only, with a field: panels per side of a mosaic that covers the disc with overlap. */
-  mosaicPanelsPerSide: number | null;
 }
 
-export function planetCard(input: PlanetCardInput): PlanetCard {
-  const { body, site, night, minAltitude } = input;
+export function planetSky(input: PlanetSkyInput): PlanetSky {
+  const { body, site, night } = input;
   if (night.kind !== 'normal' || !night.start || !night.end) throw new RangeError('planetCard needs a normal astronomical night');
-  const horizon = input.horizon && input.horizon.length > 0 ? input.horizon : null;
   const start = night.start;
   const end = night.end;
   const at = new Date((start.getTime() + end.getTime()) / 2);
-  const altAzAt = (d: Date): AltAz => bodyAltAz(body, d, site);
+  const cache = new Map<number, AltAz>();
+  const altAzAt = (d: Date): AltAz => {
+    const key = d.getTime();
+    let p = cache.get(key);
+    if (!p) {
+      p = bodyAltAz(body, d, site);
+      cache.set(key, p);
+    }
+    return p;
+  };
+
+  const crossing = nextBodyTransit(body, new Date(at.getTime() - 12 * HOUR_MS), site);
+  const crossingPos = altAzAt(crossing);
+  const diameter = apparentDiameterArcsec(body, at, site);
+  const disk = diskState(body, at, site);
+  const elong = elongationDeg(body, at);
+  const event = nearestEvent(body, at);
+
+  let dispersionAltitude: number | null = null;
+  let rotation: RotationClip | null = null;
+  if (input.apertureMm !== undefined) {
+    dispersionAltitude = dispersionAltitudeDeg(input.apertureMm);
+    rotation = rotationClip(body, diameter, input.apertureMm);
+  }
+  const scale = input.imageScaleArcsecPx;
+  const mosaic =
+    body === 'Moon' && input.fieldArcmin !== undefined
+      ? Math.max(1, Math.ceil((diameter / 60 - input.fieldArcmin * MOSAIC_OVERLAP) / (input.fieldArcmin * (1 - MOSAIC_OVERLAP))))
+      : null;
+
+  return {
+    input,
+    altAzAt,
+    at,
+    apparentDiameterArcsec: diameter,
+    illuminatedFraction: disk.illuminatedFraction,
+    phaseAngleDeg: disk.phaseAngleDeg,
+    moonPhase: body === 'Moon' ? { name: moonPhaseName(moonPhaseLongitudeDeg(at)), longitudeDeg: moonPhaseLongitudeDeg(at) } : null,
+    elongationDeg: elong.degrees,
+    elongationSide: elong.side,
+    event,
+    eventDays: (event.time.getTime() - at.getTime()) / 86400000,
+    ringTiltDeg: body === 'Saturn' && disk.ringTiltDeg !== undefined ? disk.ringTiltDeg : null,
+    culmination: { time: crossing, altitude: crossingPos.altitude, azimuth: crossingPos.azimuth, insideNight: crossing >= start && crossing <= end },
+    dispersionAltitudeDeg: dispersionAltitude,
+    rotation,
+    diameterPx: scale !== undefined ? diameter / scale : null,
+    mosaicPanelsPerSide: mosaic,
+  };
+}
+
+/** Clips a planet's night against the horizon and the minimum altitude. Cheap once `planetSky` has run (positions are remembered). */
+export function clipPlanet(sky: PlanetSky, horizonPoints: readonly HorizonPoint[] | null, minAltitude: number): PlanetCard {
+  const { input, altAzAt } = sky;
+  const start = input.night.start as Date;
+  const end = input.night.end as Date;
+  const horizon = horizonPoints && horizonPoints.length > 0 ? horizonPoints : null;
 
   const { windows } = usableWindowsOnTrack({ altAzAt, horizon, minAltitude, start, end, stepMinutes: 5 });
   const minutesOf = (ws: TimeWindow[]): number => ws.reduce((s, w) => s + w.end.getTime() - w.start.getTime(), 0) / 60000;
@@ -234,64 +293,38 @@ export function planetCard(input: PlanetCardInput): PlanetCard {
   const pool = usableSamples.length > 0 ? usableSamples : inNight;
   const top = pool.reduce((b, p) => (p.altitude > b.altitude ? p : b), pool[0]);
 
-  const crossing = nextBodyTransit(body, new Date(at.getTime() - 12 * HOUR_MS), site);
-  const crossingPos = altAzAt(crossing);
-
-  const diameter = apparentDiameterArcsec(body, at, site);
-  const disk = diskState(body, at, site);
-  const elong = elongationDeg(body, at);
-  const event = nearestEvent(body, at);
-
-  let dispersionAltitude: number | null = null;
-  let goodMinutes: number | null = null;
-  let rotation: RotationClip | null = null;
-  if (input.apertureMm !== undefined) {
-    dispersionAltitude = dispersionAltitudeDeg(input.apertureMm);
-    goodMinutes = minutesOf(
-      usableWindowsOnTrack({ altAzAt, horizon, minAltitude: Math.max(minAltitude, dispersionAltitude), start, end, stepMinutes: 5 }).windows,
-    );
-    rotation = rotationClip(body, diameter, input.apertureMm);
-  }
-  const scale = input.imageScaleArcsecPx;
-  const mosaic =
-    body === 'Moon' && input.fieldArcmin !== undefined
-      ? Math.max(1, Math.ceil((diameter / 60 - input.fieldArcmin * MOSAIC_OVERLAP) / (input.fieldArcmin * (1 - MOSAIC_OVERLAP))))
+  const goodMinutes =
+    sky.dispersionAltitudeDeg !== null
+      ? minutesOf(usableWindowsOnTrack({ altAzAt, horizon, minAltitude: Math.max(minAltitude, sky.dispersionAltitudeDeg), start, end, stepMinutes: 5 }).windows)
       : null;
 
+  const { input: _input, altAzAt: _altAzAt, ...shared } = sky;
+  void _input;
+  void _altAzAt;
   return {
-    body,
-    at,
-    apparentDiameterArcsec: diameter,
-    illuminatedFraction: disk.illuminatedFraction,
-    phaseAngleDeg: disk.phaseAngleDeg,
-    moonPhase: body === 'Moon' ? { name: moonPhaseName(moonPhaseLongitudeDeg(at)), longitudeDeg: moonPhaseLongitudeDeg(at) } : null,
-    elongationDeg: elong.degrees,
-    elongationSide: elong.side,
-    event,
-    eventDays: (event.time.getTime() - at.getTime()) / 86400000,
-    ringTiltDeg: body === 'Saturn' && disk.ringTiltDeg !== undefined ? disk.ringTiltDeg : null,
+    ...shared,
+    body: input.body,
     windows,
     usableMinutes: minutesOf(windows),
     goodMinutes,
-    dispersionAltitudeDeg: dispersionAltitude,
     peak: { altitude: top.altitude, azimuth: top.azimuth, time: top.time, usable: usableSamples.length > 0 },
-    culmination: {
-      time: crossing,
-      altitude: crossingPos.altitude,
-      azimuth: crossingPos.azimuth,
-      insideNight: crossing >= start && crossing <= end,
-    },
     dispersionAtPeakArcsec: top.altitude > 0 ? dispersionArcsec(top.altitude) : null,
     track,
-    rotation,
-    diameterPx: scale !== undefined ? diameter / scale : null,
-    mosaicPanelsPerSide: mosaic,
   };
+}
+
+export function planetCard(input: PlanetCardInput): PlanetCard {
+  return clipPlanet(planetSky(input), input.horizon, input.minAltitude);
+}
+
+/** The slow part for all eight bodies, in spec order. */
+export function planetSkies(input: Omit<PlanetSkyInput, 'body'>): PlanetSky[] {
+  return CARD_BODIES.map((body) => planetSky({ ...input, body }));
 }
 
 /** All eight cards for one night, in spec order. */
 export function planetCards(input: Omit<PlanetCardInput, 'body'>): PlanetCard[] {
-  return CARD_BODIES.map((body) => planetCard({ ...input, body }));
+  return planetSkies(input).map((sky) => clipPlanet(sky, input.horizon, input.minAltitude));
 }
 
 export { MOON_CLIP_S };

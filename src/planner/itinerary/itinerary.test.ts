@@ -18,6 +18,7 @@ import {
   parseItinerary,
   serializeItinerary,
   validateItinerary,
+  worstCaseWarningTexts,
 } from './index';
 import type { ItineraryItem } from './index';
 import { slotInputFor } from './resolve';
@@ -237,13 +238,37 @@ describe('the schedule', () => {
     expect(plan.slots[0].warnings[0].text).toMatch(/no optics numbers/);
   });
 
-  it('why this order: sorted by opening, or your own order named as such', () => {
+  it('why this order: one short sentence, sorted by opening or your own order named as such', () => {
     const sorted = build([item('m31'), item('m81')]);
-    expect(sorted.why).toMatch(/^Ordered by when each target clears the horizon \(Andromeda Galaxy 01:49, Bode's Galaxy 03:22\)\. 0 filter changes, 0 train changes, 3 min of changeover/);
+    expect(sorted.why).toBe('Ordered by when each target clears the horizon.');
     const unsorted = build([item('m81'), item('m31')]);
-    expect(unsorted.why).toMatch(/^Your order, not the order the targets clear the horizon: Andromeda Galaxy opens 01:49, before Bode's Galaxy at 03:22\./);
+    expect(unsorted.why).toBe("Your order: Andromeda Galaxy opens at 01:49, before Bode's Galaxy at 03:22.");
     expect(build([]).why).toBe('Add targets to build a schedule.');
-    expect(build([item('m31')]).why).toMatch(/^One slot to place\./);
+    expect(build([item('m31')]).why).toBe('One slot to place.');
+    for (const p of [sorted, unsorted]) expect(p.why.length).toBeLessThan(120);
+  });
+
+  it('the totals count the changes and the waiting the sentence leaves out', () => {
+    const plan = build([item('m31'), item('ic405', { filterId: 'zwo-duo-band', trainId: NATIVE_2600 })]);
+    expect(plan.totals.filterChanges).toBe(1);
+    expect(plan.totals.trainChanges).toBe(1);
+    expect(plan.totals.changeoverMin).toBe(23);
+    expect(plan.totals.waitMin).toBe(0);
+    expect(plan.totals.ends).toEqual(plan.slots[1].end);
+  });
+
+  it('no real warning is longer than the worst case the page reserves room for', () => {
+    const ids = ['m31', 'm42', 'ngc2359', 'm81', 'planet-saturn', 'm13', 'ic405'];
+    for (const order of [ids, [...ids].reverse(), [ids[1], ids[0], ids[4], ids[2]]]) {
+      const plan = build(order.map((id) => item(id)), { minAltitude: 30 });
+      for (const s of plan.slots) {
+        const worst = worstCaseWarningTexts(s.name);
+        for (const w of s.warnings.filter((x) => ['overlap', 'cut-short', 'flip'].includes(x.code))) {
+          const ruler = worst.find((x) => (w.code === 'cut-short' ? x.label === 'Cut short' : w.code === 'flip' ? x.label === 'Meridian flip' : x.label === 'Overlaps window'))!;
+          expect(w.text.length).toBeLessThanOrEqual(ruler.text.length);
+        }
+      }
+    }
   });
 
   it('invariants over many orders: slots never overlap, stay inside their window and the night, and gaps cover the changeover', () => {

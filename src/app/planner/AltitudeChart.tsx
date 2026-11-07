@@ -8,16 +8,21 @@ const W = 680;
 const H = 280;
 const M = { left: 40, right: 16, top: 12, bottom: 32 };
 
+/** What the chart reads from a target: the plan list's entries and the planet cards both fit. */
+export type ChartEntry = Pick<PlanEntry, 'name' | 'windows' | 'usableMinutes' | 'peakAltitude' | 'peakAzimuth' | 'peakTime'>;
+
 export interface AltitudeChartProps {
-  entry: PlanEntry;
+  entry: ChartEntry;
   night: AstronomicalNight;
   track: TrackPoint[];
   horizonSet: boolean;
   minAltitude: number;
   formatTime: (d: Date) => string;
+  /** Prefix for the ids the title and description get, so two charts on one page do not share them. */
+  idPrefix?: string;
 }
 
-export default function AltitudeChart({ entry, night, track, horizonSet, minAltitude, formatTime }: AltitudeChartProps) {
+export default function AltitudeChart({ entry, night, track, horizonSet, minAltitude, formatTime, idPrefix = 'alt' }: AltitudeChartProps) {
   const t0 = track[0].time.getTime();
   const t1 = track[track.length - 1].time.getTime();
   const x = (t: number): number => M.left + ((t - t0) / (t1 - t0)) * (W - M.left - M.right);
@@ -49,9 +54,9 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="alt-title alt-desc" className="w-full">
-        <title id="alt-title">{`Altitude of ${entry.name} through the night`}</title>
-        <desc id="alt-desc">{summary}</desc>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${idPrefix}-title ${idPrefix}-desc`} className="w-full">
+        <title id={`${idPrefix}-title`}>{`Altitude of ${entry.name} through the night`}</title>
+        <desc id={`${idPrefix}-desc`}>{summary}</desc>
         <rect x={nightX0} y={M.top} width={Math.max(0, nightX1 - nightX0)} height={H - M.top - M.bottom} fill="#6366f1" fillOpacity="0.22" />
         {[0, 30, 60, 90].map((a) => (
           <g key={a}>

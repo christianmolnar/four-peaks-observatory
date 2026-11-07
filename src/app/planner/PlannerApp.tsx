@@ -32,7 +32,9 @@ import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state
 import AltitudeChart from './AltitudeChart';
 import ExposurePanel from './ExposurePanel';
 import HorizonEditor from './HorizonEditor';
+import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
+import PlanetsSection from './PlanetsSection';
 
 const timeFormat = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 const formatTime = (d: Date): string => timeFormat.format(d);
@@ -154,6 +156,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
   const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];
+  // The site as the astro functions take it, stable between renders so the sections below can memoise on it.
+  const siteLat = site?.latitude;
+  const siteLon = site?.longitude;
+  const siteElev = site?.elevationM;
+  const astroSite = useMemo(
+    () => (siteLat !== undefined && siteLon !== undefined ? { latitude: siteLat, longitude: siteLon, elevationM: siteElev } : null),
+    [siteLat, siteLon, siteElev],
+  );
   const savedFields = site ? fieldsOf(site.blockedArc) : null;
   const dirty = site !== undefined && !sameFields(fields, savedFields);
 
@@ -184,7 +194,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   };
   // The plan, the list and the altitude chart use the saved arc: the draft only previews in the horizon editor.
   const savedArc = site?.blockedArc ?? null;
-  const horizon = useMemo(() => (savedArc ? arcToHorizonPoints(savedArc) : null), [savedArc]);
+  // Keyed on the arc's numbers, not the object: saving the profile for another reason (a filter) makes new objects.
+  const arcStart = savedArc?.startAz;
+  const arcEnd = savedArc?.endAz;
+  const arcHeight = savedArc?.heightDeg;
+  const horizon = useMemo(
+    () => (arcStart !== undefined && arcEnd !== undefined && arcHeight !== undefined ? arcToHorizonPoints({ startAz: arcStart, endAz: arcEnd, heightDeg: arcHeight }) : null),
+    [arcStart, arcEnd, arcHeight],
+  );
 
   const minCheck = checkWholeDegrees(minAltText, MIN_ALTITUDE_RANGE.min, MIN_ALTITUDE_RANGE.max, '');
   const minAltitude = minCheck.ok ? minCheck.value : minAltAnchor;
@@ -212,6 +229,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   }, [site, train, date, horizon, minAltitude, profile]);
 
   const plan = planResult?.result ?? null;
+  // The night as a stable object: the plan is rebuilt for a filter change, but the night does not change, and the
+  // planet cards and the itinerary below should not be recomputed for it.
+  const nightKey = plan ? `${plan.night.kind}|${plan.night.start?.getTime()}|${plan.night.end?.getTime()}` : '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- nightKey names exactly what the night holds
+  const stableNight = useMemo(() => plan?.night ?? null, [nightKey]);
 
   const filtered = useMemo(() => {
     if (!plan) return [];
@@ -640,6 +662,31 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           camera={trainInfo.camera}
           filter={trainInfo.filter}
           site={site}
+          formatTime={formatTime}
+        />
+      )}
+
+      {plan && stableNight && astroSite && (
+        <ItinerarySection
+          profile={profile}
+          train={train}
+          entries={plan.entries}
+          site={astroSite}
+          night={stableNight}
+          horizon={horizon}
+          minAltitude={minAltitude}
+          formatTime={formatTime}
+        />
+      )}
+
+      {plan && stableNight && astroSite && (
+        <PlanetsSection
+          profile={profile}
+          train={train}
+          site={astroSite}
+          night={stableNight}
+          horizon={horizon}
+          minAltitude={minAltitude}
           formatTime={formatTime}
         />
       )}

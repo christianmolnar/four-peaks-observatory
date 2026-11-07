@@ -178,6 +178,28 @@ export interface BuildInput {
   formatTime: (d: Date) => string;
 }
 
+/** The sentences of the slot warnings, in one place so the page can reserve room for the longest of each. */
+export const WARNING_TEXT = {
+  waits: (name: string, waitMin: number, opens: string): string => `Waits ${waitMin} min for ${name} to clear the horizon (its window opens ${opens}).`,
+  overlap: (name: string, prevEnds: string, lateMin: number, opened: string, closes: string): string =>
+    `Overlaps its usable window: the slot before ends ${prevEnds}, ${lateMin} min after ${name}'s window opened (${opened}), and the window closes ${closes}.`,
+  cutShort: (closes: string, lightMin: number, aimLow: number, aimHigh: number): string =>
+    `The window closes ${closes}, so light is cut to ${lightMin} min (the mode aims for ${aimLow} to ${aimHigh}).`,
+  planetCut: (closes: string, minutes: number): string => `The window closes ${closes}, so the planet slot is cut to ${minutes} min (planned ${PLANET_SLOT_MIN}).`,
+  flip: (name: string, flipMin: number): string => `${name} crosses the meridian during this slot: a flip adds ${flipMin} min.`,
+  noTimeLeft: (name: string, closedText: string, slotsEnd: string): string => `No usable time left for ${name} tonight: its window ${closedText}, and the slots before end ${slotsEnd}.`,
+  tooLittle: (minutes: number, name: string): string => `${minutes} min is left in ${name}'s window, too little for one sub.`,
+} as const;
+
+/** The longest each warning text can be for a target called `name` (times as 88:88, minutes as 888): what the page reserves. */
+export function worstCaseWarningTexts(name: string): { severity: 'warning' | 'note'; label: string; text: string }[] {
+  return [
+    { severity: 'warning', label: 'Overlaps window', text: WARNING_TEXT.overlap(name, '88:88', 888, '88:88', '88:88') },
+    { severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort('88:88', 888, 888, 888) },
+    { severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(name, 88) },
+  ];
+}
+
 const minutesBetween = (a: Date, b: Date): number => (b.getTime() - a.getTime()) / 60000;
 const after = (d: Date, min: number): Date => new Date(d.getTime() + min * 60000);
 const round = (x: number): number => Math.round(x);
@@ -238,7 +260,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     const earliest = after(cursor, change.minutes);
     const w = windows.find((x) => x.end.getTime() > earliest.getTime() + EDGE_TOLERANCE_MIN * 60000);
     if (!w) {
-      slots.push(none(`No usable time left for ${si.name} tonight: its window ${windows.length === 0 ? 'never opens' : `closed at ${formatTime(windows[windows.length - 1].end)}`}, and the slots before end ${formatTime(cursor)}.`, 'no-time'));
+      slots.push(none(WARNING_TEXT.noTimeLeft(si.name, windows.length === 0 ? 'never opens' : `closed at ${formatTime(windows[windows.length - 1].end)}`, formatTime(cursor)), 'no-time'));
       continue;
     }
     const start = w.start.getTime() > earliest.getTime() ? w.start : earliest;
@@ -250,7 +272,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       trainChanges += last.item.trainId !== item.trainId ? 1 : 0;
     }
     if (waitMin > EDGE_TOLERANCE_MIN) {
-      warnings.push({ code: 'waits', severity: 'note', label: 'Waits', text: `Waits ${round(waitMin)} min for ${si.name} to clear the horizon (its window opens ${formatTime(w.start)}).` });
+      warnings.push({ code: 'waits', severity: 'note', label: 'Waits', text: WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)) });
     }
     // The slots before took part of this window. That only matters when it leaves too little (see cut-short below).
     const delayedMin = waitMin > EDGE_TOLERANCE_MIN || !last ? 0 : minutesBetween(w.start, start);
@@ -258,7 +280,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       code: 'overlap',
       severity: 'warning',
       label: 'Overlaps window',
-      text: `Overlaps its usable window: the slot before ends ${formatTime(cursor)}, ${round(delayedMin)} min after ${si.name}'s window opened (${formatTime(w.start)}), and the window closes ${formatTime(w.end)}.`,
+      text: WARNING_TEXT.overlap(si.name, formatTime(cursor), round(delayedMin), formatTime(w.start), formatTime(w.end)),
     });
 
     let end = start;
@@ -270,7 +292,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       end = after(start, integrationMin);
       if (integrationMin < PLANET_SLOT_MIN) {
         if (delayedMin > EDGE_TOLERANCE_MIN) warnings.push(overlapWarning());
-        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: `The window closes ${formatTime(w.end)}, so the planet slot is cut to ${round(integrationMin)} min (planned ${PLANET_SLOT_MIN}).` });
+        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.planetCut(formatTime(w.end), round(integrationMin)) });
       }
     } else if (!si.optics || !si.camera) {
       slots.push(none(`${si.name} cannot be planned on ${si.trainName}: it has no optics numbers (a smart scope controls its own exposures).`));
@@ -299,14 +321,14 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       integrationMin = m.integrationMin;
       end = m.finish ?? start;
       if (m.subCount === 0) {
-        warnings.push({ code: 'no-time', severity: 'warning', label: 'No time', text: `${round(remaining)} min is left in ${si.name}'s window, too little for one sub.` });
+        warnings.push({ code: 'no-time', severity: 'warning', label: 'No time', text: WARNING_TEXT.tooLittle(round(remaining), si.name) });
       }
       if (m.warnings.some((x) => x.code === 'limited-by-usable-time')) {
         if (delayedMin > EDGE_TOLERANCE_MIN) warnings.push(overlapWarning());
-        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: `The window closes ${formatTime(w.end)}, so light is cut to ${m.integrationMin} min (the mode aims for ${m.modeRangeMin[0]} to ${m.modeRangeMin[1]}).` });
+        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), m.integrationMin, m.modeRangeMin[0], m.modeRangeMin[1]) });
       }
       if (m.warnings.some((x) => x.code === 'meridian-flip')) {
-        warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: `${si.name} crosses the meridian during this slot: a flip adds ${m.overhead.meridianFlipMin} min.` });
+        warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(si.name, m.overhead.meridianFlipMin) });
       }
     }
     slots.push({
@@ -328,19 +350,18 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     trainChanges,
     ends: real.length > 0 ? real[real.length - 1].end : null,
   };
-  return { slots, why: whyThisOrder(opens, totals, formatTime), totals };
+  return { slots, why: whyThisOrder(opens, formatTime), totals };
 }
 
-function whyThisOrder(opens: { name: string; at: Date | null }[], totals: ItineraryPlan['totals'], formatTime: (d: Date) => string): string {
+/** One short sentence on the order. The numbers of changes and waiting are in `totals`, not here, so this stays one line. */
+function whyThisOrder(opens: { name: string; at: Date | null }[], formatTime: (d: Date) => string): string {
   if (opens.length === 0) return 'Add targets to build a schedule.';
   const timed = opens.filter((o): o is { name: string; at: Date } => o.at !== null);
-  const plural = (n: number, word: string) => `${n} ${word} ${n === 1 ? 'change' : 'changes'}`;
-  const changes = `${plural(totals.filterChanges, 'filter')}, ${plural(totals.trainChanges, 'train')}, ${round(totals.changeoverMin)} min of changeover, ${round(totals.waitMin)} min of waiting (estimate)`;
-  if (timed.length < 2) return `One slot to place. ${changes}.`;
+  if (timed.length < 2) return 'One slot to place.';
   for (let i = 1; i < timed.length; i++) {
     if (timed[i].at.getTime() < timed[i - 1].at.getTime()) {
-      return `Your order, not the order the targets clear the horizon: ${timed[i].name} opens ${formatTime(timed[i].at)}, before ${timed[i - 1].name} at ${formatTime(timed[i - 1].at)}. ${changes}.`;
+      return `Your order: ${timed[i].name} opens at ${formatTime(timed[i].at)}, before ${timed[i - 1].name} at ${formatTime(timed[i - 1].at)}.`;
     }
   }
-  return `Ordered by when each target clears the horizon (${timed.map((o) => `${o.name} ${formatTime(o.at)}`).join(', ')}). ${changes}.`;
+  return 'Ordered by when each target clears the horizon.';
 }
