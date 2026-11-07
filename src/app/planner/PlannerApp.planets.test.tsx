@@ -141,6 +141,21 @@ describe('Planets section', () => {
     expect(text).toMatch(/no stated camera spacing/);
   });
 
+  it('the guide names the camera of the train in use (ASI533MC, not ASI676MC) and qualifies the exposure line per planet', async () => {
+    const user = userEvent.setup();
+    app(withTrain('deep-c11-reducer-533'));
+    await user.click(within(section()).getByText('Saturn'));
+    const text = panel('Saturn').textContent ?? '';
+    expect(text).toMatch(/The ZWO ASI533MC is a colour camera/);
+    expect(text).toMatch(/What the ZWO ASI533MC delivers at your ROI/);
+    expect(text).not.toMatch(/ASI676MC/);
+    expect(text).toMatch(/Saturn is fainter than Jupiter in the source's own table/);
+    expect(text).toMatch(/64 ms at gain 104 for Saturn/);
+    expect(text).not.toMatch(/Start near 10 ms/);
+    await user.click(within(section()).getByText('Moon'));
+    expect(panel('Moon').textContent).toMatch(/No starting exposure is given for Moon/);
+  });
+
   it('a smart scope has no scale or clip numbers and the section says why', async () => {
     const user = userEvent.setup();
     app(withTrain('smart-seestar-s50'));
