@@ -14,14 +14,14 @@ jsdom has no layout, so Jest cannot see a card or a heading move. This script ch
     P4. Tab never reaches an element inside a hidden panel (80 Tab presses from the chosen card), and the Space key
         ticks a checklist box without moving anything.
     P5. The visible altitude chart has a title and a description (the text alternative).
-  Itinerary (four slots: Andromeda Galaxy, Orion Nebula, Thor's Helmet, Saturn, on the C11 + 0.7x + ASI533MC train)
+  Itinerary (four slots: Orion Nebula, Triangulum Galaxy, Thor's Helmet, Saturn, on the C11 + 0.7x + ASI533MC train)
     I1. Eight reorder presses of the Up and Down buttons, by keyboard: the section, the Planets section, the Edit
         horizon heading, the Profile section and the details box keep their size and position; each slot keeps its own
         height wherever it moves; focus stays on the pressed button.
     I2. Changing a slot's filter (all 13 options with ArrowDown), train and mode: the same boxes stay.
     I3. Choosing each slot's Details moves nothing.
     I4. Nothing is clipped: the Light line, the chips, the why line, the totals, the note box and the details fit.
-        The overlap warning is visible after Andromeda Galaxy, then Orion Nebula.
+        The overlap warning is visible after Orion Nebula, then Triangulum Galaxy.
     I5. No sideways scroll anywhere.
 Sections: --only planets,itinerary (default: both).
 
@@ -242,7 +242,7 @@ def slot_ids(pg):
 
 def check_itinerary(pg, label, shots, width):
     pg.fresh()
-    for t in ["m31", "m42", "ngc2359", "planet-saturn"]:
+    for t in ["m42", "m33", "ngc2359", "planet-saturn"]:
         add_slot(pg, t)
     ids = slot_ids(pg)
     record(f"{label} itinerary: four slots added from the keyboard", len(ids) == 4, str(ids))

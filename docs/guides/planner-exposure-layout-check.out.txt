@@ -16,9 +16,12 @@ PASS 1280px ASI533MC f/7: stepping all 13 filters in 3 modes with ArrowDown move
 PASS 1280px ASI533MC f/7: warnings box keeps its 264px and its visible scrollbar (most needed 264px; scrolls in 0 states); filter line fits; nothing wider than its box
 PASS 1280px: distinct warning messages seen while sweeping: 26  [26]
 PASS 1280px: Filter box and its message line keep their size on a smart scope, and it is disabled  [[40, 32, 200.15625] vs [40, 32, 200.15625], disabled=True]
+PASS 1280px: the round-2 states (2027-06-15, HyperStar, Quick, 39 filter steps over 3 targets): nothing moves or changes size
 --- 1280px panel text (HyperStar, L-eXtreme, Balanced) ---
 EXPOSURE: TADPOLES NEBULA
+
 Estimates for tonight, not predictions. Each number carries a range, and the sky, seeing and equipment will move it. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
+
 Sky darkness (Bortle class)
 Bortle 1
 Bortle 2
@@ -29,11 +32,16 @@ Bortle 6
 Bortle 7
 Bortle 8
 Bortle 9
+
 Assumed 6 until you change it; not saved.
+
 Optolong L-eXtreme (standard): dual-band, 48 mm. Bandpass: Ha 7 nm + OIII 7 nm. Blocks UV/IR: yes. Rated for: not published.
+
 Mode
 Quick & Beautiful
+
 Aims for 30 to 60 minutes of light. All values are estimates.
+
 Sub length, estimate
 180 s (range 120 to 270 s)
 Sub count, estimate
@@ -49,7 +57,9 @@ Finish, estimate
 18:35 (range 18:34 to 18:50)
 Balanced
 Selected
+
 Aims for 60 to 120 minutes of light. All values are estimates.
+
 Sub length, estimate
 240 s (range 160 to 300 s)
 Sub count, estimate
@@ -64,7 +74,9 @@ Elapsed, estimate
 Finish, estimate
 19:21 (range 19:17 to 19:38)
 Deep Project
+
 Aims for 120 to 300 minutes of light. All values are estimates.
+
 Sub length, estimate
 300 s (range 200 to 300 s)
 Sub count, estimate
@@ -89,9 +101,12 @@ PASS 768px ASI533MC f/7: stepping all 13 filters in 3 modes with ArrowDown moves
 PASS 768px ASI533MC f/7: warnings box keeps its 264px and its visible scrollbar (most needed 264px; scrolls in 0 states); filter line fits; nothing wider than its box
 PASS 768px: distinct warning messages seen while sweeping: 26  [26]
 PASS 768px: Filter box and its message line keep their size on a smart scope, and it is disabled  [[40, 32, 319.5] vs [40, 32, 319.5], disabled=True]
+PASS 768px: the round-2 states (2027-06-15, HyperStar, Quick, 39 filter steps over 3 targets): nothing moves or changes size
 --- 768px panel text (HyperStar, L-eXtreme, Balanced) ---
 EXPOSURE: TADPOLES NEBULA
+
 Estimates for tonight, not predictions. Each number carries a range, and the sky, seeing and equipment will move it. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
+
 Sky darkness (Bortle class)
 Bortle 1
 Bortle 2
@@ -102,11 +117,16 @@ Bortle 6
 Bortle 7
 Bortle 8
 Bortle 9
+
 Assumed 6 until you change it; not saved.
+
 Optolong L-eXtreme (standard): dual-band, 48 mm. Bandpass: Ha 7 nm + OIII 7 nm. Blocks UV/IR: yes. Rated for: not published.
+
 Mode
 Quick & Beautiful
+
 Aims for 30 to 60 minutes of light. All values are estimates.
+
 Sub length, estimate
 180 s (range 120 to 270 s)
 Sub count, estimate
@@ -122,7 +142,9 @@ Finish, estimate
 18:35 (range 18:34 to 18:50)
 Balanced
 Selected
+
 Aims for 60 to 120 minutes of light. All values are estimates.
+
 Sub length, estimate
 240 s (range 160 to 300 s)
 Sub count, estimate
@@ -137,7 +159,9 @@ Elapsed, estimate
 Finish, estimate
 19:21 (range 19:17 to 19:38)
 Deep Project
+
 Aims for 120 to 300 minutes of light. All values are estimates.
+
 Sub length, estimate
 300 s (range 200 to 300 s)
 Sub count, estimate
@@ -162,9 +186,12 @@ PASS 390px ASI533MC f/7: stepping all 13 filters in 3 modes with ArrowDown moves
 PASS 390px ASI533MC f/7: warnings box keeps its 416px and its visible scrollbar (most needed 552px; scrolls in 7 states); filter line fits; nothing wider than its box
 PASS 390px: distinct warning messages seen while sweeping: 26  [26]
 PASS 390px: Filter box and its message line keep their size on a smart scope, and it is disabled  [[40, 32, 277] vs [40, 32, 277], disabled=True]
+PASS 390px: the round-2 states (2027-06-15, HyperStar, Quick, 39 filter steps over 3 targets): nothing moves or changes size
 --- 390px panel text (HyperStar, L-eXtreme, Balanced) ---
 EXPOSURE: TADPOLES NEBULA
+
 Estimates for tonight, not predictions. Each number carries a range, and the sky, seeing and equipment will move it. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
+
 Sky darkness (Bortle class)
 Bortle 1
 Bortle 2
@@ -175,11 +202,16 @@ Bortle 6
 Bortle 7
 Bortle 8
 Bortle 9
+
 Assumed 6 until you change it; not saved.
+
 Optolong L-eXtreme (standard): dual-band, 48 mm. Bandpass: Ha 7 nm + OIII 7 nm. Blocks UV/IR: yes. Rated for: not published.
+
 Mode
 Quick & Beautiful
+
 Aims for 30 to 60 minutes of light. All values are estimates.
+
 Sub length, estimate
 180 s (range 120 to 270 s)
 Sub count, estimate
@@ -195,7 +227,9 @@ Finish, estimate
 18:35 (range 18:34 to 18:50)
 Balanced
 Selected
+
 Aims for 60 to 120 minutes of light. All values are estimates.
+
 Sub length, estimate
 240 s (range 160 to 300 s)
 Sub count, estimate
@@ -210,7 +244,9 @@ Elapsed, estimate
 Finish, estimate
 19:21 (range 19:17 to 19:38)
 Deep Project
+
 Aims for 120 to 300 minutes of light. All values are estimates.
+
 Sub length, estimate
 300 s (range 200 to 300 s)
 Sub count, estimate
@@ -224,17 +260,18 @@ Elapsed, estimate
 221 min (range 208.7 to 241.5 min)
 F
 PASS 390px: no page errors
-43 of 43 checks passed
-PASS 1280px: sweep of 936 states (3 trains, targets with short windows, Bortle 1 and 9, Quick and Deep, every filter): no element moves or changes size; the warnings box scrolled in 0
-PASS 1280px: sweep covered every target asked for
-PASS 1280px: Thor's Helmet + ASI533MC + Apertura with real key presses only (12 steps, Quick/Balanced/Deep): nothing moves
-PASS 1280px: no page errors
+
+46 of 46 checks passed
+--- sweep, one width per run (ONLY_WIDTH) ---
 PASS 768px: sweep of 936 states (3 trains, targets with short windows, Bortle 1 and 9, Quick and Deep, every filter): no element moves or changes size; the warnings box scrolled in 39
 PASS 768px: sweep covered every target asked for
 PASS 768px: Thor's Helmet + ASI533MC + Apertura with real key presses only (12 steps, Quick/Balanced/Deep): nothing moves
 PASS 768px: no page errors
-PASS 390px: sweep of 936 states (3 trains, targets with short windows, Bortle 1 and 9, Quick and Deep, every filter): no element moves or changes size; the warnings box scrolled in 192
+PASS 390px: sweep of 936 states (3 trains, targets with short windows, Bortle 1 and 9, Quick and Deep, every filter): no element moves or changes size; the warnings box scrolled in 194
 PASS 390px: sweep covered every target asked for
 PASS 390px: Thor's Helmet + ASI533MC + Apertura with real key presses only (12 steps, Quick/Balanced/Deep): nothing moves
 PASS 390px: no page errors
-(sweep ran in three parts; 1280 and 768 from one run, 390 from another)
+PASS 1280px: sweep of 936 states (3 trains, targets with short windows, Bortle 1 and 9, Quick and Deep, every filter): no element moves or changes size; the warnings box scrolled in 0
+PASS 1280px: sweep covered every target asked for
+PASS 1280px: Thor's Helmet + ASI533MC + Apertura with real key presses only (12 steps, Quick/Balanced/Deep): nothing moves
+PASS 1280px: no page errors

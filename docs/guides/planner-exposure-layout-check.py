@@ -25,7 +25,8 @@ on the sample profile with the evening set to 2026-12-15:
   7. Empty filter list (a v1 profile): the instruction under the Filter box is fully visible at 1024, 1279, 1280,
      1440, 1920, 2560 and 390 px.
   8. The marginal table has no cell wider than its box at 390 px (no inner sideways scroll).
-Sections: --only modes,filters,smart,sweep,empty (default: all).
+  9. The round-2 states (the 12 px shift at 768 px with three mode cards side by side): see check_m2a_state.
+Sections: --only modes,filters,smart,m2a,sweep,empty (default: all).
 
 Run (needs Playwright for Python and its Chromium; the repo itself depends on neither):
   ~/tools/shots/bin/python docs/guides/planner-exposure-layout-check.py          # starts its own next dev, stops it after
@@ -160,12 +161,12 @@ class Page:
         self.area_height = 0
         self.scrolled_states = 0
 
-    def fresh(self, train="wide-c11-hyperstar-2600"):
+    def fresh(self, train="wide-c11-hyperstar-2600", date=None):
         self.p.goto(self.url)
         self.p.evaluate("localStorage.clear()")
         self.p.reload()
         self.p.wait_for_selector("#plan-train")
-        self.p.fill("#plan-date", DATE)
+        self.p.fill("#plan-date", date or DATE)
         self.p.select_option("#plan-train", train)
         self.p.wait_for_selector("section[aria-labelledby=exposure-heading] input[name=exposure-mode]")
 
@@ -329,6 +330,37 @@ def check_sweep(pg, label):
     record(f"{label}: sweep covered every target asked for", not skipped, "; ".join(skipped[:6]))
 
 
+# The round-2 (M2a) defect: at 768 px, with three mode cards side by side, a row of a card wrapped past its reserved height
+# for some filters and the page below moved 12 px (cards 571 to 583 px). Found by sweeping 2027-06-15 on the HyperStar
+# train; these are three of its states. Fixed by one column below 1024 px (ExposurePanel). With `md:grid-cols-3` put back,
+# this check fails at 768 px (see docs/guides/planner-preview.md).
+M2A_DATE = "2027-06-15"
+M2A_STATES = [("Andromeda Galaxy", "1"), ("Eagle Nebula", "9"), ("Triangulum Galaxy", "9")]
+
+
+def check_m2a_state(pg, label):
+    bad, states = [], 0
+    pg.fresh("wide-c11-hyperstar-2600", M2A_DATE)
+    n_options = pg.p.evaluate("document.getElementById('plan-filter').options.length")
+    pg.p.get_by_label("Show targets that do not fit").check()
+    for target, bortle in M2A_STATES:
+        if not pick_target(pg, target):
+            bad.append(f"{target} not listed on {M2A_DATE}")
+            continue
+        pg.p.wait_for_selector("section[aria-labelledby=exposure-heading] input[name=exposure-mode]")
+        pg.p.select_option("#exposure-bortle", bortle)
+        pg.p.locator("input[name=exposure-mode][value=quick]").check(force=True)
+        pg.p.select_option("#plan-filter", index=0)
+        base = pg.p.evaluate(SNAP_JS)
+        for i in range(n_options):
+            pg.p.select_option("#plan-filter", index=i)
+            states += 1
+            d = diff(base, pg.p.evaluate(SNAP_JS))
+            if d:
+                bad.append(f"{target}/Bortle {bortle}/Quick/filter #{i}: {d[0]}")
+    record(f"{label}: the round-2 states ({M2A_DATE}, HyperStar, Quick, {states} filter steps over {len(M2A_STATES)} targets): nothing moves or changes size", not bad and states > 0, "; ".join(bad[:2]) + (f" ... {len(bad)} in all" if len(bad) > 2 else ""))
+
+
 def key_repro(pg, label):
     """The round-1 verdict repro with real key presses only: Thor's Helmet, ASI533MC, Apertura, 2026-12-15."""
     pg.fresh("deep-c11-reducer-533")
@@ -418,6 +450,8 @@ def run(pw, url, label, width, height, shots, only):
         record(f"{label}: distinct warning messages seen while sweeping: {len(pg.seen)}", len(pg.seen) >= 3, f"{len(pg.seen)}")
     if want("smart"):
         check_smart(pg, label)
+    if want("m2a"):
+        check_m2a_state(pg, label)
     if want("sweep"):
         check_sweep(pg, label)
         key_repro(pg, label)
