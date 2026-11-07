@@ -127,6 +127,18 @@ describe('Night itinerary', () => {
     expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 27 min of light\)/).length).toBeGreaterThan(0);
   });
 
+  it('a slot that never runs shows "No imaging is planned" and no "Before it" line', () => {
+    seed('m31', 'ic405', 'planet-saturn'); // Saturn's window has closed before its turn when IC 405 is deep
+    const p = JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!);
+    p.items[1].mode = 'deep';
+    window.localStorage.setItem(ITINERARY_KEY, JSON.stringify(p));
+    app();
+    const dead = slots()[2];
+    expect(dead.textContent).toMatch(/No imaging is planned for this slot\./);
+    expect(dead.textContent).not.toMatch(/Before it/);
+    expect(slots()[1].textContent).toMatch(/Before it: 3 min/);
+  });
+
   it('a different filter on the second slot adds the swap and a refocus to the gap and says so', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');

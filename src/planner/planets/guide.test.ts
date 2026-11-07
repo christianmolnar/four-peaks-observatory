@@ -77,6 +77,22 @@ describe('the lucky-imaging guide', () => {
     expect(item(sections, 'clip').text).toContain(`${card.mosaicPanelsPerSide} by ${card.mosaicPanelsPerSide} panels`);
   });
 
+  it('the Moon guide gives no pixel region, points to the mosaic line, and uses Moon wording', () => {
+    const { card, sections } = guideFor('Moon');
+    const roi = item(sections, 'roi');
+    expect(roi.text).not.toMatch(/\d+ pixels/);
+    expect(roi.text).not.toMatch(/18448/);
+    expect(roi.text).toContain(`${card.mosaicPanelsPerSide} by ${card.mosaicPanelsPerSide}`);
+    expect(roi.text).toMatch(/Clip length/);
+    expect(roi.basis).toBe('practice');
+    expect(item(sections, 'focus').title).toBe('Focus on the Moon');
+    for (const id of ['focus', 'histogram', 'roi']) expect(item(sections, id).text).not.toMatch(/planet/i);
+    const panels = card.mosaicPanelsPerSide! ** 2;
+    expect(item(sections, 'session').text).toMatch(new RegExp(`The mosaic is ${panels} panels at one clip each, against \\d+ clips in the session`));
+    // A planet keeps its ROI number.
+    expect(item(guideFor('Jupiter').sections, 'roi').text).toMatch(/\d+ pixels square/);
+  });
+
   it('dispersion numbers are the computed ones, and the threshold altitude is the 279.4 mm figure', () => {
     const { card, sections } = guideFor('Jupiter');
     const d = item(sections, 'dispersion');
@@ -150,6 +166,10 @@ describe('the lucky-imaging guide', () => {
       const e = item(guideFor('Mars').sections, 'exposure');
       expect(e.text).toMatch(/15 ms at gain 246 for Mars with a 2x Barlow lens/);
       expect(e.text).not.toMatch(/fainter than Jupiter/);
+    });
+
+    it("Neptune's source also used a 2x Barlow, and the guide says so", () => {
+      expect(item(guideFor('Neptune').sections, 'exposure').text).toMatch(/130 ms at gain 478 for Neptune with a 2x Barlow lens/);
     });
 
     it('Venus and the Moon get no number at all: no source was found', () => {

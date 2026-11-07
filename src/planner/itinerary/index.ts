@@ -185,14 +185,21 @@ export const WARNING_TEXT = {
   waits: (name: string, waitMin: number, opens: string): string => `Waits ${waitMin} min for ${name} to clear the horizon (its window opens ${opens}).`,
   overlap: (name: string, prevEnds: string, lateMin: number, opened: string, closes: string): string =>
     `Overlaps its usable window: the slot before ends ${prevEnds}, ${lateMin} min after ${name}'s window opened (${opened}), and the window closes ${closes}.`,
-  cutShort: (closes: string, lightMin: number, aimLow: number, aimHigh: number): string =>
-    `The window closes ${closes}, so light is cut to ${lightMin} min (the mode aims for ${aimLow} to ${aimHigh}).`,
+  cutShort: (closes: string, lightMin: number, aimLow: number, aimHigh: number, later?: { opens: string; closes: string; lightMin: number }): string =>
+    `The window closes ${closes}, so light is cut to ${lightMin} min (the mode aims for ${aimLow} to ${aimHigh}).` +
+    (later
+      ? ` A later window, ${later.opens} to ${later.closes}, would give ${later.lightMin} min${later.lightMin < aimLow ? `, still under the ${aimLow} the mode needs` : ''}; the slot keeps this one.`
+      : ''),
   planetCut: (closes: string, minutes: number): string => `The window closes ${closes}, so the slot is cut to ${minutes} min (planned ${PLANET_SLOT_MIN}).`,
   flip: (name: string, flipMin: number): string => `${name} crosses the meridian during this slot: a flip adds ${flipMin} min.`,
   planetWaits: (name: string, waitMin: number, highest: string): string => `Waits ${waitMin} min so the slot is centred on ${name}'s highest point (${highest}), not on the moment its window opens.`,
+  /** The slot is as high as it gets in its window, but the night's peak is not inside it. */
+  planetWaitsClamped: (name: string, waitMin: number, at: string): string => `Waits ${waitMin} min so the slot is at the highest ${name} reaches in this window (${at}), not on the moment its window opens.`,
   laterWindow: (name: string, firstOpens: string, firstCloses: string, firstLightMin: number, waitMin: number, opens: string, closes: string): string =>
     `Skips its short first window (${firstOpens} to ${firstCloses}, ${firstLightMin} min of light) and waits ${waitMin} min for the window ${opens} to ${closes}, which suits the mode better.`,
   noTimeNever: (name: string): string => `No usable time left for ${name} tonight: its window never opens.`,
+  /** Nothing ran before: the window closes as the night starts. */
+  noTimeAtStart: (name: string, closedAt: string, nightStart: string): string => `No usable time left for ${name} tonight: its window closes at ${closedAt}, as the night starts (${nightStart}).`,
   /** The slots before were still running when the window closed. */
   noTimeSlots: (name: string, closedAt: string, slotsEnd: string): string => `No usable time left for ${name} tonight: its window closed at ${closedAt}, and the slots before end ${slotsEnd}.`,
   /** The slots before ended in time; the changeover after them ran past the close. */
@@ -205,7 +212,7 @@ export const WARNING_TEXT = {
 export function worstCaseWarningTexts(name: string): { severity: 'warning' | 'note'; label: string; text: string }[] {
   return [
     { severity: 'warning', label: 'Overlaps window', text: WARNING_TEXT.overlap(name, '88:88', 888, '88:88', '88:88') },
-    { severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort('88:88', 888, 888, 888) },
+    { severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort('88:88', 888, 888, 888, { opens: '88:88', closes: '88:88', lightMin: 888 }) },
     { severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(name, 88) },
     { severity: 'note', label: 'Waits', text: WARNING_TEXT.laterWindow(name, '88:88', '88:88', 888, 888, '88:88', '88:88') },
   ];
@@ -244,8 +251,12 @@ interface Attempt {
   /** The slot ends because the window closes, not because the aim was met. */
   cut: boolean;
   flipMin: number;
-  /** Planets: the slot was moved to centre on the highest point. */
+  /** Planets: the slot was moved to the highest point it can reach in its window. */
   peakAt: Date | null;
+  /** Planets: the slot is centred on the planet's highest point of the window (not held back by the window's edge). */
+  peakHeld: boolean;
+  /** Planets: altitude at the middle of the light, degrees; the windows are compared on it. */
+  altitude: number;
   /** The exposure module could not plan this slot at all. */
   unplannable?: string;
 }
@@ -253,8 +264,8 @@ interface Attempt {
 /**
  * Lays the slots out in the order given, one after the other. Each starts when the one before is done and the changeover
  * is over, or when its target clears the horizon, whichever is later; its light is planned by the exposure module for the
- * time left in that window. A planet slot is centred on the planet's highest point inside its window where the window
- * allows. When the first window that fits leaves less light than the mode aims for and a later window reaches the aim,
+ * time left in that window. A planet slot is centred on the planet's highest point where its window allows, in the
+ * window where that is highest. When the first window that fits leaves less light than the mode aims for and a later window reaches the aim,
  * the slot waits for the later one. Warns when a slot waits, starts after its window opened and so gets too little,
  * is cut short by its window closing, crosses the meridian, or has no usable time left. Pure: same input, same plan.
  */
@@ -299,7 +310,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     const earliest = after(cursor, change.minutes);
     const fitting = windows.filter((x) => x.end.getTime() > earliest.getTime() + tolMs);
     if (fitting.length === 0) {
-      slots.push(none(noTimeText(si.name, windows, cursor, earliest, change, formatTime), 'no-time'));
+      slots.push(none(noTimeText(si.name, windows, cursor, earliest, change, formatTime, last === null), 'no-time'));
       continue;
     }
 
@@ -316,12 +327,15 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       let aim: [number, number] | null = null;
       let flipMin = 0;
       let peakAt: Date | null = null;
+      let peakHeld = false;
+      let altitude = 0;
       let cut: boolean;
       if (source.kind === 'planet') {
         const length = Math.min(PLANET_SLOT_MIN, remaining);
         const peak = peakTime(source.body, from, w.end, site);
         start = clampDate(after(peak, -length / 2), from, after(w.end, -length));
         if (start.getTime() - from.getTime() > tolMs && start.getTime() - w.start.getTime() > tolMs) peakAt = peak;
+        peakHeld = Math.abs(peak.getTime() - after(start, length / 2).getTime()) <= tolMs;
         const transit = nextBodyTransit(source.body, start, site);
         if (transit.getTime() >= start.getTime() && transit.getTime() <= after(start, length).getTime()) flipMin = MERIDIAN_FLIP_MIN;
         integrationMin = Math.max(0, Math.min(length, minutesBetween(start, w.end) - flipMin));
@@ -330,6 +344,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
         short = integrationMin < PLANET_SLOT_MIN;
         cut = short;
         waitMin = minutesBetween(earliest, start);
+        altitude = bodyAltAz(source.body, after(start, integrationMin / 2), site).altitude;
       } else {
         if (source.kind !== 'fixed') throw new Error('unreachable: planets are handled above');
         const moonAlt = bodyAltAz('Moon', start, site).altitude;
@@ -344,7 +359,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
           transitTime: nextMeridianTransit(source.raHours, source.decDeg, start, site),
         });
         if (!report.ok) {
-          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, short: false, aim, cut: false, flipMin, peakAt, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${report.missing.join(', ')}, so no exposure can be planned.` };
+          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${report.missing.join(', ')}, so no exposure can be planned.` };
         }
         const m = report.modes[item.mode];
         subSeconds = m.subSeconds;
@@ -358,7 +373,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
         waitMin = minutesBetween(earliest, start);
       }
       const delayedMin = waitMin > EDGE_TOLERANCE_MIN || !last ? 0 : minutesBetween(w.start, start);
-      return { w, start, end, waitMin: Math.max(0, waitMin), delayedMin, subSeconds, subCount, integrationMin, short, aim, cut, flipMin, peakAt };
+      return { w, start, end, waitMin: Math.max(0, waitMin), delayedMin, subSeconds, subCount, integrationMin, short, aim, cut, flipMin, peakAt, peakHeld, altitude };
     };
 
     if (source.kind !== 'planet' && (!si.optics || !si.camera)) {
@@ -373,7 +388,13 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     // The first window is too short for the mode: take the first later window that reaches the aim, and say so.
     let chosen = firstTry;
     let skipped: Attempt | null = null;
-    if (firstTry.short) {
+    if (source.kind === 'planet') {
+      // A planet has no mode to satisfy: of all the windows that fit, take the one where the slot is highest.
+      for (const later of fitting.slice(1)) {
+        const a = attemptIn(later);
+        if (a.integrationMin > 0 && a.altitude > chosen.altitude) chosen = a;
+      }
+    } else if (firstTry.short) {
       for (const later of fitting.slice(1)) {
         const a = attemptIn(later);
         if (!a.short) {
@@ -397,7 +418,11 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
         code: 'waits',
         severity: 'note',
         label: 'Waits',
-        text: chosen.peakAt ? WARNING_TEXT.planetWaits(si.name, round(waitMin), formatTime(chosen.peakAt)) : WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)),
+        text: chosen.peakAt
+          ? chosen.peakHeld
+            ? WARNING_TEXT.planetWaits(si.name, round(waitMin), formatTime(chosen.peakAt))
+            : WARNING_TEXT.planetWaitsClamped(si.name, round(waitMin), formatTime(chosen.peakAt))
+          : WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)),
       });
     }
     // The slots before took part of this window. That only matters when it leaves too little for the mode.
@@ -414,7 +439,15 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     } else {
       if (chosen.subCount === 0) warnings.push({ code: 'no-time', severity: 'warning', label: 'No time', text: WARNING_TEXT.tooLittle(round(minutesBetween(chosen.start, w.end)), si.name) });
       if (chosen.cut && chosen.aim) {
-        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), chosen.integrationMin, chosen.aim[0], chosen.aim[1]) });
+        // A later window that would give more light, taken or not, is named.
+        let better: Attempt | null = null;
+        for (const other of fitting) {
+          if (other.start.getTime() <= w.start.getTime()) continue;
+          const a = attemptIn(other);
+          if (!a.unplannable && a.integrationMin > chosen.integrationMin && (!better || a.integrationMin > better.integrationMin)) better = a;
+        }
+        const later = better ? { opens: formatTime(better.w.start), closes: formatTime(better.w.end), lightMin: round(better.integrationMin) } : undefined;
+        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), chosen.integrationMin, chosen.aim[0], chosen.aim[1], later) });
       }
     }
     if (chosen.flipMin > 0) warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(si.name, chosen.flipMin) });
@@ -459,9 +492,10 @@ function peakTime(body: CardBody, from: Date, to: Date, site: Site): Date {
 }
 
 /** The no-time sentence: why no window of this target is left, naming a changeover when that is what ran past the close. */
-function noTimeText(name: string, windows: readonly TimeWindow[], cursor: Date, earliest: Date, change: Changeover, formatTime: (d: Date) => string): string {
+function noTimeText(name: string, windows: readonly TimeWindow[], cursor: Date, earliest: Date, change: Changeover, formatTime: (d: Date) => string, nothingBefore: boolean): string {
   if (windows.length === 0) return WARNING_TEXT.noTimeNever(name);
   const closed = windows[windows.length - 1].end;
+  if (nothingBefore) return WARNING_TEXT.noTimeAtStart(name, formatTime(closed), formatTime(cursor));
   if (cursor.getTime() + EDGE_TOLERANCE_MIN * 60000 >= closed.getTime()) return WARNING_TEXT.noTimeSlots(name, formatTime(closed), formatTime(cursor));
   return WARNING_TEXT.noTimeChangeover(name, formatTime(closed), formatTime(cursor), change.parts.map((p) => `${p.label} ${p.minutes} min`).join(', '), change.minutes, formatTime(earliest));
 }

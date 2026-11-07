@@ -36,6 +36,16 @@ describe('Planets section', () => {
     expect(section().textContent).toMatch(/Great Red Spot transits are not shown: there is no verified longitude model/);
   });
 
+  it('a card for a planet that is below the horizon all night shows no negative peak', () => {
+    app();
+    for (const r of radios()) {
+      const text = r.closest('label')!.textContent ?? '';
+      if (/Not clear of your horizon tonight/.test(text)) expect(text).not.toMatch(/Peak -\d/);
+    }
+    // 2026-12-15: Mercury is below the horizon all night.
+    expect(radio('Mercury').closest('label')!.textContent).toMatch(/Not clear of your horizon tonight.*Below the horizon all night/);
+  });
+
   it('opens on the first planet that is clear of the horizon tonight', () => {
     app();
     const first = radios().find((r) => /Clear of your horizon \d+ min/.test(r.closest('label')!.textContent ?? ''))!;

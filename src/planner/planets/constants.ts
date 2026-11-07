@@ -86,7 +86,7 @@ export interface StartExposure {
  * Jupiter: ASSUMPTION, 10 ms, a round number for a Jupiter-bright planet at f/10 (the source below used 2 ms on its own setup).
  * Saturn, Mars, Uranus, Neptune: SOURCED, Table 1 of the Technical University of Munich astronomy club's planet seminar
  * (https://www.asg.ed.tum.de/fesg/astronomy-club/astronomy-seminar/planets/, read 2026-11-07): exposure and gain of one club's
- * own telescope and camera (Mars with a 2x Barlow), so the value is an order of magnitude, not a setting for this train. The
+ * own telescope and camera (Mars and Neptune with a 2x Barlow), so the value is an order of magnitude, not a setting for this train. The
  * same page says Saturn takes longer exposures than Jupiter and Neptune the longest.
  * Mercury, Venus, Moon: no source found, so no number.
  */
@@ -97,7 +97,7 @@ export const START_EXPOSURE: Readonly<Record<CardBody, StartExposure>> = {
   Jupiter: { ms: 10, basis: 'assumption' },
   Saturn: { ms: 64, basis: 'sourced', gain: 104, fainterThanJupiter: true },
   Uranus: { ms: 120, basis: 'sourced', gain: 528, fainterThanJupiter: true },
-  Neptune: { ms: 130, basis: 'sourced', gain: 478, fainterThanJupiter: true },
+  Neptune: { ms: 130, basis: 'sourced', gain: 478, fainterThanJupiter: true, setup: ' with a 2x Barlow lens' },
   Moon: { ms: null, basis: 'assumption' },
 };
 

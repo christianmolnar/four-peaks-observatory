@@ -315,6 +315,84 @@ describe('the schedule', () => {
     expect(codes(rising)).not.toContain('flip');
   });
 
+  describe('a planet on a night with two windows takes the one where it is highest', () => {
+    const on = (date: string, items: ItineraryItem[]) => build(items, { night: tonightsNight(SITE, date) });
+    const alt = (body: 'Neptune' | 'Moon', s: { start: Date; integrationMin: number }) => bodyAltAz(body, new Date(s.start.getTime() + (s.integrationMin / 2) * MIN), SITE).altitude;
+
+    it('Neptune 2027-09-28: the slot holds the 57 degree culmination window, not the 36 degree first one', () => {
+      const s = on('2027-09-28', [item('planet-neptune')]).slots[0];
+      expect(fmt(s.window!.start)).toBe('04:48');
+      expect(fmt(s.start)).toBe('07:07');
+      expect(alt('Neptune', s)).toBeGreaterThan(56);
+      expect(s.warnings.find((w) => w.code === 'waits')!.text).toMatch(/centred on Neptune's highest point \(07:17\)/);
+    });
+
+    it('Neptune 2027-10-13: the slot holds the culmination the card reports (06:16 UTC), so the two agree', () => {
+      const s = on('2027-10-13', [item('planet-neptune')]).slots[0];
+      const transit = nextBodyTransit('Neptune', tonightsNight(SITE, '2027-10-13').start!, SITE);
+      expect(fmt(transit)).toBe('06:16');
+      expect(s.start.getTime()).toBeLessThanOrEqual(transit.getTime());
+      expect(s.end.getTime()).toBeGreaterThanOrEqual(transit.getTime());
+      expect(s.warnings.find((w) => w.code === 'waits')!.text).toContain('highest point (06:16)');
+    });
+
+    it('Moon 2027-01-26: the slot is at the 46 degree it can reach, not the 22 degree early one', () => {
+      const s = on('2027-01-26', [item('planet-moon')]).slots[0];
+      expect(alt('Moon', s)).toBeGreaterThan(45);
+    });
+
+    it('when the window ends before the peak the slot says "the highest it reaches in this window" and never "highest point" (Neptune 2027-06-12)', () => {
+      const s = on('2027-06-12', [item('planet-neptune')]).slots[0];
+      expect(s.end.getTime()).toBe(s.window!.end.getTime());
+      const text = s.warnings.find((w) => w.code === 'waits')!.text;
+      expect(text).toMatch(/at the highest Neptune reaches in this window/);
+      expect(text).not.toMatch(/highest point|centred/);
+    });
+
+    it('a planet slot never uses the deep-sky wording about the mode', () => {
+      for (const date of ['2026-12-15', '2027-09-28', '2027-06-12', '2027-01-26']) {
+        for (const id of ['planet-neptune', 'planet-moon', 'planet-saturn']) {
+          for (const w of on(date, [item(id)]).slots[0].warnings) expect(w.text).not.toMatch(/suits the mode|Skips/);
+        }
+      }
+    });
+  });
+
+  it('a target whose only window closes as the night starts says so, not "the slots before end" (Thor\'s Helmet, 2027-03-27)', () => {
+    const plan = build([item('ngc2359')], { night: tonightsNight(SITE, '2027-03-27') });
+    const text = plan.slots[0].warnings[0].text;
+    expect(codes(plan.slots[0])).toEqual(['no-time']);
+    expect(text).toMatch(/^No usable time left for Thor's Helmet tonight: its window closes at \d\d:\d\d, as the night starts \(\d\d:\d\d\)\.$/);
+    expect(text).not.toMatch(/slots before/);
+  });
+
+  describe('a longer later window that is not taken is named in the Cut short sentence', () => {
+    const on = (date: string, items: ItineraryItem[]) => build(items, { night: tonightsNight(SITE, date) });
+
+    it('Orion, Deep, 2027-10-03: the later window is also under the minimum, so it is not taken, and the sentence says so', () => {
+      const s = on('2027-10-03', [item('m42', { mode: 'deep' })]).slots[0];
+      expect(fmt(s.start)).toBe('08:05'); // the first window; the later one (10:13) is not taken
+      expect(fmt(s.window!.start)).toBe('08:05');
+      expect(s.integrationMin).toBeLessThan(120);
+      expect(s.warnings.some((w) => w.text.startsWith('Skips'))).toBe(false);
+      const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
+      expect(cut).toContain('A later window, 10:13 to 12:00, would give 102 min, still under the 120 the mode needs; the slot keeps this one.');
+    });
+
+    it('Orion, Quick, 2027-01-06: a later window with more light is named even though the first one reaches the minimum', () => {
+      const s = on('2027-01-06', [item('m42', { mode: 'quick' })]).slots[0];
+      expect(fmt(s.start)).toBe('02:02');
+      const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
+      expect(cut).toContain('A later window, 03:59 to 07:55, would give 45 min; the slot keeps this one.');
+      expect(cut).not.toMatch(/still under/);
+    });
+
+    it('a slot with no longer window later has no such sentence', () => {
+      const s = build([item('m33', { mode: 'deep' })]).slots[0];
+      for (const w of s.warnings) expect(w.text).not.toMatch(/A later window/);
+    });
+  });
+
   it('a planet slot that crosses the meridian gets the flip warning and the flip minutes (Neptune, 2026-12-15)', () => {
     const plan = build([item('planet-neptune')]);
     const s = plan.slots[0];

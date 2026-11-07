@@ -238,7 +238,7 @@ export default function PlanetsSection({ profile, train, site, night, horizon, m
                   <p className="text-white text-sm min-h-10 max-md:min-h-[3.75rem]">
                     {c.usableMinutes > 0 ? `Clear of your horizon ${r0(c.usableMinutes)} min` : 'Not clear of your horizon tonight'}
                   </p>
-                  <p className="text-white/90 text-sm min-h-10">Peak {r0(c.peak.altitude)}° at {formatTime(c.peak.time)}</p>
+                  <p className="text-white/90 text-sm min-h-10">{c.usableMinutes === 0 && c.peak.altitude < 0 ? 'Below the horizon all night' : `Peak ${r0(c.peak.altitude)}° at ${formatTime(c.peak.time)}`}</p>
                   <p className="text-white/90 text-sm min-h-10 max-md:min-h-[3.75rem]">{f1(c.apparentDiameterArcsec)} arcsec, {f1(c.illuminatedFraction * 100)}% lit</p>
                   <p className="text-white/70 text-xs">all computed</p>
                 </div>

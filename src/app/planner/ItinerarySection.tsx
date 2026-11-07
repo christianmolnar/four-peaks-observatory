@@ -297,7 +297,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                     : timed
                       ? `${s.name === 'Moon' ? 'Moon' : 'Planet'}: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the Planets checklist.`
                       : 'No imaging is planned for this slot.'}{' '}
-                  {k > 0 ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
+                  {k > 0 && timed ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
                 </p>
                 {/* The chips for the most that can appear together (three) are reserved invisibly, so a change of order or filter moves nothing. */}
                 <div className="mt-1 grid">

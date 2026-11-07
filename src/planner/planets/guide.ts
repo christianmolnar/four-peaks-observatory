@@ -57,6 +57,7 @@ const MIN_ALT_NOTE = 'below that an ADC might help';
 export function buildGuide(input: GuideInput): GuideSection[] {
   const { card, apertureMm, trains, formatTime, scopeName, cameraName, cameraColour } = input;
   const name = card.body;
+  const moon = card.body === 'Moon';
   const dawes = dawesArcsec(apertureMm);
   const nativeTrain = trains.find((t) => !t.nominal) ?? trains[0] ?? null;
   const extenderTrain = trains.find((t) => t.nominal) ?? null;
@@ -110,8 +111,8 @@ export function buildGuide(input: GuideInput): GuideSection[] {
   const camera: GuideItem[] = [
     {
       id: 'focus',
-      title: 'Focus on the planet',
-      text: 'Focus on the planet itself, or a bright star beside it, with the focus aid of your capture software if it has one (SharpCap, FireCapture). Check focus again every clip or two: the mirror and the air keep changing.',
+      title: moon ? 'Focus on the Moon' : 'Focus on the planet',
+      text: `Focus on ${moon ? 'the lunar surface, a sharp crater edge near the terminator' : 'the planet itself, or a bright star beside it'}, with the focus aid of your capture software if it has one (SharpCap, FireCapture). Check focus again every clip or two: the mirror and the air keep changing.`,
       basis: 'practice',
     },
     {
@@ -123,22 +124,27 @@ export function buildGuide(input: GuideInput): GuideSection[] {
     {
       id: 'histogram',
       title: 'Histogram',
-      text: 'Bring the peak to about half way across the scale and keep the brightest part of the planet off the right edge. A clipped planet cannot be sharpened.',
+      text: `Bring the peak to about half way across the scale and keep the brightest part of ${moon ? 'the lunar surface' : 'the planet'} off the right edge. A clipped ${moon ? 'surface' : 'planet'} cannot be sharpened.`,
       basis: 'practice',
     },
     {
       id: 'roi',
       title: 'Region of interest (ROI)',
-      text:
-        roi !== null && size !== null
+      text: moon
+        ? card.mosaicPanelsPerSide !== null
+          ? card.mosaicPanelsPerSide === 1
+            ? `The Moon fits the ${cameraName}'s field at your scale, so there is no small region to cut down to: shoot at full frame. Full frames may send fewer frames a second.`
+            : `The Moon is larger than the ${cameraName}'s field at your scale, so there is no small region to cut down to: shoot each panel at full frame (the panel count is on the Clip length line: ${card.mosaicPanelsPerSide} by ${card.mosaicPanelsPerSide}). Full frames may send fewer frames a second.`
+          : "Pick a train to see the Moon's mosaic on the Clip length line. The Moon is larger than most fields, so shoot each panel at full frame."
+        : roi !== null && size !== null
           ? `${name}${card.body === 'Saturn' ? "'s globe" : ''} is about ${round(size)} pixels across at your scale (computed).${card.body === 'Saturn' ? ` With the rings, allow about ${SATURN_RING_SPAN_FACTOR} times that (assumption).` : ''} Set the ROI to about ${roi} pixels square (assumption: ${ROI_MARGIN} times the object, in steps of ${ROI_STEP_PX}). A small ROI lets the camera send more frames per second.`
           : 'Pick a train to see the planet\'s size in pixels. Then set the ROI to about one and a half times the planet\'s size.',
-      basis: roi !== null ? 'computed' : 'practice',
+      basis: !moon && roi !== null ? 'computed' : 'practice',
     },
     {
       id: 'fps',
       title: 'Frame rate',
-      text: `The camera cannot take more frames a second than 1000 divided by the exposure in milliseconds${start.ms !== null ? `: ${start.ms} ms allows at most ${Math.floor(1000 / start.ms)} per second (computed)` : ', so a longer exposure means fewer frames (computed)'}. What the ${cameraName} delivers at your ROI over USB is not verified here: read the rate in the capture software.`,
+      text: `The camera cannot take more frames a second than 1000 divided by the exposure in milliseconds${start.ms !== null ? `: ${start.ms} ms allows at most ${Math.floor(1000 / start.ms)} per second (computed)` : ', so a longer exposure means fewer frames (computed)'}. What the ${cameraName} delivers ${moon ? 'at full frame' : 'at your ROI'} over USB is not verified here: read the rate in the capture software.`,
       basis: 'not-verified',
     },
     {
@@ -170,11 +176,14 @@ export function buildGuide(input: GuideInput): GuideSection[] {
     });
   }
   const clipS = rot ? rot.suggestedS : MOON_CLIP_S;
+  const panels = card.mosaicPanelsPerSide !== null ? card.mosaicPanelsPerSide * card.mosaicPanelsPerSide : null;
+  const clips = clipsInSession(SESSION_MIN, clipS);
+  const mosaicFit = moon && panels !== null ? ` The mosaic is ${panels} panels at one clip each, against ${clips} clips in the session: ${clips >= panels ? 'the session covers it' : 'one session does not cover it, so shoot fewer panels or spread it over more than one'} (computed).` : '';
   const good = card.goodMinutes !== null ? ` ${round(card.goodMinutes)} of them are above ${round(card.dispersionAltitudeDeg ?? 0)}° (computed).` : '';
   clipItems.push({
     id: 'session',
     title: 'Session length (not the clip length)',
-    text: `The session is the time at the telescope after cool-down: plan about ${SESSION_MIN} minutes (assumption). That is ${clipsInSession(SESSION_MIN, clipS)} clips of ${round(clipS)} s with ${CLIP_GAP_S} s between them to save and check focus (computed from those). Tonight ${name} is clear of your horizon for ${round(card.usableMinutes)} minutes (computed).${good}`,
+    text: `The session is the time at the telescope after cool-down: plan about ${SESSION_MIN} minutes (assumption). That is ${clips} clips of ${round(clipS)} s with ${CLIP_GAP_S} s between them to save and check focus (computed from those). Tonight ${name} is clear of your horizon for ${round(card.usableMinutes)} minutes (computed).${good}${mosaicFit}`,
     basis: 'assumption',
   });
   clipItems.push({
