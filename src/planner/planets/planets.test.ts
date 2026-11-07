@@ -1,3 +1,4 @@
+import * as Astronomy from 'astronomy-engine';
 import fixture from './horizons.fixture.json';
 import { astronomicalNight, bodyAltAz } from '../astro';
 import type { Site } from '../astro';
@@ -63,6 +64,24 @@ describe('planet numbers against JPL Horizons (independent ephemeris, fixed inst
     for (const r of rows.filter((x) => x.elongationDeg !== undefined)) {
       expect(Math.abs(elongationDeg(r.body as CardBody, new Date(r.at)).degrees - (r.elongationDeg as number))).toBeLessThan(0.05);
     }
+  });
+
+  it('Moon elongation is the true angle to the Sun, not the difference of ecliptic longitudes', () => {
+    // Independent form: cos(elongation) = cos(Moon latitude) * cos(longitude difference), from the ecliptic coordinates
+    // (the Sun's latitude is under 0.001 degrees). Over a lunation the Moon's latitude (up to 5 degrees) makes the two differ.
+    const rad = Math.PI / 180;
+    let widest = 0;
+    for (let day = 0; day < 30; day += 0.5) {
+      const when = new Date(Date.UTC(2027, 0, 1) + day * 86400000);
+      const moon = Astronomy.EclipticGeoMoon(when);
+      const sunLon = Astronomy.SunPosition(when).elon;
+      const truth = Math.acos(Math.cos(moon.lat * rad) * Math.cos((moon.lon - sunLon) * rad)) / rad;
+      const got = elongationDeg('Moon', when).degrees;
+      expect(Math.abs(got - truth)).toBeLessThan(0.05);
+      const lonOnly = Math.abs(((((moon.lon - sunLon) % 360) + 540) % 360) - 180);
+      widest = Math.max(widest, Math.abs(lonOnly - truth));
+    }
+    expect(widest).toBeGreaterThan(0.5); // the scan really includes dates where the old longitude-only value was wrong
   });
 
   it('Saturn ring tilt matches Horizons sub-observer latitude once that is made planetocentric', () => {

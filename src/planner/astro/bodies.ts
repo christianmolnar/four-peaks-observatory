@@ -52,13 +52,13 @@ export function diskState(body: CardBody, when: Date, site?: Site): DiskState {
   return { illuminatedFraction: i.phase_fraction, phaseAngleDeg: i.phase_angle, ringTiltDeg: i.ring_tilt };
 }
 
-/** Angle between the Sun and the body as seen from Earth, degrees 0..180. Moon from its phase longitude. */
+/** Angle between the Sun and the body as seen from Earth's centre, degrees 0..180. The side of the Moon comes from its phase longitude. */
 export function elongationDeg(body: CardBody, when: Date): { degrees: number; side: 'evening' | 'morning' | null } {
   assertDate(when);
   if (body === 'Moon') {
-    // Moon phase longitude: 0 new, 90 first quarter, 180 full, 270 last quarter.
-    const lon = Astronomy.MoonPhase(when);
-    return { degrees: lon <= 180 ? lon : 360 - lon, side: lon <= 180 ? 'evening' : 'morning' };
+    // The true angle between the two directions. The longitude difference (MoonPhase) ignores the Moon's latitude of up to 5 degrees.
+    const lon = Astronomy.MoonPhase(when); // 0 new, 90 first quarter, 180 full, 270 last quarter
+    return { degrees: Astronomy.AngleFromSun(Astronomy.Body.Moon, when), side: lon <= 180 ? 'evening' : 'morning' };
   }
   const e = Astronomy.Elongation(Astronomy.Body[body], when);
   return { degrees: e.elongation, side: e.visibility === 'evening' ? 'evening' : 'morning' };

@@ -1,4 +1,4 @@
-import { CLIP_GAP_S, COOLDOWN_MIN, MAX_CLIP_S, MOON_CLIP_S, MOSAIC_OVERLAP, SESSION_MIN, SEEING_ASSUMED_ARCSEC } from './constants';
+import { CLIP_GAP_S, COOLDOWN_MIN, MAX_CLIP_S, MOON_CLIP_S, MOSAIC_OVERLAP, SESSION_MIN, SEEING_ASSUMED_ARCSEC, START_EXPOSURE } from './constants';
 import { clipsInSession, dawesArcsec, dispersionArcsec, samplingFor } from './index';
 import type { PlanetCard } from './index';
 
@@ -31,6 +31,11 @@ export interface GuideTrain {
 export interface GuideInput {
   card: PlanetCard;
   apertureMm: number;
+  /** Names from the profile, so the text names the owner's own gear on any train. */
+  scopeName: string;
+  cameraName: string;
+  /** From the profile; absent: the profile does not say. */
+  cameraColour?: boolean;
   trains: readonly GuideTrain[];
   formatTime: (d: Date) => string;
 }
@@ -41,8 +46,6 @@ export const SATURN_RING_SPAN_FACTOR = 2.3;
 export const ROI_MARGIN = 1.5;
 /** ASSUMPTION: the region of interest is rounded up to a multiple of this many pixels. */
 export const ROI_STEP_PX = 16;
-/** ASSUMPTION: a starting exposure, milliseconds, for Jupiter-bright planets at f/10; adjust until the histogram sits right. */
-export const START_EXPOSURE_MS = 10;
 /** ASSUMPTION: fraction of frames to keep in the first stack. */
 export const KEEP_FRACTION = 0.25;
 
@@ -52,7 +55,7 @@ const round = (x: number): string => String(Math.round(x));
 const MIN_ALT_NOTE = 'below that an ADC might help';
 
 export function buildGuide(input: GuideInput): GuideSection[] {
-  const { card, apertureMm, trains, formatTime } = input;
+  const { card, apertureMm, trains, formatTime, scopeName, cameraName, cameraColour } = input;
   const name = card.body;
   const dawes = dawesArcsec(apertureMm);
   const nativeTrain = trains.find((t) => !t.nominal) ?? trains[0] ?? null;
@@ -71,7 +74,7 @@ export function buildGuide(input: GuideInput): GuideSection[] {
       {
         id: 'cooldown',
         title: 'Let the telescope cool',
-        text: `Let the C11 settle toward the night air before you focus; plan about ${COOLDOWN_MIN} minutes. The time is a planning allowance, not measured.`,
+        text: `Let the ${scopeName} settle toward the night air before you focus; plan about ${COOLDOWN_MIN} minutes. The time is a planning allowance, not measured.`,
         basis: 'assumption',
       },
       {
@@ -88,6 +91,22 @@ export function buildGuide(input: GuideInput): GuideSection[] {
   const size = card.diameterPx;
   const span = card.body === 'Saturn' ? SATURN_RING_SPAN_FACTOR : 1;
   const roi = size !== null ? Math.ceil((size * span * ROI_MARGIN) / ROI_STEP_PX) * ROI_STEP_PX : null;
+  const start = START_EXPOSURE[card.body];
+  const exposure: { text: string; basis: GuideBasis } =
+    start.ms === null
+      ? {
+          text: `No starting exposure is given for ${name}: no source for one was found. Start short with a low to middle gain, then change the exposure until the histogram is right. Short exposures freeze the seeing. The camera's unity-gain setting is not verified here.`,
+          basis: 'practice',
+        }
+      : start.basis === 'assumption'
+        ? {
+            text: `Start near ${start.ms} ms and a middle gain, then change the exposure until the histogram is right. Short exposures freeze the seeing. The starting value is an assumption for a Jupiter-bright planet at f/10, and the camera's unity-gain setting is not verified here.`,
+            basis: 'assumption',
+          }
+        : {
+            text: `${start.fainterThanJupiter ? `${name} is fainter than Jupiter in the source's own table, so it needs a longer exposure. ` : ''}One university astronomy club published ${start.ms} ms at gain ${start.gain} for ${name}${start.setup ?? ''} on its own telescope and camera (sourced): yours will differ, so take it as the order of magnitude. Start there, then change the exposure until the histogram is right. Longer exposures let the seeing blur each frame.`,
+            basis: 'sourced',
+          };
   const camera: GuideItem[] = [
     {
       id: 'focus',
@@ -98,8 +117,8 @@ export function buildGuide(input: GuideInput): GuideSection[] {
     {
       id: 'exposure',
       title: 'Exposure and gain',
-      text: `Start near ${START_EXPOSURE_MS} ms and a middle gain, then change the exposure until the histogram is right. Short exposures freeze the seeing. The starting value is an assumption, and the camera's unity-gain setting is not verified here.`,
-      basis: 'assumption',
+      text: exposure.text,
+      basis: exposure.basis,
     },
     {
       id: 'histogram',
@@ -119,7 +138,7 @@ export function buildGuide(input: GuideInput): GuideSection[] {
     {
       id: 'fps',
       title: 'Frame rate',
-      text: `The camera cannot take more frames a second than 1000 divided by the exposure in milliseconds: ${START_EXPOSURE_MS} ms allows at most ${round(1000 / START_EXPOSURE_MS)} per second (computed). What the ASI676MC delivers at your ROI over USB is not verified here: read the rate in the capture software.`,
+      text: `The camera cannot take more frames a second than 1000 divided by the exposure in milliseconds${start.ms !== null ? `: ${start.ms} ms allows at most ${Math.floor(1000 / start.ms)} per second (computed)` : ', so a longer exposure means fewer frames (computed)'}. What the ${cameraName} delivers at your ROI over USB is not verified here: read the rate in the capture software.`,
       basis: 'not-verified',
     },
     {
@@ -211,7 +230,12 @@ export function buildGuide(input: GuideInput): GuideSection[] {
       {
         id: 'debayer',
         title: 'Colour camera',
-        text: 'The ASI676MC is a colour camera, so the frames are raw colour. Check AutoStakkert reads them as colour (its Bayer pattern setting). Not verified for this camera.',
+        text:
+          cameraColour === true
+            ? `The ${cameraName} is a colour camera, so the frames are raw colour. Check AutoStakkert reads them as colour (its Bayer pattern setting). Not verified for this camera.`
+            : cameraColour === false
+              ? `The profile lists the ${cameraName} as a mono camera, so its frames have no Bayer pattern and colour needs filters and separate runs. Not verified for this camera.`
+              : `The profile does not say whether the ${cameraName} is a colour or a mono camera. If it is colour, check AutoStakkert reads the frames as colour (its Bayer pattern setting). Not verified for this camera.`,
         basis: 'not-verified',
       },
       {

@@ -1,7 +1,9 @@
+import sample from '../data/sample-profile.json';
 import { tonightsNight } from '../plan';
-import { arcToHorizonPoints } from '../profile';
+import { arcToHorizonPoints, validateProfile } from '../profile';
 import { buildGuide } from './guide';
 import type { GuideItem, GuideSection } from './guide';
+import { planetTrainInfo } from './train';
 import { dispersionArcsec, dispersionAltitudeDeg, planetCard, rotationClip } from './index';
 
 const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 500 };
@@ -11,9 +13,9 @@ const NATIVE = { name: 'C11 + ASI676MC (planets)', scaleArcsecPx: (206.265 * 2) 
 const POWERMATE = { name: 'C11 + 2.5x Powermate + ASI676MC (planets)', scaleArcsecPx: (206.265 * 2) / 7000, nominal: true };
 const time = (d: Date) => d.toISOString().slice(11, 16);
 
-const guideFor = (body: 'Jupiter' | 'Saturn' | 'Venus' | 'Moon', trains = [NATIVE, POWERMATE]) => {
+const guideFor = (body: 'Jupiter' | 'Saturn' | 'Venus' | 'Moon' | 'Neptune' | 'Mars', trains = [NATIVE, POWERMATE], names = { scopeName: 'Celestron C11 EdgeHD', cameraName: 'ZWO ASI676MC', cameraColour: true as boolean | undefined }) => {
   const card = planetCard({ body, site: SITE, night, horizon: ARC, minAltitude: 20, apertureMm: 279.4, imageScaleArcsecPx: NATIVE.scaleArcsecPx, fieldArcmin: 8.72 });
-  return { card, sections: buildGuide({ card, apertureMm: 279.4, trains, formatTime: time }) };
+  return { card, sections: buildGuide({ card, apertureMm: 279.4, trains, formatTime: time, ...names }) };
 };
 const items = (sections: GuideSection[]): GuideItem[] => sections.flatMap((s) => s.items);
 const item = (sections: GuideSection[], id: string): GuideItem => {
@@ -120,5 +122,79 @@ describe('the lucky-imaging guide', () => {
 
   it('without a native or extender train the train section is left out rather than invented', () => {
     expect(guideFor('Jupiter', []).sections.map((s) => s.id)).not.toContain('train');
+  });
+
+  describe('the exposure line is qualified per body', () => {
+    it('Jupiter keeps its assumed 10 ms, labelled so, and the frame rate follows from it', () => {
+      const { sections } = guideFor('Jupiter');
+      const e = item(sections, 'exposure');
+      expect(e.text).toMatch(/^Start near 10 ms/);
+      expect(e.basis).toBe('assumption');
+      expect(item(sections, 'fps').text).toMatch(/10 ms allows at most 100 per second/);
+    });
+
+    it('Saturn and Neptune get a longer, sourced starting point and are told they are fainter than Jupiter; not "10 ms"', () => {
+      for (const [body, ms, gain] of [['Saturn', 64, 104], ['Neptune', 130, 478]] as const) {
+        const { sections } = guideFor(body);
+        const e = item(sections, 'exposure');
+        expect(e.basis).toBe('sourced');
+        expect(e.text).toContain(`${ms} ms at gain ${gain}`);
+        expect(e.text).toMatch(/fainter than Jupiter/);
+        expect(e.text).toMatch(/on its own telescope and camera/);
+        expect(e.text).not.toMatch(/near 10 ms/);
+        expect(item(sections, 'fps').text).toContain(`${ms} ms allows at most ${Math.floor(1000 / ms)} per second`);
+      }
+    });
+
+    it('Mars is not called fainter than Jupiter (near opposition it is as bright), and its source used a Barlow', () => {
+      const e = item(guideFor('Mars').sections, 'exposure');
+      expect(e.text).toMatch(/15 ms at gain 246 for Mars with a 2x Barlow lens/);
+      expect(e.text).not.toMatch(/fainter than Jupiter/);
+    });
+
+    it('Venus and the Moon get no number at all: no source was found', () => {
+      for (const body of ['Venus', 'Moon'] as const) {
+        const { sections } = guideFor(body);
+        const e = item(sections, 'exposure');
+        expect(e.text).toMatch(/^No starting exposure is given for/);
+        expect(e.basis).toBe('practice');
+        expect(e.text).not.toMatch(/\d+ ms/);
+        expect(item(sections, 'fps').text).not.toMatch(/\d+ ms allows/);
+      }
+    });
+  });
+
+  describe('the profile\'s own scope and camera are named', () => {
+    const profile = validateProfile(sample);
+    const guideOn = (p: typeof profile, trainId: string) => {
+      const info = planetTrainInfo(p, p.trains.find((t) => t.id === trainId)!);
+      const card = planetCard({ body: 'Jupiter', site: SITE, night, horizon: ARC, minAltitude: 20, apertureMm: info.apertureMm, imageScaleArcsecPx: info.scaleArcsecPx, fieldArcmin: info.fieldArcmin });
+      return buildGuide({ card, apertureMm: info.apertureMm!, scopeName: info.scopeName!, cameraName: info.cameraName!, cameraColour: info.cameraColour, trains: info.variants, formatTime: time });
+    };
+    const allText = (sections: GuideSection[]) => items(sections).map((i) => i.text).join('\n');
+
+    it('the ASI533MC reducer train says ASI533MC and never ASI676MC', () => {
+      const sections = guideOn(profile, 'deep-c11-reducer-533');
+      const text = allText(sections);
+      expect(item(sections, 'debayer').text).toMatch(/^The ZWO ASI533MC is a colour camera/);
+      expect(item(sections, 'fps').text).toMatch(/What the ZWO ASI533MC delivers/);
+      expect(text).not.toMatch(/ASI676MC/);
+    });
+
+    it('a different scope name replaces "C11"; the native train still reads its own name', () => {
+      const p = validateProfile({ ...sample, equipment: { ...sample.equipment, scopes: sample.equipment.scopes.map((s) => ({ ...s, name: 'Sky-Watcher 8 inch Newtonian' })) } });
+      const sections = guideOn(p, 'deep-c11-reducer-533');
+      expect(item(sections, 'cooldown').text).toMatch(/^Let the Sky-Watcher 8 inch Newtonian settle/);
+      // The train's own name is profile data and may contain it; no other line may.
+      expect(allText(sections.filter((x) => x.id !== 'train'))).not.toMatch(/C11/);
+    });
+
+    it('a camera the profile calls mono, or does not classify, is not called colour', () => {
+      const cams = (colour: boolean | undefined) => sample.equipment.cameras.map((c) => (c.id === 'asi533mc' ? { ...c, colour } : c));
+      const mono = validateProfile({ ...sample, equipment: { ...sample.equipment, cameras: cams(false) } });
+      expect(item(guideOn(mono, 'deep-c11-reducer-533'), 'debayer').text).toMatch(/lists the ZWO ASI533MC as a mono camera/);
+      const unknown = validateProfile({ ...sample, equipment: { ...sample.equipment, cameras: cams(undefined) } });
+      expect(item(guideOn(unknown, 'deep-c11-reducer-533'), 'debayer').text).toMatch(/does not say whether the ZWO ASI533MC is a colour or a mono camera/);
+    });
   });
 });

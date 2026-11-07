@@ -29,6 +29,12 @@ async function add(user: ReturnType<typeof userEvent.setup>, id: string) {
   await user.keyboard('{Enter}');
 }
 
+/** Puts slots into the saved state, so a test starts from them without a whole-page add per slot (each add re-renders every planet panel in jsdom). */
+function seed(...targetIds: string[]) {
+  const items = targetIds.map((targetId, i) => ({ id: `s${i + 1}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }));
+  window.localStorage.setItem(ITINERARY_KEY, JSON.stringify({ version: 1, items }));
+}
+
 beforeAll(() => {
   const w = window as unknown as { CSS?: { escape?: (s: string) => string } };
   w.CSS = { ...w.CSS, escape: (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`) };
@@ -52,9 +58,8 @@ describe('Night itinerary', () => {
 
   it('Down and Up reorder with the keyboard, start times follow, and focus stays on the button that was pressed', async () => {
     const user = userEvent.setup();
+    seed('m31', 'ic405');
     app();
-    await add(user, 'm31');
-    await add(user, 'ic405');
     expect(names()).toEqual(['Andromeda Galaxy', 'Flaming Star Nebula']);
     const before = times();
     const down = within(section()).getByRole('button', { name: 'Move Andromeda Galaxy down' });
@@ -80,9 +85,8 @@ describe('Night itinerary', () => {
 
   it('Up on the first slot and Down on the last stay focusable but are marked disabled, and do nothing', async () => {
     const user = userEvent.setup();
+    seed('m31', 'ic405');
     app();
-    await add(user, 'm31');
-    await add(user, 'ic405');
     const up = within(section()).getByRole('button', { name: 'Move Andromeda Galaxy up' });
     expect(up.getAttribute('aria-disabled')).toBe('true');
     up.focus();
@@ -93,32 +97,40 @@ describe('Night itinerary', () => {
     expect(within(section()).getByRole('button', { name: 'Move Flaming Star Nebula up' }).getAttribute('aria-disabled')).toBe('false');
   });
 
-  it('a long slot before a short window gives a visible overlap warning, in the slot and in the details', async () => {
+  it('a slot that starts late in a short window gives a visible overlap warning, in the slot and in the details', async () => {
     const user = userEvent.setup();
+    seed('m42', 'm33');
     app();
-    await add(user, 'm31');
-    await add(user, 'm42');
     const second = slots()[1];
     expect(chips(second)).toMatch(/Warning: overlaps window/);
     expect(chips(second)).toMatch(/Note: cut short/);
-    await user.click(within(second).getByRole('button', { name: 'Details for Orion Nebula' }));
+    await user.click(within(second).getByRole('button', { name: 'Details for Triangulum Galaxy' }));
     const detail = screen.getByTestId('slot-detail');
-    expect(within(detail).getAllByText(/^Overlaps its usable window: the slot before ends \d\d:\d\d, \d+ min after Orion Nebula's window opened \(\d\d:\d\d\), and the window closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
+    expect(within(detail).getAllByText(/^Overlaps its usable window: the slot before ends \d\d:\d\d, \d+ min after Triangulum Galaxy's window opened \(\d\d:\d\d\), and the window closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
     expect(detail.textContent).toMatch(/Warning/);
-    // Reorder so the Orion Nebula goes first: the overlap is gone.
-    const up = within(second).getByRole('button', { name: 'Move Orion Nebula up' });
+    // Reorder so the Triangulum Galaxy goes first: the overlap is gone.
+    const up = within(second).getByRole('button', { name: 'Move Triangulum Galaxy up' });
     up.focus();
     await user.keyboard('{Enter}');
-    expect(names()).toEqual(['Orion Nebula', 'Andromeda Galaxy']);
+    expect(names()).toEqual(['Triangulum Galaxy', 'Orion Nebula']);
     expect(chips(slots()[0])).not.toMatch(/overlaps window/);
-    expect(chips(slots()[0])).toMatch(/Note: waits/);
+  });
+
+  it('a short first window is skipped for a longer later one, and the slot says so (Andromeda, then Orion)', async () => {
+    const user = userEvent.setup();
+    seed('m31', 'm42');
+    app();
+    const second = slots()[1];
+    expect(chips(second)).toMatch(/Note: waits/);
+    expect(chips(second)).not.toMatch(/overlaps window/);
+    await user.click(within(second).getByRole('button', { name: 'Details for Orion Nebula' }));
+    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 27 min of light\)/).length).toBeGreaterThan(0);
   });
 
   it('a different filter on the second slot adds the swap and a refocus to the gap and says so', async () => {
     const user = userEvent.setup();
+    seed('m31', 'ic405');
     app();
-    await add(user, 'm31');
-    await add(user, 'ic405');
     const gap = () => toMin(times()[1]![0]) - toMin(times()[0]![1]);
     expect(gap()).toBe(3);
     await user.selectOptions(within(slots()[1]).getByLabelText('Filter for Flaming Star Nebula'), 'zwo-duo-band');
@@ -175,9 +187,8 @@ describe('Night itinerary', () => {
 
   it('Remove drops the slot and puts focus back on the Add box', async () => {
     const user = userEvent.setup();
+    seed('m31', 'ic405');
     app();
-    await add(user, 'm31');
-    await add(user, 'ic405');
     const remove = within(section()).getByRole('button', { name: 'Remove Andromeda Galaxy' });
     remove.focus();
     await user.keyboard('{Enter}');
@@ -193,12 +204,42 @@ describe('Night itinerary', () => {
   });
 
   it('holds at most eight slots and says so', async () => {
+    // Seven slots come from saved state; only the eighth is added by key, so the test renders the page twice, not nine times.
+    seed(...Array.from({ length: 7 }, () => 'm31'));
     const user = userEvent.setup();
     app();
-    for (let i = 0; i < 8; i++) await add(user, 'm31');
+    expect(names()).toHaveLength(7);
+    expect(within(section()).getByRole('button', { name: 'Add to itinerary' })).toHaveProperty('disabled', false);
+    await add(user, 'm31');
     expect(names()).toHaveLength(8);
     expect(within(section()).getByRole('button', { name: 'Add to itinerary' })).toHaveProperty('disabled', true);
     expect(screen.getByTestId('itinerary-add-note').textContent).toMatch(/at most 8 slots/);
+    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).items).toHaveLength(8);
+  });
+
+  it('a planet slot that crosses the meridian shows the flip note and takes the flip minutes (Neptune)', async () => {
+    const user = userEvent.setup();
+    app();
+    await add(user, 'planet-neptune');
+    const li = slots()[0];
+    expect(chips(li)).toMatch(/Note: meridian flip/);
+    const [start, end] = times()[0]!;
+    expect(toMin(end) - toMin(start)).toBe(30); // 20 min of clips and the 10 min flip
+    expect(li.textContent).toMatch(/Planet: short video clips, about 20 min/);
+    await user.click(within(li).getByRole('button', { name: 'Details for Neptune' }));
+    expect(within(screen.getByTestId('slot-detail')).getAllByText('Neptune crosses the meridian during this slot: a flip adds 10 min.').length).toBeGreaterThan(0);
+  });
+
+  it('the Moon is offered last in the list, can be added, and has no flip', async () => {
+    const user = userEvent.setup();
+    app();
+    const options = within(screen.getByLabelText('Target to add')).getAllByRole('option');
+    expect(options[options.length - 1].textContent).toMatch(/^Moon: \d+ min clear$/);
+    expect(options.some((o) => /^Neptune \(planet\)/.test(o.textContent ?? ''))).toBe(true);
+    await add(user, 'planet-moon');
+    expect(names()).toEqual(['Moon']);
+    expect(slots()[0].textContent).toMatch(/Moon: short video clips, about 20 min/);
+    expect(chips(slots()[0])).not.toMatch(/flip/);
   });
 
   it('a planet slot is a short block with no subs', async () => {

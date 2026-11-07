@@ -141,7 +141,7 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
       out.push({
         code: 'filter-rated-slower',
         severity: 'warning',
-        text: `${name} has no published f-ratio rating; its narrowest band is ${filter.narrowestBandNm} nm. ${shiftText} That is over half the band, so it is probably rated slower than this train (calculated).`,
+        text: `${name} has no published f-ratio rating; its narrowest band is ${filter.narrowestBandNm} nm. ${shiftText} That is over half the band, so part of the beam falls outside it (calculated); the maker's rating is not in the profile, so check it before relying on this filter.`,
       });
     }
     if (camera.hasUvIrCut === false && filter.blocksUvIr !== true) {

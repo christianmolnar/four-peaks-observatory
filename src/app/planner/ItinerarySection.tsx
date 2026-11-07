@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
 import { DEFAULT_BORTLE, MODES, MODE_ORDER } from '@/planner/exposure';
 import type { ExposureMode } from '@/planner/exposure';
+import { usableWindowsOnTrack } from '@/planner/horizon';
 import type { HorizonPoint } from '@/planner/horizon';
 import {
   ITINERARY_KEY,
@@ -18,7 +20,7 @@ import {
   worstCaseWarningTexts,
 } from '@/planner/itinerary';
 import type { ItineraryItem, Slot } from '@/planner/itinerary';
-import { newItem, slotInputFor } from '@/planner/itinerary/resolve';
+import { newItem, planetIdOf, slotInputFor } from '@/planner/itinerary/resolve';
 import type { PlanEntry } from '@/planner/plan';
 import type { Profile, TrainEntry } from '@/planner/profile';
 
@@ -36,6 +38,8 @@ export interface ItinerarySectionProps {
 
 const field = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
 const btn = 'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
+
+const MOON_ID = planetIdOf('Moon');
 
 const nextId = (items: readonly ItineraryItem[]): string => {
   const used = new Set(items.map((i) => i.id));
@@ -143,6 +147,16 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     });
   }, [items, profile, site, night, horizon, minAltitude, bortle, formatTime]);
 
+  // The Moon is not a row of the target table; the itinerary offers it after the planets.
+  const options = useMemo((): Pick<PlanEntry, 'id' | 'name' | 'isPlanet' | 'usableMinutes'>[] => {
+    let moonMinutes = 0;
+    if (night.kind === 'normal' && night.start && night.end) {
+      const { windows } = usableWindowsOnTrack({ altAzAt: (d) => bodyAltAz('Moon', d, site), horizon, minAltitude, start: night.start, end: night.end, stepMinutes: 5 });
+      moonMinutes = windows.reduce((s, w) => s + (w.end.getTime() - w.start.getTime()), 0) / 60000;
+    }
+    return [...entries, { id: MOON_ID, name: 'Moon', isPlanet: true, usableMinutes: moonMinutes }];
+  }, [entries, night, site, horizon, minAltitude]);
+
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   const move = (id: string, dir: 'up' | 'down') => {
     const next = moveItem(items, id, dir === 'up' ? -1 : 1);
@@ -151,7 +165,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   };
   const add = () => {
     if (train.kind !== 'optical' || items.length >= MAX_SLOTS) return;
-    const entry = entries.find((e) => e.id === (addId || entries[0]?.id));
+    const entry = options.find((e) => e.id === (addId || options[0]?.id));
     if (!entry) return;
     const id = nextId(items);
     commit([...items, newItem(entry, train.id, train.filterId ?? null, id)], null);
@@ -190,15 +204,15 @@ export default function ItinerarySection({ profile, train, entries, site, night,
       <div className="mt-4 grid gap-4 md:grid-cols-[2fr_auto_1fr] items-end">
         <div>
           <label htmlFor="it-add-target" className="block text-white/90 font-normal text-sm mb-1">Target to add</label>
-          <select id="it-add-target" className={`${field} w-full`} value={addId || entries[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={entries.length === 0}>
-            {entries.map((e) => (
+          <select id="it-add-target" className={`${field} w-full`} value={addId || options[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={options.length === 0}>
+            {options.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name}{e.isPlanet ? ' (planet)' : ''}: {e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : 'not clear tonight'}
+                {e.name}{e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: {e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : 'not clear tonight'}
               </option>
             ))}
           </select>
         </div>
-        <button type="button" className={btn} onClick={add} disabled={addDisabledReason !== '' || entries.length === 0}>
+        <button type="button" className={btn} onClick={add} disabled={addDisabledReason !== '' || options.length === 0}>
           Add to itinerary
         </button>
         <div>
@@ -281,7 +295,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                   {s.subSeconds !== null && s.subCount !== null
                     ? `Light: ${s.subSeconds} s x ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min (estimate).`
                     : timed
-                      ? `Planet: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the Planets checklist.`
+                      ? `${s.name === 'Moon' ? 'Moon' : 'Planet'}: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the Planets checklist.`
                       : 'No imaging is planned for this slot.'}{' '}
                   {k > 0 ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
                 </p>

@@ -81,7 +81,10 @@ const PlanetPanel = memo(function PlanetPanel({
   const body = card.body;
   const rot = card.rotation;
   const guide = useMemo(
-    () => (info.apertureMm !== undefined ? buildGuide({ card, apertureMm: info.apertureMm, trains: info.variants, formatTime }) : null),
+    () =>
+      info.apertureMm !== undefined && info.scopeName !== undefined && info.cameraName !== undefined
+        ? buildGuide({ card, apertureMm: info.apertureMm, scopeName: info.scopeName, cameraName: info.cameraName, cameraColour: info.cameraColour, trains: info.variants, formatTime })
+        : null,
     [card, info, formatTime],
   );
   const entry = { name: body, windows: card.windows, usableMinutes: card.usableMinutes, peakAltitude: card.peak.altitude, peakAzimuth: card.peak.azimuth, peakTime: card.peak.time };

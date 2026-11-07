@@ -1,5 +1,6 @@
 import { astronomicalNight, bodyAltAz, moonIllumination, moonSeparation, targetAltAz } from '../astro';
 import type { AltAz, AstronomicalNight, PlanetName, Site } from '../astro';
+import type { CardBody } from '../astro/bodies';
 import { limitAltitudeAt, usableWindows, usableWindowsOnTrack } from '../horizon';
 import type { HorizonPoint, TimeWindow } from '../horizon';
 import { opticalTrain, targetFitsFrame } from '../optics';
@@ -8,12 +9,12 @@ import { resolveTrain } from '../profile';
 import type { Profile, TrainEntry } from '../profile';
 import type { CatalogTarget } from '../catalog';
 
-export const PLANETS: readonly PlanetName[] = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
+export const PLANETS: readonly Exclude<PlanetName, 'Pluto'>[] = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
 
 /** Where a target is: a fixed J2000 position or a planet from the ephemeris. */
 export type TargetSource =
   | { kind: 'fixed'; raHours: number; decDeg: number }
-  | { kind: 'planet'; body: PlanetName };
+  | { kind: 'planet'; body: CardBody };
 
 /** What the plan needs to know about the imaging train. Smart scopes have no optics math. */
 export interface PlanTrain {

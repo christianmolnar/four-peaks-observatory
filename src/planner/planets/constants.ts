@@ -64,8 +64,42 @@ export const MAX_CLIP_S = 180;
 export const CLIP_GAP_S = 30;
 /** ASSUMPTION: how long one planetary session at the telescope is planned to run, excluding cool-down. */
 export const SESSION_MIN = 30;
-/** ASSUMPTION: time for the C11 to settle toward the night air before serious focusing. The cool-down time is not measured here. */
+/** ASSUMPTION: time for the telescope to settle toward the night air before serious focusing (a large catadioptric is slow). The cool-down time is not measured here. */
 export const COOLDOWN_MIN = 45;
+
+// ---- Exposure -----------------------------------------------------------------------------------
+
+export interface StartExposure {
+  /** Milliseconds; null: no number is given for this body. */
+  ms: number | null;
+  basis: 'assumption' | 'sourced';
+  /** The gain that went with a sourced exposure. */
+  gain?: number;
+  /** Sourced: the source's own table has this body fainter than Jupiter, so it needs the longer exposure. */
+  fainterThanJupiter?: boolean;
+  /** How the source shot it, when that matters. */
+  setup?: string;
+}
+
+/**
+ * Starting exposure per body for the guide.
+ * Jupiter: ASSUMPTION, 10 ms, a round number for a Jupiter-bright planet at f/10 (the source below used 2 ms on its own setup).
+ * Saturn, Mars, Uranus, Neptune: SOURCED, Table 1 of the Technical University of Munich astronomy club's planet seminar
+ * (https://www.asg.ed.tum.de/fesg/astronomy-club/astronomy-seminar/planets/, read 2026-11-07): exposure and gain of one club's
+ * own telescope and camera (Mars with a 2x Barlow), so the value is an order of magnitude, not a setting for this train. The
+ * same page says Saturn takes longer exposures than Jupiter and Neptune the longest.
+ * Mercury, Venus, Moon: no source found, so no number.
+ */
+export const START_EXPOSURE: Readonly<Record<CardBody, StartExposure>> = {
+  Mercury: { ms: null, basis: 'assumption' },
+  Venus: { ms: null, basis: 'assumption' },
+  Mars: { ms: 15, basis: 'sourced', gain: 246, setup: ' with a 2x Barlow lens' },
+  Jupiter: { ms: 10, basis: 'assumption' },
+  Saturn: { ms: 64, basis: 'sourced', gain: 104, fainterThanJupiter: true },
+  Uranus: { ms: 120, basis: 'sourced', gain: 528, fainterThanJupiter: true },
+  Neptune: { ms: 130, basis: 'sourced', gain: 478, fainterThanJupiter: true },
+  Moon: { ms: null, basis: 'assumption' },
+};
 
 // ---- Sampling ----------------------------------------------------------------------------------
 

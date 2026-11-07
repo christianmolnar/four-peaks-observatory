@@ -88,6 +88,9 @@ describe('filter warnings', () => {
     const w = filterWarnings(N, filter('optolong-lextreme'), duo);
     expect(codes(w)).toEqual(['filter-rated-slower']);
     expect(w[0].text).toMatch(/no published f-ratio rating/);
+    // The research (filter-choice, fast-dualband) ranks fit by the share of the beam inside the band and says the model cannot name a rating.
+    expect(w[0].text).toMatch(/part of the beam falls outside it \(calculated\); the maker's rating is not in the profile/);
+    expect(w[0].text).not.toMatch(/probably rated/);
     // the sample HyperStar train is f/1.93, a little slower than the f/1.9 figures above
     expect(w[0].text).toMatch(/about 5\.2 nm at Ha and 3\.9 nm at OIII/);
     expect(w[0].severity).toBe('warning');

@@ -8,6 +8,10 @@ export interface PlanetTrainInfo {
   apertureMm?: number;
   /** Arcsec per pixel of the selected train; undefined for a smart scope or when the profile lacks a number. */
   scaleArcsecPx?: number;
+  /** Names and colour flag from the profile, for the guide's text. Absent for a smart scope. */
+  scopeName?: string;
+  cameraName?: string;
+  cameraColour?: boolean;
   /** The narrow side of the selected train's field, arcminutes. */
   fieldArcmin?: number;
   /** The selected train's own name. */
@@ -46,6 +50,9 @@ export function planetTrainInfo(profile: Profile, train: TrainEntry): PlanetTrai
         : null;
   return {
     apertureMm: aperture,
+    scopeName: own.scope.name,
+    cameraName: own.camera.name,
+    cameraColour: own.cameraSpec?.colour,
     scaleArcsecPx: optics.imageScale,
     fieldArcmin:
       optics.fovWidthArcmin !== undefined && optics.fovHeightArcmin !== undefined ? Math.min(optics.fovWidthArcmin, optics.fovHeightArcmin) : undefined,

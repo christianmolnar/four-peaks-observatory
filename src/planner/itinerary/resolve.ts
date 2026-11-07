@@ -1,3 +1,4 @@
+import type { CardBody } from '../astro/bodies';
 import type { CatalogTarget } from '../catalog';
 import { exposureTargetFrom } from '../exposure';
 import { PLANETS, planTrainFor } from '../plan';
@@ -9,13 +10,16 @@ import type { ItineraryItem, SlotInput } from './index';
 /** Id of a planet entry in the plan list: "planet-jupiter". */
 export const planetIdOf = (body: string): string => `planet-${body.toLowerCase()}`;
 
+/** The planets and the Moon: what an itinerary slot can take as a short-clip block. */
+export const SLOT_BODIES: readonly CardBody[] = [...PLANETS, 'Moon'];
+
 /**
  * Looks up everything one saved item points at. Anything missing becomes `problem` text on the slot instead of an
  * exception, so a stale itinerary (a removed filter, a target no longer listed) shows what is wrong and the rest still plans.
  */
 export function slotInputFor(item: ItineraryItem, profile: Profile, targets: readonly CatalogTarget[]): SlotInput {
   const train = profile.trains.find((t) => t.id === item.trainId);
-  const planet = PLANETS.find((b) => planetIdOf(b) === item.targetId);
+  const planet = SLOT_BODIES.find((b) => planetIdOf(b) === item.targetId);
   const catalog = targets.find((t) => t.id === item.targetId);
   const name = planet ?? catalog?.name ?? item.targetId;
   const base = { item, name, trainName: train?.name ?? item.trainId, filterName: 'No filter', optics: null, camera: null, filter: null } as const;
