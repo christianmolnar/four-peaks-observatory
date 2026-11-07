@@ -1,0 +1,47 @@
+PASS 1280px planets: arrow keys visit all eight cards (Jupiter, Saturn, Mars, Venus, Mercury, Uranus, Neptune, Moon) and nothing moves
+PASS 1280px planets: nothing clipped or scrolling sideways across all eight (cards, rows, section)
+PASS 1280px planets: a real mouse click on each card chooses it and nothing moves
+PASS 1280px planets: 80 Tab presses reach 20 checklist boxes and none inside a hidden panel; Space ticks without moving anything  [hidden=0 boxes=20 ]
+PASS 1280px planets: the visible chart is an image with a title and a description ('Altitude of Moon through the night', 63 characters)  [['img', 'Altitude of Moon through the night', 63]]
+PASS 1280px itinerary: four slots added from the keyboard  [['s1', 's2', 's3', 's4']]
+PASS 1280px itinerary: an overlap, a flip and a cut-short slot show their warnings (Note: meridian flip | Warning: overlaps windowNote: cut short | Note: waitsNote: cut shortNote: meridian flip | Warning: no time)  [['Note: meridian flip', 'Warning: overlaps windowNote: cut short', 'Note: waitsNote: cut shortNote: meridian flip', 'Warning: no time']]
+PASS 1280px itinerary: eight Up/Down presses by keyboard keep the section, the Planets section, the Edit horizon heading, the Profile section and the details box where they were; every slot keeps its height; focus follows
+PASS 1280px itinerary: nothing clipped or scrolling sideways during the reorders
+PASS 1280px itinerary: stepping all 13 filters of a slot with ArrowDown moves nothing and no slot changes height
+PASS 1280px itinerary: changing a slot's train and mode moves nothing either
+PASS 1280px itinerary: nothing clipped across the filter, train and mode changes
+PASS 1280px itinerary: choosing each slot's Details moves nothing
+PASS 1280px itinerary: a real mouse click on Down works the first time and moves nothing else  ['1. Orion Nebula' -> "1. Thor's Helmet" []]
+PASS 1280px: no page errors
+PASS 768px planets: arrow keys visit all eight cards (Jupiter, Saturn, Mars, Venus, Mercury, Uranus, Neptune, Moon) and nothing moves
+PASS 768px planets: nothing clipped or scrolling sideways across all eight (cards, rows, section)
+PASS 768px planets: a real mouse click on each card chooses it and nothing moves
+PASS 768px planets: 80 Tab presses reach 20 checklist boxes and none inside a hidden panel; Space ticks without moving anything  [hidden=0 boxes=20 ]
+PASS 768px planets: the visible chart is an image with a title and a description ('Altitude of Moon through the night', 63 characters)  [['img', 'Altitude of Moon through the night', 63]]
+PASS 768px itinerary: four slots added from the keyboard  [['s1', 's2', 's3', 's4']]
+PASS 768px itinerary: an overlap, a flip and a cut-short slot show their warnings (Note: meridian flip | Warning: overlaps windowNote: cut short | Note: waitsNote: cut shortNote: meridian flip | Warning: no time)  [['Note: meridian flip', 'Warning: overlaps windowNote: cut short', 'Note: waitsNote: cut shortNote: meridian flip', 'Warning: no time']]
+PASS 768px itinerary: eight Up/Down presses by keyboard keep the section, the Planets section, the Edit horizon heading, the Profile section and the details box where they were; every slot keeps its height; focus follows
+PASS 768px itinerary: nothing clipped or scrolling sideways during the reorders
+PASS 768px itinerary: stepping all 13 filters of a slot with ArrowDown moves nothing and no slot changes height
+PASS 768px itinerary: changing a slot's train and mode moves nothing either
+PASS 768px itinerary: nothing clipped across the filter, train and mode changes
+PASS 768px itinerary: choosing each slot's Details moves nothing
+PASS 768px itinerary: a real mouse click on Down works the first time and moves nothing else  ['1. Orion Nebula' -> "1. Thor's Helmet" []]
+PASS 768px: no page errors
+PASS 390px planets: arrow keys visit all eight cards (Jupiter, Saturn, Mars, Venus, Mercury, Uranus, Neptune, Moon) and nothing moves
+PASS 390px planets: nothing clipped or scrolling sideways across all eight (cards, rows, section)
+PASS 390px planets: a real mouse click on each card chooses it and nothing moves
+PASS 390px planets: 80 Tab presses reach 20 checklist boxes and none inside a hidden panel; Space ticks without moving anything  [hidden=0 boxes=20 ]
+PASS 390px planets: the visible chart is an image with a title and a description ('Altitude of Moon through the night', 63 characters)  [['img', 'Altitude of Moon through the night', 63]]
+PASS 390px itinerary: four slots added from the keyboard  [['s1', 's2', 's3', 's4']]
+PASS 390px itinerary: an overlap, a flip and a cut-short slot show their warnings (Note: meridian flip | Warning: overlaps windowNote: cut short | Note: waitsNote: cut shortNote: meridian flip | Warning: no time)  [['Note: meridian flip', 'Warning: overlaps windowNote: cut short', 'Note: waitsNote: cut shortNote: meridian flip', 'Warning: no time']]
+PASS 390px itinerary: eight Up/Down presses by keyboard keep the section, the Planets section, the Edit horizon heading, the Profile section and the details box where they were; every slot keeps its height; focus follows
+PASS 390px itinerary: nothing clipped or scrolling sideways during the reorders
+PASS 390px itinerary: stepping all 13 filters of a slot with ArrowDown moves nothing and no slot changes height
+PASS 390px itinerary: changing a slot's train and mode moves nothing either
+PASS 390px itinerary: nothing clipped across the filter, train and mode changes
+PASS 390px itinerary: choosing each slot's Details moves nothing
+PASS 390px itinerary: a real mouse click on Down works the first time and moves nothing else  ['1. Orion Nebula' -> "1. Thor's Helmet" []]
+PASS 390px: no page errors
+
+45 of 45 checks passed

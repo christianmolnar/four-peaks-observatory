@@ -50,11 +50,11 @@ function phaseText(c: PlanetCard): string {
 }
 
 function Row({ label, basis, children }: { label: string; basis: string; children: React.ReactNode }) {
-  // Two lines at wide widths, four on a phone: the rows reserve their height so a different planet moves nothing.
+  // No reserved height here: the eight panels share one grid cell, so the section is as tall as the tallest of them.
   return (
     <div className="py-1.5 border-b border-white/10 last:border-b-0">
       <dt className="text-white/70 text-xs">{label}, {basis}</dt>
-      <dd className="text-white text-sm min-h-10 max-md:min-h-[5rem]">{children}</dd>
+      <dd className="text-white text-sm">{children}</dd>
     </div>
   );
 }

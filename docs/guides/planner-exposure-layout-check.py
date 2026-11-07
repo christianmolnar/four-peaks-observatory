@@ -2,7 +2,7 @@
 """
 Layout proof for the /planner Exposure panel and the Filter selector (headless Chromium, real keys, real mouse).
 
-jsdom has no layout, so Jest cannot see a card or a heading move. This script checks, at 1280 and 390 px,
+jsdom has no layout, so Jest cannot see a card or a heading move. This script checks, at 1280, 768 and 390 px,
 on the sample profile with the evening set to 2026-12-15:
   1. Mode change: choosing Quick, Balanced and Deep with the arrow keys (focus reached by Tab) and with a real
      mouse click leaves the page position and size of the three cards, the warnings area, the marginal table,
@@ -10,8 +10,9 @@ on the sample profile with the evening set to 2026-12-15:
   2. Filter change: stepping the Filter box through all twelve filters with ArrowDown, on the HyperStar train
      and on the ASI533MC train, in every mode, leaves the same boxes (and the Filter box itself) unchanged.
      Warnings come and go in between (the script records how many distinct messages were seen).
-  3. Messages are not clipped: the warnings area never needs more height than it was given (scrollHeight <=
-     clientHeight) and nothing in the panel scrolls sideways; the page does not scroll sideways.
+  3. Messages are not clipped: the Filter line fits its box and nothing in the panel scrolls sideways; the page
+     does not scroll sideways. The warnings area has a fixed height and its own scrollbar, so it may scroll; when it
+     does, the line under it says "N more below, scroll" (the script records how many states scrolled).
   4. The Filter box and the line under it keep their size when the train switches between an optical train and
      a smart scope.
   5. Keyboard: Tab from the Bortle box lands on the chosen mode radio, arrows move the choice, and the word
@@ -62,7 +63,7 @@ def free_port():
 def start_server():
     port = free_port()
     proc = subprocess.Popen(
-        ["npx", "next", "dev", "--turbopack", "-p", str(port)],
+        ["npx", "next", "dev"] + ([] if os.environ.get("NO_TURBOPACK") else ["--turbopack"]) + ["-p", str(port)],
         cwd=REPO, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
     )
     url = f"http://127.0.0.1:{port}/planner"
@@ -110,6 +111,11 @@ CLIP_JS = """() => {
   const cs = getComputedStyle(area);
   if (cs.overflowY !== 'scroll') bad.push('warnings box does not always show its scrollbar (overflow-y ' + cs.overflowY + ')');
   if (area.offsetWidth - area.clientWidth < 4) bad.push('warnings scrollbar not drawn');
+  // When the box needs scrolling the line under it says how many warnings are below; when it does not, the line is empty.
+  const cue = document.querySelector('[data-testid=exposure-warnings-cue]').textContent;
+  const need = area.scrollHeight - area.clientHeight;
+  if (need > 4 && area.scrollTop === 0 && !/^\\d+ more below, scroll$/.test(cue)) bad.push('box scrolls (' + need + 'px) but the cue says: ' + JSON.stringify(cue));
+  if (need <= 0 && cue !== '') bad.push('box does not scroll but the cue says: ' + JSON.stringify(cue));
   // The filter line must fit its fixed height.
   if (line.scrollHeight > line.clientHeight + 1) bad.push('filter line clipped: ' + line.scrollHeight + ' of ' + line.clientHeight);
   // Nothing in the panel (the marginal table included) is wider than its own box, and the page does not scroll sideways.
@@ -447,8 +453,10 @@ def main():
         with sync_playwright() as pw:
             if only is None or "empty" in only:
                 check_empty(pw, url)
-            run(pw, url, "1280px", 1280, 900, shots, only)
-            run(pw, url, "390px", 390, 844, shots, only)
+            # ONLY_WIDTH=390 runs one width (the sweep takes about 8 minutes per width).
+            for label, w, h in (("1280px", 1280, 900), ("768px", 768, 1024), ("390px", 390, 844)):
+                if os.environ.get("ONLY_WIDTH") in (None, str(w)):
+                    run(pw, url, label, w, h, shots, only)
     finally:
         if proc:
             stop_server(proc)

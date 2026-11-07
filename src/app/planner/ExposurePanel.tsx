@@ -255,9 +255,9 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
         <caption className="sr-only">Signal-to-noise against integration time, relative to 30 minutes</caption>
         <thead className="text-white">
           <tr className="border-b border-white/20 align-bottom">
-            <th scope="col" className="w-[4.25rem] py-2 pr-2">Light</th>
+            <th scope="col" className="w-[3.5rem] md:w-[4.25rem] py-2 pr-2">Light</th>
             <th scope="col" className="py-2 pr-2">Signal-to-noise vs 30 min, estimate (range)</th>
-            <th scope="col" className="w-[6.5rem] md:w-auto py-2 pr-2">Gain on the step before, estimate (range)</th>
+            <th scope="col" className="w-[5.25rem] md:w-auto py-2 pr-2">Gain on step before, estimate (range)</th>
             <th scope="col" className="py-2">Tonight</th>
           </tr>
         </thead>

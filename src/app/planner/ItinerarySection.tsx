@@ -240,7 +240,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
             const timed = s.end.getTime() > s.start.getTime();
             return (
               <li key={s.id} className="rounded-lg border border-white/15 bg-black/50 p-4" data-testid={`slot-${s.id}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                <div className="flex flex-col md:flex-row md:flex-wrap items-baseline justify-between gap-x-4">
                   <h3 className="text-white font-normal text-base">
                     {k + 1}. {s.name}
                   </h3>
@@ -277,7 +277,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                     </select>
                   </div>
                 </div>
-                <p className="mt-2 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[3.75rem]" data-testid={`slot-light-${k}`}>
+                <p className="mt-2 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
                   {s.subSeconds !== null && s.subCount !== null
                     ? `Light: ${s.subSeconds} s x ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min (estimate).`
                     : timed

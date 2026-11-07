@@ -240,7 +240,7 @@ describe('Gain column and the overflow cue', () => {
   it('the Gain column says estimate in its heading and gives a range in each row', () => {
     app();
     const table = screen.getByTestId('marginal-table');
-    expect(within(table).getByRole('columnheader', { name: /Gain on the step before, estimate \(range\)/ })).toBeTruthy();
+    expect(within(table).getByRole('columnheader', { name: /Gain on step before, estimate \(range\)/ })).toBeTruthy();
     const rows = within(table).getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
     expect(rows[0]).toMatch(/baseline/);
     expect(rows[1]).toMatch(/\+41%range \+29% to \+41%/);

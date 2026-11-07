@@ -1,6 +1,6 @@
 # Imaging planner preview (`/planner`)
 
-Reachable by URL only; not in the header, `noindex`. All state is in the browser (localStorage keys `fpo-planner-profile-v1`, `fpo-planner-captured-v1`). No server code.
+Reachable by URL only; not in the header, `noindex`. All state is in the browser (localStorage keys `fpo-planner-profile-v1`, `fpo-planner-captured-v1`, `fpo-planner-itinerary-v1`). No server code.
 
 ## Manual check
 
@@ -27,12 +27,30 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
    - "Filter" in Tonight lists "No filter" and the twelve sample filters; the choice belongs to the train, is saved with the profile, and shows again after a reload. A smart scope has the box disabled ("Built in"). A profile saved before filters existed has none: the line under the box reads "No filters. Use Replace profile with sample." (whole, at every width from 390 to 2560 px), and "Replace profile with sample" loads the sample list (it also resets the horizon).
    - The Exposure panel has "Sky darkness (Bortle class)" (starts at 6, an assumption, not saved), a line describing the chosen filter (unknown values say "unknown" or "not published"), and three mode cards: Quick & Beautiful, Balanced (chosen at first) and Deep Project. Each card shows sub length, sub count, total light, overhead (setup, dithers, autofocus, meridian flip), elapsed time and finish time, every row labelled "estimate" with a range (sub count: the frames needed if the subs are at the long or the short end of the sub-length range; finish: spans the whole elapsed range, so it is a spread of tens of minutes, not a minute).
    - The meridian flip is added only when the target really crosses the meridian (hour angle zero) inside the session. Try North America Nebula on 2026-12-15 with the HyperStar train: it is already past the meridian, no flip, Quick overhead 33.7 min. Thor's Helmet crosses 43 minutes into its window: Quick shows the flip and 10 more minutes.
-   - Tab from the Bortle box lands on the chosen card; the arrow keys move the choice, a click works too, and the word "Selected" marks it (not colour only). Changing the mode or the filter moves nothing on the page: the warnings list is a box of fixed height with its own scrollbar (scroll it when a choice has many messages; on a phone it scrolls more often), and the card rows hold their height.
+   - Tab from the Bortle box lands on the chosen card; the arrow keys move the choice, a click works too, and the word "Selected" marks it (not colour only). The cards sit side by side from 1024 px and stack in one column below it. Changing the mode or the filter moves nothing on the page at 1280, 768 and 390 px (checked by the layout script): the card rows hold the height of their longest wrap, and the warnings list is a box of fixed height with its own scrollbar. When the box has more than it shows, the line under it says "N more below, scroll" (on a phone the scrollbar is a thin overlay, so the words matter); the line is always there, empty otherwise, so it moves nothing.
    - "Warnings and notes" lists, each tagged Warning or Note: filter rated slower than the train (try the HyperStar train with "Optolong L-eXtreme (standard)"; the CLS CCD gives none), no UV/IR cut (the "C11 + 0.7x reducer + ASI533MC" train with no filter or "IDAS LPS-P2"; "Baader UV/IR cut" clears it), a visual filter on a colour camera (try "Apertura Moon and Skyglow"), image scale, Moon, usable-time limits, short-session and Ou4 notes.
-   - "What more time buys": 30, 60, 90, 120 minutes at x1.00, x1.41, x1.73, x2.00 of the signal-to-noise (square root of time: 4 times the time is 2 times the signal-to-noise), with a range and the assumption written under it. There is no best stop time. On a phone the table has four columns (the range sits under the value) and does not scroll sideways.
+   - "What more time buys": 30, 60, 90, 120 minutes at x1.00, x1.41, x1.73, x2.00 of the signal-to-noise (square root of time: 4 times the time is 2 times the signal-to-noise), with a range and the assumption written under it. The gain column ("estimate (range)") gives +41%, +22%, +15% as the ideal and a lower value with 30 per cent of the gain lost (+29%, +17%, +12%). There is no best stop time. On a phone the table has four columns (the range sits under the value) and does not scroll sideways.
    - Planets show a one-line message (deep-sky only); smart scopes say an optical train is needed.
+   - The sub length range stays between 10 and 300 s, the module's own limits. A filter whose kind is not set and whose name says Sky Glow (Orion sells a visual and an imaging version) gets a note on a colour camera, never a warning.
    - Surface brightness is not in the catalog, so Quick says the short-session rule cannot rank the target (clusters and planetary nebulae count as bright).
 9. Import a profile with `latitude: 120`: the error names `$.sites[0].latitude`.
+10. Planets (below the Night itinerary; the profile's first train is the planetary train, C11 + ASI676MC):
+   - Eight cards in the spec order: Jupiter, Saturn, Mars, Venus, Mercury, Uranus, Neptune, Moon. The page opens on the first planet that is clear of your horizon. Arrow keys move between cards, a click works, the word "Selected" marks the choice. Every card line is computed.
+   - The detail below holds apparent diameter (and its size in pixels on the chosen train), phase or illuminated fraction, opposition or greatest elongation (nearest one, in days), culmination, minutes clear of your horizon (from the saved arc) and how many of them are above the no-ADC altitude, Saturn's ring tilt (the size only; the library does not say which face shows), the clip length limit and the image scale. Each label says computed, or computed with a named basis (rotation period sourced, seeing assumed).
+   - The windows use the same astronomical night as the target list. Venus, Mercury and the early Moon are twilight objects and may show as not clear when they could be imaged earlier; that is not computed. There is no Jupiter Great Red Spot transit (no verified longitude model).
+   - The eight panels sit in one grid cell and only the chosen one is visible, so choosing another planet moves nothing. The hidden ones are removed from the tab order and from assistive technology.
+   - The altitude chart for the chosen planet has a title, a description and a table behind "Altitude as a table".
+   - The checklist (Space ticks a box; ticks are not saved) ends each line with its basis: computed, sourced, assumption, practice or not verified. Clip length (up to a number of seconds, from rotation) and session length (about 30 minutes at the telescope) are separate lines. ASIAIR appears once, as not verified. The train lines say to start native; the 2.5x Powermate row is nominal because the Powermate is a 1.25 inch eyepiece amplifier with no stated camera spacing.
+   - Check the numbers against a second source: `src/planner/planets/horizons.fixture.json` holds JPL Horizons values for the sample site (diameter, illuminated fraction, azimuth, altitude, elongation, transit times) and `planets.test.ts` compares them.
+11. Night itinerary (below the Exposure panel):
+   - Pick a target in "Target to add" and press "Add to itinerary" (the new slot starts on the train chosen at the top, with its filter). Up to eight slots. A smart scope train turns the button off and says why.
+   - Each slot shows start and end (estimate), the light it plans (sub length, count, minutes, from the exposure module), the minutes of changeover before it, and chips for what needs a look. Per slot: train, filter, mode, a note (200 characters), Up, Down, Details, Remove.
+   - Up and Down work with Enter or Space; focus stays on the pressed button. At either end the button is marked disabled but stays focusable and does nothing. Start times follow the order at once.
+   - Changeover between slots (all estimates, `src/planner/itinerary/constants.ts`): slew and centre 3 min; filter change 2 min; train change 15 min; refocus 3 min after either. Setup (30 min) is before the first slot and not counted.
+   - Warnings: "Waits" (note: the target is not clear yet), "Overlaps window" (warning: the slots before used part of a window that closes, so too little is left), "Cut short", "Meridian flip" (the exposure module's flip time), "No time" (the window closed before this slot's turn). The Details box shows the sentences; it is as tall as the longest possible set, so nothing moves.
+   - Try Andromeda Galaxy then Orion Nebula on 2026-12-15 with the C11 + 0.7x reducer + ASI533MC train: the second slot overlaps its window (03:17 to 04:06 UTC). Swap them: the overlap goes.
+   - "Why this order" is one sentence: sorted by when each target clears the horizon, or your own order with the first pair that is out of order named.
+   - Saved in this browser (`fpo-planner-itinerary-v1`, version 1). A saved itinerary that fails the check is reported with its field path (for example `$.items[0].mode`) and the stored text stays until you change something.
 
 ## Automated
 
@@ -41,11 +59,12 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
 - `src/app/planner/PlannerApp.fit.test.tsx`: targets that do not fit are hidden by default, sort last, and are not "recommended".
 - `src/app/planner/PlannerApp.wiring.test.tsx`: default date, blocked or full storage, CSV time format.
 - `src/planner/exposure/exposure.test.ts`: the estimate with fixed inputs, every warning branch, the edge-shift formula (f/1.9: Ha 5.3 nm, OIII 4.1 nm), the marginal table. `src/app/planner/PlannerApp.exposure.test.tsx`: the panel and Filter box with real key events, saved choice, smart scope, planets.
+- `src/planner/planets`: apparent diameter, phase, elongation, ring tilt, transit and opposition against the Horizons fixture; the rotation limit, sampling and dispersion formulas; the cards for one night; the guide text (every line has a basis, ASIAIR only as not verified). `src/planner/itinerary`: the schedule, changeovers, warnings, reorder and the saved form. `src/app/planner/PlannerApp.planets.test.tsx` and `PlannerApp.itinerary.test.tsx`: both sections with real key events.
 - `src/planner/profile`: the v1 to v2 migration (a saved v1 profile keeps all its data and gets an empty filter list) and filter validation.
 
 ## Layout check (real browser)
 
-jsdom has no layout, so it cannot see a button move. `docs/guides/planner-layout-check.py` drives headless Chromium with real key presses and a real mouse at 1280 and 390 px: Save, Discard, Use sample horizon and Clear horizon keep identical bounding boxes before and after each rejected value, and a real mouse click (90 ms hold, aimed in the top fifth of the button) works first time after bad typing. It needs Playwright for Python and its Chromium, which the repo does not depend on:
+jsdom has no layout, so it cannot see a button move. `docs/guides/planner-layout-check.py` drives headless Chromium with real key presses and a real mouse at 1280 and 390 px (the Exposure and the Planets and Itinerary scripts below also run at 768 px): Save, Discard, Use sample horizon and Clear horizon keep identical bounding boxes before and after each rejected value, and a real mouse click (90 ms hold, aimed in the top fifth of the button) works first time after bad typing. It needs Playwright for Python and its Chromium, which the repo does not depend on:
 
     ~/tools/shots/bin/python docs/guides/planner-layout-check.py
 
@@ -57,7 +76,7 @@ Last recorded run: `docs/guides/planner-layout-check.out.txt` (98 of 98 checks).
 
 Not done yet from the design review: chart beside the list, cards on phones, jargon renames.
 
-`docs/guides/planner-exposure-layout-check.py` does the same for the Exposure panel and Filter box at 1280 and 390 px:
+`docs/guides/planner-exposure-layout-check.py` does the same for the Exposure panel and Filter box at 1280, 768 and 390 px:
 
 - Tab and arrow keys and real mouse clicks on the mode cards; ArrowDown through all twelve filters in every mode on the HyperStar and ASI533MC trains.
 - Sweep: 3 trains, 6 targets (short usable windows, capped-sub notes, one roomy), Bortle 1 and 9, Quick and Deep, every filter option, 936 states per width. No element on the page may change its page position or size (the text inside the card rows, the warnings box and the filter line is exempt; their boxes are not).
@@ -65,6 +84,8 @@ Not done yet from the design review: chart beside the list, cards on phones, jar
 - A v1 profile (empty filter list) at 1024, 1279, 1280, 1440, 1920, 2560 and 390 px: the whole instruction under the Filter box must be visible.
 - The warnings box keeps its height and shows its scrollbar; the marginal table has no cell wider than its box.
 
-Run it the same way (`~/tools/shots/bin/python docs/guides/planner-exposure-layout-check.py`, about 10 minutes; `--only empty,sweep` picks sections); last run: `docs/guides/planner-exposure-layout-check.out.txt`.
+Run it the same way (`~/tools/shots/bin/python docs/guides/planner-exposure-layout-check.py`, about 15 minutes; `--only empty,sweep` picks sections); last run: `docs/guides/planner-exposure-layout-check.out.txt`.
+
+`docs/guides/planner-m2b-layout-check.py` does the same for the Planets section and the Night itinerary at 1280, 768 and 390 px (`--only planets,itinerary`): arrow keys and real mouse clicks through all eight planets; Tab never entering a hidden panel; Space ticking a box; eight reorders by keyboard, every filter, train and mode of a slot and each Details choice, with the sections, the details box and every slot's own height unchanged; nothing clipped; no sideways scroll. Last run: `docs/guides/planner-m2b-layout-check.out.txt`.
 
 Checked by mutant: the old warnings reserve (`min-h`, no fixed height) fails the sweep and the key-press repro at both widths; the old no-filters text fails at 1280, 1440, 1920, 2560 and 390 px.

@@ -3,7 +3,7 @@
 Layout-independent proof for the /planner horizon editor (headless Chromium, real keys, real mouse).
 
 Jest cannot see layout, so it cannot catch a button that moves between mouse-down and mouse-up.
-This script checks, at 1280 and 390 px:
+This script checks, at 1280, 768 and 390 px:
   1. Save horizon, Discard changes, Use sample horizon and Clear horizon have identical bounding
      boxes (page coordinates) before and after each kind of rejected value, and the four message
      lines exist before any error.
@@ -60,7 +60,7 @@ def free_port():
 def start_server():
     port = free_port()
     proc = subprocess.Popen(
-        ["npx", "next", "dev", "--turbopack", "-p", str(port)],
+        ["npx", "next", "dev"] + ([] if os.environ.get("NO_TURBOPACK") else ["--turbopack"]) + ["-p", str(port)],
         cwd=REPO, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
     )
     url = f"http://127.0.0.1:{port}/planner"
@@ -391,6 +391,7 @@ def main():
     try:
         with sync_playwright() as pw:
             run_viewport(pw, url, "1280px", 1280, 900, shots)
+            run_viewport(pw, url, "768px", 768, 1024, shots)
             run_viewport(pw, url, "390px", 390, 844, shots)
             run_widths(pw, url)
     finally:

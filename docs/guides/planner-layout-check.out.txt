@@ -13,8 +13,8 @@ PASS 1280px: buttons and target list identical after every key of 91 in Height  
 PASS 1280px: buttons and target list identical after every key of 95 in Height  [2 keys]
 PASS 1280px: buttons and target list identical after every step of a Start slider drag  [7 steps]
 PASS 1280px: buttons and target list identical after every step of a Height slider drag  [5 steps]
-PASS 1280px: Save horizon does not move on Clear horizon  [[652, 2878, 166.34, 44] -> [652, 2878, 166.34, 44]]
-PASS 1280px: Save horizon does not move on Add a blocked arc  [[652, 2878, 166.34, 44] -> [652, 2878, 166.34, 44]]
+PASS 1280px: Save horizon does not move on Clear horizon  [[652, 6245, 166.34, 44] -> [652, 6245, 166.34, 44]]
+PASS 1280px: Save horizon does not move on Add a blocked arc  [[652, 6245, 166.34, 44] -> [652, 6245, 166.34, 44]]
 PASS 1280px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 1280px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 1280px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
@@ -38,6 +38,46 @@ PASS 1280px: Minimum altitude is 20 with no message after Use sample horizon
 PASS 1280px: first click on Save horizon under the toast saves  [toast still up when clicked: True; stored {'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
 PASS 1280px: the toast clears itself
 PASS 1280px: no page errors
+PASS 768px: the four message lines exist before any error
+PASS 768px: Save, Discard, Use sample horizon and Clear horizon are at least 44 px tall  [{'Save horizon': 44, 'Discard changes': 44, 'Use sample horizon': 44, 'Clear horizon': 44}]
+PASS 768px: boxes identical after 500 in Start  [message: '! Use 0 to 359 degrees.']
+PASS 768px: boxes identical after 361 in Start  [message: '! Use 0 to 359 degrees.']
+PASS 768px: boxes identical after 320 in Start (equals End)  [message: '! Start and End must differ.']
+PASS 768px: boxes identical after 91 in Height  [message: '! Use 0 to 90 degrees.']
+PASS 768px: boxes identical after 95 in Height  [message: '! Use 0 to 90 degrees.']
+PASS 768px: boxes identical after empty Start  [message: '! Enter a number from 0 to 359.']
+PASS 768px: boxes identical after 1.5 in Start  [message: '! Whole degrees only.']
+PASS 768px: boxes identical after 100 in Minimum altitude  [message: '! Use 0 to 89. Planning with 20 until fixed.']
+PASS 768px: buttons and target list identical after every key of 500 in Start  [3 keys]
+PASS 768px: buttons and target list identical after every key of 91 in Height  [2 keys]
+PASS 768px: buttons and target list identical after every key of 95 in Height  [2 keys]
+PASS 768px: buttons and target list identical after every step of a Start slider drag  [7 steps]
+PASS 768px: buttons and target list identical after every step of a Height slider drag  [5 steps]
+PASS 768px: Save horizon does not move on Clear horizon  [[396, 6886.75, 102.34, 44] -> [396, 6886.75, 102.34, 44]]
+PASS 768px: Save horizon does not move on Add a blocked arc  [[396, 6886.75, 102.34, 44] -> [396, 6886.75, 102.34, 44]]
+PASS 768px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Use sample horizon after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Discard changes after 320 in Start (equals End)  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Use sample horizon after 320 in Start (equals End)  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Discard changes after 91 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Use sample horizon after 91 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Discard changes after 95 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Use sample horizon after 95 in Height  [start=120 end=320 height=42 msgs=['', '', '', '']]
+PASS 768px: first click on Clear horizon after 500 in Start
+PASS 768px: first click on Clear horizon after 361 in Start
+PASS 768px: first click on Clear horizon after 320 in Start (equals End)
+PASS 768px: first click on Clear horizon after 91 in Height
+PASS 768px: first click on Clear horizon after 95 in Height
+PASS 768px: Save is inert while a horizon box is bad, nothing is stored
+PASS 768px: after the box is fixed, first click on Save stores it  [{'startAz': 130, 'endAz': 320, 'heightDeg': 50}]
+PASS 768px: bad Minimum altitude, first click on Save stores the original Start and End  [{'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
+PASS 768px: reload shows the saved arc
+PASS 768px: Minimum altitude is 20 with no message after Use sample horizon
+PASS 768px: first click on Save horizon under the toast saves  [toast still up when clicked: True; stored {'startAz': 120, 'endAz': 320, 'heightDeg': 50}]
+PASS 768px: the toast clears itself
+PASS 768px: no page errors
 PASS 390px: the four message lines exist before any error
 PASS 390px: Save, Discard, Use sample horizon and Clear horizon are at least 44 px tall  [{'Save horizon': 44, 'Discard changes': 44, 'Use sample horizon': 44, 'Clear horizon': 44}]
 PASS 390px: boxes identical after 500 in Start  [message: '! Use 0 to 359 degrees.']
@@ -53,8 +93,8 @@ PASS 390px: buttons and target list identical after every key of 91 in Height  [
 PASS 390px: buttons and target list identical after every key of 95 in Height  [2 keys]
 PASS 390px: buttons and target list identical after every step of a Start slider drag  [7 steps]
 PASS 390px: buttons and target list identical after every step of a Height slider drag  [5 steps]
-PASS 390px: Save horizon does not move on Clear horizon  [[49, 3792.23, 292, 44] -> [49, 3792.23, 292, 44]]
-PASS 390px: Save horizon does not move on Add a blocked arc  [[49, 3792.23, 292, 44] -> [49, 3792.23, 292, 44]]
+PASS 390px: Save horizon does not move on Clear horizon  [[49, 10671.47, 292, 44] -> [49, 10671.47, 292, 44]]
+PASS 390px: Save horizon does not move on Add a blocked arc  [[49, 10671.47, 292, 44] -> [49, 10671.47, 292, 44]]
 PASS 390px: first click on Discard changes after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 390px: first click on Use sample horizon after 500 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
 PASS 390px: first click on Discard changes after 361 in Start  [start=120 end=320 height=42 msgs=['', '', '', '']]
@@ -97,4 +137,4 @@ PASS 360px: no message line is clipped (scrollHeight <= clientHeight)
 PASS 360px: Edit horizon by mouse: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 285, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 PASS 360px: Edit horizon by Enter: heading and Clear horizon are not under the nav (hit test, scroll settled)  [{"heading": {"top": 201, "bottom": 285, "onscreen": true, "free": true}, "clear": {"top": 201, "bottom": 245, "onscreen": true, "free": true}}]
 
-98 of 98 checks passed
+138 of 138 checks passed
