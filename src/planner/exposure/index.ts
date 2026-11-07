@@ -107,7 +107,7 @@ const nm = (x: number) => x.toFixed(1);
 /** Filter-fit warnings for one train: beam speed, missing UV/IR cut, visual-first filter on a colour camera. */
 export function filterWarnings(fRatio: number, filter: ProfileFilter | null, camera: FitCamera): ExposureWarning[] {
   const out: ExposureWarning[] = [];
-  const shiftText = `At f/${fRatio.toFixed(1)} the edge of the beam shifts a passband about ${nm(edgeShiftNm(fRatio, HA_NM))} nm at Ha and ${nm(edgeShiftNm(fRatio, OIII_NM))} nm at OIII (estimate).`;
+  const shiftText = `At f/${fRatio.toFixed(1)} the beam edge shifts a passband about ${nm(edgeShiftNm(fRatio, HA_NM))} nm at Ha and ${nm(edgeShiftNm(fRatio, OIII_NM))} nm at OIII (estimate).`;
   if (filter) {
     const name = filter.name;
     if (filter.ratedMinFRatio !== undefined && fRatio < filter.ratedMinFRatio) {
@@ -120,7 +120,7 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
       out.push({
         code: 'filter-rated-slower',
         severity: 'warning',
-        text: `${name} is rated for beam angles up to ${filter.maxIncidentAngleDeg} degrees (published); this train's beam reaches ${beamHalfAngleDeg(fRatio).toFixed(1)} degrees (f/${fRatio.toFixed(1)}). ${shiftText}`,
+        text: `${name} is rated for beam angles up to ${filter.maxIncidentAngleDeg} degrees (published); this train reaches ${beamHalfAngleDeg(fRatio).toFixed(1)}. ${shiftText}`,
       });
     } else if (
       filter.ratedMinFRatio === undefined &&
@@ -130,7 +130,7 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
       out.push({
         code: 'filter-rated-slower',
         severity: 'warning',
-        text: `${name} has no published f-ratio rating, and its narrowest band is ${filter.narrowestBandNm} nm wide. ${shiftText} That is more than half the band, so it is probably rated slower than this train (calculated, not published).`,
+        text: `${name} has no published f-ratio rating; its narrowest band is ${filter.narrowestBandNm} nm. ${shiftText} That is over half the band, so it is probably rated slower than this train (calculated).`,
       });
     }
     if (camera.hasUvIrCut === false && filter.blocksUvIr !== true) {
@@ -139,22 +139,22 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
         severity: 'warning',
         text:
           filter.blocksUvIr === false
-            ? `This camera has no UV/IR cut and ${name} does not block UV/IR: expect bloated stars and colour casts. Stack a UV/IR cut filter or choose one that includes it.`
-            : `This camera has no UV/IR cut and it is not known that ${name} blocks UV/IR: expect bloated stars and colour casts unless it does. Add a UV/IR cut filter or choose one that includes it.`,
+            ? `This camera has no UV/IR cut and ${name} does not block UV/IR: expect bloated stars and colour casts. Stack a UV/IR cut filter.`
+            : `This camera has no UV/IR cut and it is not known that ${name} blocks UV/IR: expect bloated stars and colour casts unless it does. Add a UV/IR cut filter.`,
       });
     }
     if (filter.kind === 'visual-only' && camera.colour === true) {
       out.push({
         code: 'filter-visual-colour',
         severity: 'warning',
-        text: `${name} is made for visual use. On a colour imaging camera expect a colour cast and little sky-glow help; it is untested for imaging here.`,
+        text: `${name} is made for visual use. On a colour camera expect a colour cast; it is untested for imaging here.`,
       });
     }
   } else if (camera.hasUvIrCut === false) {
     out.push({
       code: 'filter-uvir-missing',
       severity: 'warning',
-      text: 'No filter is selected and this camera has no UV/IR cut: expect bloated stars and colour casts. Use a UV/IR cut filter or one that includes it.',
+      text: 'No filter is selected and this camera has no UV/IR cut: expect bloated stars and colour casts. Use a UV/IR cut filter.',
     });
   }
   return out;
@@ -413,7 +413,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
     shared.push({
       code: 'inputs-assumed',
       severity: 'note',
-      text: `Not in the profile, so assumed: ${parts.join(' and ')}. The sub-length range is wider because of it (estimate).`,
+      text: `Not in the profile, so assumed: ${parts.join(' and ')}. The sub-length range is wider (estimate).`,
     });
   }
   const scale = input.train.imageScale;
@@ -421,7 +421,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
     shared.push({
       code: 'sampling',
       severity: 'note',
-      text: `Image scale ${scale.toFixed(2)} arcsec per pixel is finer than typical seeing needs (assumed 2 to 3 arcsec): detail will not improve, and each pixel gathers less light. Binning may help.`,
+      text: `Image scale ${scale.toFixed(2)} arcsec per pixel is finer than typical seeing needs (assumed 2 to 3 arcsec): detail will not improve. Binning may help.`,
     });
   } else if (scale !== undefined && scale > UNDERSAMPLED_ABOVE_ARCSEC) {
     shared.push({
@@ -434,14 +434,14 @@ export function planExposure(input: ExposureInput): ExposureReport {
     shared.push({
       code: 'moon-near',
       severity: 'note',
-      text: `The Moon is ${(input.sky.moonIllumination * 100).toFixed(0)}% lit and ${input.sky.moonSeparationDeg.toFixed(0)} degrees away: the sky is brighter than the Bortle class says, which the sub length allows for.`,
+      text: `The Moon is ${(input.sky.moonIllumination * 100).toFixed(0)}% lit, ${input.sky.moonSeparationDeg.toFixed(0)} degrees away: the sky is brighter than the Bortle class says. The sub length allows for it.`,
     });
   }
   if (isOu4(input.target)) {
     shared.push({
       code: 'target-ou4',
       severity: 'warning',
-      text: 'Ou4 is an extremely faint oxygen (OIII) nebula. A single short session will show little; it needs narrowband data and far more time than the Quick or Balanced modes plan.',
+      text: 'Ou4 is an extremely faint oxygen (OIII) nebula. A short session will show little; it needs narrowband data and far more time than Quick or Balanced plan.',
     });
   }
   if (input.usableMinutes <= 0) {
@@ -459,7 +459,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
       modeWarnings.push({
         code: 'sub-capped',
         severity: 'note',
-        text: `The sky-limited length is about ${Math.round(floorS * spec.subMargin)} s; capped at ${MAX_SUB_S} s (guiding, wind and satellite-trail risk). Read noise stays a larger share of each frame.`,
+        text: `Sky-limited length is about ${Math.round(floorS * spec.subMargin)} s; capped at ${MAX_SUB_S} s (guiding, wind, satellite trails).`,
       });
     }
     const desiredCount = Math.floor((spec.targetMin * 60) / subSeconds);
@@ -483,7 +483,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
         modeWarnings.push({
           code: 'meridian-flip',
           severity: 'note',
-          text: `A meridian flip falls inside this session and adds ${MERIDIAN_FLIP_MIN} minutes (the target's highest point stands in for the meridian crossing).`,
+          text: `A meridian flip falls inside this session and adds ${MERIDIAN_FLIP_MIN} minutes (the highest point stands in for the crossing).`,
         });
       }
     }
@@ -504,7 +504,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
       modeWarnings.push({
         code: 'limited-by-usable-time',
         severity: 'note',
-        text: `Only ${Math.round(input.usableMinutes)} usable minutes tonight, so this plan stops at ${integrationMin} minutes of light instead of ${spec.targetMin}.`,
+        text: `Only ${Math.round(input.usableMinutes)} usable minutes tonight: this plan stops at ${integrationMin} minutes of light, not ${spec.targetMin}.`,
       });
     }
     if (input.usableMinutes > 0 && integrationMin < spec.rangeMin[0]) {
@@ -519,13 +519,13 @@ export function planExposure(input: ExposureInput): ExposureReport {
         modeWarnings.push({
           code: 'short-session-faint',
           severity: 'warning',
-          text: 'Faint, low surface brightness: in a short session a bright compact target will look better. Consider one of those first.',
+          text: 'Faint, low surface brightness: in a short session a bright compact target will look better. Consider those first.',
         });
       } else if (sb === 'unknown') {
         modeWarnings.push({
           code: 'short-session-unknown',
           severity: 'note',
-          text: 'Surface brightness is not in the catalog, so the short-session rule (bright compact targets first) cannot rank this target.',
+          text: 'Surface brightness is not in the catalog, so the short-session rule (bright compact targets first) cannot rank this one.',
         });
       }
     }

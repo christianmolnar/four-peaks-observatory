@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import {
-  MODES,
   MODE_ORDER,
   NO_STOP_TIME_NOTE,
   SNR_ASSUMPTION,
@@ -179,7 +178,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, f
           </select>
           <p className="text-white/60 text-xs mt-1 h-8 overflow-hidden">Assumed {DEFAULT_BORTLE} until you change it; not saved.</p>
         </div>
-        <p className="md:col-span-2 text-white/80 font-normal text-sm min-h-[5rem]" data-testid="exposure-filter">
+        <p className="md:col-span-2 text-white/80 font-normal text-sm min-h-[9rem] md:min-h-[5rem]" data-testid="exposure-filter">
           {filterLine(filter)}
         </p>
       </div>
@@ -193,8 +192,9 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, f
         </div>
       </fieldset>
 
-      <h3 className="text-white font-normal text-base mt-6 mb-2">Warnings and notes for {MODES[mode].label}</h3>
-      <div className="min-h-[24rem] md:min-h-[15rem]" aria-live="polite" data-testid="exposure-warnings">
+      {/* Fixed text: a heading that named the mode would wrap to two lines for the longer names and push everything below it. */}
+      <h3 className="text-white font-normal text-base mt-6 mb-2">Warnings and notes for the chosen mode</h3>
+      <div className="min-h-[30rem] md:min-h-[12rem]" aria-live="polite" data-testid="exposure-warnings">
         <WarningList warnings={warnings} />
       </div>
 
