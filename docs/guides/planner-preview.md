@@ -72,7 +72,7 @@ It starts its own `next dev` on a free port and stops it afterwards; pass a URL 
 
 It also measures, after every key and every drag step, the page position of the four buttons and the target list (typing 500 in Start, 91 and 95 in Height, slider drags), that Clear horizon and Add a blocked arc leave Save horizon in place, that no message line is clipped at 1280, 1024, 768, 640, 390 and 360 px, that a click on Save horizon under a toast works and the toast clears, and that Edit horizon lands below the site header.
 
-Last recorded run: `docs/guides/planner-layout-check.out.txt` (98 of 98 checks).
+Last recorded run: `docs/guides/planner-layout-check.out.txt` (138 of 138 checks).
 
 Not done yet from the design review: chart beside the list, cards on phones, jargon renames.
 
