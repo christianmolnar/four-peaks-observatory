@@ -13,6 +13,7 @@ import {
   FILTER_CHANGE_MIN,
   MAX_NOTE_CHARS,
   MAX_SLOTS,
+  PLANET_MIN_USEFUL_MIN,
   PLANET_SLOT_MIN,
   SLEW_CENTER_MIN,
   TRAIN_CHANGE_MIN,
@@ -190,8 +191,14 @@ export const WARNING_TEXT = {
     (later
       ? ` A later window, ${later.opens} to ${later.closes}, would give ${later.lightMin} min${later.lightMin < aimLow ? `, still under the ${aimLow} the mode needs` : ''}; the slot keeps this one.`
       : ''),
-  planetCut: (closes: string, minutes: number): string => `The window closes ${closes}, so the slot is cut to ${minutes} min (planned ${PLANET_SLOT_MIN}).`,
+  planetCut: (closes: string, minutes: number): string => {
+    // 19.7 rounds to the planned 20: say "just under" then, so "cut to 20 (planned 20)" never appears.
+    const shown = round(minutes) >= PLANET_SLOT_MIN ? `just under ${PLANET_SLOT_MIN}` : round(minutes);
+    return `The window closes ${closes}, so the slot is cut to ${shown} min (planned ${PLANET_SLOT_MIN}).`;
+  },
   flip: (name: string, flipMin: number): string => `${name} crosses the meridian during this slot: a flip adds ${flipMin} min.`,
+  /** The slot sits in a later window because the planet is higher there, not because the earlier one was not clear. */
+  planetWaitsHigher: (name: string, waitMin: number, opens: string): string => `Waits ${waitMin} min for ${name}'s window that opens ${opens}: the planet is higher there than in the earlier window.`,
   planetWaits: (name: string, waitMin: number, highest: string): string => `Waits ${waitMin} min so the slot is centred on ${name}'s highest point (${highest}), not on the moment its window opens.`,
   /** The slot is as high as it gets in its window, but the night's peak is not inside it. */
   planetWaitsClamped: (name: string, waitMin: number, at: string): string => `Waits ${waitMin} min so the slot is at the highest ${name} reaches in this window (${at}), not on the moment its window opens.`,
@@ -244,6 +251,8 @@ interface Attempt {
   subSeconds: number | null;
   subCount: number | null;
   integrationMin: number;
+  /** Minutes the window leaves from the earliest start (a flip does not shorten it); planet windows are compared on it. */
+  leftMin: number;
   /** True when the window leaves less light than the mode aims for (planet: than PLANET_SLOT_MIN). */
   short: boolean;
   /** The light that was aimed for, for the cut-short text. */
@@ -359,7 +368,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
           transitTime: nextMeridianTransit(source.raHours, source.decDeg, start, site),
         });
         if (!report.ok) {
-          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${report.missing.join(', ')}, so no exposure can be planned.` };
+          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${report.missing.join(', ')}, so no exposure can be planned.` };
         }
         const m = report.modes[item.mode];
         subSeconds = m.subSeconds;
@@ -373,7 +382,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
         waitMin = minutesBetween(earliest, start);
       }
       const delayedMin = waitMin > EDGE_TOLERANCE_MIN || !last ? 0 : minutesBetween(w.start, start);
-      return { w, start, end, waitMin: Math.max(0, waitMin), delayedMin, subSeconds, subCount, integrationMin, short, aim, cut, flipMin, peakAt, peakHeld, altitude };
+      return { w, start, end, waitMin: Math.max(0, waitMin), delayedMin, subSeconds, subCount, integrationMin, leftMin: remaining, short, aim, cut, flipMin, peakAt, peakHeld, altitude };
     };
 
     if (source.kind !== 'planet' && (!si.optics || !si.camera)) {
@@ -389,10 +398,13 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     let chosen = firstTry;
     let skipped: Attempt | null = null;
     if (source.kind === 'planet') {
-      // A planet has no mode to satisfy: of all the windows that fit, take the one where the slot is highest.
+      // A planet has no mode to satisfy: of all the windows that fit, take the one where the slot is highest. A window that
+      // leaves under half a slot is taken only when no window leaves more; the first such sliver stays.
+      const clears = (x: Attempt): boolean => x.leftMin >= PLANET_MIN_USEFUL_MIN;
       for (const later of fitting.slice(1)) {
         const a = attemptIn(later);
-        if (a.integrationMin > 0 && a.altitude > chosen.altitude) chosen = a;
+        if (a.integrationMin <= 0) continue;
+        if (clears(a) && (!clears(chosen) || a.altitude > chosen.altitude)) chosen = a;
       }
     } else if (firstTry.short) {
       for (const later of fitting.slice(1)) {
@@ -401,6 +413,16 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
           chosen = a;
           skipped = firstTry;
           break;
+        }
+      }
+      // No window gives the mode its minimum; if this one gives no subs at all, the later one with the most light is better than nothing.
+      if (chosen === firstTry && firstTry.subCount === 0) {
+        for (const later of fitting.slice(1)) {
+          const a = attemptIn(later);
+          if (!a.unplannable && a.integrationMin > chosen.integrationMin) {
+            chosen = a;
+            skipped = firstTry;
+          }
         }
       }
     }
@@ -422,7 +444,9 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
           ? chosen.peakHeld
             ? WARNING_TEXT.planetWaits(si.name, round(waitMin), formatTime(chosen.peakAt))
             : WARNING_TEXT.planetWaitsClamped(si.name, round(waitMin), formatTime(chosen.peakAt))
-          : WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)),
+          : chosen.w !== firstTry.w
+            ? WARNING_TEXT.planetWaitsHigher(si.name, round(waitMin), formatTime(w.start))
+            : WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)),
       });
     }
     // The slots before took part of this window. That only matters when it leaves too little for the mode.

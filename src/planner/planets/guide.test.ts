@@ -93,6 +93,35 @@ describe('the lucky-imaging guide', () => {
     expect(item(guideFor('Jupiter').sections, 'roi').text).toMatch(/\d+ pixels square/);
   });
 
+  it('the Moon guide never says planet, and its stacking line names no planet mode', () => {
+    const { sections } = guideFor('Moon');
+    for (const id of ['collimate', 'dispersion', 'high', 'stack']) expect(`${item(sections, id).title} ${item(sections, id).text}`).not.toMatch(/planet/i);
+    expect(item(sections, 'stack').text).toMatch(/^Open the SER in AutoStakkert, place alignment points/);
+    // A planet keeps its wording.
+    expect(item(guideFor('Jupiter').sections, 'stack').text).toContain('choose the planet mode');
+    expect(item(guideFor('Jupiter').sections, 'collimate').text).toContain('before the planet.');
+  });
+
+  describe('the mosaic line', () => {
+    const withPanels = (perSide: number) => {
+      const { card } = guideFor('Moon');
+      const sections = buildGuide({ card: { ...card, mosaicPanelsPerSide: perSide }, apertureMm: 279.4, trains: [NATIVE], formatTime: time, scopeName: 'C11', cameraName: 'ASI676MC', cameraColour: true });
+      return item(sections, 'session').text;
+    };
+    it('one panel is not "1 panels"', () => {
+      const text = withPanels(1);
+      expect(text).toContain('The mosaic is 1 panel at one clip each');
+      expect(text).not.toMatch(/1 panels/);
+      expect(text).toContain('the session covers it');
+    });
+    it('says the session covers the mosaic only when the clips reach the panels', () => {
+      expect(withPanels(2)).toContain('the session covers it');
+      const big = withPanels(30);
+      expect(big).toContain('one session does not cover it');
+      expect(big).not.toContain('the session covers it');
+    });
+  });
+
   it('dispersion numbers are the computed ones, and the threshold altitude is the 279.4 mm figure', () => {
     const { card, sections } = guideFor('Jupiter');
     const d = item(sections, 'dispersion');

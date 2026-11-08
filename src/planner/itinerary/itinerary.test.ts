@@ -9,6 +9,7 @@ import {
   FILTER_CHANGE_MIN,
   ItineraryError,
   MAX_SLOTS,
+  PLANET_MIN_USEFUL_MIN,
   PLANET_SLOT_MIN,
   REFOCUS_AFTER_CHANGE_MIN,
   SLEW_CENTER_MIN,
@@ -317,7 +318,7 @@ describe('the schedule', () => {
 
   describe('a planet on a night with two windows takes the one where it is highest', () => {
     const on = (date: string, items: ItineraryItem[]) => build(items, { night: tonightsNight(SITE, date) });
-    const alt = (body: 'Neptune' | 'Moon', s: { start: Date; integrationMin: number }) => bodyAltAz(body, new Date(s.start.getTime() + (s.integrationMin / 2) * MIN), SITE).altitude;
+    const alt = (body: 'Neptune' | 'Moon' | 'Jupiter', s: { start: Date; integrationMin: number }) => bodyAltAz(body, new Date(s.start.getTime() + (s.integrationMin / 2) * MIN), SITE).altitude;
 
     it('Neptune 2027-09-28: the slot holds the 57 degree culmination window, not the 36 degree first one', () => {
       const s = on('2027-09-28', [item('planet-neptune')]).slots[0];
@@ -347,6 +348,77 @@ describe('the schedule', () => {
       const text = s.warnings.find((w) => w.code === 'waits')!.text;
       expect(text).toMatch(/at the highest Neptune reaches in this window/);
       expect(text).not.toMatch(/highest point|centred/);
+    });
+
+    describe('a window that leaves under half a slot cannot beat one that leaves a full slot', () => {
+      const left = (s: { start: Date; window: { end: Date } | null }) => (s.window!.end.getTime() - s.start.getTime()) / MIN;
+      it.each([['2028-07-02'], ['2027-07-03']])('Neptune %s keeps its 20 min slot, with a reason that is altitude, not the horizon', (date) => {
+        const s = on(date, [item('planet-neptune')]).slots[0];
+        expect(s.integrationMin).toBe(PLANET_SLOT_MIN);
+        expect(codes(s)).not.toContain('cut-short');
+        for (const w of s.warnings) expect(w.text).not.toMatch(/clear the horizon/);
+      });
+      it('Jupiter 2028-12-25 keeps the 26 min window', () => {
+        const s = on('2028-12-25', [item('planet-jupiter')]).slots[0];
+        expect(s.integrationMin).toBe(PLANET_SLOT_MIN);
+        expect(fmt(s.window!.start)).toBe('10:39'); // the verdict's 10:40 to 11:06, a 26 min window, to the minute the grid gives
+        expect(fmt(s.window!.end)).toBe('11:06');
+        expect(alt('Jupiter', s)).toBeLessThan(30); // the later 3 min window is higher (42 degrees) but leaves under half a slot
+      });
+      it('Jupiter 2028-12-28 takes 14 min at 43 degrees over 20 min at 23 degrees', () => {
+        const s = on('2028-12-28', [item('planet-jupiter')]).slots[0];
+        expect(Math.round(left(s))).toBeGreaterThanOrEqual(10);
+        expect(alt('Jupiter', s)).toBeGreaterThan(40);
+        expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toMatch(/cut to 1\d min \(planned 20\)/);
+      });
+      it('Moon 2027-12-20 keeps a slot of at least 10 min', () => {
+        const s = on('2027-12-20', [item('planet-moon')]).slots[0];
+        expect(s.integrationMin).toBeGreaterThanOrEqual(10);
+        expect(s.integrationMin).toBeGreaterThan(12);
+      });
+      it('Jupiter 2028-12-28: skipping an earlier clear window for altitude says altitude, never the horizon', () => {
+        const s = on('2028-12-28', [item('planet-jupiter')]).slots[0];
+        const text = s.warnings.find((w) => w.code === 'waits')!.text;
+        expect(text).toMatch(/^Waits \d+ min for Jupiter's window that opens 12:48: the planet is higher there than in the earlier window\.$/);
+        expect(text).not.toMatch(/clear the horizon/);
+      });
+      it('a planet that waits only for its one window to open still says so', () => {
+        const text = on('2027-12-20', [item('planet-moon')]).slots[0].warnings.find((w) => w.code === 'waits')!.text;
+        expect(text).toMatch(/^Waits \d+ min for Moon to clear the horizon \(its window opens 10:19\)\.$/);
+      });
+      it('Uranus 2027-09-26: 19.7 min is not reported as "cut to 20 min (planned 20)"', () => {
+        const s = on('2027-09-26', [item('planet-uranus')]).slots[0];
+        expect(s.integrationMin).toBeLessThan(PLANET_SLOT_MIN);
+        const text = s.warnings.find((w) => w.code === 'cut-short')!.text;
+        expect(text).toContain('so the slot is cut to just under 20 min (planned 20).');
+      });
+      it('a window is judged by the minutes it leaves, not by the light after a flip (Neptune 2026-12-15, a wall of trees after the meridian)', () => {
+        // The first window (01:49 to 02:01) leaves 12 min and holds the meridian crossing, so the flip takes 10 of them and leaves 2 min of light.
+        // A wall from azimuth 182.6 to 191 (02:01 to 02:20) splits the night; the second window is long but a little lower.
+        const wall = [{ az: 182.59, alt: 0 }, { az: 182.6, alt: 90 }, { az: 191, alt: 90 }, { az: 191.01, alt: 0 }];
+        const s = build([item('planet-neptune')], { horizon: wall }).slots[0];
+        expect(fmt(s.window!.start)).toBe('01:49');
+        expect(fmt(s.window!.end)).toBe('02:01');
+        expect(s.integrationMin).toBeLessThan(PLANET_MIN_USEFUL_MIN);
+        expect(codes(s)).toContain('flip');
+      });
+      it('windows are compared at the middle of the light, not at the slot start (Neptune near its meridian, a wall between two windows)', () => {
+        // Window 1 (01:20 to 01:44) is still rising, so its slot ends at the close: 01:24 to 01:44, middle 01:34, 22 min before the crossing (01:56).
+        // Window 2 opens 02:16, 20 min after the crossing and falling: its slot is 02:16 to 02:36, middle 02:26, 30 min after.
+        // At the slot start window 2 is higher (20 min from the crossing against 32); at the middle of the light window 1 is (22 against 30).
+        const start = new Date(NIGHT.start!.getTime() - 29 * MIN);
+        const wall = [{ az: 174.8, alt: 0 }, { az: 174.81, alt: 90 }, { az: 189.3, alt: 90 }, { az: 189.31, alt: 0 }];
+        const s = build([item('planet-neptune')], { horizon: wall, night: { ...NIGHT, start } }).slots[0];
+        expect(fmt(s.window!.start)).toBe('01:20');
+        expect(fmt(s.start)).toBe('01:24');
+        expect(s.integrationMin).toBe(PLANET_SLOT_MIN);
+      });
+      it('when only slivers exist the highest is still taken', () => {
+        // Neptune 2028-07-02 with the night cut so that only the sliver window remains.
+        const night = tonightsNight(SITE, '2028-07-02');
+        const s = build([item('planet-neptune')], { night: { ...night, start: new Date(night.end!.getTime() - 3 * MIN) } }).slots[0];
+        expect(s.end.getTime()).toBeGreaterThanOrEqual(s.start.getTime());
+      });
     });
 
     it('a planet slot never uses the deep-sky wording about the mode', () => {
@@ -385,6 +457,23 @@ describe('the schedule', () => {
       const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
       expect(cut).toContain('A later window, 03:59 to 07:55, would give 45 min; the slot keeps this one.');
       expect(cut).not.toMatch(/still under/);
+    });
+
+    it('Cigar Galaxy, Deep, 2028-08-27: the first window gives no subs, so the slot takes the later window with 60 min and says so', () => {
+      const s = on('2028-08-27', [item('m82', { mode: 'deep' })]).slots[0];
+      expect(s.subCount).toBeGreaterThan(0);
+      expect(s.integrationMin).toBe(60);
+      expect(fmt(s.window!.start)).toBe('10:27');
+      expect(codes(s)).not.toContain('no-time');
+      expect(s.warnings.find((w) => w.code === 'waits')!.text).toMatch(/^Skips its short first window \(03:24 to 03:27, 0 min of light\) and waits \d+ min for the window 10:27 to 11:31/);
+      expect(s.warnings.map((w) => w.text).join(' ')).not.toMatch(/the slot keeps this one/);
+    });
+
+    it('Cigar Galaxy, Balanced, 2027-08-15: a later window with less light (0 min) is not named', () => {
+      const s = on('2027-08-15', [item('m82')]).slots[0];
+      expect(s.integrationMin).toBeGreaterThan(30);
+      const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
+      expect(cut).toBe('The window closes 04:17, so light is cut to 33 min (the mode aims for 60 to 120).');
     });
 
     it('a slot with no longer window later has no such sentence', () => {

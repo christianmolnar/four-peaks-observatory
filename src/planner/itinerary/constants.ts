@@ -8,6 +8,8 @@ export const FILTER_CHANGE_MIN = 2;
 export const TRAIN_CHANGE_MIN = 15;
 /** A planet slot: a few short clips plus focus checks. The exposure module does not plan planets. */
 export const PLANET_SLOT_MIN = 20;
+/** A planet window that leaves less than this (half a slot) cannot beat one that leaves a full slot; it is taken only when nothing better exists. */
+export const PLANET_MIN_USEFUL_MIN = PLANET_SLOT_MIN / 2;
 /** One minute of drift in a window edge is not worth a warning. */
 export const EDGE_TOLERANCE_MIN = 1;
 /** Slots in one night's itinerary. */

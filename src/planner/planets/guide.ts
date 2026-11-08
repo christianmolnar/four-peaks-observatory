@@ -81,7 +81,7 @@ export function buildGuide(input: GuideInput): GuideSection[] {
       {
         id: 'collimate',
         title: 'Check collimation on a star',
-        text: 'Planet detail needs a collimated telescope. Check it on a bright star at high power before the planet.',
+        text: `${moon ? 'Lunar' : 'Planet'} detail needs a collimated telescope. Check it on a bright star at high power before the ${moon ? 'Moon' : 'planet'}.`,
         basis: 'practice',
       },
       { id: 'when', title: 'Choose the time', text: `${when} Image when it is highest.`, basis: 'computed' },
@@ -171,14 +171,14 @@ export function buildGuide(input: GuideInput): GuideSection[] {
     clipItems.push({
       id: 'clip',
       title: 'Clip length',
-      text: `The Moon does not rotate under the camera, so there is no rotation limit. Use clips of about ${MOON_CLIP_S} s (assumption) and take them again as the terminator light shifts.${card.mosaicPanelsPerSide !== null ? ` At your field the Moon needs about ${card.mosaicPanelsPerSide} by ${card.mosaicPanelsPerSide} panels with ${round(MOSAIC_OVERLAP * 100)}% overlap (computed; the overlap is an assumption).` : ''}`,
+      text: `The Moon does not rotate under the camera, so there is no rotation limit. Use clips of about ${MOON_CLIP_S} s (assumption) and take them again as the terminator light shifts.${card.mosaicPanelsPerSide !== null ? ` At your field the Moon needs about ${card.mosaicPanelsPerSide} by ${card.mosaicPanelsPerSide} ${card.mosaicPanelsPerSide === 1 ? 'panel' : 'panels'} with ${round(MOSAIC_OVERLAP * 100)}% overlap (computed; the overlap is an assumption).` : ''}`,
       basis: 'computed',
     });
   }
   const clipS = rot ? rot.suggestedS : MOON_CLIP_S;
   const panels = card.mosaicPanelsPerSide !== null ? card.mosaicPanelsPerSide * card.mosaicPanelsPerSide : null;
   const clips = clipsInSession(SESSION_MIN, clipS);
-  const mosaicFit = moon && panels !== null ? ` The mosaic is ${panels} panels at one clip each, against ${clips} clips in the session: ${clips >= panels ? 'the session covers it' : 'one session does not cover it, so shoot fewer panels or spread it over more than one'} (computed).` : '';
+  const mosaicFit = moon && panels !== null ? ` The mosaic is ${panels} ${panels === 1 ? 'panel' : 'panels'} at one clip each, against ${clips} clips in the session: ${clips >= panels ? 'the session covers it' : 'one session does not cover it, so shoot fewer panels or spread it over more than one'} (computed).` : '';
   const good = card.goodMinutes !== null ? ` ${round(card.goodMinutes)} of them are above ${round(card.dispersionAltitudeDeg ?? 0)}° (computed).` : '';
   clipItems.push({
     id: 'session',
@@ -203,13 +203,13 @@ export function buildGuide(input: GuideInput): GuideSection[] {
     items: [
       {
         id: 'dispersion',
-        title: 'Colour fringing grows as the planet gets lower',
+        title: `Colour fringing grows as the ${moon ? 'Moon' : 'planet'} gets lower`,
         text: `This train has no atmospheric dispersion corrector. The air spreads blue and red images apart by ${at(80)}, ${at(70)}, ${at(60)}, ${at(45)}, ${at(30)} (computed, red 650 nm to blue 450 nm, Edlen air, standard pressure; at the site's height it is a little less).`,
         basis: 'computed',
       },
       {
         id: 'high',
-        title: 'Favour the high planets',
+        title: moon ? 'Favour the high Moon' : 'Favour the high planets',
         text:
           limitAlt !== null
             ? `The spread equals the telescope's resolution (${f2(dawes)}") at ${round(limitAlt)}° (computed; one resolution element is an assumption). Image above it when you can; ${MIN_ALT_NOTE}. ${name} peaks at ${round(card.peak.altitude)}° tonight, a spread of ${card.dispersionAtPeakArcsec !== null ? f2(card.dispersionAtPeakArcsec) : 'n/a'}".`
@@ -233,7 +233,7 @@ export function buildGuide(input: GuideInput): GuideSection[] {
       {
         id: 'stack',
         title: 'Stack in AutoStakkert',
-        text: `Open the SER in AutoStakkert, choose the planet mode, place alignment points, and stack the best ${round(KEEP_FRACTION * 100)} per cent of frames as a first try (assumption; try 10 and 50 and compare).`,
+        text: `Open the SER in AutoStakkert, ${moon ? '' : 'choose the planet mode, '}place alignment points, and stack the best ${round(KEEP_FRACTION * 100)} per cent of frames as a first try (assumption; try 10 and 50 and compare).`,
         basis: 'assumption',
       },
       {
