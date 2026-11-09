@@ -40,7 +40,10 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
     return { profile: parseProfile(text), error: null, stored: true };
   } catch (e) {
     if (e instanceof ProfileError) {
-      return { profile: sampleProfile(), error: `Saved profile rejected: ${e.message}`, stored: false };
+      const why = e.path === '$' && /not valid JSON/.test(e.message)
+        ? 'It is not valid JSON.'
+        : `Problem at ${e.path}: ${e.message.slice(e.path.length + 2)}`;
+      return { profile: sampleProfile(), error: `Your saved profile could not be used, so the sample is shown. ${why}`, stored: false };
     }
     throw e;
   }
@@ -53,12 +56,21 @@ export function saveProfile(storage: Pick<Storage, 'setItem'>, profile: Profile)
 }
 
 export function loadCaptured(storage: Pick<Storage, 'getItem'>): Set<string> {
-  const text = storage.getItem(CAPTURED_KEY);
-  if (text === null) return new Set();
-  const v: unknown = JSON.parse(text);
-  if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) {
-    throw new Error(`${CAPTURED_KEY} must hold an array of strings`);
+  let text: string | null;
+  try {
+    text = storage.getItem(CAPTURED_KEY);
+  } catch (e) {
+    throw new Error(`Your saved captured list could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
   }
+  if (text === null) return new Set();
+  const damaged = new Error('Your saved captured list is damaged, so it starts empty.');
+  let v: unknown;
+  try {
+    v = JSON.parse(text);
+  } catch {
+    throw damaged;
+  }
+  if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) throw damaged;
   return new Set(v);
 }
 

@@ -56,7 +56,8 @@ describe('profile storage', () => {
 
   it('reports malformed stored JSON as an error, not a crash', () => {
     const r = loadProfile(memory({ [PROFILE_KEY]: '{nope' }));
-    expect(r.error).toContain('not valid JSON');
+    expect(r.error).toMatch(/^Your saved profile could not be used, so the sample is shown\. .*not valid JSON/);
+    expect(r.error).not.toMatch(/\$|Unexpected|rejected/);
   });
 
   it('refuses to save an invalid profile and writes nothing', () => {
@@ -74,7 +75,8 @@ describe('captured', () => {
     saveCaptured(s, new Set(['m42', 'm31']));
     expect([...loadCaptured(s)].sort()).toEqual(['m31', 'm42']);
     expect(loadCaptured(memory()).size).toBe(0);
-    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{"a":1}' }))).toThrow();
+    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{"a":1}' }))).toThrow(/^Your saved captured list is damaged, so it starts empty\.$/);
+    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{oops' }))).toThrow(/^Your saved captured list is damaged, so it starts empty\.$/);
   });
 });
 

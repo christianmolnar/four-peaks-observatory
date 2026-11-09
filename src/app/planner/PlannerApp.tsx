@@ -29,7 +29,7 @@ import {
   withSiteArc,
   withTrainFilter,
 } from '@/planner/state';
-import { profileFromText } from '@/planner/state/edit';
+import { assertImportSize, profileFromText } from '@/planner/state/edit';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AltitudeChart from './AltitudeChart';
 import ExposurePanel from './ExposurePanel';
@@ -136,7 +136,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     try {
       setCaptured(loadCaptured(window.localStorage));
     } catch (e) {
-      setNotice(`Captured list could not be read: ${(e as Error).message}`);
+      setNotice((e as Error).message);
     }
     let loaded = initialProfile;
     if (!loaded) {
@@ -375,6 +375,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     setImportError(null);
     let next: Profile;
     try {
+      assertImportSize(file.size);
       next = profileFromText(await file.text());
     } catch (e) {
       setImportError(`Import rejected, nothing was changed. ${(e as Error).message}`);

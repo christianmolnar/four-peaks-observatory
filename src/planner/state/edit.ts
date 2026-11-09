@@ -284,6 +284,11 @@ export const MAX_IMPORT_CHARS = 2_000_000;
 
 const NOT_A_PROFILE = 'This file is not a planner profile.';
 
+/** Throws the "too large" import error for a size over the limit; callers with a File check `file.size` before reading it. */
+export function assertImportSize(size: number): void {
+  if (size > MAX_IMPORT_CHARS) throw new Error(`${NOT_A_PROFILE} The file is too large.`);
+}
+
 /** Plain-language text for any error from reading an imported file. */
 export function describeImportError(e: unknown): string {
   if (e instanceof ProfileError) {
@@ -301,7 +306,7 @@ export function describeImportError(e: unknown): string {
  */
 export function profileFromText(text: string): Profile {
   if (text.trim() === '') throw new Error(`${NOT_A_PROFILE} The file is empty.`);
-  if (text.length > MAX_IMPORT_CHARS) throw new Error(`${NOT_A_PROFILE} The file is too large.`);
+  assertImportSize(text.length);
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -313,6 +318,9 @@ export function profileFromText(text: string): Profile {
   }
   const migrated = migrateProfile(json) as Record<string, unknown>;
   if (migrated.version === undefined) throw new Error(`${NOT_A_PROFILE} It has no version number.`);
+  if (typeof migrated.version !== 'number') {
+    throw new Error(`${NOT_A_PROFILE} The version must be a number, not text (this planner reads version ${PROFILE_VERSION}).`);
+  }
   if (migrated.version !== PROFILE_VERSION) {
     throw new Error(`${NOT_A_PROFILE} It is version ${JSON.stringify(migrated.version)}; this planner reads version ${PROFILE_VERSION} (and upgrades version 1).`);
   }

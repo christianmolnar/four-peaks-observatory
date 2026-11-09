@@ -105,6 +105,17 @@ describe('storage that cannot be read or written', () => {
     expect(screen.getByLabelText('Site').textContent).toContain('Sydney');
   });
 
+  it('a file over the size limit is refused from its size, without being read', async () => {
+    render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    const big = jsonFile(sydney());
+    Object.defineProperty(big, 'size', { value: 500 * 1024 * 1024 });
+    const text = jest.spyOn(big, 'text');
+    const u = userEvent.setup();
+    await u.upload(screen.getByLabelText('Import profile (JSON)'), big);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/not a planner profile\. The file is too large/));
+    expect(text).not.toHaveBeenCalled();
+  });
+
   it('ticking captured with storage that cannot be written says the tick is not saved', async () => {
     render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {

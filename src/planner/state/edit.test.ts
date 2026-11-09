@@ -179,6 +179,7 @@ describe('import errors in plain language', () => {
   it('names the version problem for a wrong or missing version', () => {
     const p = sample();
     expect(() => profileFromText(stringify({ ...p, version: 99 }))).toThrow(/version 99.*reads version/i);
+    expect(() => profileFromText(stringify({ ...p, version: '2' }))).toThrow(/version must be a number, not text/i);
     const noVersion: Record<string, unknown> = { ...p };
     delete noVersion.version;
     expect(() => profileFromText(stringify(noVersion))).toThrow(/no version/i);
