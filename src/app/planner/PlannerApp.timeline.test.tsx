@@ -122,7 +122,7 @@ describe('start time', () => {
       fireEvent.change(input, { target: { value: typed } });
       expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
     }
-    expect(stored()).toBe('02:13'); // "213" is already a time
+    expect(stored() ?? null).toBeNull(); // "213" typed on the way to 2130 is not saved
     fireEvent.change(input, { target: { value: '2130' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
     expect(stored()).toBe('21:30');
@@ -146,6 +146,54 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '9:30' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
     expect(stored()).toBe('09:30');
+  });
+
+  it.each([['2130', '21:30'], ['0130', '01:30']])('typing %s key by key saves and searches nothing on the 3-digit prefix, and shows no start note', async (digits, clock) => {
+    const user = userEvent.setup();
+    seed(1, ['m31', 'ic405']);
+    app();
+    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
+    const input = startInput();
+    await user.clear(input);
+    await user.click(input);
+    const before = searches();
+    for (const ch of digits.slice(0, 3)) {
+      await user.keyboard(ch);
+      expect(stored()).toBeNull();
+      expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+      expect(screen.queryByRole('status', { name: '' })?.textContent ?? '').not.toMatch(/start time is before the night/);
+    }
+    expect(searches()).toBe(before);
+    await user.keyboard(digits[3]);
+    expect(stored()).toBe(clock);
+  });
+
+  it('a 3-digit time left with Enter or by leaving the box is saved then; a pasted 3-digit time is saved at once', async () => {
+    const user = userEvent.setup();
+    seed(1, ['m31']);
+    app();
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const input = startInput();
+    await user.clear(input);
+    await user.keyboard('905');
+    expect(stored()).toBeNull();
+    await user.keyboard('{Enter}');
+    expect(stored()).toBe('09:05');
+    await user.clear(input);
+    await user.keyboard('213');
+    await user.tab();
+    expect(stored()).toBe('02:13');
+    fireEvent.change(input, { target: { value: '905' } });
+    expect(stored()).toBe('09:05');
+  });
+
+  it('the start box text is 16 px by class (iOS zooms in on anything smaller)', () => {
+    seed(1, ['m31']);
+    app();
+    expect(startInput().className).toMatch(/\btext-base\b/);
+    expect(startInput().className).not.toMatch(/\btext-sm\b/);
   });
 
   it('typing the default night start (shown without seconds) gives no warning', () => {

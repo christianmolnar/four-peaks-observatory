@@ -91,6 +91,9 @@ TIMELINE_JS = """() => {
     const r = el.getBoundingClientRect();
     if (r.height < 43.5) bad.push({tap: (el.textContent || el.id || el.tagName).trim().slice(0, 28), h: r.height});
   }
+  // The start box: 16 px, or iOS zooms the page in when it is focused.
+  const startBox = sec.querySelector('#it-start');
+  if (startBox && parseFloat(getComputedStyle(startBox).fontSize) < 16) bad.push({startBoxFont: getComputedStyle(startBox).fontSize});
   const svg = sec.querySelector('[data-testid=night-timeline] svg');
   if (!svg) return bad.concat([{missing: 'night graph'}]);
   if (svg.tabIndex !== 0) bad.push({svg: 'not focusable'});

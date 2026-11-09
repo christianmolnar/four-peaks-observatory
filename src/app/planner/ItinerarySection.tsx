@@ -59,7 +59,8 @@ export interface ItineraryReport {
   plan: ItineraryPlan;
 }
 
-const field = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
+const fieldBox = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal focus:outline-none focus:ring-2 focus:ring-sky-400';
+const field = `${fieldBox} text-sm`;
 const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
 /** How long the order search works before it lets the page paint and take input. */
@@ -178,15 +179,21 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   /** "21:30", "2130", "905" or "9:05" become a saved 24 h time; empty goes back to the night start; anything else is left in the box with a message. */
   const startError = startDraft !== null && startDraft.trim() !== '' && clockFromText(startDraft) === null && (startChecked || !couldBecomeClock(startDraft));
   const changeStart = (text: string) => {
+    // A third digit typed on the end of a one- or two-digit draft is probably on its way to four ("213" for 2130): it is saved
+    // when the box is left or Enter is pressed. A pasted or replaced value, and any four-digit or colon form, is saved at once.
+    const prev = startDraft ?? '';
+    const typingThirdDigit = /^\d{3}$/.test(text) && text.length === prev.length + 1 && text.startsWith(prev);
     setStartDraft(text);
     setStartChecked(false);
     if (text.trim() === '') return commit(items, null, null);
     const clock = clockFromText(text);
-    if (clock) commit(items, null, clock);
+    if (clock && !typingThirdDigit) commit(items, null, clock);
   };
   /** Leaving the box or pressing Enter: a time that works shows the saved value again; one that does not stays in the box with its message. */
   const settleStart = () => {
     if (startDraft === null || startDraft.trim() === '' || clockFromText(startDraft) !== null) {
+      const clock = startDraft === null ? null : clockFromText(startDraft);
+      if (clock && clock !== startTime) commit(items, null, clock);
       setStartDraft(null);
       setStartChecked(false);
     } else setStartChecked(true);
@@ -332,7 +339,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
             maxLength={12}
             aria-describedby="it-start-hint"
             aria-invalid={startError}
-            className={`${field} min-h-11 w-40 text-base`}
+            className={`${fieldBox} min-h-11 w-40 text-base`}
             value={startDraft ?? startTime ?? clockOf(night.start as Date, timeZone)}
             onChange={(e) => changeStart(e.target.value)}
             onBlur={settleStart}

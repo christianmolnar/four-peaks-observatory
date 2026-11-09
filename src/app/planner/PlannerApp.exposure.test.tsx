@@ -148,17 +148,24 @@ describe('Filter selector and its warnings', () => {
     expect(warnings()).toMatch(/made for visual use/);
   });
 
-  it('the choice is saved with the profile and survives a reload; switching trains shows each train\'s own filter', async () => {
+  // Two tests, not one: each page render in jsdom is slow, and one test doing both ran close to the time limit when the machine was busy.
+  it('the choice is saved with the profile and survives a reload', async () => {
     const user = userEvent.setup();
     const { unmount } = app();
     await user.selectOptions(filterSelect(), 'zwo-duo-band');
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).trains.find((t: { id: string }) => t.id === HYPERSTAR).filterId).toBe('zwo-duo-band');
-    await user.selectOptions(trainSelect(), 'deep-c11-2600');
-    expect(filterSelect().value).toBe('');
-    await user.selectOptions(trainSelect(), HYPERSTAR);
-    expect(filterSelect().value).toBe('zwo-duo-band');
     unmount();
     render(<PlannerApp initialDate="2026-12-15" />); // reads storage, as a reload does
+    await user.selectOptions(trainSelect(), HYPERSTAR);
+    expect(filterSelect().value).toBe('zwo-duo-band');
+  });
+
+  it('switching trains shows each train\'s own filter', async () => {
+    const user = userEvent.setup();
+    app();
+    await user.selectOptions(filterSelect(), 'zwo-duo-band');
+    await user.selectOptions(trainSelect(), 'deep-c11-2600');
+    expect(filterSelect().value).toBe('');
     await user.selectOptions(trainSelect(), HYPERSTAR);
     expect(filterSelect().value).toBe('zwo-duo-band');
   });

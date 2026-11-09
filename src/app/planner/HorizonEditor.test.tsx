@@ -32,11 +32,22 @@ const nightSummary = () => screen.getByTestId('night-summary').textContent;
 const status = () => screen.getByTestId('horizon-status').textContent;
 const stored = () => window.localStorage.getItem(PROFILE_KEY);
 const storedArc = () => JSON.parse(stored() as string).sites[0].blockedArc;
-const user = () => userEvent.setup();
+// The page ends a run of typing 600 ms after the last key (a real timer). On a busy machine one key took longer than that to render,
+// and the run ended in the middle of a test. A fake clock moves only when the test says so (`pause`), whatever the load.
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => {
+  act(() => jest.runOnlyPendingTimers());
+  jest.useRealTimers();
+});
+const user = () => userEvent.setup({ delay: null, advanceTimers: jest.advanceTimersByTime });
 type U = ReturnType<typeof user>;
 
 /** A pause in typing longer than the run boundary (600 ms in PlannerApp). */
-const pause = () => act(() => new Promise<void>((r) => setTimeout(r, 750)));
+const pause = async () => {
+  await act(async () => {
+    jest.advanceTimersByTime(750);
+  });
+};
 
 const app = (profile = sampleProfile()) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
 
