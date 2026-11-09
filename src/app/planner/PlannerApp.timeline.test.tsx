@@ -1,19 +1,22 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup, within, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, within, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { sampleProfile } from '@/planner/state';
 import { lightMinutes } from '@/planner/itinerary';
 import PlannerApp from './PlannerApp';
+import { unchangedAdviceText } from './ItinerarySection';
+import { randomCases } from '@/planner/itinerary/random-sets';
+import { suggestOrder } from '@/planner/itinerary/suggest';
 
 // Counts the order searches, to prove that a note does not start one.
 jest.mock('@/planner/itinerary/suggest', () => {
   const actual = jest.requireActual('@/planner/itinerary/suggest');
-  return { ...actual, suggestOrder: jest.fn(actual.suggestOrder) };
+  return { ...actual, suggestOrderSteps: jest.fn(actual.suggestOrderSteps) };
 });
-import { suggestOrder } from '@/planner/itinerary/suggest';
+import { suggestOrderSteps } from '@/planner/itinerary/suggest';
 
 // Start time, altitude per slot, the night graph and the suggested order, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 
@@ -98,12 +101,51 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '9:05' } });
     expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('09:05');
     fireEvent.change(input, { target: { value: '25:00' } });
-    expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour hours and minutes, such as 21:30/);
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull(); // could still be typed over; not yet
+    fireEvent.blur(input);
+    expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour hours and minutes, such as 2130 or 21:30/);
+    expect(startInput().value).toBe('25:00'); // the text stays in the box with its message
     expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('09:05'); // the last good time stays
-    fireEvent.change(input, { target: { value: '21' } });
-    expect(screen.getByTestId('itinerary-start-error')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'ab' } });
+    expect(screen.getByTestId('itinerary-start-error')).toBeTruthy(); // can never become a time: at once
     fireEvent.change(input, { target: { value: '' } });
     expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBeNull();
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
+  });
+
+  it('typing 2, 1, 3, 0 shows no error on the way; "905" works; a pasted " 21:30 " and full-width digits work; Enter and leaving the box show the error', () => {
+    seed(1, ['m31']);
+    app();
+    const input = startInput();
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    for (const typed of ['2', '21', '213']) {
+      fireEvent.change(input, { target: { value: typed } });
+      expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
+    }
+    expect(stored()).toBe('02:13'); // "213" is already a time
+    fireEvent.change(input, { target: { value: '2130' } });
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
+    expect(stored()).toBe('21:30');
+    fireEvent.change(input, { target: { value: '905' } });
+    expect(stored()).toBe('09:05');
+    fireEvent.change(input, { target: { value: ' 21:45 ' } });
+    expect(stored()).toBe('21:45');
+    fireEvent.change(input, { target: { value: '２２：１５' } });
+    expect(stored()).toBe('22:15');
+    expect(input.maxLength).toBeGreaterThanOrEqual(7);
+    expect(screen.getByTestId('itinerary-start-hint').textContent).toMatch(/2130 or 21:30/);
+    // A time that is only half typed: the message waits for Enter or for leaving the box.
+    fireEvent.change(input, { target: { value: '9:' } });
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByTestId('itinerary-start-error')).toBeTruthy();
+    fireEvent.change(input, { target: { value: '9:3' } });
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull(); // typing again hides it until the next check
+    fireEvent.blur(input);
+    expect(screen.getByTestId('itinerary-start-error')).toBeTruthy();
+    fireEvent.change(input, { target: { value: '9:30' } });
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
+    expect(stored()).toBe('09:30');
   });
 
   it('typing the default night start (shown without seconds) gives no warning', () => {
@@ -160,6 +202,29 @@ describe('night graph', () => {
 });
 
 describe('suggested order', () => {
+  it('on random 7 and 8 slot sets the unchanged message matches `exhaustive`: "the most light" only when every order was covered', () => {
+    for (const c of randomCases(4301, 10, (k) => 7 + (k % 2))) {
+      for (const exactMax of [8, 6]) {
+        const r = suggestOrder(c.input, { exactMax });
+        const text = unchangedAdviceText(r.searched.exhaustive);
+        expect(/the most light/.test(text)).toBe(r.searched.exhaustive);
+        expect(/not every order is tried/.test(text)).toBe(!r.searched.exhaustive);
+      }
+    }
+  }, 120000);
+
+  it('says "Looking for a better order..." while an 8 slot search runs, then gives the answer, and says "the most light" only for an exhaustive search', async () => {
+    seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101', 'ngc7000', 'm45']);
+    app();
+    const advice = screen.getByTestId('order-advice');
+    await waitFor(() => expect(within(advice).queryByTestId('order-advice-searching')).toBeNull(), { timeout: 20000 });
+    expect(advice.textContent).not.toMatch(/Looking for/);
+    expect(advice.textContent).toMatch(/Use this order|already the best/);
+    expect(unchangedAdviceText(true)).toMatch(/the most light/);
+    expect(unchangedAdviceText(false)).not.toMatch(/the most light|already the best/);
+    expect(unchangedAdviceText(false)).toMatch(/not every order is tried/);
+  }, 60000);
+
   it('the advice names the same Light as the totals line, now and after Use this order, and a note does not search again', async () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'm42', 'planet-jupiter']);
@@ -175,10 +240,10 @@ describe('suggested order', () => {
       expect(totalsLight()).toBe(promised);
       expect(totalsLight()).toBeGreaterThanOrEqual(before);
     }
-    const calls = (suggestOrder as jest.Mock).mock.calls.length;
+    const calls = (suggestOrderSteps as jest.Mock).mock.calls.length;
     const note = within(slots()[0]).getByLabelText(/^Note for /);
     await user.type(note, 'guide star');
-    expect((suggestOrder as jest.Mock).mock.calls.length).toBe(calls);
+    expect((suggestOrderSteps as jest.Mock).mock.calls.length).toBe(calls);
     expect(lightMinutes).toBeDefined();
   });
 
@@ -195,7 +260,7 @@ describe('suggested order', () => {
     const advice = () => screen.getByTestId('order-advice');
     const before = names();
     if (!within(advice()).queryByRole('button', { name: 'Use this order' })) {
-      expect(advice().textContent).toMatch(/already the best found/);
+      expect(advice().textContent).toMatch(/already the best/);
       return;
     }
     expect(names()).toEqual(before); // advice alone changes nothing
@@ -205,7 +270,7 @@ describe('suggested order', () => {
     await user.click(within(advice()).getByRole('button', { name: 'Use this order' }));
     const asked = lines.map((l) => l.replace(/^(Put|Then) /, '').replace(/( first)?: .*$/, ''));
     expect(names().slice(0, asked.length)).toEqual(asked);
-    expect(advice().textContent).toMatch(/already the best found/);
+    expect(advice().textContent).toMatch(/already the best/);
     expect(document.activeElement).toBe(advice());
     // The move buttons still work on the applied order.
     const first = names()[0];

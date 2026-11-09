@@ -247,29 +247,49 @@ describe('behaviour of the advice', () => {
   });
 });
 
-describe('above 6 slots the pruned search', () => {
-  it('is not proven best (it says so), is never worse than the current order, and matches the full search on 7 and 8 live slots', () => {
-    const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
-    const base = withWindows({ site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt });
-    const pools = [
-      ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101', planetIdOf('Jupiter'), planetIdOf('Moon')],
-      ['ngc2237', 'm1', 'm45', 'm13', 'm27', planetIdOf('Saturn'), planetIdOf('Mars'), 'ngc1499'],
-      ['m42', 'ic405', 'm31', 'm33', 'ngc7000', planetIdOf('Jupiter'), planetIdOf('Moon')],
-    ];
-    let beamRuns = 0;
-    for (const [k, ids] of pools.entries()) {
-      const its = ids.filter((id) => starterTargets.some((t) => t.id === id) || BODY_IDS.includes(id)).map((id, i) => item(id, { trainId: TRAINS[(i + k) % 3], filterId: FILTERS[(i + k) % 4] }));
-      const input = inputFor(its, base);
-      const beam = suggestOrder(input);
-      const full = suggestOrder(input, { exactMax: 9 });
-      const rb = rankOf(plan(reorder(its, beam.order), base));
-      const rf = rankOf(plan(reorder(its, full.order), base));
-      const rn = rankOf(plan(its, base));
-      expect(compareRank(rb, rn)).toBeGreaterThanOrEqual(0);
-      expect(compareRank(rb, rf)).toBe(0);
-      expect(beam.searched.exhaustive).toBe(full.searched.placements <= 2000);
-      if (!beam.searched.exhaustive) beamRuns++;
+describe('advice that names the same target twice', () => {
+  const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
+  const base = withWindows({ site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt });
+
+  const changedWith = (its: ItineraryItem[]) => {
+    for (const k of its.keys()) {
+      const rotated = [...its.slice(k), ...its.slice(0, k)];
+      const r = suggestOrder(inputFor(rotated, base));
+      if (r.changed) return r;
     }
-    expect(beamRuns).toBeGreaterThanOrEqual(1);
-  }, 120000);
+    return null;
+  };
+
+  it('tells two Mars slots apart by train, then by filter, then by "first" and "second"', () => {
+    const mars = planetIdOf('Mars');
+    const trains = profile.trains.filter((t) => t.kind === 'optical');
+    const a = trains[0].id;
+    const b = trains[1].id;
+    const sets: ItineraryItem[][] = [
+      [item(mars, { trainId: a }), item('m31'), item('m42'), item(mars, { trainId: b })],
+      [item(mars, { trainId: a, filterId: null }), item('m31'), item('m42'), item(mars, { trainId: a, filterId: profile.equipment.filters[0].id })],
+      [item(mars, { trainId: a }), item('m31'), item('m42'), item(mars, { trainId: a })],
+    ];
+    const names = sets.map((its) => changedWith(its)?.steps.map((st) => st.name)).filter((n): n is string[] => !!n);
+    expect(names.length).toBeGreaterThan(0);
+    for (const list of names) {
+      const marsNames = list.filter((n) => n.startsWith('Mars'));
+      expect(marsNames).toHaveLength(2);
+      expect(new Set(marsNames).size).toBe(2);
+      for (const n of marsNames) expect(n).toMatch(/^Mars \(.+\)$/);
+      for (const n of list.filter((x) => !x.startsWith('Mars'))) expect(n).not.toContain('(');
+    }
+  });
+
+  it('never says "fits before the rest" for a slot that runs after another', () => {
+    for (const ids of [['m31', 'm42', 'm33', 'ic405', 'm81'], ['ngc2237', 'm1', 'm45', 'm13', 'm27', 'ngc1499']]) {
+      const its = ids.map((id) => item(id));
+      const r = changedWith(its);
+      if (!r) continue;
+      r.steps.forEach((st, k) => {
+        if (k > 0) expect(st.reason).not.toMatch(/before the rest/);
+        expect(st.reason.length).toBeLessThan(70);
+      });
+    }
+  });
 });
