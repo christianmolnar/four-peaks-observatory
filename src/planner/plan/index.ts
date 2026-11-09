@@ -346,7 +346,7 @@ export function planTonight(input: TonightInput): TonightPlan {
     const closeness = Math.max(0, Math.min(1, (60 - sep) / 60));
 
     const inSeason = target ? target.seasonMonths.includes(month) : null;
-    const { fit, detail } = target ? fitOf(train, target) : { fit: 'not-applicable' as Fit, detail: 'Planet: field of view not computed' };
+    const { fit, detail } = target ? fitOf(train, target) : { fit: 'not-applicable' as Fit, detail: '' };
 
     const usableOk = usableMinutes > 0;
     const score = scoreOf(

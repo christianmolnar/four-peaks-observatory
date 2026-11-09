@@ -107,6 +107,7 @@ describe('planTonight', () => {
       expect(p.type).toBe('planet');
       expect(p.inSeason).toBeNull();
       expect(p.fit).toBe('not-applicable');
+      expect(p.fitDetail).toBe('');
       expect(p.moonSeparation).toBeGreaterThanOrEqual(0);
       expect(p.moonSeparation).toBeLessThanOrEqual(180);
     }
@@ -261,7 +262,7 @@ describe('fit', () => {
     for (const e of s.entries) {
       expect(e.fit).toBe('not-applicable');
       expect(e.score.fit).toBe(0);
-      expect(e.fitDetail).toContain('not computed');
+      if (!e.isPlanet) expect(e.fitDetail).toContain('not computed');
     }
     const n = planTonight(base({ train: narrow }));
     const m42s = s.entries.find((e) => e.id === 'm42')!;

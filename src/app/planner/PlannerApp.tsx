@@ -80,7 +80,7 @@ function targetText(e: RankedEntry, formatTime: (d: Date) => string) {
     window: e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
     moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
     whyLabel: e.fit === 'too-large' ? 'Why it is listed' : 'Why recommended',
-    parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}. ${e.fitDetail}.`,
+    parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
   };
 }
 
@@ -675,7 +675,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           <p className="text-white/90 font-normal">No targets match these filters.</p>
         ) : (
           <>
-            <ul className="md:hidden space-y-3" data-testid="target-cards" aria-label="Targets ranked for tonight">
+            <ul className="lg:hidden space-y-3" data-testid="target-cards" aria-label="Targets ranked for tonight">
               {filtered.map((e, i) => {
                 const t = targetText(e, formatTime);
                 const isSel = selected?.id === e.id;
@@ -719,7 +719,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                 );
               })}
             </ul>
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden lg:block overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm font-normal text-white/90" data-testid="target-table">
               <caption className="sr-only">Targets ranked for tonight</caption>
               <thead className="text-white">
