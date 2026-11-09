@@ -454,7 +454,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                     <WrapText
                       id={`it-note-${s.id}`}
                       maxLength={MAX_NOTE_CHARS}
-                      className={`${field} w-full`}
+                      className={`${field} min-h-11 w-full`}
                       value={it.note}
                       onChange={(e) => update(s.id, { note: e.target.value })}
                     />
