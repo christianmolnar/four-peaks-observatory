@@ -99,22 +99,26 @@ TIMELINE_JS = """() => {
   return bad;
 }"""
 
-# The altitude charts on the page (the night graph and each target's altitude chart): text at least 12 px effective, inside its svg.
-# The horizon compass in the Site panel is a different diagram and is not part of this check (its N/E/S/W letters are about 10.5 px at 360).
+# The diagrams on the page (the night graph, each target's altitude chart and the horizon compass in the Site panel): text at least
+# 12 px effective, inside its svg. The compass must be on the page, or the check fails.
 CHART_JS = """() => {
   const bad = [];
+  let compass = 0;
   for (const svg of document.querySelectorAll('svg[role=img]')) {
-    if (!/^Altitude/.test(svg.querySelector('title')?.textContent || '')) continue;
+    const name = svg.querySelector('title')?.textContent || '';
+    if (!/^(Altitude|Horizon, seen from above)/.test(name)) continue;
+    if (/^Horizon/.test(name) && svg.getBoundingClientRect().width > 0) compass++;
     const sb = svg.getBoundingClientRect();
     if (sb.width === 0) continue;
     const scale = sb.width / svg.viewBox.baseVal.width;
     for (const t of svg.querySelectorAll('text')) {
       const fs = parseFloat(getComputedStyle(t).fontSize) * scale;
-      if (fs < 11.5) bad.push({font: t.textContent.slice(0, 20), px: Math.round(fs * 10) / 10, svg: svg.querySelector('title')?.textContent.slice(0, 30)});
+      if (fs < 11.95) bad.push({font: t.textContent.slice(0, 20), px: Math.round(fs * 10) / 10, svg: svg.querySelector('title')?.textContent.slice(0, 30)});
       const r = t.getBoundingClientRect();
       if (r.width && (r.left < sb.left - 0.5 || r.right > sb.right + 0.5 || r.top < sb.top - 0.5 || r.bottom > sb.bottom + 0.5)) bad.push({outside: t.textContent.slice(0, 20)});
     }
   }
+  if (compass === 0) bad.push({missing: 'horizon compass'});
   return bad;
 }"""
 

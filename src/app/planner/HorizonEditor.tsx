@@ -1,5 +1,6 @@
 'use client';
 
+import { useLayoutEffect, useRef, useState } from 'react';
 import { horizonAltitudeAt } from '@/planner/horizon';
 import { arcToHorizonPoints } from '@/planner/profile';
 import type { BlockedArc } from '@/planner/profile';
@@ -11,6 +12,8 @@ import NumberSlider from './NumberSlider';
 const SIZE = 300;
 const C = SIZE / 2;
 const R = 120;
+/** Smallest text on the diagram as it appears on screen, in px. */
+const MIN_TEXT_PX = 12.5;
 
 const radius = (alt: number): number => (R * (90 - alt)) / 90;
 const point = (az: number, r: number): string => {
@@ -87,6 +90,20 @@ export default function HorizonEditor({
   const summary = describeArc(preview);
   const invalid = Object.keys(errors).length > 0;
   const canSave = dirty && !invalid;
+  // The text is sized against the drawing's scale on screen, so it is never smaller than MIN_TEXT_PX whatever the width.
+  const compassRef = useRef<SVGSVGElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = compassRef.current;
+    if (!el) return;
+    const measure = () => setScale(el.getBoundingClientRect().width / SIZE || 1);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const font = Math.min(20, Math.ceil((MIN_TEXT_PX / scale) * 10) / 10);
   const status = invalid ? 'Fix the highlighted box to save' : dirty ? 'Unsaved changes' : saved ? 'Saved' : '';
 
   return (
@@ -115,6 +132,7 @@ export default function HorizonEditor({
       <div className="col-span-2 grid md:grid-cols-2 gap-6">
         <div>
           <svg
+            ref={compassRef}
             viewBox={`0 0 ${SIZE} ${SIZE}`}
             role="img"
             aria-labelledby="polar-title polar-desc"
@@ -140,15 +158,15 @@ export default function HorizonEditor({
             ).map(([t, az]) => {
               const [x, y] = point(az, R + 12).split(',');
               return (
-                <text key={t} x={x} y={y} fill="#e2e8f0" fontSize="12" textAnchor="middle" dominantBaseline="middle">
+                <text key={t} x={x} y={y} fill="#e2e8f0" fontSize={font} textAnchor="middle" dominantBaseline="middle">
                   {t}
                 </text>
               );
             })}
-            <text x={C + 4} y={C - radius(30) - 2} fill="#94a3b8" fontSize="8">
+            <text x={C + 4} y={C - radius(30) - 2} fill="#94a3b8" fontSize={font}>
               30°
             </text>
-            <text x={C + 4} y={C - radius(60) - 2} fill="#94a3b8" fontSize="8">
+            <text x={C + 4} y={C - radius(60) - 2} fill="#94a3b8" fontSize={font}>
               60°
             </text>
           </svg>
