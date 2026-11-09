@@ -1,6 +1,7 @@
 import sample from '../data/sample-profile.json';
 import { ProfileError, parseProfile, validateProfile } from '../profile';
 import type { BlockedArc, Profile } from '../profile';
+import { zoneOffsetMs } from '../plan';
 
 export const PROFILE_KEY = 'fpo-planner-profile-v1';
 export const CAPTURED_KEY = 'fpo-planner-captured-v1';
@@ -102,10 +103,11 @@ export function withTrainFilter(profile: Profile, trainId: string, filterId: str
  * The evening date to plan for, YYYY-MM-DD in the site's local mean solar
  * time (from its longitude, so no time zone is needed and the browser's zone
  * does not matter): today, except between midnight and 06:00, when the night
- * still running began yesterday.
+ * still running began yesterday. With the site's IANA `timeZone` the clock is
+ * that zone's civil time instead.
  */
-export function defaultTonightDate(now: Date, longitude: number): string {
-  const local = new Date(now.getTime() + (longitude / 15) * 3600000);
+export function defaultTonightDate(now: Date, longitude: number, timeZone?: string): string {
+  const local = new Date(now.getTime() + (timeZone ? zoneOffsetMs(now, timeZone) : (longitude / 15) * 3600000));
   const d = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - (local.getUTCHours() < 6 ? 1 : 0)));
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
@@ -230,5 +232,5 @@ export function effectiveArc(
  */
 export function defaultDateForProfile(now: Date, profile: Profile): string {
   const lon = profile.sites[0]?.longitude ?? (-now.getTimezoneOffset() / 60) * 15;
-  return defaultTonightDate(now, lon);
+  return defaultTonightDate(now, lon, profile.sites[0]?.timeZone);
 }

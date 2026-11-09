@@ -263,3 +263,17 @@ describe('train filter', () => {
     expect(r.profile.sites[0].blockedArc).toEqual({ startAz: 100, endAz: 200, heightDeg: 33 });
   });
 });
+
+describe('defaultTonightDate with a site time zone', () => {
+  it('Apia (UTC+13) at 21:00 civil on Nov 8 is the Nov 8 night, not Nov 9', () => {
+    const now = new Date('2026-11-08T08:00:00Z'); // 21:00 in Pacific/Apia
+    expect(defaultTonightDate(now, -171.76, 'Pacific/Apia')).toBe('2026-11-08');
+  });
+  it('Taveuni (UTC+12) at 02:30 civil on Nov 9 is still the Nov 8 night', () => {
+    const now = new Date('2026-11-08T14:30:00Z'); // 02:30 Nov 9 in Pacific/Fiji
+    expect(defaultTonightDate(now, -179.97, 'Pacific/Fiji')).toBe('2026-11-08');
+  });
+  it('Phoenix zone agrees with the longitude rule', () => {
+    expect(defaultTonightDate(new Date(Date.UTC(2026, 10, 6, 4, 0)), -112, 'America/Phoenix')).toBe('2026-11-05');
+  });
+});

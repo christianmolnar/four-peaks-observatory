@@ -249,6 +249,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           horizon,
           minAltitude,
           date,
+          timeZone: site.timeZone,
           train: planTrainFor(profile, train),
           targets: starterTargets,
         },

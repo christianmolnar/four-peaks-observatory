@@ -14,7 +14,7 @@ const sydney = () => {
   const p = sampleProfile();
   return {
     ...p,
-    sites: [{ ...p.sites[0], id: 'syd', name: 'Sydney', latitude: -33.87, longitude: 151.2 }],
+    sites: [{ ...p.sites[0], id: 'syd', name: 'Sydney', latitude: -33.87, longitude: 151.2, timeZone: 'Australia/Sydney' }],
     plans: p.plans.map((pl) => ({ ...pl, siteId: 'syd' })),
   };
 };

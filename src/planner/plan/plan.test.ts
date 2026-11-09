@@ -365,3 +365,26 @@ describe('score and peak details (each pins a rule the list depends on)', () => 
     for (const e of blocked) expect(e.score.total).toBe(0);
   });
 });
+
+describe('evening of D in the site time zone (date line)', () => {
+  const localDay = (d: Date, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const cases: [string, number, number, string, string][] = [
+    ['Apia', -13.83, -171.76, 'Pacific/Apia', '2026-11-08'],
+    ['Taveuni', -16.8, -179.97, 'Pacific/Fiji', '2026-11-08'],
+    ['Phoenix', 33.4, -112, 'America/Phoenix', '2026-11-08'],
+    ['New York, fall-back day', 40.7, -74, 'America/New_York', '2026-11-01'],
+    ['New York, spring-forward day', 40.7, -74, 'America/New_York', '2026-03-08'],
+    ['Sydney', -33.87, 151.21, 'Australia/Sydney', '2026-11-08'],
+    ['Fiji, lon 178.4', -17.8, 178.4, 'Pacific/Fiji', '2026-11-08'],
+  ];
+  it.each(cases)('%s: the night starts on the chosen civil date in the site zone', (_n, latitude, longitude, tz, date) => {
+    const night = tonightsNight({ latitude, longitude }, date, tz);
+    expect(night.kind).toBe('normal');
+    expect(localDay(night.start as Date, tz)).toBe(date);
+  });
+
+  it('without a zone the night is anchored on solar noon as before', () => {
+    const s = { latitude: 40, longitude: -105 };
+    expect(tonightsNight(s, DATE)).toEqual(astronomicalNight(s, solarNoon(DATE, s.longitude)));
+  });
+});

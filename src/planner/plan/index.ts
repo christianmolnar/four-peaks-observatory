@@ -92,6 +92,8 @@ export interface TonightInput {
   minAltitude: number;
   /** Local calendar date of the evening, YYYY-MM-DD. */
   date: string;
+  /** The site's IANA time zone; absent: the date is read at the site's mean solar time. */
+  timeZone?: string;
   train: PlanTrain;
   targets: readonly CatalogTarget[];
   includePlanets?: boolean;
@@ -121,9 +123,32 @@ export function solarNoon(date: string, longitude: number): Date {
   return new Date(Date.UTC(year, month - 1, day, 12) - (longitude / 15) * 3600000);
 }
 
-/** The astronomical night that starts on the evening of `date`. */
-export function tonightsNight(site: Site, date: string): AstronomicalNight {
-  return astronomicalNight(site, solarNoon(date, site.longitude));
+/** Milliseconds the IANA zone `timeZone` is ahead of UTC at instant `at`. */
+export function zoneOffsetMs(at: Date, timeZone: string): number {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+    }).formatToParts(at).map((x) => [x.type, Number(x.value)]),
+  );
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/** Instant of 12:00 civil time on `date` in the IANA zone `timeZone`. */
+export function civilNoon(date: string, timeZone: string): Date {
+  const { year, month, day } = parseLocalDate(date);
+  const wall = Date.UTC(year, month - 1, day, 12);
+  const first = wall - zoneOffsetMs(new Date(wall), timeZone);
+  return new Date(wall - zoneOffsetMs(new Date(first), timeZone));
+}
+
+/**
+ * The astronomical night that starts on the evening of `date`. With the
+ * site's IANA `timeZone`, "evening of date" is that civil date there (so a
+ * site across the date line from its longitude gets the right night);
+ * without one it is the date at the site's mean solar time.
+ */
+export function tonightsNight(site: Site, date: string, timeZone?: string): AstronomicalNight {
+  return astronomicalNight(site, timeZone ? civilNoon(date, timeZone) : solarNoon(date, site.longitude));
 }
 
 function altAzOf(source: TargetSource, site: Site, when: Date): AltAz {
@@ -282,7 +307,7 @@ export function planTonight(
   const horizon = input.horizon && input.horizon.length > 0 ? input.horizon : null;
   const horizonSet = horizon !== null;
   const month = parseLocalDate(input.date).month;
-  const night = tonightsNight(site, input.date);
+  const night = tonightsNight(site, input.date, input.timeZone);
   if (night.kind !== 'normal') return { night, horizonSet, minAltitude, entries: [] };
 
   const start = night.start as Date;
