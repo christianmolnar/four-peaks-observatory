@@ -151,7 +151,8 @@ export function tonightsNight(site: Site, date: string, timeZone?: string): Astr
   return astronomicalNight(site, timeZone ? civilNoon(date, timeZone) : solarNoon(date, site.longitude));
 }
 
-function altAzOf(source: TargetSource, site: Site, when: Date): AltAz {
+/** Alt/az of a target source (a fixed target or a body) at an instant. */
+export function altAzOf(source: TargetSource, site: Site, when: Date): AltAz {
   return source.kind === 'fixed'
     ? targetAltAz(source.raHours, source.decDeg, when, site)
     : bodyAltAz(source.body, when, site);

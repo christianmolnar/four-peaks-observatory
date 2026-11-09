@@ -1,0 +1,158 @@
+import sample from '../data/sample-profile.json';
+import { starterTargets } from '../catalog';
+import { bodyAltAz, targetAltAz } from '../astro';
+import { tonightsNight } from '../plan';
+import { arcToHorizonPoints, validateProfile } from '../profile';
+import { buildItinerary } from './index';
+import type { ItineraryItem } from './index';
+import { slotInputFor } from './resolve';
+import { clockOf, clockToInstant, makeScale, slotAltitudes, timelineGeometry } from './timeline';
+
+const profile = validateProfile(sample);
+const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
+const ZONE = 'America/Phoenix'; // UTC-7 all year
+const HORIZON = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const NIGHT = tonightsNight(SITE, '2026-12-15'); // 01:49 to 12:55 UTC
+const fmt = (d: Date) => d.toISOString().slice(11, 16);
+const MIN = 60000;
+let n = 0;
+const item = (targetId: string): ItineraryItem => ({ id: `t${++n}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' });
+const build = (ids: string[], startAt?: Date | null) =>
+  buildItinerary({ site: SITE, night: NIGHT, horizon: HORIZON, minAltitude: 20, bortle: 6, slots: ids.map((id) => slotInputFor(item(id), profile, starterTargets)), startAt, formatTime: fmt });
+
+describe('start time as a clock time', () => {
+  it('an evening time is tonight, a small-hours time is after midnight, a morning time is after the night', () => {
+    expect(clockToInstant('21:00', NIGHT.start as Date, ZONE).toISOString()).toBe('2026-12-16T04:00:00.000Z');
+    expect(clockToInstant('02:00', NIGHT.start as Date, ZONE).toISOString()).toBe('2026-12-16T09:00:00.000Z');
+    expect(clockToInstant('12:00', NIGHT.start as Date, ZONE).toISOString()).toBe('2026-12-16T19:00:00.000Z');
+    expect(clockToInstant('17:00', NIGHT.start as Date, ZONE).toISOString()).toBe('2026-12-16T00:00:00.000Z');
+  });
+  it('clockOf reads the same clock back in the zone', () => {
+    expect(clockOf(new Date('2026-12-16T04:05:00Z'), ZONE)).toBe('21:05');
+    expect(clockOf(clockToInstant('23:45', NIGHT.start as Date, ZONE), ZONE)).toBe('23:45');
+  });
+  it('rejects text that is not HH:MM', () => {
+    expect(() => clockToInstant('9pm', NIGHT.start as Date, ZONE)).toThrow(RangeError);
+  });
+});
+
+describe('start time in the schedule', () => {
+  it('no start time: the first slot starts when the night starts or its target clears the horizon, as before', () => {
+    const plan = build(['m31']);
+    expect(plan.startsAt).toEqual(NIGHT.start);
+    expect(plan.startNote).toBeNull();
+  });
+  it('a later start moves every slot: the first starts no earlier, and each later slot moves by the same step', () => {
+    const base = build(['m31', 'ic405']);
+    const late = new Date((NIGHT.start as Date).getTime() + 120 * MIN);
+    const moved = build(['m31', 'ic405'], late);
+    expect(moved.startsAt).toEqual(late);
+    expect(moved.slots[0].start.getTime()).toBeGreaterThanOrEqual(late.getTime());
+    expect(moved.slots[0].start.getTime()).toBeGreaterThan(base.slots[0].start.getTime());
+    expect(moved.slots[1].start.getTime()).toBeGreaterThan(base.slots[1].start.getTime());
+    expect(moved.slots[1].start.getTime() - moved.slots[0].end.getTime()).toBe(3 * MIN);
+  });
+  it('a start before the night begins at the night start, and says so in plain words', () => {
+    const plan = build(['m31'], new Date((NIGHT.start as Date).getTime() - 90 * MIN));
+    expect(plan.startsAt).toEqual(NIGHT.start);
+    expect(plan.startNote).toBe(`Your start time is before the night: imaging begins when the night starts, ${fmt(NIGHT.start as Date)}.`);
+    expect(plan.slots[0].end.getTime()).toBeGreaterThan(plan.slots[0].start.getTime());
+  });
+  it('a start after the night ends gives every slot no time and a message, and does not throw', () => {
+    const plan = build(['m31', 'm42'], new Date((NIGHT.end as Date).getTime() + 30 * MIN));
+    expect(plan.startNote).toMatch(/is after the night ends \(12:55\), so there is no time for any slot\.$/);
+    for (const s of plan.slots) {
+      expect(s.end.getTime()).toBe(s.start.getTime());
+      expect(s.altitudes).toBeNull();
+      expect(s.warnings.map((w) => w.code)).toEqual(['no-time']);
+    }
+    expect(plan.totals.ends).toBeNull();
+  });
+});
+
+describe('altitude through a slot', () => {
+  it('start, middle and end match the astro functions at the same instants to 0.1 degree', () => {
+    const plan = build(['m31', 'ic405']);
+    const targets = [starterTargets.find((t) => t.id === 'm31')!, starterTargets.find((t) => t.id === 'ic405')!];
+    plan.slots.forEach((s, k) => {
+      const a = s.altitudes!;
+      const mid = new Date(s.start.getTime() + (s.end.getTime() - s.start.getTime()) / 2);
+      expect(a.start.at).toEqual(s.start);
+      expect(a.end.at).toEqual(s.end);
+      for (const [pt, when] of [[a.start, s.start], [a.middle, mid], [a.end, s.end]] as const) {
+        const ref = targetAltAz(targets[k].raHours, targets[k].decDeg, when, SITE);
+        expect(Math.abs(pt.altitude - ref.altitude)).toBeLessThan(0.1);
+        expect(Math.abs(pt.azimuth - ref.azimuth)).toBeLessThan(0.1);
+      }
+    });
+  });
+  it('a planet or the Moon is read from bodyAltAz', () => {
+    const plan = build(['planet-jupiter']);
+    const s = plan.slots[0];
+    const a = s.altitudes!;
+    expect(Math.abs(a.middle.altitude - bodyAltAz('Jupiter', new Date(s.start.getTime() + (s.end.getTime() - s.start.getTime()) / 2), SITE).altitude)).toBeLessThan(0.1);
+    expect(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']).toContain(a.start.direction);
+  });
+  it('trend: climbing all through is rising, over the top is peaks, down all through is falling (values read off the astro track)', () => {
+    const m42 = starterTargets.find((t) => t.id === 'm42')!;
+    const src = { kind: 'fixed', raHours: m42.raHours, decDeg: m42.decDeg } as const;
+    const h = (hour: number) => new Date(Date.UTC(2026, 11, 16, hour));
+    const rising = slotAltitudes(src, SITE, h(2), h(4), null, 0); // 4 to 28 degrees
+    const peaks = slotAltitudes(src, SITE, h(6), h(8), null, 0); // 46, over the top, to 50 at the ends but higher between
+    const falling = slotAltitudes(src, SITE, h(8), h(10), null, 0); // 50 down to 36
+    expect([rising.trend, peaks.trend, falling.trend]).toEqual(['rising', 'peaks', 'falling']);
+    expect(rising.end.altitude).toBeGreaterThan(rising.start.altitude);
+    expect(falling.end.altitude).toBeLessThan(falling.start.altitude);
+    const jupiter = { kind: 'planet', body: 'Jupiter' } as const;
+    expect(slotAltitudes(jupiter, SITE, h(4), h(6), null, 0).trend).toBe('rising');
+    expect(slotAltitudes({ kind: 'planet', body: 'Saturn' }, SITE, h(4), h(6), null, 0).trend).toBe('falling');
+  });
+  it('flags a start or end under the limit with the existing warning style', () => {
+    const src = { kind: 'fixed', raHours: 5.9, decDeg: -5 } as const;
+    const a = slotAltitudes(src, SITE, NIGHT.start as Date, new Date((NIGHT.start as Date).getTime() + 30 * MIN), arcToHorizonPoints({ startAz: 0, endAz: 359, heightDeg: 89 }), 20);
+    expect(a.start.belowLimit).toBe(true);
+    expect(a.start.limit).toBeGreaterThanOrEqual(80);
+  });
+});
+
+describe('graph geometry', () => {
+  const frame = { width: 400, height: 200, margin: { left: 40, right: 10, top: 10, bottom: 30 } };
+  const t0 = Date.UTC(2026, 11, 16, 2);
+  const t1 = Date.UTC(2026, 11, 16, 12);
+  it('time and altitude map onto the plot area: edges, middle, clamped altitude', () => {
+    const { x, y } = makeScale(t0, t1, frame);
+    expect(x(t0)).toBe(40);
+    expect(x(t1)).toBe(390);
+    expect(x((t0 + t1) / 2)).toBe(215);
+    expect(y(90)).toBe(10);
+    expect(y(0)).toBe(170);
+    expect(y(-5)).toBe(170);
+    expect(y(45)).toBe(90);
+  });
+  it('each timed slot starts and ends at the x of its times; connectors join end to next start; an empty slot draws nothing', () => {
+    const h = (hour: number) => new Date(Date.UTC(2026, 11, 16, hour));
+    const alt = (v: number) => () => v;
+    const slots = [
+      { id: 'a', start: h(3), end: h(5), altitudeAt: alt(30) },
+      { id: 'b', start: h(6), end: h(6), altitudeAt: alt(45) },
+      { id: 'c', start: h(7), end: h(10), altitudeAt: alt(60) },
+    ];
+    const { x, y } = makeScale(t0, t1, frame);
+    const g = timelineGeometry(h(2), h(12), slots, frame);
+    expect(g.segments.map((s) => [s.number, s.timed])).toEqual([[1, true], [2, false], [3, true]]);
+    expect(g.segments[0].x0).toBeCloseTo(x(h(3).getTime()), 9);
+    expect(g.segments[0].x1).toBeCloseTo(x(h(5).getTime()), 9);
+    expect(g.segments[0].points[0]).toEqual({ x: g.segments[0].x0, y: y(30) });
+    expect(g.segments[0].points.at(-1)).toEqual({ x: g.segments[0].x1, y: y(30) });
+    expect(g.segments[1].points).toEqual([]);
+    expect(g.connectors).toEqual([{ fromId: 'a', toId: 'c', from: { x: g.segments[0].x1, y: y(30) }, to: { x: g.segments[2].x0, y: y(60) } }]);
+  });
+  it('a slot runs only between its start and end: every sample lies inside', () => {
+    const h = (hour: number) => new Date(Date.UTC(2026, 11, 16, hour));
+    const g = timelineGeometry(h(2), h(12), [{ id: 'a', start: h(4), end: h(6), altitudeAt: (d) => d.getUTCHours() * 3 }], frame);
+    const xs = g.segments[0].points.map((p) => p.x);
+    expect(Math.min(...xs)).toBeCloseTo(g.segments[0].x0, 9);
+    expect(Math.max(...xs)).toBeCloseTo(g.segments[0].x1, 9);
+    expect(g.segments[0].points.length).toBe(25);
+  });
+});

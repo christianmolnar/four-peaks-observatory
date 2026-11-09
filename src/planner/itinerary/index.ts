@@ -18,15 +18,20 @@ import {
   SLEW_CENTER_MIN,
   TRAIN_CHANGE_MIN,
 } from './constants';
+import { CLOCK_RE, slotAltitudes } from './timeline';
+import type { SlotAltitudes } from './timeline';
 
 export * from './constants';
+export * from './timeline';
 
 /** Refocus after a change is the exposure module's autofocus time. */
 export const REFOCUS_AFTER_CHANGE_MIN = AUTOFOCUS_MIN;
 
 // ------------------------------------------------------------------ saved form
 
-export const ITINERARY_VERSION = 1;
+/** Version 2 added `startTime`. Version 1 (items only) still loads, with the start at the night's start. */
+export const ITINERARY_VERSION = 2;
+const LEGACY_VERSION = 1;
 export const ITINERARY_KEY = 'fpo-planner-itinerary-v1';
 
 export interface ItineraryItem {
@@ -43,6 +48,8 @@ export interface ItineraryItem {
 export interface Itinerary {
   version: typeof ITINERARY_VERSION;
   items: ItineraryItem[];
+  /** When imaging can start, as a 24 h clock time ("21:30") in the site's time zone; null: when the night starts. */
+  startTime: string | null;
 }
 
 export class ItineraryError extends Error {
@@ -60,7 +67,13 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 /** Checks a parsed value field by field. Throws ItineraryError with the path of the first problem; never repairs. */
 export function validateItinerary(input: unknown): Itinerary {
   if (!isRecord(input)) throw new ItineraryError('$', 'must be an object');
-  if (input.version !== ITINERARY_VERSION) throw new ItineraryError('$.version', `must be ${ITINERARY_VERSION}, found ${JSON.stringify(input.version)}`);
+  if (input.version !== ITINERARY_VERSION && input.version !== LEGACY_VERSION) throw new ItineraryError('$.version', `must be ${ITINERARY_VERSION} (or ${LEGACY_VERSION}), found ${JSON.stringify(input.version)}`);
+  let startTime: string | null = null;
+  if (input.version === ITINERARY_VERSION) {
+    const t = input.startTime;
+    if (t !== null && (typeof t !== 'string' || !CLOCK_RE.test(t))) throw new ItineraryError('$.startTime', 'must be a 24 h time such as "21:30", or null');
+    startTime = t;
+  }
   if (!Array.isArray(input.items)) throw new ItineraryError('$.items', 'must be an array');
   if (input.items.length > MAX_SLOTS) throw new ItineraryError('$.items', `at most ${MAX_SLOTS} slots, found ${input.items.length}`);
   const ids = new Set<string>();
@@ -78,7 +91,7 @@ export function validateItinerary(input: unknown): Itinerary {
     if (raw.note.length > MAX_NOTE_CHARS) throw new ItineraryError(`${at}.note`, `at most ${MAX_NOTE_CHARS} characters`);
     return { id: raw.id as string, targetId: raw.targetId as string, trainId: raw.trainId as string, filterId: raw.filterId as string | null, mode: raw.mode as ExposureMode, note: raw.note };
   });
-  return { version: ITINERARY_VERSION, items };
+  return { version: ITINERARY_VERSION, items, startTime };
 }
 
 export function parseItinerary(text: string): Itinerary {
@@ -91,8 +104,8 @@ export function parseItinerary(text: string): Itinerary {
   return validateItinerary(value);
 }
 
-export function serializeItinerary(items: readonly ItineraryItem[]): string {
-  return JSON.stringify(validateItinerary({ version: ITINERARY_VERSION, items }));
+export function serializeItinerary(items: readonly ItineraryItem[], startTime: string | null = null): string {
+  return JSON.stringify(validateItinerary({ version: ITINERARY_VERSION, items, startTime }));
 }
 
 /** A copy with the item moved one place up (-1) or down (+1). At either end, or for an unknown id, the same order comes back. */
@@ -123,7 +136,7 @@ export interface SlotInput {
   problem?: string;
 }
 
-export type SlotWarningCode = 'waits' | 'overlap' | 'cut-short' | 'flip' | 'no-time' | 'problem';
+export type SlotWarningCode = 'waits' | 'overlap' | 'cut-short' | 'flip' | 'no-time' | 'problem' | 'low-start' | 'low-end';
 
 export interface SlotWarning {
   code: SlotWarningCode;
@@ -160,11 +173,17 @@ export interface Slot {
   integrationMin: number;
   /** The slot's own usable window, when it has one. */
   window: TimeWindow | null;
+  /** Altitude, direction and trend at the start, middle and end; null for a slot with no time. */
+  altitudes: SlotAltitudes | null;
   warnings: SlotWarning[];
   label: 'estimate';
 }
 
 export interface ItineraryPlan {
+  /** When imaging can start: the time asked for, or the night's start when none was asked for or it fell before the night. */
+  startsAt: Date;
+  /** Plain words when the time asked for was moved or leaves no night; null otherwise. */
+  startNote: string | null;
   slots: Slot[];
   /** One sentence on why the slots are in this order. */
   why: string;
@@ -178,6 +197,8 @@ export interface BuildInput {
   minAltitude: number;
   bortle: number;
   slots: readonly SlotInput[];
+  /** When imaging can start (setup is done before this). Absent or null: when the astronomical night starts. */
+  startAt?: Date | null;
   formatTime: (d: Date) => string;
 }
 
@@ -212,6 +233,10 @@ export const WARNING_TEXT = {
   /** The slots before ended in time; the changeover after them ran past the close. */
   noTimeChangeover: (name: string, closedAt: string, slotsEnd: string, changeover: string, minutes: number, changeoverEnds: string): string =>
     `No usable time left for ${name} tonight: its window closed at ${closedAt}. The slots before end ${slotsEnd}, then the changeover (${changeover}; ${minutes} min in all) runs to ${changeoverEnds}, after the window closed.`,
+  lowStart: (altitude: number, direction: string, limit: number): string => `Starts at ${altitude}° ${direction}, under the limit of ${limit}° there.`,
+  lowEnd: (altitude: number, direction: string, limit: number): string => `Ends at ${altitude}° ${direction}, under the limit of ${limit}° there.`,
+  startBeforeNight: (nightStart: string): string => `Your start time is before the night: imaging begins when the night starts, ${nightStart}.`,
+  startAfterNight: (startsAt: string, nightEnd: string): string => `Your start time ${startsAt} is after the night ends (${nightEnd}), so there is no time for any slot.`,
   tooLittle: (minutes: number, name: string): string => `${minutes} min is left in ${name}'s window, too little for one sub.`,
 } as const;
 
@@ -222,6 +247,7 @@ export function worstCaseWarningTexts(name: string): { severity: 'warning' | 'no
     { severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort('88:88', 888, 888, 888, { opens: '88:88', closes: '88:88', lightMin: 888 }) },
     { severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(name, 88) },
     { severity: 'note', label: 'Waits', text: WARNING_TEXT.laterWindow(name, '88:88', '88:88', 888, 888, '88:88', '88:88') },
+    { severity: 'warning', label: 'Low start', text: WARNING_TEXT.lowStart(88, 'NW', 88) },
   ];
 }
 
@@ -284,7 +310,11 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
   const nightStart = night.start;
   const nightEnd = night.end;
   const slots: Slot[] = [];
-  let cursor = nightStart;
+  const asked = input.startAt ?? null;
+  const startsAt = asked && asked.getTime() > nightStart.getTime() ? asked : nightStart;
+  const afterNight = startsAt.getTime() >= nightEnd.getTime();
+  const startNote = asked === null ? null : asked.getTime() < nightStart.getTime() ? WARNING_TEXT.startBeforeNight(formatTime(nightStart)) : afterNight ? WARNING_TEXT.startAfterNight(formatTime(startsAt), formatTime(nightEnd)) : null;
+  let cursor = startsAt;
   let last: SlotInput | null = null;
   const opens: { name: string; at: Date | null }[] = [];
   let filterChanges = 0;
@@ -298,7 +328,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       warnings.push({ code, severity: 'warning', label: code === 'no-time' ? 'No time' : 'Problem', text: why });
       return {
         id: item.id, name: si.name, trainName: si.trainName, filterName: si.filterName, mode: item.mode, note: item.note,
-        start: cursor, end: cursor, waitMin: 0, changeover: { minutes: 0, parts: [] }, subSeconds: null, subCount: null, integrationMin: 0, window: null, warnings, label: 'estimate',
+        start: cursor, end: cursor, waitMin: 0, changeover: { minutes: 0, parts: [] }, subSeconds: null, subCount: null, integrationMin: 0, window: null, altitudes: null, warnings, label: 'estimate',
       };
     };
     if (si.problem) {
@@ -307,12 +337,13 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
       continue;
     }
 
-    const common = { horizon, minAltitude, start: nightStart, end: nightEnd, stepMinutes: 5 };
+    if (afterNight) {
+      opens.push({ name: si.name, at: null });
+      slots.push(none(startNote as string, 'no-time'));
+      continue;
+    }
     const source = si.source;
-    const { windows } =
-      source.kind === 'fixed'
-        ? usableWindows({ ...common, raHours: source.raHours, decDeg: source.decDeg, site })
-        : usableWindowsOnTrack({ ...common, altAzAt: (d) => bodyAltAz(source.body, d, site) });
+    const windows = windowsFor(source, input);
     opens.push({ name: si.name, at: windows[0]?.start ?? null });
 
     const change = last ? changeoverBetween(last.item, item) : { minutes: 0, parts: [] };
@@ -476,9 +507,12 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     }
     if (chosen.flipMin > 0) warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(si.name, chosen.flipMin) });
 
+    const altitudes = end.getTime() > start.getTime() ? slotAltitudes(source, site, start, end, horizon, minAltitude) : null;
+    if (altitudes?.start.belowLimit) warnings.push({ code: 'low-start', severity: 'warning', label: 'Low start', text: WARNING_TEXT.lowStart(round(altitudes.start.altitude), altitudes.start.direction, round(altitudes.start.limit)) });
+    if (altitudes?.end.belowLimit) warnings.push({ code: 'low-end', severity: 'warning', label: 'Low end', text: WARNING_TEXT.lowEnd(round(altitudes.end.altitude), altitudes.end.direction, round(altitudes.end.limit)) });
     slots.push({
       id: item.id, name: si.name, trainName: si.trainName, filterName: si.filterName, mode: item.mode, note: item.note,
-      start, end, waitMin, changeover: change, subSeconds: chosen.subSeconds, subCount: chosen.subCount, integrationMin: chosen.integrationMin, window: w, warnings, label: 'estimate',
+      start, end, waitMin, changeover: change, subSeconds: chosen.subSeconds, subCount: chosen.subCount, integrationMin: chosen.integrationMin, window: w, altitudes, warnings, label: 'estimate',
     });
     // A slot that runs makes the changes in front of it real; one without time makes none.
     if (end.getTime() > start.getTime()) {
@@ -500,7 +534,18 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     trainChanges,
     ends: real.length > 0 ? real[real.length - 1].end : null,
   };
-  return { slots, why: whyThisOrder(opens, formatTime), totals };
+  return { startsAt, startNote, slots, why: whyThisOrder(opens, formatTime), totals };
+}
+
+/** A target's usable windows between the night's start and end (above the horizon and the minimum altitude). */
+export function windowsFor(source: TargetSource, input: Pick<BuildInput, 'site' | 'night' | 'horizon' | 'minAltitude'>): TimeWindow[] {
+  const { site, night, horizon, minAltitude } = input;
+  const common = { horizon, minAltitude, start: night.start as Date, end: night.end as Date, stepMinutes: 5 };
+  return (
+    source.kind === 'fixed'
+      ? usableWindows({ ...common, raHours: source.raHours, decDeg: source.decDeg, site })
+      : usableWindowsOnTrack({ ...common, altAzAt: (d) => bodyAltAz(source.body, d, site) })
+  ).windows;
 }
 
 const clampDate = (d: Date, lo: Date, hi: Date): Date => (d.getTime() < lo.getTime() ? lo : d.getTime() > hi.getTime() ? hi : d);

@@ -66,12 +66,21 @@ describe('the saved form', () => {
   const items = [item('m31'), item('m33', { filterId: 'zwo-duo-band', mode: 'quick', note: 'check the guide star' })];
   it('round-trips through the versioned text', () => {
     const text = serializeItinerary(items);
-    expect(JSON.parse(text).version).toBe(1);
-    expect(parseItinerary(text)).toEqual({ version: 1, items });
+    expect(JSON.parse(text).version).toBe(2);
+    expect(parseItinerary(text)).toEqual({ version: 2, items, startTime: null });
+    expect(parseItinerary(serializeItinerary(items, '21:30')).startTime).toBe('21:30');
+  });
+  it('an itinerary saved before the start time existed (version 1) still loads, starting at the night start', () => {
+    const old = JSON.stringify({ version: 1, items });
+    expect(parseItinerary(old)).toEqual({ version: 2, items, startTime: null });
+  });
+  it('rejects a start time that is not a 24 h clock time, with its path', () => {
+    for (const bad of ['9pm', '24:00', '21:60', 5]) expect(() => validateItinerary({ version: 2, items, startTime: bad })).toThrow(/\$\.startTime/);
+    expect(() => validateItinerary({ version: 2, items })).toThrow(/\$\.startTime/);
   });
   it('rejects a wrong version, a bad mode, a duplicate id, too many slots and bad JSON, each with a path', () => {
-    const ok = { version: 1, items };
-    expect(() => validateItinerary({ ...ok, version: 2 })).toThrow(/\$\.version/);
+    const ok = { version: 2, items, startTime: null };
+    expect(() => validateItinerary({ ...ok, version: 3 })).toThrow(/\$\.version/);
     expect(() => validateItinerary({ ...ok, items: [{ ...items[0], mode: 'fast' }] })).toThrow(/\$\.items\[0\]\.mode/);
     expect(() => validateItinerary({ ...ok, items: [items[0], items[0]] })).toThrow(/\$\.items\[1\]\.id: duplicate/);
     expect(() => validateItinerary({ ...ok, items: Array.from({ length: MAX_SLOTS + 1 }, (_, i) => ({ ...items[0], id: `x${i}` })) })).toThrow(/at most 8 slots/);
