@@ -179,7 +179,8 @@ describe('import errors in plain language', () => {
   it('names the version problem for a wrong or missing version', () => {
     const p = sample();
     expect(() => profileFromText(stringify({ ...p, version: 99 }))).toThrow(/version 99.*reads version/i);
-    const { version: _v, ...noVersion } = p;
+    const noVersion: Record<string, unknown> = { ...p };
+    delete noVersion.version;
     expect(() => profileFromText(stringify(noVersion))).toThrow(/no version/i);
   });
   it('rejects a JSON value that is not an object', () => {

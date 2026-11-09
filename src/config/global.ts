@@ -18,6 +18,7 @@ export const navigationConfig = {
     { label: 'Smart Telescopes', href: '/smart-telescopes' },
     { label: 'Terrestrial', href: '/terrestrial' },
     { label: 'Gear', href: '/equipment' },
+    { label: 'Planner', href: '/planner' },
     { label: 'Good Stuff', href: '/resources' },
     { label: 'Contact', href: '/contact' },
   ]

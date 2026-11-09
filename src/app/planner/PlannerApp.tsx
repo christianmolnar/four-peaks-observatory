@@ -1,10 +1,11 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
-import { formatCsvTime, planToCsv } from '@/planner/export';
-import { arcToHorizonPoints, ProfileError, parseProfile, resolveTrain } from '@/planner/profile';
+import { makeCsvTime, planToCsv } from '@/planner/export';
+import { arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
@@ -28,6 +29,7 @@ import {
   withSiteArc,
   withTrainFilter,
 } from '@/planner/state';
+import { profileFromText } from '@/planner/state/edit';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AltitudeChart from './AltitudeChart';
 import ExposurePanel from './ExposurePanel';
@@ -35,9 +37,14 @@ import HorizonEditor from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
 import PlanetsSection from './PlanetsSection';
+import PrintSheet from './PrintSheet';
+import ProfileEditor from './ProfileEditor';
 
-const timeFormat = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-const formatTime = (d: Date): string => timeFormat.format(d);
+/** 24 h clock time in `timeZone` (IANA name), or in the browser's zone when none is given. */
+const clockIn = (timeZone?: string): ((d: Date) => string) => {
+  const f = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
+  return (d) => f.format(d);
+};
 
 type SeasonFilter = 'all' | 'in' | 'out';
 type SetupFilter = 'all' | 'fits' | 'too-large' | 'deep-sky' | 'planets';
@@ -100,6 +107,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [showNoFit, setShowNoFit] = useState(false);
   const [selectedId, setSelectedId] = useState<string>('');
   const [zone, setZone] = useState<string>('');
+  // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
+  const [printing, setPrinting] = useState(false);
 
   const endMinAltRun = () => {
     if (minAltTimer.current) clearTimeout(minAltTimer.current);
@@ -142,6 +151,17 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     }
   }, [initialDate, initialProfile]);
 
+  useEffect(() => {
+    const before = () => flushSync(() => setPrinting(true));
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
+
   // Toasts clear themselves, so none of them stays over a button.
   useEffect(() => {
     if (!notice) return;
@@ -154,12 +174,24 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     return () => clearTimeout(t);
   }, [importError, profile]);
 
+  /** Stores an edited profile. The edit has been validated; a storage failure is said out loud and the edit stays on screen. */
+  const applyProfile = (next: Profile) => {
+    setProfile(next);
+    try {
+      saveProfile(window.localStorage, next);
+    } catch (e) {
+      setNotice(`Edit not saved, so it is lost on reload: ${(e as Error).message}`);
+    }
+  };
+
   const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
   const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];
   // The site as the astro functions take it, stable between renders so the sections below can memoise on it.
   const siteLat = site?.latitude;
   const siteLon = site?.longitude;
   const siteElev = site?.elevationM;
+  const siteZone = site?.timeZone;
+  const formatTime = useMemo(() => clockIn(siteZone), [siteZone]);
   const astroSite = useMemo(
     () => (siteLat !== undefined && siteLon !== undefined ? { latitude: siteLat, longitude: siteLon, elevationM: siteElev } : null),
     [siteLat, siteLon, siteElev],
@@ -226,7 +258,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     } catch (e) {
       return { result: null, error: (e as Error).message };
     }
-  }, [site, train, date, horizon, minAltitude, profile]);
+  }, [site, train, date, horizon, minAltitude, profile, formatTime]);
 
   const plan = planResult?.result ?? null;
   // The night as a stable object: the plan is rebuilt for a filter change, but the night does not change, and the
@@ -340,8 +372,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const importProfile = async (file: File | undefined) => {
     if (!file) return;
     setImportError(null);
+    let next: Profile;
     try {
-      const next = parseProfile(await file.text());
+      next = profileFromText(await file.text());
+    } catch (e) {
+      setImportError(`Import rejected, nothing was changed. ${(e as Error).message}`);
+      return;
+    }
+    try {
       saveProfile(window.localStorage, next);
       setProfile(next);
       setDate(defaultDateForProfile(new Date(), next));
@@ -350,8 +388,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       setTrainId('');
       setNotice(`Imported ${file.name}.`);
     } catch (e) {
-      if (e instanceof ProfileError) setImportError(`Import rejected, ${e.message}`);
-      else setImportError(`Import failed, nothing was changed: ${(e as Error).message}`);
+      setImportError(`Import failed, nothing was changed: ${(e as Error).message}`);
     }
   };
 
@@ -359,7 +396,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     if (!plan) return;
     download(
       `planner-${date}.csv`,
-      planToCsv(filtered, { formatTime: formatCsvTime, captured }),
+      planToCsv(filtered, { formatTime: makeCsvTime(siteZone), captured }),
       'text/csv;charset=utf-8',
       true,
     );
@@ -408,12 +445,30 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   }
 
   const night = plan?.night;
+  const zoneName = siteZone ?? zone;
+  const zoneText = zoneName ? `Times are in ${siteZone ? "the site's" : "your browser's"} time zone (${zoneName}).` : '';
+  const horizonText =
+    savedArc === null
+      ? 'Horizon not set: only the flat minimum altitude applies.'
+      : `Horizon: blocked ${savedArc.startAz}° (${compass(savedArc.startAz)}) to ${savedArc.endAz}° (${compass(savedArc.endAz)}), ${savedArc.heightDeg}° high.`;
+  const nightText =
+    night === undefined
+      ? 'Loading the date…'
+      : night.kind === 'normal'
+        ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${(((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1)} h), Moon ${(moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) * 100).toFixed(0)}% lit at mid-night. `
+        : night.kind === 'none'
+          ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
+          : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
   return (
-    <div className="space-y-8 text-white">
+    <>
+    <div className="space-y-8 text-white print:hidden">
       <header>
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
-        <p className="text-white/80 font-normal text-sm mt-2">
-          Preview. Your profile, horizon and captured list stay in this browser; the planner does not send any of it anywhere.
+        <p className="text-white/90 font-normal text-sm mt-2 max-w-3xl">
+          A free guest tool: no account and no sign-in. It starts from a sample profile; change the site, gear and horizon below to plan your own night.
+          Values the planner works out, such as exposure, are estimates and are labelled as estimates.
+          Your profile, horizon and captured list stay in this browser (in its local storage); the planner does not send any of it anywhere.
+          Export your profile to keep a copy or to move it to another browser.
         </p>
       </header>
 
@@ -509,19 +564,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           />
         </div>
         <p className="text-white/80 font-normal text-sm mt-2" data-testid="night-summary">
-          {night === undefined
-            ? 'Loading the date…'
-            : night.kind === 'normal'
-              ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${(((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1)} h), Moon ${(moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) * 100).toFixed(0)}% lit at mid-night. `
-              : night.kind === 'none'
-                ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
-                : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. '}
-          {zone && `Times are in your browser's time zone (${zone}).`}
+          {nightText}
+          {zoneText}
         </p>
         <p className="text-white/80 font-normal text-sm mt-1" data-testid="horizon-summary">
-          {savedArc === null
-            ? 'Horizon not set: only the flat minimum altitude applies.'
-            : `Horizon: blocked ${savedArc.startAz}° (${compass(savedArc.startAz)}) to ${savedArc.endAz}° (${compass(savedArc.endAz)}), ${savedArc.heightDeg}° high.`}{' '}
+          {horizonText}{' '}
           <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
             Edit horizon
           </a>
@@ -558,6 +605,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             </label>
             <button type="button" className={btn} onClick={exportCsv} disabled={!plan || filtered.length === 0}>
               Export CSV
+            </button>
+            <button type="button" className={btn} onClick={() => window.print()} disabled={!plan || filtered.length === 0}>
+              Print or save as PDF
             </button>
           </div>
         </div>
@@ -713,6 +763,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         }}
       />
 
+      <ProfileEditor profile={profile} onChange={applyProfile} />
+
       <section aria-labelledby="profile-heading" className={panel}>
         <h2 id="profile-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">PROFILE</h2>
         <div className="flex flex-wrap items-end gap-4">
@@ -731,5 +783,18 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         </p>
       </section>
     </div>
+    {printing && (
+    <PrintSheet
+      date={date}
+      siteLine={`Site: ${site.name} (${site.latitude.toFixed(4)}°, ${site.longitude.toFixed(4)}°${site.elevationM !== undefined ? `, ${site.elevationM} m` : ''}). ${zoneText}`}
+      trainLine={`Train: ${train.name}${train.kind === 'optical' && train.filterId ? `, filter ${profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? train.filterId}` : ''}. Minimum altitude ${minAltitude}°.`}
+      nightLine={nightText}
+      horizonLine={horizonText}
+      entries={filtered}
+      captured={captured}
+      formatTime={formatTime}
+    />
+    )}
+    </>
   );
 }

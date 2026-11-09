@@ -26,21 +26,26 @@ export function csvField(value: string | number): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-const csvTimeFormat = new Intl.DateTimeFormat('en-CA', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-  timeZoneName: 'short',
-});
-
-/** Instant as "2026-12-15 20:17 MST": date, time and the viewer's zone, so a sheet row stands alone. */
-export function formatCsvTime(d: Date): string {
-  const p = Object.fromEntries(csvTimeFormat.formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
+/** Writes an instant as "2026-12-15 20:17 MST" in `timeZone` (IANA name; absent: the viewer's zone), so a sheet row stands alone. */
+export function makeCsvTime(timeZone?: string): (d: Date) => string {
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZoneName: 'short',
+  });
+  return (d) => {
+    const p = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
+  };
 }
+
+/** Instant in the viewer's zone. */
+export const formatCsvTime = makeCsvTime();
 
 export interface CsvOptions {
   /** Formats an instant for the sheet (time zone is the caller's choice). */

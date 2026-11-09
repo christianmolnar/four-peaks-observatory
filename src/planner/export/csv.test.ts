@@ -2,7 +2,7 @@ import { starterTargets } from '../catalog';
 import { planTonight } from '../plan';
 import type { PlanTrain } from '../plan';
 import { opticalTrain } from '../optics';
-import { CSV_HEADER, csvField, formatCsvTime, planToCsv } from './csv';
+import { CSV_HEADER, csvField, formatCsvTime, makeCsvTime, planToCsv } from './csv';
 
 /** Minimal RFC 4180 reader, to check the writer against something independent of it. */
 function parseCsv(text: string): string[][] {
@@ -105,5 +105,13 @@ describe('CSV readability', () => {
 
   it('formats times with date, time and zone', () => {
     expect(formatCsvTime(new Date(Date.UTC(2026, 11, 15, 3, 7)))).toMatch(/^2026-12-1[45] \d\d:\d\d \S+/);
+  });
+});
+
+describe('makeCsvTime', () => {
+  it('writes the site zone whatever the browser zone is', () => {
+    const at = new Date(Date.UTC(2026, 11, 15, 3, 7));
+    expect(makeCsvTime('America/Phoenix')(at)).toBe('2026-12-14 20:07 MST');
+    expect(makeCsvTime('Europe/Berlin')(at)).toMatch(/^2026-12-15 04:07 /);
   });
 });
