@@ -28,7 +28,7 @@ PASS 1280px axe: no critical or serious violations  [0 violations in all: ]
 PASS 1280px reduced motion: no running animation, no planner transition  [0 animations, 0 elements with a transition]
 PASS print: sheet visible, nav and screen panels hidden  [8 rows; nav visible=False; screen visible=False]
 PASS print: sheet states date, site, estimates note
-PASS print: PDF written  [17241 bytes at /tmp/planner-guest.pdf]
+PASS print: PDF written  [17241 bytes]
 PASS 768px network: planner makes only own-origin GET asset requests (no /api, no fetch/XHR, no POST, no third party)  [16 requests; third-party=[] non-GET=[] api=[] fetch/xhr=[]]
    NOTE site-wide layout scripts (not planner): ['https://va.vercel-scripts.com/v1/speed-insights/script.debug.js', 'https://va.vercel-scripts.com/v1/script.debug.js']
 PASS 768px no page errors

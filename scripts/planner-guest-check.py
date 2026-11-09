@@ -17,7 +17,7 @@ Checks, at 1280, 768 and 390 px:
      statuses and error markers it saw ("!" prefix on errors, text "Selected" etc.) for a human read.
 
 Run (needs Playwright for Python and its Chromium; the repo itself depends on neither):
-  ~/tools/shots/bin/python docs/guides/planner-guest-check.py [--pdf /path/out.pdf] [--shots DIR]
+  ~/tools/shots/bin/python scripts/planner-guest-check.py [--pdf /path/out.pdf] [--shots DIR]
 It starts its own next dev on a free port and stops it after. Exit code 0 only if every check passes.
 """
 import argparse
@@ -32,7 +32,7 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
-REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 AXE = os.path.join(REPO, "node_modules", "axe-core", "axe.min.js")
 results = []
 
@@ -220,7 +220,7 @@ def run(url, pdf, shots):
                 record("print: sheet states date, site, estimates note", "evening of" in text and "Fountain Hills" in text and "estimates" in text)
                 if pdf:
                     page.pdf(path=pdf, format="Letter", print_background=False)
-                    record("print: PDF written", os.path.getsize(pdf) > 5000, f"{os.path.getsize(pdf)} bytes at {pdf}")
+                    record("print: PDF written", os.path.getsize(pdf) > 5000, f"{os.path.getsize(pdf)} bytes")
                 page.emulate_media(media="screen")
             ctx.close()
         browser.close()
