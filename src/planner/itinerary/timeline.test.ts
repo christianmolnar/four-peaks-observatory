@@ -1,6 +1,9 @@
 import sample from '../data/sample-profile.json';
 import { starterTargets } from '../catalog';
 import { bodyAltAz, targetAltAz } from '../astro';
+import type { Site } from '../astro';
+import { altAzOf } from '../plan';
+import type { TargetSource } from '../plan';
 import { tonightsNight } from '../plan';
 import { arcToHorizonPoints, validateProfile } from '../profile';
 import { buildItinerary } from './index';
@@ -112,6 +115,75 @@ describe('altitude through a slot', () => {
     const a = slotAltitudes(src, SITE, NIGHT.start as Date, new Date((NIGHT.start as Date).getTime() + 30 * MIN), arcToHorizonPoints({ startAz: 0, endAz: 359, heightDeg: 89 }), 20);
     expect(a.start.belowLimit).toBe(true);
     expect(a.start.limit).toBeGreaterThanOrEqual(80);
+  });
+});
+
+describe('trend from the meridian transit, checked against 1-minute sampling', () => {
+  const PHX_NIGHT = tonightsNight(SITE, '2026-11-08', ZONE);
+  // Phoenix clock time on the night of 2026-11-08 (UTC-7): evening times are 08 Nov, small hours are 09 Nov.
+  const phx = (day: number, hhmm: string) => new Date(`2026-11-${String(day).padStart(2, '0')}T${hhmm}:00-07:00`);
+  const rosette = starterTargets.find((t) => t.id === 'ngc2237')!;
+  const rosetteSrc: TargetSource = { kind: 'fixed', raHours: rosette.raHours, decDeg: rosette.decDeg };
+
+  it('the evaluator cases: Saturn 21:39 to 22:09 and the Rosette Nebula 02:01 to 03:51 at the sample site peak inside the slot', () => {
+    expect(PHX_NIGHT.kind).toBe('normal');
+    expect(slotAltitudes({ kind: 'planet', body: 'Saturn' }, SITE, phx(8, '21:39'), phx(8, '22:09'), HORIZON, 20).trend).toBe('peaks');
+    expect(slotAltitudes(rosetteSrc, SITE, phx(9, '02:01'), phx(9, '03:51'), HORIZON, 20).trend).toBe('peaks');
+  });
+
+  // The truth: the highest minute of a 1-minute track. A slot whose highest minute is inside it peaks; otherwise the end against the start.
+  const truth = (source: TargetSource, site: Site, a: number, b: number): { trend: 'rising' | 'peaks' | 'falling'; ambiguous: boolean } => {
+    const alts: number[] = [];
+    for (let t = a; t <= b; t += MIN) alts.push(altAzOf(source, site, new Date(t)).altitude);
+    const top = alts.indexOf(Math.max(...alts));
+    // A highest minute 1 to 3 minutes inside an end is within what the two methods can tell apart (the Moon's hour angle 0 is not its exact highest minute).
+    const last = alts.length - 1;
+    // ... and so is a highest minute at an end that is flat to 0.01 degree against the next minute in (the true top may be 30 seconds inside).
+    const flatEnd = (top === 0 && alts[0] - alts[1] < 0.01) || (top === last && alts[last] - alts[last - 1] < 0.01);
+    const ambiguous = (top >= 1 && top <= 3) || (top <= last - 1 && top >= last - 3) || flatEnd;
+    const trend = top > 0 && top < alts.length - 1 ? 'peaks' : alts[alts.length - 1] >= alts[0] ? 'rising' : 'falling';
+    return { trend, ambiguous };
+  };
+  const SITES: [string, Site][] = [
+    ['Phoenix', SITE],
+    ['Sydney', { latitude: -33.87, longitude: 151.21, elevationM: 0 }],
+    ['Reykjavik', { latitude: 64.15, longitude: -21.94, elevationM: 0 }],
+    ['New York', { latitude: 40.71, longitude: -74.0, elevationM: 0 }],
+    ['Apia', { latitude: -13.83, longitude: -171.76, elevationM: 0 }],
+    ['Kiritimati', { latitude: 1.87, longitude: -157.4, elevationM: 0 }],
+  ];
+  const fixed = ['m31', 'm42', 'ngc2237', 'm13', 'm8', 'm51'].map((id) => starterTargets.find((t) => t.id === id)!);
+  const sources: TargetSource[] = [
+    ...(['Moon', 'Jupiter', 'Saturn', 'Mars', 'Venus', 'Uranus'] as const).map((body): TargetSource => ({ kind: 'planet', body })),
+    ...fixed.map((t): TargetSource => ({ kind: 'fixed', raHours: t.raHours, decDeg: t.decDeg })),
+  ];
+
+  it('agrees with the highest minute of a 1-minute track on 6 sites, for planets, the Moon and fixed targets', () => {
+    let checked = 0;
+    let peaksSeen = 0;
+    const wrong: string[] = [];
+    for (const [name, site] of SITES) {
+      const night = tonightsNight(site, '2026-11-08');
+      if (night.kind !== 'normal') continue;
+      const n0 = (night.start as Date).getTime();
+      const n1 = (night.end as Date).getTime();
+      for (const source of sources) {
+        for (const lenMin of [20, 45, 110]) {
+          for (let a = n0; a + lenMin * MIN <= n1; a += 53 * MIN) {
+            const b = a + lenMin * MIN;
+            const ref = truth(source, site, a, b);
+            if (ref.ambiguous) continue;
+            const got = slotAltitudes(source, site, new Date(a), new Date(b), null, 0).trend;
+            checked++;
+            if (ref.trend === 'peaks') peaksSeen++;
+            if (got !== ref.trend) wrong.push(`${name} ${JSON.stringify(source)} ${new Date(a).toISOString()} +${lenMin}: ${got} vs ${ref.trend}`);
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(300);
+    expect(peaksSeen).toBeGreaterThan(20);
+    expect(wrong).toEqual([]);
   });
 });
 

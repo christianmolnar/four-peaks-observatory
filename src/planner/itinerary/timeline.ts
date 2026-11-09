@@ -1,3 +1,5 @@
+import { nextMeridianTransit } from '../astro';
+import { nextBodyTransit } from '../astro/bodies';
 import type { Site } from '../astro';
 import { altAzOf, compass, zoneOffsetMs } from '../plan';
 import type { TargetSource } from '../plan';
@@ -65,7 +67,6 @@ export interface SlotAltitudes {
   trend: Trend;
 }
 
-const TREND_STEP_MIN = 5;
 /** An altitude under the limit by less than this is a rounding error, not a warning. */
 const BELOW_TOLERANCE_DEG = 0.05;
 
@@ -75,9 +76,14 @@ export function altPoint(source: TargetSource, site: Site, at: Date, horizon: re
   return { at, altitude, azimuth, direction: compass(azimuth), limit, belowLimit: altitude < limit - BELOW_TOLERANCE_DEG };
 }
 
+/** The instant the target crosses the meridian (its highest point of the day) at or after `from`. */
+const transitAfter = (source: TargetSource, site: Site, from: Date): Date =>
+  source.kind === 'fixed' ? nextMeridianTransit(source.raHours, source.decDeg, from, site) : nextBodyTransit(source.body, from, site);
+
 /**
- * Altitude and compass direction at the start, middle and end of [start, end], and the trend between: sampled every
- * 5 minutes, a highest point clearly above both ends is "peaks", otherwise the sign of end minus start decides.
+ * Altitude and compass direction at the start, middle and end of [start, end], and the trend between. The trend comes
+ * from the meridian transit, where the target is highest: a transit strictly inside the slot is "peaks"; otherwise the
+ * target climbs all through the slot ("rising") or sinks all through it ("falling"), told by end against start.
  */
 export function slotAltitudes(source: TargetSource, site: Site, start: Date, end: Date, horizon: readonly HorizonPoint[] | null, minAltitude: number): SlotAltitudes {
   const t0 = start.getTime();
@@ -85,9 +91,8 @@ export function slotAltitudes(source: TargetSource, site: Site, start: Date, end
   const at = (t: number) => altPoint(source, site, new Date(t), horizon, minAltitude);
   const first = at(t0);
   const last = at(t1);
-  let top = Math.max(first.altitude, last.altitude);
-  for (let t = t0 + TREND_STEP_MIN * 60000; t < t1; t += TREND_STEP_MIN * 60000) top = Math.max(top, altAzOf(source, site, new Date(t)).altitude);
-  const trend: Trend = top > Math.max(first.altitude, last.altitude) + 0.25 ? 'peaks' : last.altitude >= first.altitude ? 'rising' : 'falling';
+  const transit = transitAfter(source, site, start).getTime();
+  const trend: Trend = transit > t0 && transit < t1 ? 'peaks' : last.altitude >= first.altitude ? 'rising' : 'falling';
   return { start: first, middle: at(t0 + (t1 - t0) / 2), end: last, trend };
 }
 
