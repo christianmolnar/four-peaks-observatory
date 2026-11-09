@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
@@ -18,8 +18,8 @@ export interface ProfileEditorProps {
 }
 
 /** A native disclosure that builds its content only while open, so a closed panel costs the page nothing. */
-function Disclosure({ summary, defaultOpen, children }: { summary: string; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
+function Disclosure({ summary, children }: { summary: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
     <details
       className="mb-3 border-b border-white/10 pb-3"
@@ -208,7 +208,7 @@ function TrainForm({ profile, train, onChange }: { profile: Profile; train: Trai
  * Site, equipment and train editor. Every Save goes through the profile validator; a refused edit leaves the
  * profile as it was and shows the reason under the form. The horizon has its own editor.
  */
-export default function ProfileEditor({ profile, onChange }: ProfileEditorProps) {
+function ProfileEditor({ profile, onChange }: ProfileEditorProps) {
   const [status, setStatus] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
   const commit = (next: Profile, what: string) => {
@@ -240,7 +240,7 @@ export default function ProfileEditor({ profile, onChange }: ProfileEditorProps)
         const items = itemsOf(profile, list);
         const spec = LIST_SPECS[list];
         return (
-          <Disclosure key={list} summary={`${spec.title} (${items.length})`} defaultOpen={list === 'sites'}>
+          <Disclosure key={list} summary={`${spec.title} (${items.length})`}>
             {items.map((it) => (
               <ItemForm key={`${list}:${JSON.stringify(it)}`} profile={profile} list={list} item={it} onChange={commit} />
             ))}
@@ -262,3 +262,6 @@ export default function ProfileEditor({ profile, onChange }: ProfileEditorProps)
     </section>
   );
 }
+
+/** Memoised: typing in the horizon or altitude boxes re-renders the page, not this editor. */
+export default memo(ProfileEditor);

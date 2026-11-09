@@ -1,0 +1,57 @@
+PASS 1280px network: planner makes only own-origin GET asset requests (no /api, no fetch/XHR, no POST, no third party)  [16 requests; third-party=[] non-GET=[] api=[] fetch/xhr=[]]
+   NOTE site-wide layout scripts (not planner): ['https://va.vercel-scripts.com/v1/speed-insights/script.debug.js', 'https://va.vercel-scripts.com/v1/script.debug.js']
+   GET document   http://127.0.0.1:60466/planner
+   GET font       http://127.0.0.1:60466/_next/static/media/0484562807a97172-s.p.woff2
+   GET font       http://127.0.0.1:60466/_next/static/media/4c285fdca692ea22-s.p.woff2
+   GET font       http://127.0.0.1:60466/_next/static/media/8888a3826f4a3af4-s.p.woff2
+   GET font       http://127.0.0.1:60466/_next/static/media/9e82d62334b205f4-s.p.woff2
+   GET font       http://127.0.0.1:60466/_next/static/media/b957ea75a84b6ea7-s.p.woff2
+   GET font       http://127.0.0.1:60466/_next/static/media/eafabf029ad39a43-s.p.woff2
+   GET image      http://127.0.0.1:60466/_next/image?url=%2Fimages%2Flogo%2FLogo.png&w=1920&q=75
+   GET stylesheet http://127.0.0.1:60466/_next/static/css/app/layout.css?v=1794188779863
+   GET script     http://127.0.0.1:60466/_next/static/chunks/webpack.js?v=1794188779863
+   GET script     http://127.0.0.1:60466/_next/static/chunks/main-app.js?v=1794188779863
+   GET script     http://127.0.0.1:60466/_next/static/chunks/app-pages-internals.js
+   GET script     http://127.0.0.1:60466/_next/static/chunks/app/layout.js
+   GET script     http://127.0.0.1:60466/_next/static/chunks/app/planner/page.js
+   GET script     https://va.vercel-scripts.com/v1/speed-insights/script.debug.js
+   GET script     https://va.vercel-scripts.com/v1/script.debug.js
+PASS 1280px no page errors
+PASS 1280px fresh profile: intro and ranked table  [16 table rows; storage=0 keys]
+PASS 1280px no sideways scroll
+PASS 1280px keyboard: Tab reaches every control with a visible focus ring  [89 stops, 85 controls; not reached: []; no ring on: []]
+PASS 1280px keyboard task: latitude edited and saved with the keyboard
+PASS 1280px keyboard task: train opened with Enter, renamed, saved with Enter
+PASS 1280px reload keeps the edits
+PASS 1280px refused edit: message names the box and starts with a non-colour marker  [! Latitude: expected a number from -90 to 90, got 95]
+PASS 1280px axe: no critical or serious violations  [0 violations in all: ]
+PASS 1280px reduced motion: no running animation, no planner transition  [0 animations, 0 elements with a transition]
+PASS print: sheet visible, nav and screen panels hidden  [8 rows; nav visible=False; screen visible=False]
+PASS print: sheet states date, site, estimates note
+PASS print: PDF written  [17241 bytes at /tmp/planner-guest.pdf]
+PASS 768px network: planner makes only own-origin GET asset requests (no /api, no fetch/XHR, no POST, no third party)  [16 requests; third-party=[] non-GET=[] api=[] fetch/xhr=[]]
+   NOTE site-wide layout scripts (not planner): ['https://va.vercel-scripts.com/v1/speed-insights/script.debug.js', 'https://va.vercel-scripts.com/v1/script.debug.js']
+PASS 768px no page errors
+PASS 768px fresh profile: intro and ranked table  [16 table rows; storage=0 keys]
+PASS 768px no sideways scroll
+PASS 768px keyboard: Tab reaches every control with a visible focus ring  [89 stops, 85 controls; not reached: []; no ring on: []]
+PASS 768px keyboard task: latitude edited and saved with the keyboard
+PASS 768px keyboard task: train opened with Enter, renamed, saved with Enter
+PASS 768px reload keeps the edits
+PASS 768px refused edit: message names the box and starts with a non-colour marker  [! Latitude: expected a number from -90 to 90, got 95]
+PASS 768px axe: no critical or serious violations  [0 violations in all: ]
+PASS 768px reduced motion: no running animation, no planner transition  [0 animations, 0 elements with a transition]
+PASS 390px network: planner makes only own-origin GET asset requests (no /api, no fetch/XHR, no POST, no third party)  [16 requests; third-party=[] non-GET=[] api=[] fetch/xhr=[]]
+   NOTE site-wide layout scripts (not planner): ['https://va.vercel-scripts.com/v1/speed-insights/script.debug.js', 'https://va.vercel-scripts.com/v1/script.debug.js']
+PASS 390px no page errors
+PASS 390px fresh profile: intro and ranked table  [16 table rows; storage=0 keys]
+PASS 390px no sideways scroll
+PASS 390px keyboard: Tab reaches every control with a visible focus ring  [81 stops, 77 controls; not reached: []; no ring on: []]
+PASS 390px keyboard task: latitude edited and saved with the keyboard
+PASS 390px keyboard task: train opened with Enter, renamed, saved with Enter
+PASS 390px reload keeps the edits
+PASS 390px refused edit: message names the box and starts with a non-colour marker  [! Latitude: expected a number from -90 to 90, got 95]
+PASS 390px axe: no critical or serious violations  [0 violations in all: ]
+PASS 390px reduced motion: no running animation, no planner transition  [0 animations, 0 elements with a transition]
+
+36 passed, 0 failed

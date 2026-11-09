@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
@@ -175,14 +175,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   }, [importError, profile]);
 
   /** Stores an edited profile. The edit has been validated; a storage failure is said out loud and the edit stays on screen. */
-  const applyProfile = (next: Profile) => {
+  const applyProfile = useCallback((next: Profile) => {
     setProfile(next);
     try {
       saveProfile(window.localStorage, next);
     } catch (e) {
       setNotice(`Edit not saved, so it is lost on reload: ${(e as Error).message}`);
     }
-  };
+  }, []);
 
   const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
   const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];

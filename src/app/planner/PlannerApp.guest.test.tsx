@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup, waitFor, within, act } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
@@ -106,21 +106,21 @@ describe('editing site and gear', () => {
     expect(within(siteBox).getByRole('alert').textContent).toMatch(/Time zone: not a time zone name/);
   });
 
-  it('editing a scope and a train is stored and shows in the Train box', async () => {
+  it('renaming a train is stored and shows in the Train box', async () => {
     const u = userEvent.setup();
     app();
     const trainsBox = await open(u, /^Trains \(/);
-    const firstName = within(trainsBox).getAllByLabelText('Name')[0];
-    await u.clear(firstName);
-    await u.type(firstName, 'My own train');
+    fireEvent.change(within(trainsBox).getAllByLabelText('Name')[0], { target: { value: 'My own train' } });
     await u.click(within(trainsBox).getAllByRole('button', { name: 'Save' })[0]);
     expect(stored().trains[0].name).toBe('My own train');
     expect(within(screen.getByLabelText('Train')).getByRole('option', { name: 'My own train' })).toBeTruthy();
+  });
 
+  it('editing a scope is stored', async () => {
+    const u = userEvent.setup();
+    app();
     const scopesBox = await open(u, /^Scopes \(/);
-    const fl = within(scopesBox).getByLabelText('Focal length (mm)');
-    await u.clear(fl);
-    await u.type(fl, '2000');
+    fireEvent.change(within(scopesBox).getByLabelText('Focal length (mm)'), { target: { value: '2000' } });
     await u.click(within(scopesBox).getByRole('button', { name: 'Save' }));
     expect(stored().equipment.scopes[0].focalLengthMm).toBe(2000);
   });
