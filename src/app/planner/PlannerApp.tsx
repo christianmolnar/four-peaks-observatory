@@ -69,6 +69,21 @@ function download(filename: string, text: string, mime: string, bom = false): vo
   URL.revokeObjectURL(url);
 }
 
+type RankedEntry = NonNullable<ReturnType<typeof planTonight>>['entries'][number];
+
+/** The text of one ranked target, shared by the table row (md and up) and the card (below md). */
+function targetText(e: RankedEntry, formatTime: (d: Date) => string) {
+  return {
+    season: e.isPlanet ? 'n/a' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`,
+    setup: fitLabel(e),
+    peak: `${e.peakAltitude.toFixed(0)}° ${compass(e.peakAzimuth)} at ${formatTime(e.peakTime)}`,
+    window: e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
+    moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
+    whyLabel: e.fit === 'too-large' ? 'Why it is listed:' : 'Why recommended:',
+    parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}. Fit: ${e.fitDetail}.`,
+  };
+}
+
 export interface PlannerAppProps {
   /** For tests and previews: fixes the evening date (YYYY-MM-DD) instead of reading the clock. */
   initialDate?: string;
@@ -619,7 +634,51 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         ) : filtered.length === 0 ? (
           <p className="text-white/90 font-normal">No targets match these filters.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <ul className="md:hidden space-y-3" data-testid="target-cards" aria-label="Targets ranked for tonight">
+              {filtered.map((e, i) => {
+                const t = targetText(e, formatTime);
+                const isSel = selected?.id === e.id;
+                return (
+                  <li key={e.id} className={`rounded border border-white/15 p-3 text-sm font-normal text-white/90 ${isSel ? 'bg-sky-400/10' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Captured: ${e.name}`}
+                        checked={captured.has(e.id)}
+                        onChange={() => toggleCaptured(e.id)}
+                        className="mt-1 h-5 w-5 shrink-0 accent-sky-400"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-x-2">
+                          <span className="text-white/70">{i + 1}.</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(e.id)}
+                            aria-pressed={isSel}
+                            className="min-h-8 underline decoration-dotted text-left text-white break-words focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
+                          >
+                            {e.name}
+                          </button>
+                          {e.isPlanet && <span className="rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
+                        </p>
+                        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+                          <dt className="text-white/70">Season</dt><dd>{t.season}</dd>
+                          <dt className="text-white/70">Setup</dt><dd>{t.setup}</dd>
+                          <dt className="text-white/70">Peak</dt><dd>{t.peak}</dd>
+                          <dt className="text-white/70">Usable window</dt><dd>{t.window}</dd>
+                          <dt className="text-white/70">Moon</dt><dd>{t.moon}</dd>
+                          <dt className="text-white/70">Score</dt><dd>{e.score.total}</dd>
+                        </dl>
+                        <p className="mt-2 text-white/80"><span className="text-white">{t.whyLabel}</span> {e.why}</p>
+                        <p className="text-xs text-white/60 mt-1">{t.parts}</p>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm font-normal text-white/90" data-testid="target-table">
               <caption className="sr-only">Targets ranked for tonight</caption>
               <thead className="text-white">
@@ -636,7 +695,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((e, i) => (
+                {filtered.map((e, i) => {
+                  const t = targetText(e, formatTime);
+                  return (
                   <Fragment key={e.id}>
                   <tr className={`align-top ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
                     <td className="py-2 pr-3">
@@ -660,30 +721,26 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                       </button>
                       {e.isPlanet && <span className="ml-2 rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
                     </th>
-                    <td className="py-2 pr-3 whitespace-nowrap">{e.isPlanet ? 'n/a' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`}</td>
-                    <td className="py-2 pr-3">{fitLabel(e)}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{e.peakAltitude.toFixed(0)}° {compass(e.peakAzimuth)} at {formatTime(e.peakTime)}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {e.windows.length === 0
-                        ? 'none'
-                        : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', ')}
-                    </td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{(e.moonIllumination * 100).toFixed(0)}% lit, {e.moonSeparation.toFixed(0)}° away{e.moonUp ? '' : ' (down)'}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{t.season}</td>
+                    <td className="py-2 pr-3">{t.setup}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{t.peak}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{t.window}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{t.moon}</td>
                     <td className="py-2">{e.score.total}</td>
                   </tr>
                   <tr className={`border-b border-white/10 ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
                     <td colSpan={9} className="pb-3 pl-8 pr-3 text-white/80">
-                      <p><span className="text-white">{e.fit === 'too-large' ? 'Why it is listed:' : 'Why recommended:'}</span> {e.why}</p>
-                      <p className="text-xs text-white/60 mt-1">
-                        Score parts: usable {e.score.usable.toFixed(0)}, altitude {e.score.altitude.toFixed(0)}, season {e.score.season}, Moon {e.score.moon.toFixed(0)}, fit {e.score.fit}. Fit: {e.fitDetail}.
-                      </p>
+                      <p><span className="text-white">{t.whyLabel}</span> {e.why}</p>
+                      <p className="text-xs text-white/60 mt-1">{t.parts}</p>
                     </td>
                   </tr>
                   </Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
         <p className="text-white/60 font-normal text-xs mt-3">
           Score: usable hours up to 50, peak altitude up to 30, in season 10, Moon up to -20, does not fit -25. Each row lists its score parts and fit detail under it.
