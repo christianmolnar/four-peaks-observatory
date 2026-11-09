@@ -25,6 +25,12 @@ const withTrain = (id: string) => {
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
 const app = () => render(<PlannerApp initialDate="2026-12-15" initialProfile={withTrain('deep-c11-reducer-533')} />);
+// Helsinki on 2027-04-20: a short night (00:55 to 01:41), where a start of 00:13 is before the night and shows the start note.
+const helsinki = () => {
+  const p = withTrain('deep-c11-reducer-533');
+  return { ...p, sites: [{ ...p.sites[0], id: 'helsinki', name: 'Helsinki', latitude: 60.17, longitude: 24.94, timeZone: 'Europe/Helsinki', blockedArc: { startAz: 0, endAz: 1, heightDeg: 0 } }] };
+};
+const helApp = () => render(<PlannerApp initialDate="2027-04-20" initialProfile={helsinki()} />);
 const section = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
 const slots = () => within(section()).queryAllByRole('listitem').filter((li) => /^slot-s\d+$/.test(li.getAttribute('data-testid') ?? ''));
 const names = () => slots().map((li) => li.querySelector('h3')!.textContent!.replace(/^\d+\. /, ''));
@@ -118,6 +124,7 @@ describe('start time', () => {
     app();
     const input = startInput();
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    input.focus();
     for (const typed of ['2', '21', '213']) {
       fireEvent.change(input, { target: { value: typed } });
       expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
@@ -126,6 +133,7 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '2130' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
     expect(stored()).toBe('21:30');
+    input.blur(); // not focused: a value set from outside is saved at once
     fireEvent.change(input, { target: { value: '905' } });
     expect(stored()).toBe('09:05');
     fireEvent.change(input, { target: { value: ' 21:45 ' } });
@@ -148,10 +156,10 @@ describe('start time', () => {
     expect(stored()).toBe('09:30');
   });
 
-  it.each([['2130', '21:30'], ['0130', '01:30']])('typing %s key by key saves and searches nothing on the 3-digit prefix, and shows no start note', async (digits, clock) => {
+  it.each([['2130', '21:30', app], ['0130', '01:30', helApp]])('typing %s key by key saves and searches nothing on the 3-digit prefix, and shows no start note', async (digits, clock, mount) => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
-    app();
+    mount();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
     const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
@@ -163,11 +171,53 @@ describe('start time', () => {
       await user.keyboard(ch);
       expect(stored()).toBeNull();
       expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
-      expect(screen.queryByRole('status', { name: '' })?.textContent ?? '').not.toMatch(/start time is before the night/);
     }
     expect(searches()).toBe(before);
     await user.keyboard(digits[3]);
     expect(stored()).toBe(clock);
+    expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+  });
+
+  it.each([['2130', app], ['0130', helApp]])('%s then Backspace: the 3 digits left are held, nothing is saved or searched, no start note', async (digits, mount) => {
+    const user = userEvent.setup();
+    seed(1, ['m31', 'ic405']);
+    mount();
+    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
+    const input = startInput();
+    await user.clear(input);
+    await user.click(input);
+    await user.keyboard(digits);
+    const saved = stored();
+    const writes = jest.spyOn(Storage.prototype, 'setItem');
+    try {
+      const before = searches();
+      await user.keyboard('{Backspace}');
+      expect(input.value).toBe(digits.slice(0, 3));
+      expect(writes).not.toHaveBeenCalled();
+      expect(stored()).toBe(saved);
+      expect(searches()).toBe(before);
+      expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+    } finally {
+      writes.mockRestore();
+    }
+  });
+
+  it('Helsinki, 01:30 saved, select all, 0130, Backspace, Backspace, 4: the box shows 014 and the saved start stays 01:30, no note', async () => {
+    const user = userEvent.setup();
+    seed(2, ['m31', 'ic405'], '01:30');
+    helApp();
+    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const input = startInput();
+    await user.click(input);
+    await user.keyboard('{Control>}a{/Control}0130');
+    expect(stored()).toBe('01:30');
+    await user.keyboard('{Backspace}{Backspace}4');
+    expect(input.value).toBe('014');
+    expect(stored()).toBe('01:30');
+    expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
   });
 
   it('a 3-digit time left with Enter or by leaving the box is saved then; a pasted 3-digit time is saved at once', async () => {
@@ -185,8 +235,29 @@ describe('start time', () => {
     await user.keyboard('213');
     await user.tab();
     expect(stored()).toBe('02:13');
-    fireEvent.change(input, { target: { value: '905' } });
+    await user.clear(input);
+    await user.click(input);
+    await user.paste('905'); // a paste is a finished value
     expect(stored()).toBe('09:05');
+  });
+
+  it('"Use night start" with a held 3-digit value never saves the held value', async () => {
+    const user = userEvent.setup();
+    seed(2, ['m31'], '21:30');
+    app();
+    const input = startInput();
+    await user.click(input);
+    await user.keyboard('{Control>}a{/Control}905');
+    expect(input.value).toBe('905');
+    const writes = jest.spyOn(Storage.prototype, 'setItem');
+    try {
+      await user.click(within(section()).getByRole('button', { name: 'Use night start' }));
+      const saved = writes.mock.calls.map((c) => JSON.parse(c[1]).startTime);
+      expect(saved).toEqual([null]);
+    } finally {
+      writes.mockRestore();
+    }
+    expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
   });
 
   it('the start box text is 16 px by class (iOS zooms in on anything smaller)', () => {

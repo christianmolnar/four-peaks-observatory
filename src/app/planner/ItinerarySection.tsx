@@ -178,16 +178,15 @@ export default function ItinerarySection({ profile, train, entries, site, night,
 
   /** "21:30", "2130", "905" or "9:05" become a saved 24 h time; empty goes back to the night start; anything else is left in the box with a message. */
   const startError = startDraft !== null && startDraft.trim() !== '' && clockFromText(startDraft) === null && (startChecked || !couldBecomeClock(startDraft));
-  const changeStart = (text: string) => {
-    // A third digit typed on the end of a one- or two-digit draft is probably on its way to four ("213" for 2130): it is saved
-    // when the box is left or Enter is pressed. A pasted or replaced value, and any four-digit or colon form, is saved at once.
-    const prev = startDraft ?? '';
-    const typingThirdDigit = /^\d{3}$/.test(text) && text.length === prev.length + 1 && text.startsWith(prev);
+  const changeStart = (text: string, typed: boolean) => {
+    // Any three-digit value typed or deleted while the box has focus ("213" on the way to 2130, or left by a Backspace from 2130) is
+    // held: it is saved when the box is left or Enter is pressed. A pasted three-digit value is saved at once, as are four digits and colon forms.
+    const holdThirdDigit = typed && /^\d{3}$/.test(text);
     setStartDraft(text);
     setStartChecked(false);
     if (text.trim() === '') return commit(items, null, null);
     const clock = clockFromText(text);
-    if (clock && !typingThirdDigit) commit(items, null, clock);
+    if (clock && !holdThirdDigit) commit(items, null, clock);
   };
   /** Leaving the box or pressing Enter: a time that works shows the saved value again; one that does not stays in the box with its message. */
   const settleStart = () => {
@@ -341,14 +340,17 @@ export default function ItinerarySection({ profile, train, entries, site, night,
             aria-invalid={startError}
             className={`${fieldBox} min-h-11 w-40 text-base`}
             value={startDraft ?? startTime ?? clockOf(night.start as Date, timeZone)}
-            onChange={(e) => changeStart(e.target.value)}
+            onChange={(e) => {
+              const inputType = (e.nativeEvent as InputEvent).inputType ?? '';
+              changeStart(e.target.value, document.activeElement === e.target && !/^insertFromPaste|^insertFromDrop/.test(inputType));
+            }}
             onBlur={settleStart}
             onKeyDown={(e) => {
               if (e.key === 'Enter') settleStart();
             }}
           />
         </div>
-        <button type="button" className={btn44} disabled={startTime === null} onClick={() => { setStartDraft(null); commit(items, null, null); }}>
+        <button type="button" className={btn44} disabled={startTime === null} onMouseDown={(e) => e.preventDefault() /* keep focus in the start box, so a held value is not saved on the way */} onClick={() => { setStartDraft(null); commit(items, null, null); }}>
           Use night start
         </button>
       </div>
