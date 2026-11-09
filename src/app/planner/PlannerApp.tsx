@@ -38,6 +38,7 @@ import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
 import PlanetsSection from './PlanetsSection';
 import PrintSheet from './PrintSheet';
+import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
 
 /** 24 h clock time in `timeZone` (IANA name), or in the browser's zone when none is given. */
@@ -77,18 +78,36 @@ function targetText(e: RankedEntry, formatTime: (d: Date) => string) {
     season: e.isPlanet ? 'n/a' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`,
     setup: fitLabel(e),
     peak: `${e.peakAltitude.toFixed(0)}° ${compass(e.peakAzimuth)} at ${formatTime(e.peakTime)}`,
-    window: e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
+    windows: e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`),
     moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
     whyLabel: e.fit === 'too-large' ? 'Why it is listed' : 'Why recommended',
     parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
   };
 }
 
+/** Usable windows as one unbreakable range each: a long list wraps between ranges, never inside one. */
+function Windows({ ranges }: { ranges: string[] }) {
+  if (ranges.length === 0) return <>none</>;
+  return (
+    <>
+      {ranges.map((r, i) => (
+        <Fragment key={i}>
+          <span className="whitespace-nowrap">{i < ranges.length - 1 ? `${r},` : r}</span>
+          {i < ranges.length - 1 ? ' ' : ''}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 /** The first sentence of a reason, cut at a word and ended with an ellipsis only if it runs past `max` characters. */
 export function shortWhy(why: string, max = 80): string {
   const first = why.match(/^.*?\.(?=\s|$)/)?.[0] ?? why;
   if (first.length <= max) return first;
-  const cut = first.slice(0, max).replace(/\s+\S*$/, '').replace(/[,;:\s]+$/, '');
+  let cut = first.slice(0, max).replace(/\s+\S*$/, '');
+  // Never end on a number: the unit that follows it travels with it ("-10 deg in the E").
+  while (/(^|\s)-?\d+(\.\d+)?$/.test(cut)) cut = cut.replace(/\s*\S+$/, '');
+  cut = cut.replace(/[,;:\s]+$/, '');
   return `${cut}…`;
 }
 
@@ -557,9 +576,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           </div>
           <div>
             <label htmlFor="plan-site" className="block text-white/90 font-normal text-sm mb-1">Site</label>
-            <select
+            <WrapSelect
               id="plan-site"
-              className={`${field} w-full`}
+              className="w-full"
               value={site.id}
               onChange={(e) => {
                 setSiteId(e.target.value);
@@ -569,21 +588,21 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
               {profile.sites.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-            </select>
+            </WrapSelect>
           </div>
           <div>
             <label htmlFor="plan-train" className="block text-white/90 font-normal text-sm mb-1">Train</label>
-            <select id="plan-train" className={`${field} w-full`} value={train.id} onChange={(e) => setTrainId(e.target.value)}>
+            <WrapSelect id="plan-train" className="w-full" value={train.id} onChange={(e) => setTrainId(e.target.value)}>
               {profile.trains.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}{t.kind === 'smart' ? ' (smart scope)' : ''}</option>
               ))}
-            </select>
+            </WrapSelect>
           </div>
           <div>
             <label htmlFor="plan-filter" className="block text-white/90 font-normal text-sm mb-1">Filter</label>
-            <select
+            <WrapSelect
               id="plan-filter"
-              className={`${field} w-full`}
+              className="w-full"
               value={train.kind === 'optical' ? (train.filterId ?? '') : ''}
               disabled={train.kind !== 'optical'}
               aria-describedby="plan-filter-msg"
@@ -594,7 +613,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                 profile.equipment.filters.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}{f.sizeMm !== undefined ? ` (${f.sizeMm} mm)` : ''}</option>
                 ))}
-            </select>
+            </WrapSelect>
             <p id="plan-filter-msg" className="mt-1 h-10 overflow-hidden text-sm leading-5 text-white/70 font-normal">
               {train.kind === 'optical' && profile.equipment.filters.length === 0
                 ? 'No filters. Use Replace profile with sample.'
@@ -638,19 +657,19 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label htmlFor="f-season" className="block text-white/90 font-normal text-sm mb-1">Season</label>
-              <select id="f-season" className={field} value={season} onChange={(e) => setSeason(e.target.value as SeasonFilter)}>
+              <WrapSelect id="f-season" className="w-full" value={season} onChange={(e) => setSeason(e.target.value as SeasonFilter)}>
                 <option value="all">All</option>
                 <option value="in">In season tonight</option>
                 <option value="out">Out of season</option>
-              </select>
+              </WrapSelect>
             </div>
             <div>
               <label htmlFor="f-setup" className="block text-white/90 font-normal text-sm mb-1">Setup</label>
-              <select id="f-setup" className={field} value={setup} onChange={(e) => setSetup(e.target.value as SetupFilter)}>
+              <WrapSelect id="f-setup" className="w-full" value={setup} onChange={(e) => setSetup(e.target.value as SetupFilter)}>
                 {(Object.keys(SETUP_LABELS) as SetupFilter[]).map((k) => (
                   <option key={k} value={k}>{SETUP_LABELS[k]}</option>
                 ))}
-              </select>
+              </WrapSelect>
             </div>
             <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
               <input type="checkbox" checked={onlyUsable} onChange={(e) => setOnlyUsable(e.target.checked)} className="accent-sky-400" />
@@ -681,32 +700,35 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                 const isSel = selected?.id === e.id;
                 return (
                   <li key={e.id} className={`rounded border border-white/15 p-3 text-sm font-normal text-white/90 ${isSel ? 'bg-sky-400/10' : ''}`}>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label={`Captured: ${e.name}`}
-                        checked={captured.has(e.id)}
-                        onChange={() => toggleCaptured(e.id)}
-                        className="mt-1 h-5 w-5 shrink-0 accent-sky-400"
-                      />
-                      <div className="min-w-0 flex-1">
+                    <div>
+                      <div className="min-w-0">
                         <p className="flex flex-wrap items-center gap-x-2">
                           <span className="text-white/70">{i + 1}.</span>
                           <button
                             type="button"
                             onClick={() => setSelectedId(e.id)}
                             aria-pressed={isSel}
-                            className="min-h-8 underline decoration-dotted text-left text-white break-words focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
+                            className="min-h-11 py-2 underline decoration-dotted text-left text-white break-words focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
                           >
                             {e.name}
                           </button>
                           {e.isPlanet && <span className="rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
                         </p>
+                        <label className="flex min-h-11 w-fit items-center gap-2 pr-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`Captured: ${e.name}`}
+                            checked={captured.has(e.id)}
+                            onChange={() => toggleCaptured(e.id)}
+                            className="h-5 w-5 shrink-0 accent-sky-400"
+                          />
+                          <span aria-hidden="true">Captured</span>
+                        </label>
                         <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
                           <dt className="text-white/70">Season</dt><dd>{t.season}</dd>
                           <dt className="text-white/70">Setup</dt><dd>{t.setup}</dd>
                           <dt className="text-white/70">Peak</dt><dd>{t.peak}</dd>
-                          <dt className="text-white/70">Usable window</dt><dd>{t.window}</dd>
+                          <dt className="text-white/70">Usable window</dt><dd><Windows ranges={t.windows} /></dd>
                           <dt className="text-white/70">Moon</dt><dd>{t.moon}</dd>
                           <dt className="text-white/70">Score</dt><dd>{e.score.total}</dd>
                         </dl>
@@ -719,8 +741,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                 );
               })}
             </ul>
-            <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full min-w-[820px] text-left text-sm font-normal text-white/90" data-testid="target-table">
+            <div className="hidden lg:block">
+            <table className="w-full text-left text-sm font-normal text-white/90" data-testid="target-table">
               <caption className="sr-only">Targets ranked for tonight</caption>
               <thead className="text-white">
                 <tr className="border-b border-white/20">
@@ -762,11 +784,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                       </button>
                       {e.isPlanet && <span className="ml-2 rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
                     </th>
-                    <td className="py-2 pr-3 whitespace-nowrap">{t.season}</td>
+                    <td className="py-2 pr-3">{t.season}</td>
                     <td className="py-2 pr-3">{t.setup}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{t.peak}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{t.window}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{t.moon}</td>
+                    <td className="py-2 pr-3">{t.peak}</td>
+                    <td className="py-2 pr-3"><Windows ranges={t.windows} /></td>
+                    <td className="py-2 pr-3">{t.moon}</td>
                     <td className="py-2">{e.score.total}</td>
                   </tr>
                   <tr className={`border-b border-white/10 ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>

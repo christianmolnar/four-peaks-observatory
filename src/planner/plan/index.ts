@@ -272,7 +272,7 @@ function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: n
 
 /** One or two short sentences: the decision facts only (horizon, season, fit, Moon). Peak, window and Moon numbers are shown beside it. */
 function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
-  const limit = horizonSet ? 'the horizon limit' : `the flat ${minAltitude} deg minimum (horizon not set)`;
+  const limit = horizonSet ? 'the horizon and minimum altitude' : `the flat ${minAltitude} deg minimum (horizon not set)`;
   if (e.usableMinutes <= 0) {
     return `Never clears ${limit} tonight; it peaks at ${fmt(e.peakAltitude)} deg in the ${compass(e.peakAzimuth)}.`;
   }

@@ -23,6 +23,8 @@ import type { ItineraryItem, Slot } from '@/planner/itinerary';
 import { newItem, planetIdOf, slotInputFor } from '@/planner/itinerary/resolve';
 import type { PlanEntry } from '@/planner/plan';
 import type { Profile, TrainEntry } from '@/planner/profile';
+import WrapSelect from './WrapSelect';
+import WrapText from './WrapText';
 
 export interface ItinerarySectionProps {
   profile: Profile;
@@ -204,24 +206,24 @@ export default function ItinerarySection({ profile, train, entries, site, night,
       <div className="mt-4 grid gap-4 md:grid-cols-[2fr_auto_1fr] items-end">
         <div>
           <label htmlFor="it-add-target" className="block text-white/90 font-normal text-sm mb-1">Target to add</label>
-          <select id="it-add-target" className={`${field} w-full`} value={addId || options[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={options.length === 0}>
+          <WrapSelect id="it-add-target" className="w-full" value={addId || options[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={options.length === 0}>
             {options.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}{e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: {e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : 'not clear tonight'}
               </option>
             ))}
-          </select>
+          </WrapSelect>
         </div>
         <button type="button" className={btn} onClick={add} disabled={addDisabledReason !== '' || options.length === 0}>
           Add to itinerary
         </button>
         <div>
           <label htmlFor="it-bortle" className="block text-white/90 font-normal text-sm mb-1">Bortle class for the itinerary</label>
-          <select id="it-bortle" className={`${field} w-full`} value={bortle} onChange={(e) => setBortle(Number(e.target.value))}>
+          <WrapSelect id="it-bortle" className="w-full" value={bortle} onChange={(e) => setBortle(Number(e.target.value))}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((b) => (
               <option key={b} value={b}>Bortle {b}</option>
             ))}
-          </select>
+          </WrapSelect>
         </div>
       </div>
       <p className="mt-1 text-white/70 font-normal text-xs min-h-8" data-testid="itinerary-add-note">
@@ -265,30 +267,30 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                 <div className="mt-2 grid gap-3 md:grid-cols-3">
                   <div>
                     <label htmlFor={`it-train-${s.id}`} className="block text-white/70 text-xs mb-0.5">Train for {s.name}</label>
-                    <select id={`it-train-${s.id}`} className={`${field} w-full`} value={it.trainId} onChange={(e) => update(s.id, { trainId: e.target.value })}>
+                    <WrapSelect id={`it-train-${s.id}`} className="w-full" value={it.trainId} onChange={(e) => update(s.id, { trainId: e.target.value })}>
                       {missingTrain && <option value={it.trainId}>{it.trainId} (not in profile)</option>}
                       {optical.map((t) => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
-                    </select>
+                    </WrapSelect>
                   </div>
                   <div>
                     <label htmlFor={`it-filter-${s.id}`} className="block text-white/70 text-xs mb-0.5">Filter for {s.name}</label>
-                    <select id={`it-filter-${s.id}`} className={`${field} w-full`} value={it.filterId ?? ''} onChange={(e) => update(s.id, { filterId: e.target.value === '' ? null : e.target.value })}>
+                    <WrapSelect id={`it-filter-${s.id}`} className="w-full" value={it.filterId ?? ''} onChange={(e) => update(s.id, { filterId: e.target.value === '' ? null : e.target.value })}>
                       <option value="">No filter</option>
                       {missingFilter && <option value={it.filterId as string}>{it.filterId} (not in profile)</option>}
                       {profile.equipment.filters.map((f) => (
                         <option key={f.id} value={f.id}>{f.name}</option>
                       ))}
-                    </select>
+                    </WrapSelect>
                   </div>
                   <div>
                     <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Mode for {s.name}</label>
-                    <select id={`it-mode-${s.id}`} className={`${field} w-full`} value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
+                    <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
                       {MODE_ORDER.map((m) => (
                         <option key={m} value={m}>{MODES[m].label}</option>
                       ))}
-                    </select>
+                    </WrapSelect>
                   </div>
                 </div>
                 <p className="mt-2 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
@@ -315,9 +317,8 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                 <div className="mt-2 flex flex-wrap items-end gap-3">
                   <div className="grow min-w-[12rem]">
                     <label htmlFor={`it-note-${s.id}`} className="block text-white/70 text-xs mb-0.5">Note for {s.name}</label>
-                    <input
+                    <WrapText
                       id={`it-note-${s.id}`}
-                      type="text"
                       maxLength={MAX_NOTE_CHARS}
                       className={`${field} w-full`}
                       value={it.note}

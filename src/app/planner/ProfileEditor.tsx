@@ -4,6 +4,8 @@ import { memo, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
+import WrapSelect from './WrapSelect';
+import WrapText from './WrapText';
 
 const field =
   'min-h-11 w-full bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
@@ -52,22 +54,26 @@ function Box({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value
     <div>
       <label htmlFor={id} className={labelClass}>{label}</label>
       {options ? (
-        <select id={id} className={field} value={value} onChange={(e) => onChange(e.target.value)}>
+        <WrapSelect id={id} className="w-full" value={value} onChange={(e) => onChange(e.target.value)}>
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.text}</option>
           ))}
-        </select>
+        </WrapSelect>
       ) : (
-        <input
-          id={id}
-          type="text"
-          inputMode={spec.kind === 'number' ? 'decimal' : 'text'}
-          autoComplete="off"
-          required={spec.required}
-          className={field}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        spec.kind === 'number' ? (
+          <input
+            id={id}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            required={spec.required}
+            className={field}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        ) : (
+          <WrapText id={id} autoComplete="off" required={spec.required} className={field} value={value} onChange={(e) => onChange(e.target.value)} />
+        )
       )}
     </div>
   );
@@ -150,12 +156,12 @@ function TrainForm({ profile, train, onChange }: { profile: Profile; train: Trai
   const select = (id: string, label: string, value: string, set: (v: string) => void, options: { id: string; name: string }[], none?: string) => (
     <div>
       <label htmlFor={id} className={labelClass}>{label}</label>
-      <select id={id} className={field} value={value} onChange={(e) => set(e.target.value)}>
+      <WrapSelect id={id} className="w-full" value={value} onChange={(e) => set(e.target.value)}>
         {none !== undefined && <option value="">{none}</option>}
         {options.map((o) => (
           <option key={o.id} value={o.id}>{o.name}</option>
         ))}
-      </select>
+      </WrapSelect>
     </div>
   );
   return (
@@ -172,7 +178,7 @@ function TrainForm({ profile, train, onChange }: { profile: Profile; train: Trai
     >
       <div>
         <label htmlFor={`${base}-name`} className={labelClass}>Name</label>
-        <input id={`${base}-name`} type="text" required autoComplete="off" className={field} value={name} onChange={(e) => setName(e.target.value)} />
+        <WrapText id={`${base}-name`} required autoComplete="off" className={field} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       {train.kind === 'smart' ? (
         select(`${base}-smart`, 'Smart scope', smartScopeId, setSmartScopeId, eq.smartScopes)

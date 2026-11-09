@@ -105,6 +105,14 @@ describe('target cards (phone layout)', () => {
     });
   });
 
+  it('gives each card a visible Captured label and keeps each time range in one piece', () => {
+    app();
+    const first = cards()[0];
+    expect(within(first).getByText('Captured')).toBeTruthy();
+    const ranges = within(first).getAllByText(/^\d{1,2}:\d{2}.* to \d{1,2}:\d{2}.*$/);
+    for (const r of ranges) expect(r.className).toContain('whitespace-nowrap');
+  });
+
   describe('shortWhy', () => {
     it('keeps a short first sentence whole, drops the second sentence, and never ends mid-word', () => {
       expect(shortWhy('Clear of the horizon for 5.2 h. In season.')).toBe('Clear of the horizon for 5.2 h.');
@@ -113,6 +121,12 @@ describe('target cards (phone layout)', () => {
       expect(cut.length).toBeLessThanOrEqual(81);
       expect(cut.endsWith('…')).toBe(true);
       expect(long).toContain(cut.slice(0, -1) + ' ');
+    });
+
+    it('never ends on a number, so a value keeps its unit', () => {
+      const why = 'Never clears the flat 20 deg minimum (horizon not set) tonight; it peaks at -10 deg in the E.';
+      expect(shortWhy(why)).not.toMatch(/-?\d…$/);
+      expect(shortWhy(why)).toBe('Never clears the flat 20 deg minimum (horizon not set) tonight; it peaks at…');
     });
   });
 });

@@ -14,6 +14,7 @@ import type { ExposureMode, ExposureTarget, ExposureWarning, ModeEstimate } from
 import type { OpticalTrain } from '@/planner/optics';
 import type { PlanEntry } from '@/planner/plan';
 import type { ProfileCamera, ProfileFilter } from '@/planner/profile';
+import WrapSelect from './WrapSelect';
 
 export interface ExposurePanelProps {
   entry: PlanEntry;
@@ -223,11 +224,11 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
       <div className="mt-4 grid gap-4 md:grid-cols-3 items-start">
         <div>
           <label htmlFor="exposure-bortle" className="block text-white/90 font-normal text-sm mb-1">Sky darkness (Bortle class)</label>
-          <select id="exposure-bortle" className="bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 w-full" value={bortle} onChange={(e) => setBortle(Number(e.target.value))}>
+          <WrapSelect id="exposure-bortle" className="w-full" value={bortle} onChange={(e) => setBortle(Number(e.target.value))}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((b) => (
               <option key={b} value={b}>Bortle {b}</option>
             ))}
-          </select>
+          </WrapSelect>
           <p className="text-white/60 text-xs mt-1 h-8 overflow-hidden">Assumed {DEFAULT_BORTLE} until you change it; not saved.</p>
         </div>
         <p className="md:col-span-2 text-white/80 font-normal text-sm h-[9rem] md:h-[5rem] overflow-y-auto" data-testid="exposure-filter">

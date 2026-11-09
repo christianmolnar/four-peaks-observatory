@@ -193,7 +193,7 @@ describe('horizon', () => {
     expect(m42Wall.usableMinutes).toBe(0);
     expect(m42Wall.windows).toEqual([]);
     expect(m42Wall.score.total).toBe(0);
-    expect(m42Wall.why).toContain('Never clears the horizon limit');
+    expect(m42Wall.why).toContain('Never clears the horizon and minimum altitude');
     // Every entry is no better off with a wall.
     for (const e of walled.entries) {
       const o = open.entries.find((x) => x.id === e.id)!;
