@@ -524,10 +524,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       <header>
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/90 font-normal text-sm mt-2 max-w-3xl">
-          A free guest tool: no account and no sign-in. It starts from a sample profile; change the site, gear and horizon below to plan your own night.
-          Values the planner works out, such as exposure, are estimates and are labelled as estimates.
-          Your profile, horizon and captured list stay in this browser (in its local storage); the planner does not send any of it anywhere.
-          Export your profile to keep a copy or to move it to another browser.
+          A free guest tool: no account, no sign-in. It starts from a sample profile; change the site, gear and horizon to plan your night.
+          Exposure and other worked-out values are estimates. Your profile and captured list stay in this browser and are never sent anywhere; export your profile to keep a copy.
         </p>
       </header>
 
