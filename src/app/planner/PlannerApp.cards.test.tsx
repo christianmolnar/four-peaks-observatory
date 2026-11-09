@@ -50,10 +50,10 @@ describe('target cards (phone layout)', () => {
     expect((within(card()).getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
   });
 
-  it('hides the cards from md up and the table below md', () => {
+  it('hides the cards from lg up and the table below lg', () => {
     app();
-    expect(screen.getByTestId('target-cards').className).toContain('md:hidden');
-    expect((screen.getByTestId('target-table').parentElement as HTMLElement).className).toContain('hidden md:block');
+    expect(screen.getByTestId('target-cards').className).toContain('lg:hidden');
+    expect((screen.getByTestId('target-table').parentElement as HTMLElement).className).toContain('hidden lg:block');
   });
 
   describe('"Why recommended" toggle', () => {
