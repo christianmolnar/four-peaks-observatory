@@ -265,31 +265,27 @@ function fitOf(train: PlanTrain, target: CatalogTarget): { fit: Fit; detail: str
     : { fit: 'too-large', detail: `Target ${size} does not fit the ${fov} field` };
 }
 
-function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number, time: (d: Date) => string): string {
-  const text = describeSky(e, horizonSet, minAltitude, time);
-  return e.fit === 'too-large' ? `Does not fit this setup (${e.fitDetail}). ${text}` : text;
+function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
+  const text = describeSky(e, horizonSet, minAltitude);
+  return e.fit === 'too-large' ? `Does not fit this setup. ${text}` : text;
 }
 
-function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number, time: (d: Date) => string): string {
+/** One or two short sentences: the decision facts only (horizon, season, fit, Moon). Peak, window and Moon numbers are shown beside it. */
+function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
   const limit = horizonSet ? `the horizon and ${minAltitude} deg minimum` : `the flat ${minAltitude} deg minimum (horizon not set)`;
   if (e.usableMinutes <= 0) {
     return `Never clears ${limit} tonight; it peaks at ${fmt(e.peakAltitude)} deg in the ${compass(e.peakAzimuth)}.`;
   }
-  const parts = [
-    `Clear of ${limit} for ${fmt(e.usableMinutes / 60, 1)} h`,
-    `peaking at ${fmt(e.peakAltitude)} deg in the ${compass(e.peakAzimuth)} at ${time(e.peakTime)}`,
-  ];
-  parts.push(
-    e.moonUp
-      ? `Moon ${fmt(e.moonIllumination * 100)}% lit and ${fmt(e.moonSeparation)} deg away`
-      : `Moon ${fmt(e.moonIllumination * 100)}% lit but down at the peak`,
-  );
-  if (e.inSeason === true) parts.push('in season');
-  if (e.inSeason === false) parts.push('out of season');
-  if (e.isPlanet) parts.push('planet');
-  if (e.fit === 'fits') parts.push('fits the frame');
-  if (e.fit === 'unknown') parts.push('fit unknown');
-  return `${parts.join('; ')}.`;
+  const first = `Clear of ${limit} for ${fmt(e.usableMinutes / 60, 1)} h.`;
+  const notes: string[] = [];
+  if (e.isPlanet) notes.push('planet');
+  if (e.inSeason === true) notes.push('in season');
+  if (e.inSeason === false) notes.push('out of season');
+  if (e.fit === 'fits') notes.push('fits the frame');
+  if (e.fit === 'unknown') notes.push('fit unknown');
+  notes.push(e.moonUp ? 'Moon up at the peak' : 'Moon down at the peak');
+  const second = notes.join(', ');
+  return `${first} ${second.charAt(0).toUpperCase()}${second.slice(1)}.`;
 }
 
 /**
@@ -297,12 +293,8 @@ function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude
  * inputs give the same list. Score parts are in each entry so the ranking can
  * be read, not trusted. Targets that never clear the limit stay in the list
  * with a score of 0.
- * @param formatTime formats instants in the "why" sentence (default: UTC HH:MM).
  */
-export function planTonight(
-  input: TonightInput,
-  formatTime: (d: Date) => string = (d) => `${d.toISOString().slice(11, 16)} UTC`,
-): TonightPlan {
+export function planTonight(input: TonightInput): TonightPlan {
   const { site, minAltitude, train, targets } = input;
   const horizon = input.horizon && input.horizon.length > 0 ? input.horizon : null;
   const horizonSet = horizon !== null;
@@ -387,7 +379,7 @@ export function planTonight(
       fitDetail: detail,
       score,
     };
-    return { ...partial, why: describe(partial, horizonSet, minAltitude, formatTime) };
+    return { ...partial, why: describe(partial, horizonSet, minAltitude) };
   });
 
   // A target that does not fit the train is never ranked above one that does.

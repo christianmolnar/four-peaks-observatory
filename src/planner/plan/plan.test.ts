@@ -158,18 +158,17 @@ describe('planTonight', () => {
     expect(m42.moonSeparation).toBeCloseTo(moonSeparation(target.raHours, target.decDeg, m42.peakTime, site), 10);
   });
 
-  it('the why sentence is built from the entry numbers', () => {
+  it('the why is one or two short sentences with the decision facts, not the numbers shown beside it', () => {
     const m42 = byId('m42');
     expect(m42.why).toContain(`${(m42.usableMinutes / 60).toFixed(1)} h`);
-    expect(m42.why).toContain(`${m42.peakAltitude.toFixed(0)} deg`);
-    expect(m42.why).toContain(`${(m42.moonIllumination * 100).toFixed(0)}% lit`);
     expect(m42.why).toContain('flat 20 deg minimum (horizon not set)');
-    expect(m42.why).toContain('in season');
-  });
-
-  it('formats times in why with the supplied formatter', () => {
-    const p = planTonight(base(), () => 'HH:MM-test');
-    expect(p.entries.find((e) => e.id === 'm42')!.why).toContain('HH:MM-test');
+    expect(m42.why).toContain('In season');
+    expect(m42.why).not.toMatch(/% lit|UTC|peaking/);
+    expect(m42.why.split(/(?<=\.) /).length).toBeLessThanOrEqual(3);
+    for (const e of plan.entries) {
+      expect(e.why.length).toBeLessThanOrEqual(160);
+      expect(e.why).toMatch(/\.$/);
+    }
   });
 });
 

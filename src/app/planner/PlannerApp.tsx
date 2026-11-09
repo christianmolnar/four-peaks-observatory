@@ -79,9 +79,46 @@ function targetText(e: RankedEntry, formatTime: (d: Date) => string) {
     peak: `${e.peakAltitude.toFixed(0)}° ${compass(e.peakAzimuth)} at ${formatTime(e.peakTime)}`,
     window: e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
     moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
-    whyLabel: e.fit === 'too-large' ? 'Why it is listed:' : 'Why recommended:',
-    parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}. Fit: ${e.fitDetail}.`,
+    whyLabel: e.fit === 'too-large' ? 'Why it is listed' : 'Why recommended',
+    parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}. ${e.fitDetail}.`,
   };
+}
+
+/** The first sentence of a reason, cut at a word and ended with an ellipsis only if it runs past `max` characters. */
+export function shortWhy(why: string, max = 80): string {
+  const first = why.match(/^.*?\.(?=\s|$)/)?.[0] ?? why;
+  if (first.length <= max) return first;
+  const cut = first.slice(0, max).replace(/\s+\S*$/, '').replace(/[,;:\s]+$/, '');
+  return `${cut}…`;
+}
+
+/** "Why recommended" toggle: closed shows one short line, open shows the full reason and the score parts. */
+function WhyToggle({ e, t, open, onToggle, idPrefix }: { e: RankedEntry; t: ReturnType<typeof targetText>; open: boolean; onToggle: () => void; idPrefix: string }) {
+  const id = `${idPrefix}-${e.id}`;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={id}
+        className="inline-flex min-h-11 items-center gap-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
+      >
+        <span aria-hidden="true" className="inline-block w-3 text-white/70">{open ? '▾' : '▸'}</span>
+        <span className="underline decoration-dotted">{t.whyLabel}</span>
+      </button>
+      <div id={id} className="text-white/80 break-words">
+        {open ? (
+          <>
+            <p>{e.why}</p>
+            <p className="text-xs text-white/60 mt-1">{t.parts}</p>
+          </>
+        ) : (
+          <p>{shortWhy(e.why)}</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export interface PlannerAppProps {
@@ -116,6 +153,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const minAltTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [captured, setCaptured] = useState<ReadonlySet<string>>(new Set());
+  // Targets whose "Why recommended" is open; every target starts closed and a reload resets it.
+  const [whyOpen, setWhyOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggleWhy = (id: string) =>
+    setWhyOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const [season, setSeason] = useState<SeasonFilter>('all');
   const [setup, setSetup] = useState<SetupFilter>('all');
   const [onlyUsable, setOnlyUsable] = useState(true);
@@ -258,23 +303,20 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const planResult = useMemo(() => {
     if (!site || !train || date === '') return null;
     try {
-      const result = planTonight(
-        {
-          site: { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM },
-          horizon,
-          minAltitude,
-          date,
-          timeZone: site.timeZone,
-          train: planTrainFor(profile, train),
-          targets: starterTargets,
-        },
-        formatTime,
-      );
+      const result = planTonight({
+        site: { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM },
+        horizon,
+        minAltitude,
+        date,
+        timeZone: site.timeZone,
+        train: planTrainFor(profile, train),
+        targets: starterTargets,
+      });
       return { result, error: null as string | null };
     } catch (e) {
       return { result: null, error: (e as Error).message };
     }
-  }, [site, train, date, horizon, minAltitude, profile, formatTime]);
+  }, [site, train, date, horizon, minAltitude, profile]);
 
   const plan = planResult?.result ?? null;
   // The night as a stable object: the plan is rebuilt for a filter change, but the night does not change, and the
@@ -670,8 +712,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                           <dt className="text-white/70">Moon</dt><dd>{t.moon}</dd>
                           <dt className="text-white/70">Score</dt><dd>{e.score.total}</dd>
                         </dl>
-                        <p className="mt-2 text-white/80"><span className="text-white">{t.whyLabel}</span> {e.why}</p>
-                        <p className="text-xs text-white/60 mt-1">{t.parts}</p>
+                        <div className="mt-1">
+                          <WhyToggle e={e} t={t} open={whyOpen.has(e.id)} onToggle={() => toggleWhy(e.id)} idPrefix="why-card" />
+                        </div>
                       </div>
                     </div>
                   </li>
@@ -730,8 +773,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                   </tr>
                   <tr className={`border-b border-white/10 ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
                     <td colSpan={9} className="pb-3 pl-8 pr-3 text-white/80">
-                      <p><span className="text-white">{t.whyLabel}</span> {e.why}</p>
-                      <p className="text-xs text-white/60 mt-1">{t.parts}</p>
+                      <WhyToggle e={e} t={t} open={whyOpen.has(e.id)} onToggle={() => toggleWhy(e.id)} idPrefix="why-row" />
                     </td>
                   </tr>
                   </Fragment>
@@ -743,7 +785,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           </>
         )}
         <p className="text-white/60 font-normal text-xs mt-3">
-          Score: usable hours up to 50, peak altitude up to 30, in season 10, Moon up to -20, does not fit -25. Each row lists its score parts and fit detail under it.
+          Score: usable hours up to 50, peak altitude up to 30, in season 10, Moon up to -20, does not fit -25. Open Why recommended on a target to see its score parts and fit detail.
         </p>
       </section>
 

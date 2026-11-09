@@ -32,10 +32,10 @@ describe('planner page', () => {
     expect(rows(html)).toBeGreaterThan(5);
   });
 
-  it('shows the why, score parts and fit detail as text under each row, not as hover titles', () => {
-    expect(html).toContain('Why recommended:');
-    expect(html).toContain('Score parts: usable');
-    expect(html).toContain('Fit: ');
+  it('starts every target with the reason collapsed (one short line, score parts not rendered), not as hover titles', () => {
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('aria-expanded="true"');
+    expect(html).not.toContain('Score parts: usable');
     expect(html).not.toContain('title="usable');
     expect(html).not.toMatch(/Hover a score/);
   });

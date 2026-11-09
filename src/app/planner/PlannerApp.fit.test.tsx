@@ -52,7 +52,7 @@ describe('targets that do not fit the chosen train', () => {
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
     const why = screen.getAllByText(/^Does not fit this setup/);
     expect(why.length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Why it is listed:').length).toBe(why.length);
+    expect(screen.getAllByText('Why it is listed').length).toBe(why.length);
     for (const w of why) expect(w.textContent).not.toMatch(/too large for the frame/);
   });
 
