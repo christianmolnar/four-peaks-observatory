@@ -62,6 +62,9 @@ export interface ItineraryReport {
 const field = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
 const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
+/** How long the order search works before it lets the page paint and take input. */
+const SEARCH_SLICE_MS = 10;
+
 const MOON_ID = planetIdOf('Moon');
 
 /** What the advice box says when the order is already the best the search found. */
@@ -213,17 +216,17 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     if (!buildInput || !plan || items.length < 2) return;
     const steps = suggestOrderSteps(buildInput, { currentPlan: plan });
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // The first step runs now (a short list is done at once); later steps take turns with the page, about 10 ms each.
-    const run = (budgetMs: number) => {
-      const until = performance.now() + budgetMs;
+    // The search starts after the page has painted and takes turns with it, about 10 ms at a time, so typing and taps never wait for it.
+    const run = () => {
+      const until = performance.now() + SEARCH_SLICE_MS;
       for (;;) {
         const r = steps.next();
         if (r.done) return setAdvice({ for: adviceFor, value: r.value });
         if (performance.now() >= until) break;
       }
-      timer = setTimeout(() => run(10), 0);
+      timer = setTimeout(run, 0);
     };
-    run(0);
+    timer = setTimeout(run, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- adviceFor stands for everything the search reads
   }, [adviceFor]);

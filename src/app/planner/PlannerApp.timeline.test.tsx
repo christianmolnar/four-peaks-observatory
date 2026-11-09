@@ -258,6 +258,7 @@ describe('suggested order', () => {
     seed(2, ['m31', 'm42', 'm33', 'ic405']);
     app();
     const advice = () => screen.getByTestId('order-advice');
+    await waitFor(() => expect(within(advice()).queryByTestId('order-advice-searching')).toBeNull());
     const before = names();
     if (!within(advice()).queryByRole('button', { name: 'Use this order' })) {
       expect(advice().textContent).toMatch(/already the best/);
