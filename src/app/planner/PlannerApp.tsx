@@ -38,6 +38,8 @@ import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
 import PlanetsSection from './PlanetsSection';
 import PrintSheet from './PrintSheet';
+import { download } from './download';
+import type { ItineraryReport } from './ItinerarySection';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
 
@@ -57,18 +59,6 @@ const SETUP_LABELS: Record<SetupFilter, string> = {
   'deep-sky': 'Deep sky only',
   planets: 'Planets only',
 };
-
-function download(filename: string, text: string, mime: string, bom = false): void {
-  const blob = new Blob([bom ? '﻿' : '', text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
 
 type RankedEntry = NonNullable<ReturnType<typeof planTonight>>['entries'][number];
 
@@ -188,6 +178,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [zone, setZone] = useState<string>('');
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
+  // The itinerary section leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
+  const itineraryReport = useRef<ItineraryReport | null>(null);
 
   const endMinAltRun = () => {
     if (minAltTimer.current) clearTimeout(minAltTimer.current);
@@ -847,6 +839,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           horizon={horizon}
           minAltitude={minAltitude}
           formatTime={formatTime}
+          timeZone={siteZone || zone || undefined}
+          report={itineraryReport}
         />
       )}
 
@@ -914,6 +908,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       entries={filtered}
       captured={captured}
       formatTime={formatTime}
+      itinerary={itineraryReport.current}
     />
     )}
     </>

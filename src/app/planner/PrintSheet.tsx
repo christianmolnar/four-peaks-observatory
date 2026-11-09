@@ -1,5 +1,7 @@
 import { compass, fitLabel, seasonLabel } from '@/planner/plan';
 import type { PlanEntry } from '@/planner/plan';
+import { TREND_TEXT } from '@/planner/itinerary';
+import type { ItineraryReport } from './ItinerarySection';
 
 export interface PrintSheetProps {
   date: string;
@@ -10,6 +12,8 @@ export interface PrintSheetProps {
   entries: readonly PlanEntry[];
   captured: ReadonlySet<string>;
   formatTime: (d: Date) => string;
+  /** The night itinerary as it stands, or null when there is none to show. */
+  itinerary?: ItineraryReport | null;
 }
 
 /**
@@ -17,7 +21,7 @@ export interface PrintSheetProps {
  * opens the browser's print dialog, whose print stylesheet (the rules below) hides everything else.
  * Same rows as the Targets table and the CSV: the filtered list, in rank order.
  */
-export default function PrintSheet({ date, siteLine, trainLine, nightLine, horizonLine, entries, captured, formatTime }: PrintSheetProps) {
+export default function PrintSheet({ date, siteLine, trainLine, nightLine, horizonLine, entries, captured, formatTime, itinerary }: PrintSheetProps) {
   return (
     <div className="planner-print-sheet hidden print:block bg-white text-black text-[11pt]" data-testid="print-sheet">
       <style>{`@media print {
@@ -77,6 +81,39 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
             ))}
           </tbody>
         </table>
+      )}
+      {itinerary && itinerary.plan.slots.length > 0 && (
+        <>
+          <h2 className="mt-6 text-xl font-semibold">Night itinerary</h2>
+          <p className="mt-1 text-sm">Imaging can start at {formatTime(itinerary.plan.startsAt)}.{itinerary.plan.startNote ? ` ${itinerary.plan.startNote}` : ''}</p>
+          <table className="mt-2 text-sm">
+            <caption className="sr-only">Night itinerary, in order</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Target</th>
+                <th scope="col">Start to end</th>
+                <th scope="col">Altitude at start</th>
+                <th scope="col">In the middle</th>
+                <th scope="col">At end</th>
+                <th scope="col">Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itinerary.plan.slots.map((s, i) => (
+                <tr key={s.id}>
+                  <td>{i + 1}</td>
+                  <th scope="row" className="font-normal">{s.name}</th>
+                  <td>{s.altitudes ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'}</td>
+                  <td>{s.altitudes ? `${s.altitudes.start.altitude.toFixed(0)}° ${s.altitudes.start.direction}` : ''}</td>
+                  <td>{s.altitudes ? `${s.altitudes.middle.altitude.toFixed(0)}° ${s.altitudes.middle.direction}` : ''}</td>
+                  <td>{s.altitudes ? `${s.altitudes.end.altitude.toFixed(0)}° ${s.altitudes.end.direction}` : ''}</td>
+                  <td>{s.altitudes ? TREND_TEXT[s.altitudes.trend] : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </div>
   );

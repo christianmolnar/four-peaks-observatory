@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
 import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
@@ -13,18 +14,25 @@ import {
   ItineraryError,
   MAX_NOTE_CHARS,
   MAX_SLOTS,
+  TREND_TEXT,
   buildItinerary,
+  clockOf,
+  clockToInstant,
   moveItem,
   parseItinerary,
   serializeItinerary,
   worstCaseWarningTexts,
 } from '@/planner/itinerary';
-import type { ItineraryItem, Slot } from '@/planner/itinerary';
+import type { ItineraryItem, ItineraryPlan, Slot } from '@/planner/itinerary';
+import { orderCandidates, suggestOrder } from '@/planner/itinerary/suggest';
+import { itineraryToCsv, itineraryToJson, makeCsvTime } from '@/planner/export';
 import { newItem, planetIdOf, slotInputFor } from '@/planner/itinerary/resolve';
 import type { PlanEntry } from '@/planner/plan';
 import type { Profile, TrainEntry } from '@/planner/profile';
+import NightTimeline from './NightTimeline';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
+import { download } from './download';
 
 export interface ItinerarySectionProps {
   profile: Profile;
@@ -36,9 +44,19 @@ export interface ItinerarySectionProps {
   horizon: readonly HorizonPoint[] | null;
   minAltitude: number;
   formatTime: (d: Date) => string;
+  /** IANA zone of the site (or the browser): the start time is a clock time in it. */
+  timeZone?: string;
+  /** The page's print sheet reads the current plan from here; written on every change, so it never causes a render. */
+  report?: MutableRefObject<ItineraryReport | null>;
+}
+
+/** What the print sheet and the exports need of the itinerary. */
+export interface ItineraryReport {
+  plan: ItineraryPlan;
 }
 
 const field = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
+const btn44 = 'min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 const btn = 'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
 const MOON_ID = planetIdOf('Moon');
@@ -95,8 +113,9 @@ function Detail({
  * a train, a filter and a mode, scheduled one after the other with the changeover between them. Subs and counts come
  * from the exposure module; every time and number here is an estimate. Saved in this browser with a version.
  */
-export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, formatTime }: ItinerarySectionProps) {
+export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, formatTime, timeZone, report }: ItinerarySectionProps) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
+  const [startTime, setStartTime] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   // A rejected saved itinerary is an alert; a storage that cannot be read or written is a status (the page already reports blocked storage).
   const [problem, setProblem] = useState<{ text: string; urgent: boolean } | null>(null);
@@ -109,7 +128,11 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   useEffect(() => {
     try {
       const text = window.localStorage.getItem(ITINERARY_KEY);
-      if (text !== null) setItems(parseItinerary(text).items);
+      if (text !== null) {
+        const saved = parseItinerary(text);
+        setItems(saved.items);
+        setStartTime(saved.startTime);
+      }
     } catch (e) {
       setProblem(
         e instanceof ItineraryError
@@ -120,11 +143,12 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     setLoaded(true);
   }, []);
 
-  const commit = (next: ItineraryItem[], focusId: string | null = null) => {
+  const commit = (next: ItineraryItem[], focusId: string | null = null, nextStart: string | null = startTime) => {
     setItems(next);
+    setStartTime(nextStart);
     focusNext.current = focusId;
     try {
-      window.localStorage.setItem(ITINERARY_KEY, serializeItinerary(next));
+      window.localStorage.setItem(ITINERARY_KEY, serializeItinerary(next, nextStart));
       setProblem(null);
     } catch (e) {
       setProblem({ text: `Itinerary not saved, so it is lost on reload: ${(e as Error).message}`, urgent: false });
@@ -136,18 +160,18 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   }, [items]);
 
   const optical = profile.trains.filter((t) => t.kind === 'optical');
-  const plan = useMemo(() => {
-    if (night.kind !== 'normal') return null;
-    return buildItinerary({
-      site,
-      night,
-      horizon,
-      minAltitude,
-      bortle,
-      slots: items.map((i) => slotInputFor(i, profile, starterTargets)),
-      formatTime,
-    });
-  }, [items, profile, site, night, horizon, minAltitude, bortle, formatTime]);
+  const inputs = useMemo(() => items.map((i) => slotInputFor(i, profile, starterTargets)), [items, profile]);
+  const startAt = useMemo(() => (startTime && night.start ? clockToInstant(startTime, night.start, timeZone) : null), [startTime, night, timeZone]);
+  const buildInput = useMemo(
+    () => (night.kind === 'normal' ? { site, night, horizon, minAltitude, bortle, slots: inputs, startAt, formatTime } : null),
+    [site, night, horizon, minAltitude, bortle, inputs, startAt, formatTime],
+  );
+  const plan = useMemo(() => (buildInput ? buildItinerary(buildInput) : null), [buildInput]);
+  // Looks at every order of the slots (at most 8): quick, and it runs only when the slots or the start change.
+  const suggestion = useMemo(() => (buildInput && plan && items.length >= 2 ? suggestOrder(orderCandidates(buildInput), plan.startsAt, formatTime) : null), [buildInput, plan, items.length, formatTime]);
+  useEffect(() => {
+    if (report) report.current = plan ? { plan } : null;
+  }, [report, plan]);
 
   // The Moon is not a row of the target table; the itinerary offers it after the planets.
   const options = useMemo((): Pick<PlanEntry, 'id' | 'name' | 'isPlanet' | 'usableMinutes'>[] => {
@@ -164,6 +188,11 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     const next = moveItem(items, id, dir === 'up' ? -1 : 1);
     if (next.every((x, k) => x === items[k])) return; // already at the end
     commit(next, `it-${dir}-${id}`);
+  };
+  const useOrder = () => {
+    if (!suggestion?.changed) return;
+    const byId = new Map(items.map((i) => [i.id, i]));
+    commit(suggestion.order.map((id) => byId.get(id) as ItineraryItem), 'it-order-advice');
   };
   const add = () => {
     if (train.kind !== 'optical' || items.length >= MAX_SLOTS) return;
@@ -229,6 +258,29 @@ export default function ItinerarySection({ profile, train, entries, site, night,
       <p className="mt-1 text-white/70 font-normal text-xs min-h-8" data-testid="itinerary-add-note">
         {addDisabledReason || `New slots start on ${train.name}. Bortle ${DEFAULT_BORTLE} is assumed until you change it; not saved.`}
       </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div>
+          <label htmlFor="it-start" className="block text-white/90 font-normal text-sm mb-1">Imaging can start at</label>
+          <input
+            id="it-start"
+            type="time"
+            className={`${field} min-h-11 w-40 text-base`}
+            value={startTime ?? clockOf(night.start as Date, timeZone)}
+            onChange={(e) => commit(items, null, e.target.value === '' ? null : e.target.value)}
+          />
+        </div>
+        <button type="button" className={btn44} disabled={startTime === null} onClick={() => commit(items, null, null)}>
+          Use night start
+        </button>
+      </div>
+      <p className="mt-1 text-white/70 font-normal text-xs" data-testid="itinerary-start-hint">
+        Setup (30 min) is done before this time. Default: when the astronomical night starts, {formatTime(night.start as Date)}. Times are in the site&apos;s time zone.
+      </p>
+      {plan.startNote && (
+        <p role="status" className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm" data-testid="itinerary-start-note">
+          {plan.startNote}
+        </p>
+      )}
       {problem && (
         <p role={problem.urgent ? 'alert' : 'status'} className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm" data-testid="itinerary-problem">
           {problem.text}
@@ -244,6 +296,39 @@ export default function ItinerarySection({ profile, train, entries, site, night,
           ? 'No slots yet.'
           : `Light ${Math.round(totals.integrationMin)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} train ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
       </p>
+
+      <div id="it-order-advice" tabIndex={-1} aria-live="polite" className="mt-3 rounded-lg border border-white/15 bg-black/40 p-4 focus:outline-none focus:ring-2 focus:ring-sky-400" data-testid="order-advice">
+        <h3 className="text-white font-normal text-base mb-1">Suggested order</h3>
+        {suggestion === null ? (
+          <p className="text-white/90 font-normal text-sm">Add two or more targets to get advice on their order.</p>
+        ) : !suggestion.changed ? (
+          <p className="text-white/90 font-normal text-sm">Your order is already the best found: most imaging time, and each target as high as it can be. Nothing to move.</p>
+        ) : (
+          <>
+            <ol className="space-y-1 text-white font-normal text-sm">
+              {suggestion.steps.map((st, k) => (
+                <li key={st.id}>
+                  {k === 0 ? 'Put' : 'Then'} {st.name}{k === 0 ? ' first' : ''}: {st.reason}.
+                </li>
+              ))}
+            </ol>
+            <p className="mt-2 text-white/80 font-normal text-sm">
+              {suggestion.suggestedLightMin > suggestion.currentLightMin
+                ? `Imaging time: ${Math.round(suggestion.currentLightMin)} min now, ${Math.round(suggestion.suggestedLightMin)} min in this order.`
+                : `Same imaging time (${Math.round(suggestion.currentLightMin)} min), with each target higher.`}
+            </p>
+            <button type="button" className={`${btn44} mt-2`} onClick={useOrder}>
+              Use this order
+            </button>
+            <p className="mt-1 text-white/70 font-normal text-xs">Your order stays until you press the button. Undo with the Up and Down buttons.</p>
+          </>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <h3 className="text-white font-normal text-base mb-2">Night graph</h3>
+        <NightTimeline plan={plan} inputs={inputs} night={night} site={site} horizon={horizon} minAltitude={minAltitude} formatTime={formatTime} />
+      </div>
 
       {loaded && shown.length === 0 ? (
         <p className="mt-2 text-white/90 font-normal text-sm">Choose a target above and add it. Reorder with the Up and Down buttons.</p>
@@ -300,6 +385,11 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                       ? `${s.name === 'Moon' ? 'Moon' : 'Planet'}: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the Planets checklist.`
                       : 'No imaging is planned for this slot.'}{' '}
                   {k > 0 && timed ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
+                </p>
+                <p className="mt-1 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-altitude-${k}`}>
+                  {s.altitudes
+                    ? `Altitude: ${Math.round(s.altitudes.start.altitude)}° ${s.altitudes.start.direction} at the start, ${Math.round(s.altitudes.middle.altitude)}° ${s.altitudes.middle.direction} in the middle, ${Math.round(s.altitudes.end.altitude)}° ${s.altitudes.end.direction} at the end; ${TREND_TEXT[s.altitudes.trend]}.`
+                    : 'Altitude: none, the slot has no time.'}
                 </p>
                 {/* The chips for the most that can appear together (three) are reserved invisibly, so a change of order or filter moves nothing. */}
                 <div className="mt-1 grid">
@@ -359,6 +449,15 @@ export default function ItinerarySection({ profile, train, entries, site, night,
           })}
         </ol>
       )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" className={btn44} disabled={shown.length === 0} onClick={() => download('fpo-planner-itinerary.csv', itineraryToCsv(plan, makeCsvTime(timeZone)), 'text/csv;charset=utf-8', true)}>
+          Export itinerary (CSV)
+        </button>
+        <button type="button" className={btn44} disabled={shown.length === 0} onClick={() => download('fpo-planner-itinerary.json', itineraryToJson(plan), 'application/json')}>
+          Export itinerary (JSON)
+        </button>
+      </div>
 
       {detailSlot && (
         <div className="mt-4 grid rounded-lg border border-white/15 bg-black/40 p-4" role="region" aria-label="Slot details" data-testid="slot-detail">

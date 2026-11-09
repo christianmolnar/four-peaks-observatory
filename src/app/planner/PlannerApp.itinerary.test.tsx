@@ -161,7 +161,7 @@ describe('Night itinerary', () => {
     await user.selectOptions(within(slots()[0]).getByLabelText('Filter for Andromeda Galaxy'), 'zwo-duo-band');
     await user.type(within(slots()[0]).getByLabelText('Note for Andromeda Galaxy'), 'frame wide');
     const stored = JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!);
-    expect(stored.version).toBe(1);
+    expect(stored.version).toBe(2);
     expect(stored.items).toHaveLength(1);
     expect(stored.items[0]).toMatchObject({ targetId: 'm31', filterId: 'zwo-duo-band', note: 'frame wide', mode: 'balanced' });
     unmount();
