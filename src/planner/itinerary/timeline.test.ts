@@ -61,6 +61,22 @@ describe('start time in the schedule', () => {
     expect(plan.startNote).toBe(`Your start time is before the night: imaging begins when the night starts, ${fmt(NIGHT.start as Date)}.`);
     expect(plan.slots[0].end.getTime()).toBeGreaterThan(plan.slots[0].start.getTime());
   });
+  it('a start in the same minute as the night start is the night start: no warning', () => {
+    const ns = (NIGHT.start as Date).getTime();
+    const sameMinute = new Date(ns - (ns % MIN)); // the clock reads HH:MM with no seconds, the night starts a few seconds later
+    expect(sameMinute.getTime()).toBeLessThanOrEqual(ns);
+    const plan = build(['m31'], sameMinute);
+    expect(plan.startNote).toBeNull();
+    expect(plan.startsAt).toEqual(NIGHT.start);
+    expect(build(['m31'], new Date(sameMinute.getTime() - MIN)).startNote).toMatch(/^Your start time is before the night/);
+  });
+  it('the first slot with no time left names the start time you gave, not "as the night starts"', () => {
+    // M31's only window closes at 06:35 UTC at this site and date; a start at 08:00 UTC is after it.
+    const start = new Date('2026-12-16T08:00:00Z');
+    const plan = build(['m31'], start);
+    expect(plan.slots[0].warnings.map((w) => w.code)).toEqual(['no-time']);
+    expect(plan.slots[0].warnings[0].text).toBe('No usable time left for Andromeda Galaxy tonight: its window closes at 06:35, before your start time (08:00).');
+  });
   it('a start after the night ends gives every slot no time and a message, and does not throw', () => {
     const plan = build(['m31', 'm42'], new Date((NIGHT.end as Date).getTime() + 30 * MIN));
     expect(plan.startNote).toMatch(/is after the night ends \(12:55\), so there is no time for any slot\.$/);

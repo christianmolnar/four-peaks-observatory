@@ -228,6 +228,8 @@ export const WARNING_TEXT = {
   noTimeNever: (name: string): string => `No usable time left for ${name} tonight: its window never opens.`,
   /** Nothing ran before: the window closes as the night starts. */
   noTimeAtStart: (name: string, closedAt: string, nightStart: string): string => `No usable time left for ${name} tonight: its window closes at ${closedAt}, as the night starts (${nightStart}).`,
+  /** Nothing ran before, and the start time you gave is after the window closed. */
+  noTimeBeforeStart: (name: string, closedAt: string, startTime: string): string => `No usable time left for ${name} tonight: its window closes at ${closedAt}, before your start time (${startTime}).`,
   /** The slots before were still running when the window closed. */
   noTimeSlots: (name: string, closedAt: string, slotsEnd: string): string => `No usable time left for ${name} tonight: its window closed at ${closedAt}, and the slots before end ${slotsEnd}.`,
   /** The slots before ended in time; the changeover after them ran past the close. */
@@ -311,9 +313,11 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
   const nightEnd = night.end;
   const slots: Slot[] = [];
   const asked = input.startAt ?? null;
+  // The clock has no seconds: a time in the same minute as the night start (18:53 for 18:53:17) is the night start.
+  const beforeNight = asked !== null && Math.floor(asked.getTime() / 60000) < Math.floor(nightStart.getTime() / 60000);
   const startsAt = asked && asked.getTime() > nightStart.getTime() ? asked : nightStart;
   const afterNight = startsAt.getTime() >= nightEnd.getTime();
-  const startNote = asked === null ? null : asked.getTime() < nightStart.getTime() ? WARNING_TEXT.startBeforeNight(formatTime(nightStart)) : afterNight ? WARNING_TEXT.startAfterNight(formatTime(startsAt), formatTime(nightEnd)) : null;
+  const startNote = asked === null ? null : beforeNight ? WARNING_TEXT.startBeforeNight(formatTime(nightStart)) : afterNight ? WARNING_TEXT.startAfterNight(formatTime(startsAt), formatTime(nightEnd)) : null;
   let cursor = startsAt;
   let last: SlotInput | null = null;
   const opens: { name: string; at: Date | null }[] = [];
@@ -350,7 +354,7 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     const earliest = after(cursor, change.minutes);
     const fitting = windows.filter((x) => x.end.getTime() > earliest.getTime() + tolMs);
     if (fitting.length === 0) {
-      slots.push(none(noTimeText(si.name, windows, cursor, earliest, change, formatTime, last === null), 'no-time'));
+      slots.push(none(noTimeText(si.name, windows, cursor, earliest, change, formatTime, last === null, startsAt !== nightStart), 'no-time'));
       continue;
     }
 
@@ -561,10 +565,10 @@ function peakTime(body: CardBody, from: Date, to: Date, site: Site): Date {
 }
 
 /** The no-time sentence: why no window of this target is left, naming a changeover when that is what ran past the close. */
-function noTimeText(name: string, windows: readonly TimeWindow[], cursor: Date, earliest: Date, change: Changeover, formatTime: (d: Date) => string, nothingBefore: boolean): string {
+function noTimeText(name: string, windows: readonly TimeWindow[], cursor: Date, earliest: Date, change: Changeover, formatTime: (d: Date) => string, nothingBefore: boolean, userStart: boolean): string {
   if (windows.length === 0) return WARNING_TEXT.noTimeNever(name);
   const closed = windows[windows.length - 1].end;
-  if (nothingBefore) return WARNING_TEXT.noTimeAtStart(name, formatTime(closed), formatTime(cursor));
+  if (nothingBefore) return (userStart ? WARNING_TEXT.noTimeBeforeStart : WARNING_TEXT.noTimeAtStart)(name, formatTime(closed), formatTime(cursor));
   if (cursor.getTime() + EDGE_TOLERANCE_MIN * 60000 >= closed.getTime()) return WARNING_TEXT.noTimeSlots(name, formatTime(closed), formatTime(cursor));
   return WARNING_TEXT.noTimeChangeover(name, formatTime(closed), formatTime(cursor), change.parts.map((p) => `${p.label} ${p.minutes} min`).join(', '), change.minutes, formatTime(earliest));
 }
