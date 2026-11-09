@@ -380,16 +380,16 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       setImportError(`Import rejected, nothing was changed. ${(e as Error).message}`);
       return;
     }
+    setProfile(next);
+    setDate(defaultDateForProfile(new Date(), next));
+    loadForm(next.sites[0]?.blockedArc ?? null, true);
+    setSiteId('');
+    setTrainId('');
     try {
       saveProfile(window.localStorage, next);
-      setProfile(next);
-      setDate(defaultDateForProfile(new Date(), next));
-      loadForm(next.sites[0]?.blockedArc ?? null, true);
-      setSiteId('');
-      setTrainId('');
       setNotice(`Imported ${file.name}.`);
     } catch (e) {
-      setImportError(`Import failed, nothing was changed: ${(e as Error).message}`);
+      setNotice(`Imported ${file.name}. Not saved, so it is lost on reload: ${(e as Error).message}`);
     }
   };
 

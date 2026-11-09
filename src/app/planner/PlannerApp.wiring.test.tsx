@@ -93,15 +93,16 @@ describe('storage that cannot be read or written', () => {
     expect((screen.getByRole('spinbutton', { name: /^Start azimuth/ }) as HTMLInputElement).value).toBe('120');
   });
 
-  it('importing with storage that cannot be written shows a message and changes nothing', async () => {
+  it('importing with storage that cannot be written still loads the profile and says it is not saved', async () => {
     render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new DOMException('quota exceeded', 'QuotaExceededError');
+      throw new DOMException('denied', 'SecurityError');
     });
     const u = userEvent.setup();
     await u.upload(screen.getByLabelText('Import profile (JSON)'), jsonFile(sydney()));
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Import failed, nothing was changed: quota exceeded/));
-    expect(screen.getByLabelText('Site').textContent).toContain('Fountain Hills');
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported profile\.json\. Not saved, so it is lost on reload: denied/));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByLabelText('Site').textContent).toContain('Sydney');
   });
 
   it('ticking captured with storage that cannot be written says the tick is not saved', async () => {
