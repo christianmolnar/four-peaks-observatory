@@ -126,9 +126,19 @@ function blockedArc(v: unknown, path: string): BlockedArc | null {
   return { startAz, endAz, heightDeg };
 }
 
+function timeZone(o: Obj, path: string): string {
+  const v = str(o, 'timeZone', path);
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: v });
+  } catch {
+    throw new ProfileError(`${path}.timeZone`, `not a time zone name such as America/Phoenix, got ${JSON.stringify(v)}`);
+  }
+  return v;
+}
+
 function site(v: unknown, path: string): ProfileSite {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'blockedArc']);
+  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'timeZone', 'blockedArc']);
   if (o.blockedArc === undefined) throw new ProfileError(`${path}.blockedArc`, 'expected an arc object or null');
   return withoutUndefined({
     id: str(o, 'id', path),
@@ -136,6 +146,7 @@ function site(v: unknown, path: string): ProfileSite {
     latitude: num(o, 'latitude', path, -90, 90),
     longitude: num(o, 'longitude', path, -180, 180),
     elevationM: o.elevationM === undefined ? undefined : num(o, 'elevationM', path, -500, 9000),
+    timeZone: o.timeZone === undefined ? undefined : timeZone(o, path),
     blockedArc: blockedArc(o.blockedArc, `${path}.blockedArc`),
   });
 }

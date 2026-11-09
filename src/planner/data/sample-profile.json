@@ -7,6 +7,7 @@
       "name": "Fountain Hills, AZ",
       "latitude": 33.6115,
       "longitude": -111.719,
+      "timeZone": "America/Phoenix",
       "blockedArc": { "startAz": 120, "endAz": 320, "heightDeg": 42 },
       "_source": "Owner-entered; arc and height from the owner (2026-11-05)."
     }

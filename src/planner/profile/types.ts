@@ -21,6 +21,8 @@ export interface ProfileSite {
   latitude: number;
   longitude: number;
   elevationM?: number;
+  /** IANA time zone name, e.g. America/Phoenix. Absent: times show in the browser's zone. */
+  timeZone?: string;
   /** null: nothing is blocked. */
   blockedArc: BlockedArc | null;
 }
