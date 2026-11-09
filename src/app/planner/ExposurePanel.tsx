@@ -229,7 +229,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
               <option key={b} value={b}>Bortle {b}</option>
             ))}
           </WrapSelect>
-          <p className="text-white/60 text-xs mt-1 h-8 overflow-hidden">Assumed {DEFAULT_BORTLE} until you change it; not saved.</p>
+          <p className="text-white/60 text-xs mt-1 min-h-8">Assumed {DEFAULT_BORTLE} until you change it; not saved.</p>
         </div>
         <p className="md:col-span-2 text-white/80 font-normal text-sm h-[9rem] md:h-[5rem] overflow-y-auto" data-testid="exposure-filter">
           {filterLine(filter)}

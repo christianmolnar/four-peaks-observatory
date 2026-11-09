@@ -13,10 +13,10 @@ export default function WrapSelect({ className = '', children, ...rest }: Select
   useLayoutEffect(() => {
     const t = ref.current?.selectedOptions[0]?.text ?? '';
     if (t !== text) setText(t);
-  });
+  }, [rest.value, children, text]);
   return (
-    <div className={`relative focus-within:ring-2 focus-within:ring-sky-400 rounded ${rest.disabled ? 'opacity-40' : ''} ${className}`}>
-      <div className="flex min-h-11 items-center gap-2 rounded border border-white/30 bg-black/60 px-2 py-1 text-sm font-normal text-white" aria-hidden="true">
+    <div className={`relative focus-within:ring-2 focus-within:ring-sky-400 rounded ${className}`}>
+      <div className={`flex min-h-11 items-center gap-2 rounded border border-white/30 bg-black/60 px-2 py-1 text-sm font-normal ${rest.disabled ? 'text-white/70' : 'text-white'}`} aria-hidden="true">
         <span className="min-w-0 flex-1 break-words">{text || ' '}</span>
         <span className="shrink-0 text-white/70">▾</span>
       </div>
