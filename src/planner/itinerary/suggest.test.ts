@@ -2,130 +2,274 @@ import sample from '../data/sample-profile.json';
 import { starterTargets } from '../catalog';
 import { tonightsNight } from '../plan';
 import { arcToHorizonPoints, validateProfile } from '../profile';
-import { buildItinerary } from './index';
-import type { ItineraryItem } from './index';
-import { slotInputFor } from './resolve';
-import { orderCandidates, suggestOrder } from './suggest';
-import type { OrderCandidate } from './suggest';
+import type { Site } from '../astro';
+import { buildItinerary, lightMinutes, makeWindowLookup } from './index';
+import type { BuildInput, ItineraryItem } from './index';
+import { planetIdOf, slotInputFor } from './resolve';
+import { orderKey, rankOf, compareRank, suggestOrder } from './suggest';
 
-// A made-up night: minute 0 is 20:00. Same train and filter everywhere, so every changeover is the 3 minute slew.
-const T0 = Date.UTC(2026, 11, 16, 3);
-const at = (min: number) => new Date(T0 + min * 60000);
+const profile = validateProfile(sample);
 const fmt = (d: Date) => d.toISOString().slice(11, 16);
-const cand = (id: string, from: number, to: number, durationMin: number, alt = 40, over: Partial<OrderCandidate> = {}): OrderCandidate => ({
-  id, name: id.toUpperCase(), trainId: 'a', filterId: null, windows: [{ start: at(from), end: at(to) }], durationMin, altitudeAt: () => alt, ...over,
+const PHX: Site = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
+
+// ----------------------------------------------------------------- helpers
+
+let seq = 0;
+const item = (targetId: string, over: Partial<ItineraryItem> = {}): ItineraryItem => ({
+  id: `q${++seq}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '', ...over,
 });
-const START = at(0);
+const inputFor = (its: readonly ItineraryItem[], base: Omit<BuildInput, 'slots'>): BuildInput => ({ ...base, slots: its.map((i) => slotInputFor(i, profile, starterTargets)) });
+const plan = (its: readonly ItineraryItem[], base: Omit<BuildInput, 'slots'>) => buildItinerary(inputFor(its, base));
+const reorder = (its: readonly ItineraryItem[], ids: readonly string[]) => ids.map((id) => its.find((i) => i.id === id) as ItineraryItem);
 
-// The sample table: three targets with known windows.
-//   WEST  clear 0 to 200, wants 150
-//   EAST  clear 240 to 600, wants 150
-//   ALL   clear 0 to 600, wants 150
-const WEST = cand('west', 0, 200, 150);
-const EAST = cand('east', 240, 600, 150);
-const ALL = cand('all', 0, 600, 150);
+/** Every order of a list (Heap-free, plain recursion), in the order given first. */
+function* permutations<T>(xs: readonly T[]): Generator<T[]> {
+  if (xs.length <= 1) {
+    yield [...xs];
+    return;
+  }
+  for (let i = 0; i < xs.length; i++) for (const rest of permutations([...xs.slice(0, i), ...xs.slice(i + 1)])) yield [xs[i], ...rest];
+}
 
-describe('suggested order', () => {
-  it('puts the target that sets first, the all-night one next, the one that rises last at the end', () => {
-    const r = suggestOrder([EAST, WEST, ALL], START, fmt);
-    expect(r.order).toEqual(['west', 'all', 'east']);
-    expect(r.changed).toBe(true);
-    expect(r.currentLightMin).toBe(300); // east waits for its window; west's window has closed by then
-    expect(r.suggestedLightMin).toBe(450); // all three get their full length
-    expect(r.steps.map((s) => s.name)).toEqual(['WEST', 'ALL', 'EAST']);
-    expect(r.steps[0].reason).toMatch(/window closes first, at \d\d:\d\d/);
-    expect(r.steps[2].reason).toMatch(/clears the horizon last/);
+// ------------------------------------------------------- the evaluator's repro
+
+describe('the sample night that made the old advice cut the light (2026-11-08, M31, M42, Jupiter)', () => {
+  const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
+  const base: Omit<BuildInput, 'slots'> = { site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt };
+  const its = [item('m31'), item('m42'), item(planetIdOf('Jupiter'), { trainId: 'planet-c11-676' })];
+
+  it('keeps the order or offers one with at least as much light, and the advice minutes are the totals line', () => {
+    const now = plan(its, base);
+    const r = suggestOrder(inputFor(its, base));
+    const next = plan(reorder(its, r.order), base);
+    expect(r.currentLightMin).toBe(lightMinutes(now));
+    expect(r.suggestedLightMin).toBe(lightMinutes(next));
+    expect(next.totals.integrationMin).toBeGreaterThanOrEqual(now.totals.integrationMin);
+    if (!r.changed) expect(r.order).toEqual(its.map((i) => i.id));
+    // After applying it, the page would show the light the advice promised, and a second look finds nothing better.
+    expect(suggestOrder(inputFor(reorder(its, r.order), base)).changed).toBe(false);
   });
+});
 
-  it('never schedules a slot outside its window when another order avoids it: both orders of a pair, same answer', () => {
-    const early = cand('early', 0, 160, 150);
-    const late = cand('late', 170, 600, 150);
-    for (const input of [[early, late], [late, early]]) {
-      const r = suggestOrder(input, START, fmt);
-      expect(r.order).toEqual(['early', 'late']);
-      expect(r.suggestedLightMin).toBe(300);
+// ----------------------------------------------- random sets against a brute force
+
+/** The windows of a night are found once for the thousands of plans the oracle builds; every plan is still built by buildItinerary. */
+const withWindows = (b: Omit<BuildInput, 'slots'>): Omit<BuildInput, 'slots'> => ({ ...b, windows: makeWindowLookup(b) });
+
+function mulberry32(a: number): () => number {
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const SITES: { name: string; site: Site; date: string; zone: string }[] = [
+  { name: 'Phoenix', site: PHX, date: '2026-11-08', zone: 'America/Phoenix' },
+  { name: 'Sydney', site: { latitude: -33.87, longitude: 151.21, elevationM: 0 }, date: '2026-11-08', zone: 'Australia/Sydney' },
+  { name: 'Reykjavik', site: { latitude: 64.15, longitude: -21.94, elevationM: 0 }, date: '2026-11-08', zone: 'Atlantic/Reykjavik' },
+  { name: 'New York', site: { latitude: 40.71, longitude: -74.0, elevationM: 0 }, date: '2026-12-15', zone: 'America/New_York' },
+  { name: 'Apia', site: { latitude: -13.83, longitude: -171.76, elevationM: 0 }, date: '2026-09-20', zone: 'Pacific/Apia' },
+  { name: 'Kiritimati', site: { latitude: 1.87, longitude: -157.4, elevationM: 0 }, date: '2026-11-08', zone: 'Pacific/Kiritimati' },
+];
+const TARGET_IDS = starterTargets.map((t) => t.id);
+const BODY_IDS = [...['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].map(planetIdOf), planetIdOf('Moon')];
+const TRAINS = ['deep-c11-reducer-533', 'deep-c11-2600', 'wide-c11-hyperstar-2600', 'planet-c11-676'];
+const FILTERS = [null, null, 'zwo-duo-band', 'idas-lps-p2'];
+const MODES = ['quick', 'balanced', 'deep'] as const;
+
+interface RandomSet {
+  label: string;
+  base: Omit<BuildInput, 'slots'>;
+  its: ItineraryItem[];
+}
+
+/** A random night and a random list of n slots: fixed targets, planets and the Moon, several trains, filters and modes. */
+function randomSet(rand: () => number, n: number, index: number): RandomSet | null {
+  const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)];
+  const s = pick(SITES);
+  const night = tonightsNight(s.site, s.date, s.zone);
+  if (night.kind !== 'normal') return null;
+  const used = new Set<string>();
+  const its: ItineraryItem[] = [];
+  const wantBodies = Math.min(n - 1, 1 + Math.floor(rand() * 3));
+  while (its.length < n) {
+    const id = its.length < wantBodies ? pick(BODY_IDS) : pick(TARGET_IDS);
+    if (used.has(id)) continue;
+    used.add(id);
+    its.push(item(id, { trainId: pick(TRAINS), filterId: pick(FILTERS), mode: pick(MODES) }));
+  }
+  // Shuffle: the user's order is arbitrary.
+  for (let i = its.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [its[i], its[j]] = [its[j], its[i]];
+  }
+  const startAt = rand() < 0.3 ? new Date((night.start as Date).getTime() + Math.floor(rand() * 240) * 60000) : null;
+  const horizon = rand() < 0.5 ? arcToHorizonPoints({ startAz: 100 + Math.floor(rand() * 60), endAz: 200 + Math.floor(rand() * 120), heightDeg: 20 + Math.floor(rand() * 30) }) : null;
+  return {
+    label: `#${index} ${s.name} ${s.date} n=${n}`,
+    base: withWindows({ site: s.site, night, horizon, minAltitude: pick([15, 20, 30]), bortle: pick([3, 5, 7]), startAt, formatTime: fmt }),
+    its,
+  };
+}
+
+describe('against a brute force that runs buildItinerary on every order', () => {
+  // Sizes 2 to 8, six of each plus the remainder: 40 sets. The brute force (the oracle) needs n! real builds, so it covers n up to 5 here and n = 6 in the next test.
+  const sizes = Array.from({ length: 40 }, (_, i) => 2 + (i % 7));
+  const sets: RandomSet[] = [];
+  const rand = mulberry32(20261109);
+  sizes.forEach((n, i) => {
+    for (let tries = 0; tries < 20; tries++) {
+      const s = randomSet(rand, n, i);
+      if (s) {
+        sets.push(s);
+        break;
+      }
     }
   });
 
-  it('keeps the order when it is already the best, and says so', () => {
-    const r = suggestOrder([WEST, ALL, EAST], START, fmt);
-    expect(r.order).toEqual(['west', 'all', 'east']);
-    expect(r.changed).toBe(false);
-    expect(r.suggestedLightMin).toBe(r.currentLightMin);
+  it('has 40 sets with planets and the Moon in most of them, over all 6 sites', () => {
+    expect(sets).toHaveLength(40);
+    expect(sets.filter((s) => s.its.some((i) => BODY_IDS.includes(i.targetId))).length).toBeGreaterThanOrEqual(35);
+    expect(sets.filter((s) => s.its.some((i) => i.targetId === planetIdOf('Moon'))).length).toBeGreaterThan(3);
+    expect(new Set(sets.map((s) => s.label.split(' ')[1] + s.label.split(' ')[2])).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(sets.flatMap((s) => s.its.map((i) => i.trainId))).size).toBeGreaterThanOrEqual(3);
   });
 
-  it('ties are stable: identical targets stay in the order given, in every starting order', () => {
-    const a = cand('a1', 0, 600, 100);
-    const b = cand('b1', 0, 600, 100);
-    const c = cand('c1', 0, 600, 100);
-    for (const input of [[a, b, c], [c, a, b], [b, c, a]]) {
-      const r = suggestOrder(input, START, fmt);
-      expect(r.order).toEqual(input.map((x) => x.id));
-      expect(r.changed).toBe(false);
+  it('never offers an order worse than the user’s, and the advice minutes are the totals line, on all 40', () => {
+    const problems: string[] = [];
+    for (const s of sets) {
+      const input = inputFor(s.its, s.base);
+      const r = suggestOrder(input);
+      const now = buildItinerary(input);
+      const next = plan(reorder(s.its, r.order), s.base);
+      if (r.order.length !== s.its.length || new Set(r.order).size !== s.its.length) problems.push(`${s.label}: order lost slots`);
+      if (compareRank(rankOf(next), rankOf(now)) < 0) problems.push(`${s.label}: offered order is worse (${next.totals.integrationMin} vs ${now.totals.integrationMin})`);
+      if (!r.changed && r.order.join() !== s.its.map((i) => i.id).join()) problems.push(`${s.label}: unchanged but reordered`);
+      if (r.currentLightMin !== lightMinutes(now)) problems.push(`${s.label}: advice now ${r.currentLightMin} vs totals ${lightMinutes(now)}`);
+      if (r.suggestedLightMin !== lightMinutes(r.changed ? next : now)) problems.push(`${s.label}: advice suggested ${r.suggestedLightMin} vs totals ${lightMinutes(next)}`);
+      if (r.changed && compareRank(rankOf(next), rankOf(now)) <= 0) problems.push(`${s.label}: changed but not better`);
     }
+    expect(problems).toEqual([]);
   });
 
-  it('with equal imaging time, the higher target wins; with equal height, the earlier finish wins', () => {
-    // "sinking" is 70 degrees at minute 0 and loses 1 degree per 10 minutes; "climbing" is 20 and gains 1 per 10.
-    const min = (d: Date) => (d.getTime() - T0) / 60000;
-    const sinking = cand('sinking', 0, 600, 100, 0, { altitudeAt: (d) => 70 - min(d) / 10 });
-    const climbing = cand('climbing', 0, 600, 100, 0, { altitudeAt: (d) => 20 + min(d) / 10 });
-    expect(suggestOrder([climbing, sinking], START, fmt).order).toEqual(['sinking', 'climbing']);
-    expect(suggestOrder([sinking, climbing], START, fmt).changed).toBe(false);
-    // Same altitude: a different train costs a 15 minute swap, so the two on one train sit together and finish sooner.
-    const x1 = cand('x1', 0, 600, 60, 40, { trainId: 'a' });
-    const y = cand('y', 0, 600, 60, 40, { trainId: 'b' });
-    const x2 = cand('x2', 0, 600, 60, 40, { trainId: 'a' });
-    expect(suggestOrder([x1, y, x2], START, fmt).order).toEqual(['x1', 'x2', 'y']);
-  });
+  it('is the best order by light, then altitude, then finish, on every set of up to 5 slots', () => {
+    const problems: string[] = [];
+    let checked = 0;
+    for (const s of sets.filter((x) => x.its.length <= 5)) {
+      const r = suggestOrder(inputFor(s.its, s.base));
+      const offered = rankOf(plan(reorder(s.its, r.order), s.base));
+      let best = rankOf(plan(s.its, s.base));
+      for (const p of permutations(s.its)) {
+        const rk = rankOf(plan(p, s.base));
+        if (compareRank(rk, best) > 0) best = rk;
+      }
+      checked++;
+      if (compareRank(offered, best) !== 0) problems.push(`${s.label}: offered ${JSON.stringify(offered)} best ${JSON.stringify(best)}`);
+      expect(r.searched.exhaustive).toBe(true);
+    }
+    expect(checked).toBeGreaterThanOrEqual(20);
+    expect(problems).toEqual([]);
+  }, 300000);
 
-  it('counts the changeover: a swap that pushes the last slot out of its window makes another order better', () => {
-    // Window of "tight" closes at 140. After "big" (120 min) a train swap (3+15+3 = 21) leaves 140 - 141 < 0: no room.
-    const big = cand('big', 0, 600, 120, 40, { trainId: 'a' });
-    const tight = cand('tight', 0, 140, 60, 40, { trainId: 'b' });
-    const r = suggestOrder([big, tight], START, fmt);
-    expect(r.order).toEqual(['tight', 'big']);
-    expect(r.suggestedLightMin).toBe(180);
-    expect(r.currentLightMin).toBe(120);
-  });
+  it('is the best order on sets of 6 slots too (720 real builds each, 8 sets)', () => {
+    const rand6 = mulberry32(6);
+    const problems: string[] = [];
+    let checked = 0;
+    for (let i = 0; checked < 8 && i < 60; i++) {
+      const s = randomSet(rand6, 6, 100 + i);
+      if (!s) continue;
+      const r = suggestOrder(inputFor(s.its, s.base));
+      const offered = rankOf(plan(reorder(s.its, r.order), s.base));
+      let best = rankOf(plan(s.its, s.base));
+      for (const p of permutations(s.its)) {
+        const rk = rankOf(plan(p, s.base));
+        if (compareRank(rk, best) > 0) best = rk;
+      }
+      checked++;
+      expect(r.searched.exhaustive).toBe(true);
+      if (compareRank(offered, best) !== 0) problems.push(`${s.label}: offered ${JSON.stringify(offered)} best ${JSON.stringify(best)}`);
+    }
+    expect(problems).toEqual([]);
+  }, 600000);
+});
 
-  it('a target with no window tonight, or no length, is not moved and does not disturb the rest', () => {
-    const none = cand('none', 0, 0, 0, 40, { windows: [] });
-    const r = suggestOrder([none, EAST, WEST, ALL], START, fmt);
-    expect(r.order).toEqual(['west', 'all', 'east', 'none']);
-    expect(r.steps.map((s) => s.id)).toEqual(['west', 'all', 'east']);
-  });
+// ------------------------------------------------------------ small behaviours
+
+describe('behaviour of the advice', () => {
+  const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
+  const base: Omit<BuildInput, 'slots'> = { site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt };
 
   it('an empty or one-slot list has nothing to change', () => {
-    expect(suggestOrder([], START, fmt)).toMatchObject({ order: [], changed: false, steps: [] });
-    expect(suggestOrder([ALL], START, fmt)).toMatchObject({ order: ['all'], changed: false });
+    expect(suggestOrder(inputFor([], base))).toMatchObject({ order: [], changed: false, steps: [] });
+    const one = [item('m31')];
+    expect(suggestOrder(inputFor(one, base))).toMatchObject({ order: [one[0].id], changed: false });
   });
 
-  it('is deterministic and handles eight slots quickly', () => {
-    const eight = Array.from({ length: 8 }, (_, i) => cand(`s${i}`, i * 40, 300 + i * 40, 50, 30 + i));
+  it('is deterministic, ties keep the order given, and a note changes nothing', () => {
+    const its = [item('m31'), item('m42'), item('m33'), item(planetIdOf('Jupiter'))];
+    const one = suggestOrder(inputFor(its, base));
+    expect(suggestOrder(inputFor(its, base))).toEqual(one);
+    const noted = its.map((i) => ({ ...i, note: 'check guiding' }));
+    expect(suggestOrder(inputFor(noted, base))).toEqual(one);
+    expect(orderKey(noted)).toBe(orderKey(its));
+    expect(orderKey([...its].reverse())).not.toBe(orderKey(its));
+    expect(orderKey(its.map((i, k) => (k === 0 ? { ...i, mode: 'deep' } : i)))).not.toBe(orderKey(its));
+  });
+
+  it('a slot with a problem or no window ever stays out of the search and comes last', () => {
+    const its = [item('nope'), item('m31'), item('m42')];
+    const r = suggestOrder(inputFor(its, base));
+    expect([...r.order].sort()).toEqual(its.map((i) => i.id).sort());
+    expect(r.steps.map((s) => s.id)).not.toContain(its[0].id);
+    if (r.changed) expect(r.order[r.order.length - 1]).toBe(its[0].id);
+    else expect(r.order).toEqual(its.map((i) => i.id));
+  });
+
+  it('eight slots are searched, verified with buildItinerary, and never come out worse', () => {
+    const its = ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101', planetIdOf('Jupiter'), planetIdOf('Moon')].map((id) => item(id));
     const t = Date.now();
-    const one = suggestOrder(eight, START, fmt);
-    expect(suggestOrder(eight, START, fmt)).toEqual(one);
-    expect(Date.now() - t).toBeLessThan(5000);
+    const r = suggestOrder(inputFor(its, base));
+    const ms = Date.now() - t;
+    const now = plan(its, base);
+    const next = plan(reorder(its, r.order), base);
+    expect(compareRank(rankOf(next), rankOf(now))).toBeGreaterThanOrEqual(0);
+    expect(r.suggestedLightMin).toBe(lightMinutes(r.changed ? next : now));
+    expect(ms).toBeLessThan(3000);
+  });
+
+  it('each step gives one short reason', () => {
+    const its = [item('m42'), item('m31'), item('m33')];
+    const r = suggestOrder(inputFor(its, base));
+    for (const st of r.steps) expect(st.reason.length).toBeGreaterThan(5);
   });
 });
 
-describe('with the real schedule', () => {
-  const profile = validateProfile(sample);
-  const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
-  const NIGHT = tonightsNight(SITE, '2026-12-15');
-  const base = { site: SITE, night: NIGHT, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt };
-  const items = (ids: string[]): ItineraryItem[] => ids.map((targetId, i) => ({ id: `r${i}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }));
-  const input = (its: ItineraryItem[]) => ({ ...base, slots: its.map((i) => slotInputFor(i, profile, starterTargets)) });
-  const light = (its: ItineraryItem[]) => buildItinerary(input(its)).totals.integrationMin;
-
-  it('applying the suggested order never gives less imaging than the order it replaces, and a second suggestion changes nothing', () => {
-    for (const ids of [['m31', 'm42', 'm33'], ['m42', 'm33', 'm31'], ['ic405', 'm31', 'm42', 'm33']]) {
-      const its = items(ids);
-      const r = suggestOrder(orderCandidates(input(its)), NIGHT.start as Date, fmt);
-      const reordered = r.order.map((id) => its.find((i) => i.id === id)!);
-      expect(light(reordered)).toBeGreaterThanOrEqual(light(its) - 1);
-      expect(suggestOrder(orderCandidates(input(reordered)), NIGHT.start as Date, fmt).changed).toBe(false);
+describe('above 6 slots the pruned search', () => {
+  it('is not proven best (it says so), is never worse than the current order, and matches the full search on 7 and 8 live slots', () => {
+    const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
+    const base = withWindows({ site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt });
+    const pools = [
+      ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101', planetIdOf('Jupiter'), planetIdOf('Moon')],
+      ['ngc2237', 'm1', 'm45', 'm13', 'm27', planetIdOf('Saturn'), planetIdOf('Mars'), 'ngc1499'],
+      ['m42', 'ic405', 'm31', 'm33', 'ngc7000', planetIdOf('Jupiter'), planetIdOf('Moon')],
+    ];
+    let beamRuns = 0;
+    for (const [k, ids] of pools.entries()) {
+      const its = ids.filter((id) => starterTargets.some((t) => t.id === id) || BODY_IDS.includes(id)).map((id, i) => item(id, { trainId: TRAINS[(i + k) % 3], filterId: FILTERS[(i + k) % 4] }));
+      const input = inputFor(its, base);
+      const beam = suggestOrder(input);
+      const full = suggestOrder(input, { exactMax: 9 });
+      const rb = rankOf(plan(reorder(its, beam.order), base));
+      const rf = rankOf(plan(reorder(its, full.order), base));
+      const rn = rankOf(plan(its, base));
+      expect(compareRank(rb, rn)).toBeGreaterThanOrEqual(0);
+      expect(compareRank(rb, rf)).toBe(0);
+      expect(beam.searched.exhaustive).toBe(full.searched.placements <= 2000);
+      if (!beam.searched.exhaustive) beamRuns++;
     }
-  });
+    expect(beamRuns).toBeGreaterThanOrEqual(1);
+  }, 120000);
 });

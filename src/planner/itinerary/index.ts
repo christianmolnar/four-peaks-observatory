@@ -6,6 +6,7 @@ import { AUTOFOCUS_MIN, MERIDIAN_FLIP_MIN, MODE_ORDER, planExposure } from '../e
 import type { ExposureMode, ExposureTarget } from '../exposure';
 import { usableWindows, usableWindowsOnTrack } from '../horizon';
 import type { HorizonPoint, TimeWindow } from '../horizon';
+import { altAzOf } from '../plan';
 import type { TargetSource } from '../plan';
 import type { ProfileCamera, ProfileFilter } from '../profile';
 import {
@@ -179,6 +180,9 @@ export interface Slot {
   label: 'estimate';
 }
 
+/** The one definition of "Light": whole minutes of imaging in the plan. The totals line and the order advice both print this. */
+export const lightMinutes = (plan: Pick<ItineraryPlan, 'totals'>): number => Math.round(plan.totals.integrationMin);
+
 export interface ItineraryPlan {
   /** When imaging can start: the time asked for, or the night's start when none was asked for or it fell before the night. */
   startsAt: Date;
@@ -200,6 +204,8 @@ export interface BuildInput {
   /** When imaging can start (setup is done before this). Absent or null: when the astronomical night starts. */
   startAt?: Date | null;
   formatTime: (d: Date) => string;
+  /** Finds a target's usable windows; a caller that builds many plans for one night passes `makeWindowLookup` so they are found once. Absent: found per call. */
+  windows?: (source: TargetSource) => TimeWindow[];
 }
 
 /** The sentences of the slot warnings, in one place so the page can reserve room for the longest of each. */
@@ -307,25 +313,91 @@ interface Attempt {
  * is cut short by its window closing, crosses the meridian, or has no usable time left. Pure: same input, same plan.
  */
 export function buildItinerary(input: BuildInput): ItineraryPlan {
+  const scheduler = makeScheduler(input);
+  const slots: Slot[] = [];
+  const opens: { name: string; at: Date | null }[] = [];
+  let state = scheduler.initial;
+  let filterChanges = 0;
+  let trainChanges = 0;
+  for (const si of input.slots) {
+    const placed = scheduler.place(si, state);
+    slots.push(placed.slot);
+    opens.push({ name: si.name, at: placed.opensAt });
+    filterChanges += placed.filterChange ? 1 : 0;
+    trainChanges += placed.trainChange ? 1 : 0;
+    state = placed.next;
+  }
+  const real = slots.filter((s) => s.end.getTime() > s.start.getTime());
+  const totals = {
+    integrationMin: real.reduce((s, x) => s + x.integrationMin, 0),
+    changeoverMin: real.reduce((s, x) => s + x.changeover.minutes, 0),
+    waitMin: real.reduce((s, x) => s + x.waitMin, 0),
+    filterChanges,
+    trainChanges,
+    ends: real.length > 0 ? real[real.length - 1].end : null,
+  };
+  return { startsAt: scheduler.startsAt, startNote: scheduler.startNote, slots, why: whyThisOrder(opens, input.formatTime), totals };
+}
+
+/** Where a schedule stands after some slots: when the last one ended and which one it was (the next changeover depends on it). */
+export interface ScheduleState {
+  cursor: Date;
+  last: SlotInput | null;
+}
+
+/** One slot placed. */
+export interface Placement {
+  slot: Slot;
+  /** When the target's first usable window opens (null: no window, or the slot has a problem); the "why this order" sentence reads it. */
+  opensAt: Date | null;
+  /** True when the slot got time (it ends after it starts); false: it changed nothing. */
+  ran: boolean;
+  /** The state for the slot after this one; the state it was given when this slot got no time. */
+  next: ScheduleState;
+  filterChange: boolean;
+  trainChange: boolean;
+  /** Only when `place` ran with `lean`: altitude of the target at the middle of the slot, for the search's altitude tie-break. */
+  middleAltitude: number | null;
+}
+
+export interface Scheduler {
+  startsAt: Date;
+  startNote: string | null;
+  initial: ScheduleState;
+  /**
+   * Places one slot after the given state. `lean` skips what the order search does not read (warning texts, the altitude
+   * table, the look at other windows for a sentence) and returns only the middle altitude; start, end and light are
+   * computed by exactly the same steps either way.
+   */
+  place(si: SlotInput, state: ScheduleState, lean?: boolean): Placement;
+  /** The slot's target's usable windows tonight, found once per slot. */
+  windows(si: SlotInput): TimeWindow[];
+}
+
+/**
+ * The scheduler behind `buildItinerary`: it holds what is the same for every slot (the start, the night, each target's
+ * usable windows, found once) and places one slot at a time. `buildItinerary` calls it in the order given; the order search
+ * calls it for every prefix it tries, so what it scores is what the page shows.
+ */
+export function makeScheduler(input: BuildInput): Scheduler {
   const { site, night, horizon, minAltitude, bortle, formatTime } = input;
   if (night.kind !== 'normal' || !night.start || !night.end) throw new RangeError('buildItinerary needs a normal astronomical night');
   const nightStart = night.start;
   const nightEnd = night.end;
-  const slots: Slot[] = [];
   const asked = input.startAt ?? null;
   // The clock has no seconds: a time in the same minute as the night start (18:53 for 18:53:17) is the night start.
   const beforeNight = asked !== null && Math.floor(asked.getTime() / 60000) < Math.floor(nightStart.getTime() / 60000);
   const startsAt = asked && asked.getTime() > nightStart.getTime() ? asked : nightStart;
   const afterNight = startsAt.getTime() >= nightEnd.getTime();
   const startNote = asked === null ? null : beforeNight ? WARNING_TEXT.startBeforeNight(formatTime(nightStart)) : afterNight ? WARNING_TEXT.startAfterNight(formatTime(startsAt), formatTime(nightEnd)) : null;
-  let cursor = startsAt;
-  let last: SlotInput | null = null;
-  const opens: { name: string; at: Date | null }[] = [];
-  let filterChanges = 0;
-  let trainChanges = 0;
   const tolMs = EDGE_TOLERANCE_MIN * 60000;
+  const lookup = input.windows ?? makeWindowLookup(input);
+  const windowsOf = (si: SlotInput): TimeWindow[] => lookup(si.source);
+  // Lean placements depend only on the slot, when the one before ended and which train and filter it left on, so they are remembered.
+  const leanMemo = new Map<SlotInput, Map<string, Placement>>();
 
-  for (const si of input.slots) {
+  const placeOnce = (si: SlotInput, state: ScheduleState, lean: boolean): Placement => {
+    const { cursor, last } = state;
     const { item } = si;
     const warnings: SlotWarning[] = [];
     const none = (why: string, code: SlotWarningCode = 'problem'): Slot => {
@@ -335,27 +407,18 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
         start: cursor, end: cursor, waitMin: 0, changeover: { minutes: 0, parts: [] }, subSeconds: null, subCount: null, integrationMin: 0, window: null, altitudes: null, warnings, label: 'estimate',
       };
     };
-    if (si.problem) {
-      opens.push({ name: si.name, at: null });
-      slots.push(none(si.problem));
-      continue;
-    }
-
-    if (afterNight) {
-      opens.push({ name: si.name, at: null });
-      slots.push(none(startNote as string, 'no-time'));
-      continue;
-    }
+    const idle = (slot: Slot, opensAt: Date | null): Placement => ({ slot, opensAt, ran: false, next: state, filterChange: false, trainChange: false, middleAltitude: null });
+    if (si.problem) return idle(none(si.problem), null);
+    if (afterNight) return idle(none(startNote as string, 'no-time'), null);
     const source = si.source;
-    const windows = windowsFor(source, input);
-    opens.push({ name: si.name, at: windows[0]?.start ?? null });
+    const windows = windowsOf(si);
+    const opensAt = windows[0]?.start ?? null;
 
     const change = last ? changeoverBetween(last.item, item) : { minutes: 0, parts: [] };
     const earliest = after(cursor, change.minutes);
     const fitting = windows.filter((x) => x.end.getTime() > earliest.getTime() + tolMs);
     if (fitting.length === 0) {
-      slots.push(none(noTimeText(si.name, windows, cursor, earliest, change, formatTime, last === null, startsAt !== nightStart), 'no-time'));
-      continue;
+      return idle(none(noTimeText(si.name, windows, cursor, earliest, change, formatTime, last === null, startsAt !== nightStart), 'no-time'), opensAt);
     }
 
     const attemptIn = (w: TimeWindow): Attempt => {
@@ -421,14 +484,10 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     };
 
     if (source.kind !== 'planet' && (!si.optics || !si.camera)) {
-      slots.push(none(`${si.name} cannot be planned on ${si.trainName}: it has no optics numbers (a smart scope controls its own exposures).`));
-      continue;
+      return idle(none(`${si.name} cannot be planned on ${si.trainName}: it has no optics numbers (a smart scope controls its own exposures).`), opensAt);
     }
     const firstTry = attemptIn(fitting[0]);
-    if (firstTry.unplannable) {
-      slots.push(none(firstTry.unplannable));
-      continue;
-    }
+    if (firstTry.unplannable) return idle(none(firstTry.unplannable), opensAt);
     // The first window is too short for the mode: take the first later window that reaches the aim, and say so.
     let chosen = firstTry;
     let skipped: Attempt | null = null;
@@ -463,82 +522,100 @@ export function buildItinerary(input: BuildInput): ItineraryPlan {
     }
     const { w, start, end, waitMin, delayedMin } = chosen;
 
-    if (skipped) {
-      warnings.push({
-        code: 'waits',
-        severity: 'note',
-        label: 'Waits',
-        text: WARNING_TEXT.laterWindow(si.name, formatTime(skipped.w.start), formatTime(skipped.w.end), round(skipped.integrationMin), round(waitMin), formatTime(w.start), formatTime(w.end)),
-      });
-    } else if (waitMin > EDGE_TOLERANCE_MIN) {
-      warnings.push({
-        code: 'waits',
-        severity: 'note',
-        label: 'Waits',
-        text: chosen.peakAt
-          ? chosen.peakHeld
-            ? WARNING_TEXT.planetWaits(si.name, round(waitMin), formatTime(chosen.peakAt))
-            : WARNING_TEXT.planetWaitsClamped(si.name, round(waitMin), formatTime(chosen.peakAt))
-          : chosen.w !== firstTry.w
-            ? WARNING_TEXT.planetWaitsHigher(si.name, round(waitMin), formatTime(w.start))
-            : WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)),
-      });
-    }
-    // The slots before took part of this window. That only matters when it leaves too little for the mode.
-    if (chosen.short && delayedMin > EDGE_TOLERANCE_MIN) {
-      warnings.push({
-        code: 'overlap',
-        severity: 'warning',
-        label: 'Overlaps window',
-        text: WARNING_TEXT.overlap(si.name, formatTime(cursor), round(delayedMin), formatTime(w.start), formatTime(w.end)),
-      });
-    }
-    if (source.kind === 'planet') {
-      if (chosen.short) warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.planetCut(formatTime(w.end), round(chosen.integrationMin)) });
-    } else {
-      if (chosen.subCount === 0) warnings.push({ code: 'no-time', severity: 'warning', label: 'No time', text: WARNING_TEXT.tooLittle(round(minutesBetween(chosen.start, w.end)), si.name) });
-      if (chosen.cut && chosen.aim) {
-        // A later window that would give more light, taken or not, is named.
-        let better: Attempt | null = null;
-        for (const other of fitting) {
-          if (other.start.getTime() <= w.start.getTime()) continue;
-          const a = attemptIn(other);
-          if (!a.unplannable && a.integrationMin > chosen.integrationMin && (!better || a.integrationMin > better.integrationMin)) better = a;
-        }
-        const later = better ? { opens: formatTime(better.w.start), closes: formatTime(better.w.end), lightMin: round(better.integrationMin) } : undefined;
-        warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), chosen.integrationMin, chosen.aim[0], chosen.aim[1], later) });
+    // The order search reads only times and light; the sentences and the other windows they name are for the page.
+    if (!lean) {
+      if (skipped) {
+        warnings.push({
+          code: 'waits',
+          severity: 'note',
+          label: 'Waits',
+          text: WARNING_TEXT.laterWindow(si.name, formatTime(skipped.w.start), formatTime(skipped.w.end), round(skipped.integrationMin), round(waitMin), formatTime(w.start), formatTime(w.end)),
+        });
+      } else if (waitMin > EDGE_TOLERANCE_MIN) {
+        warnings.push({
+          code: 'waits',
+          severity: 'note',
+          label: 'Waits',
+          text: chosen.peakAt
+            ? chosen.peakHeld
+              ? WARNING_TEXT.planetWaits(si.name, round(waitMin), formatTime(chosen.peakAt))
+              : WARNING_TEXT.planetWaitsClamped(si.name, round(waitMin), formatTime(chosen.peakAt))
+            : chosen.w !== firstTry.w
+              ? WARNING_TEXT.planetWaitsHigher(si.name, round(waitMin), formatTime(w.start))
+              : WARNING_TEXT.waits(si.name, round(waitMin), formatTime(w.start)),
+        });
       }
+      // The slots before took part of this window. That only matters when it leaves too little for the mode.
+      if (chosen.short && delayedMin > EDGE_TOLERANCE_MIN) {
+        warnings.push({
+          code: 'overlap',
+          severity: 'warning',
+          label: 'Overlaps window',
+          text: WARNING_TEXT.overlap(si.name, formatTime(cursor), round(delayedMin), formatTime(w.start), formatTime(w.end)),
+        });
+      }
+      if (source.kind === 'planet') {
+        if (chosen.short) warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.planetCut(formatTime(w.end), round(chosen.integrationMin)) });
+      } else {
+        if (chosen.subCount === 0) warnings.push({ code: 'no-time', severity: 'warning', label: 'No time', text: WARNING_TEXT.tooLittle(round(minutesBetween(chosen.start, w.end)), si.name) });
+        if (chosen.cut && chosen.aim) {
+          // A later window that would give more light, taken or not, is named.
+          let better: Attempt | null = null;
+          for (const other of fitting) {
+            if (other.start.getTime() <= w.start.getTime()) continue;
+            const a = attemptIn(other);
+            if (!a.unplannable && a.integrationMin > chosen.integrationMin && (!better || a.integrationMin > better.integrationMin)) better = a;
+          }
+          const later = better ? { opens: formatTime(better.w.start), closes: formatTime(better.w.end), lightMin: round(better.integrationMin) } : undefined;
+          warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), chosen.integrationMin, chosen.aim[0], chosen.aim[1], later) });
+        }
+      }
+      if (chosen.flipMin > 0) warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(si.name, chosen.flipMin) });
     }
-    if (chosen.flipMin > 0) warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(si.name, chosen.flipMin) });
 
-    const altitudes = end.getTime() > start.getTime() ? slotAltitudes(source, site, start, end, horizon, minAltitude) : null;
+    const runs = end.getTime() > start.getTime();
+    const altitudes = runs && !lean ? slotAltitudes(source, site, start, end, horizon, minAltitude) : null;
     if (altitudes?.start.belowLimit) warnings.push({ code: 'low-start', severity: 'warning', label: 'Low start', text: WARNING_TEXT.lowStart(round(altitudes.start.altitude), altitudes.start.direction, round(altitudes.start.limit)) });
     if (altitudes?.end.belowLimit) warnings.push({ code: 'low-end', severity: 'warning', label: 'Low end', text: WARNING_TEXT.lowEnd(round(altitudes.end.altitude), altitudes.end.direction, round(altitudes.end.limit)) });
-    slots.push({
+    const slot: Slot = {
       id: item.id, name: si.name, trainName: si.trainName, filterName: si.filterName, mode: item.mode, note: item.note,
       start, end, waitMin, changeover: change, subSeconds: chosen.subSeconds, subCount: chosen.subCount, integrationMin: chosen.integrationMin, window: w, altitudes, warnings, label: 'estimate',
-    });
+    };
     // A slot that runs makes the changes in front of it real; one without time makes none.
-    if (end.getTime() > start.getTime()) {
-      if (last) {
-        filterChanges += last.item.filterId !== item.filterId ? 1 : 0;
-        trainChanges += last.item.trainId !== item.trainId ? 1 : 0;
-      }
-      cursor = end;
-      last = si;
-    }
-  }
-
-  const real = slots.filter((s) => s.end.getTime() > s.start.getTime());
-  const totals = {
-    integrationMin: real.reduce((s, x) => s + x.integrationMin, 0),
-    changeoverMin: real.reduce((s, x) => s + x.changeover.minutes, 0),
-    waitMin: real.reduce((s, x) => s + x.waitMin, 0),
-    filterChanges,
-    trainChanges,
-    ends: real.length > 0 ? real[real.length - 1].end : null,
+    if (!runs) return { ...idle(slot, opensAt) };
+    return {
+      slot,
+      opensAt,
+      ran: true,
+      next: { cursor: end, last: si },
+      filterChange: last !== null && last.item.filterId !== item.filterId,
+      trainChange: last !== null && last.item.trainId !== item.trainId,
+      middleAltitude: lean ? altAzOf(source, site, new Date(start.getTime() + (end.getTime() - start.getTime()) / 2)).altitude : null,
+    };
   };
-  return { startsAt, startNote, slots, why: whyThisOrder(opens, formatTime), totals };
+
+  const place = (si: SlotInput, state: ScheduleState, lean = false): Placement => {
+    if (!lean) return placeOnce(si, state, false);
+    let memo = leanMemo.get(si);
+    if (!memo) leanMemo.set(si, (memo = new Map()));
+    const key = `${state.cursor.getTime()}|${state.last ? `${state.last.item.trainId}/${state.last.item.filterId}` : '-'}`;
+    let p = memo.get(key);
+    if (!p) memo.set(key, (p = placeOnce(si, state, true)));
+    return p.ran ? p : { ...p, next: state };
+  };
+
+  return { startsAt, startNote, initial: { cursor: startsAt, last: null }, place, windows: windowsOf };
+}
+
+/** `windowsFor` that remembers each target (by where it is, not by object), for the many plans built for one night, site, horizon and minimum. */
+export function makeWindowLookup(input: Pick<BuildInput, 'site' | 'night' | 'horizon' | 'minAltitude'>): (source: TargetSource) => TimeWindow[] {
+  const found = new Map<string, TimeWindow[]>();
+  return (source) => {
+    const key = source.kind === 'fixed' ? `${source.raHours},${source.decDeg}` : source.body;
+    let w = found.get(key);
+    if (!w) found.set(key, (w = windowsFor(source, input)));
+    return w;
+  };
 }
 
 /** A target's usable windows between the night's start and end (above the horizon and the minimum altitude). */
