@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Phone-fit proof for /planner at 360, 390, 402, 430 (and 768, 1280 for axe): no text clipped by an overflow box or the
+Phone and tablet fit proof for /planner at 360, 390, 402, 430, 768, 820, 900, 1024, 1280: no text clipped by an overflow box or the
 viewport edge, no overflow container that scrolls sideways, axe clean. Measured from bounding boxes of every visible text node.
 
 Run: ~/tools/shots/bin/python scripts/planner-phone-check.py [--url http://127.0.0.1:PORT] [--shots DIR]
@@ -76,16 +76,13 @@ def main():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            for w in (360, 390, 402, 430, 768, 1280):
+            for w in (360, 390, 402, 430, 768, 820, 900, 1024, 1280):
                 page = browser.new_page(viewport={"width": w, "height": 900})
                 page.goto(base + "/planner", wait_until="networkidle")
                 page.wait_for_selector('[data-testid="target-table"], [data-testid="target-cards"]', state="attached")
                 page.wait_for_timeout(500)
                 m = page.evaluate(MEASURE_JS)
-                if w <= 430:
-                    problems = m["clipped"] + m["offscreen"] + m["scrollers"] + ([{"docScroll": m["docScroll"]}] if m["docScroll"] > m["vw"] else [])
-                else:
-                    problems = m["offscreen"] if w == 1280 else []
+                problems = m["clipped"] + m["offscreen"] + m["scrollers"] + ([{"docScroll": m["docScroll"]}] if m["docScroll"] > m["vw"] else [])
                 page.add_script_tag(path=AXE)
                 ax = page.evaluate("async () => (await axe.run()).violations.map(v => v.id + ': ' + v.nodes.length)")
                 ok = not problems and not ax
@@ -93,14 +90,16 @@ def main():
                 print(("PASS " if ok else "FAIL ") + f"{w}px: problems={len(problems)} axe={ax}", flush=True)
                 for x in problems[:12]:
                     print("   ", json.dumps(x))
-                if args.shots and w in (402, 768, 1280):
+                if args.shots and w in (402, 768, 1024, 1280):
                     os.makedirs(args.shots, exist_ok=True)
-                    box = page.locator('[data-testid="target-cards"]' if w < 768 else '[data-testid="target-table"]').first
+                    box = page.locator('[data-testid="target-cards"]' if w < 1024 else '[data-testid="target-table"]').first
                     if w == 402:
                         h = page.evaluate("""() => { const li = [...document.querySelectorAll('[data-testid=target-cards] > li')].slice(0,3);
                           const a = li[0].getBoundingClientRect(), b = li[li.length-1].getBoundingClientRect(); return {y: a.top + scrollY, h: b.bottom - a.top}; }""")
                         page.screenshot(path=f"{args.shots}/cards-402.png", full_page=True,
                                         clip={"x": 0, "y": max(h["y"] - 20, 0), "width": w, "height": h["h"] + 40})
+                    elif w == 768:
+                        box.screenshot(path=f"{args.shots}/cards-{w}.png")
                     else:
                         box.screenshot(path=f"{args.shots}/table-{w}.png")
                 page.close()
