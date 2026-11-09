@@ -14,17 +14,20 @@ import {
   ItineraryError,
   MAX_NOTE_CHARS,
   MAX_SLOTS,
+  CLOCK_RE,
   TREND_TEXT,
   buildItinerary,
   clockOf,
   clockToInstant,
+  lightMinutes,
+  makeWindowLookup,
   moveItem,
   parseItinerary,
   serializeItinerary,
   worstCaseWarningTexts,
 } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan, Slot } from '@/planner/itinerary';
-import { orderCandidates, suggestOrder } from '@/planner/itinerary/suggest';
+import { orderKey, suggestOrder } from '@/planner/itinerary/suggest';
 import { itineraryToCsv, itineraryToJson, makeCsvTime } from '@/planner/export';
 import { newItem, planetIdOf, slotInputFor } from '@/planner/itinerary/resolve';
 import type { PlanEntry } from '@/planner/plan';
@@ -56,10 +59,16 @@ export interface ItineraryReport {
 }
 
 const field = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
-const btn44 = 'min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
-const btn = 'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
+const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
 const MOON_ID = planetIdOf('Moon');
+
+/** "21:30", "9:05" and "2130" as "HH:MM"; null for anything else (a half-typed time is not a time yet). */
+const normalClock = (text: string): string | null => {
+  const m = /^\s*(?:(\d{1,2}):(\d{2})|(\d{2})(\d{2}))\s*$/.exec(text);
+  if (!m) return null;
+  return `${(m[1] ?? m[3]).padStart(2, '0')}:${m[2] ?? m[4]}`;
+};
 
 const nextId = (items: readonly ItineraryItem[]): string => {
   const used = new Set(items.map((i) => i.id));
@@ -116,6 +125,8 @@ function Detail({
 export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, formatTime, timeZone, report }: ItinerarySectionProps) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [startTime, setStartTime] = useState<string | null>(null);
+  // What is being typed in the start box; null: show the saved start time.
+  const [startDraft, setStartDraft] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   // A rejected saved itinerary is an alert; a storage that cannot be read or written is a status (the page already reports blocked storage).
   const [problem, setProblem] = useState<{ text: string; urgent: boolean } | null>(null);
@@ -136,8 +147,8 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     } catch (e) {
       setProblem(
         e instanceof ItineraryError
-          ? { text: `Saved itinerary rejected, ${e.message}. Starting empty; the stored text stays until you change the itinerary.`, urgent: true }
-          : { text: `Saved itinerary could not be read: ${(e as Error).message}`, urgent: false },
+          ? { text: 'Your saved itinerary could not be read, so the page started with an empty one. The saved copy stays in this browser until you change the itinerary.', urgent: true }
+          : { text: 'This browser would not let the page read your saved itinerary, so it started with an empty one.', urgent: false },
       );
     }
     setLoaded(true);
@@ -150,8 +161,8 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     try {
       window.localStorage.setItem(ITINERARY_KEY, serializeItinerary(next, nextStart));
       setProblem(null);
-    } catch (e) {
-      setProblem({ text: `Itinerary not saved, so it is lost on reload: ${(e as Error).message}`, urgent: false });
+    } catch {
+      setProblem({ text: 'This browser would not save the itinerary, so it is lost when you reload the page.', urgent: false });
     }
   };
   useEffect(() => {
@@ -159,16 +170,33 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     focusNext.current = null;
   }, [items]);
 
+  /** "21:30", "2130" or "9:05" become a saved 24 h time; empty goes back to the night start; anything else is left in the box with a message. */
+  const startError = startDraft !== null && startDraft !== '' && !CLOCK_RE.test(normalClock(startDraft) ?? '');
+  const changeStart = (text: string) => {
+    setStartDraft(text);
+    if (text.trim() === '') return commit(items, null, null);
+    const clock = normalClock(text);
+    if (clock && CLOCK_RE.test(clock)) commit(items, null, clock);
+  };
+
   const optical = profile.trains.filter((t) => t.kind === 'optical');
   const inputs = useMemo(() => items.map((i) => slotInputFor(i, profile, starterTargets)), [items, profile]);
   const startAt = useMemo(() => (startTime && night.start ? clockToInstant(startTime, night.start, timeZone) : null), [startTime, night, timeZone]);
+  // Each target's usable windows, found once per site, night, horizon and minimum: the plan, the order search and later changes all share them.
+  const windows = useMemo(() => (night.kind === 'normal' ? makeWindowLookup({ site, night, horizon, minAltitude }) : null), [site, night, horizon, minAltitude]);
   const buildInput = useMemo(
-    () => (night.kind === 'normal' ? { site, night, horizon, minAltitude, bortle, slots: inputs, startAt, formatTime } : null),
-    [site, night, horizon, minAltitude, bortle, inputs, startAt, formatTime],
+    () => (night.kind === 'normal' && windows ? { site, night, horizon, minAltitude, bortle, slots: inputs, startAt, formatTime, windows } : null),
+    [site, night, horizon, minAltitude, bortle, inputs, startAt, formatTime, windows],
   );
   const plan = useMemo(() => (buildInput ? buildItinerary(buildInput) : null), [buildInput]);
-  // Looks at every order of the slots (at most 8): quick, and it runs only when the slots or the start change.
-  const suggestion = useMemo(() => (buildInput && plan && items.length >= 2 ? suggestOrder(orderCandidates(buildInput), plan.startsAt, formatTime) : null), [buildInput, plan, items.length, formatTime]);
+  // The order advice: every order of up to 6 slots is built with buildItinerary's own scheduler. A note does not change the
+  // order, so the search is keyed on the slots without their notes and does not run again when only a note changes.
+  const searchKey = orderKey(items);
+  const suggestion = useMemo(
+    () => (buildInput && plan && items.length >= 2 ? suggestOrder(buildInput, { currentPlan: plan }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchKey stands for the items, minus notes
+    [searchKey, site, night, horizon, minAltitude, bortle, startAt, formatTime, profile, windows],
+  );
   useEffect(() => {
     if (report) report.current = plan ? { plan } : null;
   }, [report, plan]);
@@ -243,7 +271,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
             ))}
           </WrapSelect>
         </div>
-        <button type="button" className={btn} onClick={add} disabled={addDisabledReason !== '' || options.length === 0}>
+        <button type="button" className={btn44} onClick={add} disabled={addDisabledReason !== '' || options.length === 0}>
           Add to itinerary
         </button>
         <div>
@@ -263,19 +291,31 @@ export default function ItinerarySection({ profile, train, entries, site, night,
           <label htmlFor="it-start" className="block text-white/90 font-normal text-sm mb-1">Imaging can start at</label>
           <input
             id="it-start"
-            type="time"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="HH:MM"
+            maxLength={5}
+            aria-describedby="it-start-hint"
+            aria-invalid={startError}
             className={`${field} min-h-11 w-40 text-base`}
-            value={startTime ?? clockOf(night.start as Date, timeZone)}
-            onChange={(e) => commit(items, null, e.target.value === '' ? null : e.target.value)}
+            value={startDraft ?? startTime ?? clockOf(night.start as Date, timeZone)}
+            onChange={(e) => changeStart(e.target.value)}
+            onBlur={() => setStartDraft(null)}
           />
         </div>
-        <button type="button" className={btn44} disabled={startTime === null} onClick={() => commit(items, null, null)}>
+        <button type="button" className={btn44} disabled={startTime === null} onClick={() => { setStartDraft(null); commit(items, null, null); }}>
           Use night start
         </button>
       </div>
-      <p className="mt-1 text-white/70 font-normal text-xs" data-testid="itinerary-start-hint">
-        Setup (30 min) is done before this time. Default: when the astronomical night starts, {formatTime(night.start as Date)}. Times are in the site&apos;s time zone.
+      <p id="it-start-hint" className="mt-1 text-white/70 font-normal text-xs" data-testid="itinerary-start-hint">
+        24-hour time, such as 21:30. Setup (30 min) is done before this time. Default: when the astronomical night starts, {formatTime(night.start as Date)}. Times are in the site&apos;s time zone.
       </p>
+      {startError && (
+        <p role="status" className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm" data-testid="itinerary-start-error">
+          Type the start as 24-hour hours and minutes, such as 21:30. The plan keeps the last time that worked.
+        </p>
+      )}
       {plan.startNote && (
         <p role="status" className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm" data-testid="itinerary-start-note">
           {plan.startNote}
@@ -294,7 +334,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
       <p className="text-white/80 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
         {shown.length === 0
           ? 'No slots yet.'
-          : `Light ${Math.round(totals.integrationMin)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} train ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
+          : `Light ${lightMinutes(plan)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} train ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
       </p>
 
       <div id="it-order-advice" tabIndex={-1} aria-live="polite" className="mt-3 rounded-lg border border-white/15 bg-black/40 p-4 focus:outline-none focus:ring-2 focus:ring-sky-400" data-testid="order-advice">
@@ -302,7 +342,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
         {suggestion === null ? (
           <p className="text-white/90 font-normal text-sm">Add two or more targets to get advice on their order.</p>
         ) : !suggestion.changed ? (
-          <p className="text-white/90 font-normal text-sm">Your order is already the best found: most imaging time, and each target as high as it can be. Nothing to move.</p>
+          <p className="text-white/90 font-normal text-sm">Your order is already the best found: the most light, and the targets as high as they can be. Nothing to move.</p>
         ) : (
           <>
             <ol className="space-y-1 text-white font-normal text-sm">
@@ -312,10 +352,14 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                 </li>
               ))}
             </ol>
-            <p className="mt-2 text-white/80 font-normal text-sm">
-              {suggestion.suggestedLightMin > suggestion.currentLightMin
-                ? `Imaging time: ${Math.round(suggestion.currentLightMin)} min now, ${Math.round(suggestion.suggestedLightMin)} min in this order.`
-                : `Same imaging time (${Math.round(suggestion.currentLightMin)} min), with each target higher.`}
+            <p className="mt-2 text-white/80 font-normal text-sm" data-testid="order-advice-gain">
+              {suggestion.improves === 'light'
+                ? suggestion.suggestedLightMin > suggestion.currentLightMin
+                  ? `Light: ${suggestion.currentLightMin} min now, ${suggestion.suggestedLightMin} min in this order.`
+                  : `Light is about the same (${suggestion.currentLightMin} min), a little more in this order.`
+                : suggestion.improves === 'altitude'
+                  ? `Same light (${suggestion.currentLightMin} min), with the targets higher in the sky.`
+                  : `Same light (${suggestion.currentLightMin} min) and height; this order ends ${suggestion.suggestedEnds ? formatTime(suggestion.suggestedEnds) : 'sooner'} instead of ${suggestion.currentEnds ? formatTime(suggestion.currentEnds) : 'later'}.`}
             </p>
             <button type="button" className={`${btn44} mt-2`} onClick={useOrder}>
               Use this order
@@ -419,7 +463,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                     <button
                       type="button"
                       id={`it-up-${s.id}`}
-                      className={btn}
+                      className={btn44}
                       aria-disabled={k === 0}
                       aria-label={`Move ${s.name} up`}
                       onClick={() => k > 0 && move(s.id, 'up')}
@@ -429,17 +473,17 @@ export default function ItinerarySection({ profile, train, entries, site, night,
                     <button
                       type="button"
                       id={`it-down-${s.id}`}
-                      className={btn}
+                      className={btn44}
                       aria-disabled={k === shown.length - 1}
                       aria-label={`Move ${s.name} down`}
                       onClick={() => k < shown.length - 1 && move(s.id, 'down')}
                     >
                       Down
                     </button>
-                    <button type="button" className={btn} aria-pressed={detailSlot?.id === s.id} aria-label={`Details for ${s.name}`} onClick={() => setDetailId(s.id)}>
+                    <button type="button" className={btn44} aria-pressed={detailSlot?.id === s.id} aria-label={`Details for ${s.name}`} onClick={() => setDetailId(s.id)}>
                       Details
                     </button>
-                    <button type="button" className={btn} aria-label={`Remove ${s.name}`} onClick={() => remove(s.id)}>
+                    <button type="button" className={btn44} aria-label={`Remove ${s.name}`} onClick={() => remove(s.id)}>
                       Remove
                     </button>
                   </div>

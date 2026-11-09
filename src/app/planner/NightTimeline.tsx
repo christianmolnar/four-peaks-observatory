@@ -27,6 +27,22 @@ export interface NightTimelineProps {
 }
 
 const deg = (x: number): string => `${Math.round(x)}°`;
+/** Roughly the width of one character of 12 px text, px (an average, so a line is never wider than its box). */
+const CHAR_PX = 7;
+
+/** Breaks words into lines of at most `maxChars` characters (a longer word has a line to itself). */
+export function wrapWords(text: string, maxChars: number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    if (line !== '' && line.length + 1 + word.length > maxChars) {
+      lines.push(line);
+      line = word;
+    } else line = line === '' ? word : `${line} ${word}`;
+  }
+  if (line !== '') lines.push(line);
+  return lines;
+}
 
 /**
  * The whole night in one picture: altitude against time. Each slot is a thick piece of its target's altitude curve between
@@ -104,9 +120,21 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
           )
           .join(' ');
 
-  const startX = x(plan.startsAt.getTime());
+  const afterNight = plan.startsAt.getTime() >= t1;
+  // The start marker stays inside the plot; when the start is after the night there is nothing to mark, only the words below.
+  const startX = Math.min(x(t1), Math.max(x(t0), x(plan.startsAt.getTime())));
   const startAnchor = startX > width - 80 ? 'end' : startX < MARGIN.left + 40 ? 'start' : 'middle';
   const colour = (i: number) => COLOURS[i % COLOURS.length];
+  // Why the plot is empty, in words inside the graph (no slot is drawn).
+  const emptyWhy =
+    timed.length > 0
+      ? null
+      : plan.slots.length === 0
+        ? 'Add a target to draw it on the night.'
+        : afterNight
+          ? `Your start, ${formatTime(plan.startsAt)}, is after the night ends (${formatTime(night.end as Date)}), so no slot has time.`
+          : 'No slot has time tonight, so nothing is drawn.';
+  const emptyLines = emptyWhy ? wrapWords(emptyWhy, Math.max(12, Math.floor((width - MARGIN.left - MARGIN.right - 16) / CHAR_PX))) : [];
 
   return (
     <div data-testid="night-timeline">
@@ -202,11 +230,24 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
             );
           })}
 
-          {/* When imaging starts. */}
-          <line x1={startX} x2={startX} y1={MARGIN.top - 4} y2={plotBottom} stroke="#fff" strokeWidth="1.5" strokeDasharray="2 3" />
-          <text x={startX} y={FONT + 4} fill="#fff" fontSize={FONT} textAnchor={startAnchor}>
-            {`Start ${formatTime(plan.startsAt)}`}
-          </text>
+          {/* When imaging starts (not drawn when it is after the night: the words below say so). */}
+          {!afterNight && (
+            <>
+              <line x1={startX} x2={startX} y1={MARGIN.top - 4} y2={plotBottom} stroke="#fff" strokeWidth="1.5" strokeDasharray="2 3" />
+              <text x={startX} y={FONT + 4} fill="#fff" fontSize={FONT} textAnchor={startAnchor}>
+                {`Start ${formatTime(plan.startsAt)}`}
+              </text>
+            </>
+          )}
+          {emptyLines.length > 0 && (
+            <text x={(MARGIN.left + width - MARGIN.right) / 2} y={(MARGIN.top + plotBottom) / 2 - ((emptyLines.length - 1) * (FONT + 4)) / 2} fill="#fff" fontSize={FONT} textAnchor="middle" data-testid="timeline-empty">
+              {emptyLines.map((l, k) => (
+                <tspan key={k} x={(MARGIN.left + width - MARGIN.right) / 2} dy={k === 0 ? 0 : FONT + 4}>
+                  {k < emptyLines.length - 1 ? `${l} ` : l}
+                </tspan>
+              ))}
+            </text>
+          )}
         </svg>
       </div>
 

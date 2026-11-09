@@ -1,12 +1,18 @@
 'use client';
 
+import { useLayoutEffect, useRef, useState } from 'react';
 import { compass } from '@/planner/plan';
 import type { PlanEntry, TrackPoint } from '@/planner/plan';
 import type { AstronomicalNight } from '@/planner/astro';
 
-const W = 680;
-const H = 280;
-const M = { left: 40, right: 16, top: 12, bottom: 32 };
+/** Width used until the box is measured (and where nothing can be measured). */
+const DEFAULT_WIDTH = 680;
+const MIN_WIDTH = 260;
+/** px on screen: the drawing is as wide as its box, so this is the size the text is shown at. */
+const FONT = 12;
+const M = { left: 40, right: 16, top: 12, bottom: 34 };
+/** Least room between two hour labels, px. */
+const LABEL_GAP = 44;
 
 /** What the chart reads from a target: the plan list's entries and the planet cards both fit. */
 export type ChartEntry = Pick<PlanEntry, 'name' | 'windows' | 'usableMinutes' | 'peakAltitude' | 'peakAzimuth' | 'peakTime'>;
@@ -23,6 +29,20 @@ export interface AltitudeChartProps {
 }
 
 export default function AltitudeChart({ entry, night, track, horizonSet, minAltitude, formatTime, idPrefix = 'alt' }: AltitudeChartProps) {
+  // Drawn 1:1 with its box (no scaling of the viewBox), so the 12 px text is 12 px on a phone as well.
+  const box = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(DEFAULT_WIDTH);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setW(Math.max(MIN_WIDTH, Math.floor(el.clientWidth) || DEFAULT_WIDTH));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = W < 500 ? 240 : 280;
   const t0 = track[0].time.getTime();
   const t1 = track[track.length - 1].time.getTime();
   const x = (t: number): number => M.left + ((t - t0) / (t1 - t0)) * (W - M.left - M.right);
@@ -43,7 +63,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
   const ticks: number[] = [];
   const hour = 3600000;
   for (let t = Math.ceil(t0 / hour) * hour; t <= t1; t += hour) ticks.push(t);
-  const labelEvery = ticks.length > 8 ? 2 : 1;
+  const labelEvery = Math.max(1, Math.ceil(LABEL_GAP / (((W - M.left - M.right) * hour) / (t1 - t0))));
 
   const summary =
     entry.usableMinutes > 0
@@ -54,14 +74,15 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${idPrefix}-title ${idPrefix}-desc`} className="w-full">
+      <div ref={box} className="w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-labelledby={`${idPrefix}-title ${idPrefix}-desc`} className="block w-full" style={{ height: 'auto', aspectRatio: `${W} / ${H}` }}>
         <title id={`${idPrefix}-title`}>{`Altitude of ${entry.name} through the night`}</title>
         <desc id={`${idPrefix}-desc`}>{summary}</desc>
         <rect x={nightX0} y={M.top} width={Math.max(0, nightX1 - nightX0)} height={H - M.top - M.bottom} fill="#6366f1" fillOpacity="0.22" />
         {[0, 30, 60, 90].map((a) => (
           <g key={a}>
             <line x1={M.left} x2={W - M.right} y1={y(a)} y2={y(a)} stroke="#475569" strokeWidth="0.75" />
-            <text x={M.left - 6} y={y(a)} fill="#cbd5e1" fontSize="11" textAnchor="end" dominantBaseline="middle">
+            <text x={M.left - 6} y={y(a)} fill="#cbd5e1" fontSize={FONT} textAnchor="end" dominantBaseline="middle">
               {a}°
             </text>
           </g>
@@ -70,7 +91,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
           i % labelEvery === 0 ? (
             <g key={t}>
               <line x1={x(t)} x2={x(t)} y1={H - M.bottom} y2={H - M.bottom + 4} stroke="#94a3b8" />
-              <text x={x(t)} y={H - M.bottom + 16} fill="#cbd5e1" fontSize="11" textAnchor="middle">
+              <text x={x(t)} y={H - M.bottom + 4 + FONT + 1} fill="#cbd5e1" fontSize={FONT} textAnchor="middle">
                 {formatTime(new Date(t))}
               </text>
             </g>
@@ -86,6 +107,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
           <circle cx={x(entry.peakTime.getTime())} cy={y(entry.peakAltitude)} r="5" fill="#fff" stroke="#0b1020" strokeWidth="2" />
         )}
       </svg>
+      </div>
       <ul className="flex flex-wrap gap-x-5 gap-y-1 text-white/80 font-normal text-xs mt-1" aria-label="Chart key">
         <li><span aria-hidden="true" className="inline-block w-4 h-0.5 bg-sky-300 align-middle mr-1" />Altitude</li>
         <li><span aria-hidden="true" className="inline-block w-4 h-1 bg-emerald-400 align-middle mr-1" />Usable</li>
@@ -97,7 +119,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
       </ul>
       <p className="text-white/90 font-normal text-sm mt-2">{summary}</p>
       <details className="mt-2">
-        <summary className="cursor-pointer text-white/90 font-normal text-sm">Altitude as a table</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">Altitude as a table</summary>
         <table className="mt-2 text-sm font-normal text-white/90">
           <caption className="sr-only">{`Altitude of ${entry.name} every 30 minutes`}</caption>
           <thead>

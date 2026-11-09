@@ -5,7 +5,15 @@ import { render, screen, cleanup, within, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { sampleProfile } from '@/planner/state';
+import { lightMinutes } from '@/planner/itinerary';
 import PlannerApp from './PlannerApp';
+
+// Counts the order searches, to prove that a note does not start one.
+jest.mock('@/planner/itinerary/suggest', () => {
+  const actual = jest.requireActual('@/planner/itinerary/suggest');
+  return { ...actual, suggestOrder: jest.fn(actual.suggestOrder) };
+});
+import { suggestOrder } from '@/planner/itinerary/suggest';
 
 // Start time, altitude per slot, the night graph and the suggested order, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 
@@ -75,6 +83,54 @@ describe('start time', () => {
     expect(screen.getByTestId('itinerary-start-note').textContent).toMatch(/^Your start time is before the night: imaging begins when the night starts, \d\d:\d\d\.$/);
   });
 
+  it('the start is a 24 h text box with a numeric keyboard; 21:30, 2130 and 9:05 are accepted, half a time and nonsense are not', () => {
+    seed(1, ['m31']);
+    app();
+    const input = startInput();
+    expect(input.type).toBe('text');
+    expect(input.inputMode).toBe('numeric');
+    expect(input.getAttribute('aria-describedby')).toBe('it-start-hint');
+    fireEvent.change(input, { target: { value: '2130' } });
+    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('21:30');
+    expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
+    fireEvent.blur(input);
+    expect(startInput().value).toBe('21:30');
+    fireEvent.change(input, { target: { value: '9:05' } });
+    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('09:05');
+    fireEvent.change(input, { target: { value: '25:00' } });
+    expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour hours and minutes, such as 21:30/);
+    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('09:05'); // the last good time stays
+    fireEvent.change(input, { target: { value: '21' } });
+    expect(screen.getByTestId('itinerary-start-error')).toBeTruthy();
+    fireEvent.change(input, { target: { value: '' } });
+    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBeNull();
+  });
+
+  it('typing the default night start (shown without seconds) gives no warning', () => {
+    seed(1, ['m31']);
+    app();
+    const nightStart = startInput().value;
+    fireEvent.change(startInput(), { target: { value: nightStart } });
+    expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+  });
+
+  it('with the start after the night the graph says why it is empty, inside the graph, and draws no start label', () => {
+    seed(2, ['m31', 'ic405'], '11:00');
+    app();
+    const g = within(section()).getByTestId('night-timeline');
+    const why = within(g).getByTestId('timeline-empty').textContent!;
+    expect(why).toMatch(/Your start, 11:00, is after the night ends \(\d\d:\d\d\), so no slot has time\./);
+    expect(g.querySelector('svg')!.textContent).not.toMatch(/Start 11:00/);
+  });
+
+  it('every button in the itinerary section is a 44 px target by its class', () => {
+    seed(2, ['m31', 'm42', 'planet-jupiter']);
+    app();
+    const buttons = within(section()).getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(10);
+    for (const b of buttons) expect(`${b.textContent}: ${b.className}`).toMatch(/min-h-11/);
+  });
+
   it('the start input is at least 44 px tall by its class and is labelled', () => {
     seed(1, ['m31']);
     app();
@@ -104,6 +160,28 @@ describe('night graph', () => {
 });
 
 describe('suggested order', () => {
+  it('the advice names the same Light as the totals line, now and after Use this order, and a note does not search again', async () => {
+    const user = userEvent.setup();
+    seed(2, ['m31', 'm42', 'planet-jupiter']);
+    app();
+    const totalsLight = () => Number(/^Light (\d+) min/.exec(screen.getByTestId('itinerary-totals').textContent!)![1]);
+    const before = totalsLight();
+    const advice = screen.getByTestId('order-advice');
+    const gain = within(advice).queryByTestId('order-advice-gain');
+    if (gain) {
+      expect(gain.textContent).toContain(`${before} min`);
+      const promised = Number(/(\d+) min in this order/.exec(gain.textContent!)?.[1] ?? before);
+      await user.click(within(advice).getByRole('button', { name: 'Use this order' }));
+      expect(totalsLight()).toBe(promised);
+      expect(totalsLight()).toBeGreaterThanOrEqual(before);
+    }
+    const calls = (suggestOrder as jest.Mock).mock.calls.length;
+    const note = within(slots()[0]).getByLabelText(/^Note for /);
+    await user.type(note, 'guide star');
+    expect((suggestOrder as jest.Mock).mock.calls.length).toBe(calls);
+    expect(lightMinutes).toBeDefined();
+  });
+
   it('needs two slots', () => {
     seed(2, ['m31']);
     app();

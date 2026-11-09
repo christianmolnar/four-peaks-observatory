@@ -171,13 +171,14 @@ describe('Night itinerary', () => {
     expect((within(slots()[0]).getByLabelText('Filter for Andromeda Galaxy') as HTMLSelectElement).value).toBe('zwo-duo-band');
   });
 
-  it('a corrupt saved itinerary is reported with its field path, the page still works, and the stored text stays until a change', async () => {
+  it('a corrupt saved itinerary is reported in plain words (no parser text), the page still works, and the stored text stays until a change', async () => {
     const user = userEvent.setup();
     const bad = JSON.stringify({ version: 1, items: [{ id: 'a', targetId: 'm31', trainId: 'x', filterId: null, mode: 'fast', note: '' }] });
     window.localStorage.setItem(ITINERARY_KEY, bad);
     app();
     const alert = within(section()).getByRole('alert');
-    expect(alert.textContent).toMatch(/Saved itinerary rejected, \$\.items\[0\]\.mode: must be one of quick, balanced, deep/);
+    expect(alert.textContent).toBe('Your saved itinerary could not be read, so the page started with an empty one. The saved copy stays in this browser until you change the itinerary.');
+    expect(alert.textContent).not.toMatch(/\$|items\[|must be|JSON/);
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBe(bad);
     expect(names()).toEqual([]);
     await add(user, 'm31');
