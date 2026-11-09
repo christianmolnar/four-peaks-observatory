@@ -93,7 +93,7 @@ export default function Navigation() {
 
         {/* Desktop Navigation Links */}
         <div className="hidden md:block pb-2">
-          <ul className="flex items-center justify-center space-x-8">
+          <ul className="flex items-center justify-center space-x-4 lg:space-x-8">
             {navigation.items.map((item) => (
               <li key={item.href}>
                 <Link
