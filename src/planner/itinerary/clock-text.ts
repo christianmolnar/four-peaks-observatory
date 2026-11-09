@@ -19,3 +19,8 @@ export function clockFromText(text: string): string | null {
 export function couldBecomeClock(text: string): boolean {
   return /^(?:\d{0,4}|\d{1,2}:\d{0,2})$/.test(plain(text));
 }
+
+/** True for exactly three digits, plain or full-width: the value on the way to a four-digit time. */
+export function isThreeDigits(text: string): boolean {
+  return /^\d{3}$/.test(plain(text));
+}

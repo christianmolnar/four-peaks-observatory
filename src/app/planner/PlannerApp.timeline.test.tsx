@@ -204,6 +204,69 @@ describe('start time', () => {
     }
   });
 
+  it('Helsinki, full-width ０１３０ key by key: nothing is saved, searched or noted on ０, ０１, ０１３; it is saved on the fourth digit', async () => {
+    const user = userEvent.setup();
+    seed(1, ['m31', 'ic405']);
+    helApp();
+    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
+    const input = startInput();
+    await user.clear(input);
+    await user.click(input);
+    const before = searches();
+    const writes = jest.spyOn(Storage.prototype, 'setItem');
+    try {
+      for (const ch of '０１３') {
+        await user.keyboard(ch);
+        expect(writes).not.toHaveBeenCalled();
+        expect(stored()).toBeNull();
+        expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+      }
+      expect(searches()).toBe(before);
+    } finally {
+      writes.mockRestore();
+    }
+    await user.keyboard('０');
+    expect(stored()).toBe('01:30');
+  });
+
+  it('Helsinki, full-width ０１３０ then Backspace: the 3 digits left are held, nothing is saved, no start note; Enter settles it', async () => {
+    const user = userEvent.setup();
+    seed(1, ['m31', 'ic405']);
+    helApp();
+    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const input = startInput();
+    await user.clear(input);
+    await user.click(input);
+    await user.keyboard('０１３０');
+    expect(stored()).toBe('01:30');
+    const writes = jest.spyOn(Storage.prototype, 'setItem');
+    try {
+      await user.keyboard('{Backspace}');
+      expect(input.value).toBe('０１３');
+      expect(writes).not.toHaveBeenCalled();
+      expect(stored()).toBe('01:30');
+      expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+    } finally {
+      writes.mockRestore();
+    }
+    await user.keyboard('{Enter}');
+    expect(stored()).toBe('00:13');
+  });
+
+  it('after "Use night start" the box text is selected, so the next digit replaces it', async () => {
+    const user = userEvent.setup();
+    seed(2, ['m31'], '21:30');
+    app();
+    const input = startInput();
+    await user.click(input);
+    await user.click(within(section()).getByRole('button', { name: 'Use night start' }));
+    await user.keyboard('1');
+    expect(input.value).toBe('1');
+  });
+
   it('Helsinki, 01:30 saved, select all, 0130, Backspace, Backspace, 4: the box shows 014 and the saved start stays 01:30, no note', async () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'ic405'], '01:30');

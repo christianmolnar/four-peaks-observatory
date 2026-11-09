@@ -26,7 +26,7 @@ import {
   worstCaseWarningTexts,
 } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan, Slot } from '@/planner/itinerary';
-import { clockFromText, couldBecomeClock } from '@/planner/itinerary/clock-text';
+import { clockFromText, couldBecomeClock, isThreeDigits } from '@/planner/itinerary/clock-text';
 import { EXACT_MAX_SLOTS, orderKey, suggestOrderSteps } from '@/planner/itinerary/suggest';
 import type { OrderSuggestion } from '@/planner/itinerary/suggest';
 import { itineraryToCsv, itineraryToJson, makeCsvTime } from '@/planner/export';
@@ -140,6 +140,8 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   const [addId, setAddId] = useState<string>('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const focusNext = useRef<string | null>(null);
+  const startBox = useRef<HTMLInputElement>(null);
+  const selectStart = useRef(false);
 
   // Browser-only: the saved itinerary. Stored text that fails the check is reported with its field path and left in storage.
   useEffect(() => {
@@ -171,6 +173,11 @@ export default function ItinerarySection({ profile, train, entries, site, night,
       setProblem({ text: 'This browser would not save the itinerary, so it is lost when you reload the page.', urgent: false });
     }
   };
+  // After "Use night start" the box text is selected, so the next digit replaces it instead of adding to it.
+  useEffect(() => {
+    if (selectStart.current) startBox.current?.select();
+    selectStart.current = false;
+  }, [startTime, startDraft]);
   useEffect(() => {
     if (focusNext.current) document.getElementById(focusNext.current)?.focus();
     focusNext.current = null;
@@ -181,7 +188,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   const changeStart = (text: string, typed: boolean) => {
     // Any three-digit value typed or deleted while the box has focus ("213" on the way to 2130, or left by a Backspace from 2130) is
     // held: it is saved when the box is left or Enter is pressed. A pasted three-digit value is saved at once, as are four digits and colon forms.
-    const holdThirdDigit = typed && /^\d{3}$/.test(text);
+    const holdThirdDigit = typed && isThreeDigits(text);
     setStartDraft(text);
     setStartChecked(false);
     if (text.trim() === '') return commit(items, null, null);
@@ -331,6 +338,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
           <label htmlFor="it-start" className="block text-white/90 font-normal text-sm mb-1">Imaging can start at</label>
           <input
             id="it-start"
+            ref={startBox}
             type="text"
             inputMode="numeric"
             autoComplete="off"
@@ -350,7 +358,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
             }}
           />
         </div>
-        <button type="button" className={btn44} disabled={startTime === null} onMouseDown={(e) => e.preventDefault() /* keep focus in the start box, so a held value is not saved on the way */} onClick={() => { setStartDraft(null); commit(items, null, null); }}>
+        <button type="button" className={btn44} disabled={startTime === null} onMouseDown={(e) => e.preventDefault() /* keep focus in the start box, so a held value is not saved on the way */} onClick={() => { selectStart.current = document.activeElement === startBox.current; setStartDraft(null); commit(items, null, null); }}>
           Use night start
         </button>
       </div>
