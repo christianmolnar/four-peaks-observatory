@@ -20,9 +20,16 @@ export const CSV_HEADER = [
   'Why recommended',
 ] as const;
 
-/** RFC 4180 field: quoted when it holds a comma, quote or line break; quotes doubled. */
+/** A plain number such as "-3.5": safe even with a leading minus. */
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+/**
+ * RFC 4180 field: quoted when it holds a comma, quote or line break; quotes doubled. Text that a spreadsheet would read as
+ * a formula (it starts with = + - @, a tab or a carriage return) gets a leading apostrophe, so it opens as text.
+ */
 export function csvField(value: string | number): string {
-  const s = String(value);
+  let s = String(value);
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

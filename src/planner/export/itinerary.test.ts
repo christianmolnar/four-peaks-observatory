@@ -24,6 +24,14 @@ describe('itinerary export', () => {
     expect(lines[1]).toContain(`${a.start.altitude.toFixed(1)},${a.start.direction},${a.middle.altitude.toFixed(1)},${a.middle.direction},${a.end.altitude.toFixed(1)},${a.end.direction}`);
     expect(lines[2]).toContain('"say, ""hi"""');
   });
+  it('CSV: a note that starts like a formula is exported as text; JSON keeps it as typed', () => {
+    const hostile = items.map((i, k) => ({ ...i, note: k ? '+1+2' : '=HYPERLINK("http://x","click")' }));
+    const p = buildItinerary({ site: SITE, night: NIGHT, horizon: null, minAltitude: 20, bortle: 6, slots: hostile.map((i) => slotInputFor(i, profile, starterTargets)), formatTime: fmt });
+    const lines = itineraryToCsv(p, fmt).trimEnd().split('\r\n');
+    expect(lines[1].endsWith(',"\'=HYPERLINK(""http://x"",""click"")"')).toBe(true);
+    expect(lines[2].endsWith(",'+1+2")).toBe(true);
+    expect(JSON.parse(itineraryToJson(p)).slots.map((s: { note: string }) => s.note)).toEqual(['=HYPERLINK("http://x","click")', '+1+2']);
+  });
   it('JSON: start time, instants and altitudes per slot', () => {
     const j = JSON.parse(itineraryToJson(plan));
     expect(j.startsAt).toBe(plan.startsAt.toISOString());

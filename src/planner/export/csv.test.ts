@@ -48,6 +48,20 @@ describe('csvField', () => {
     expect(csvField('a\nb')).toBe('"a\nb"');
     expect(csvField(3.5)).toBe('3.5');
   });
+  it('a text cell that a sheet would read as a formula gets a leading apostrophe', () => {
+    expect(csvField('=HYPERLINK("http://x","click")')).toBe('"\'=HYPERLINK(""http://x"",""click"")"');
+    expect(csvField('+1+2')).toBe("'+1+2");
+    expect(csvField('-1+2')).toBe("'-1+2");
+    expect(csvField('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvField('\tx')).toBe("'\tx");
+    expect(csvField('\rx')).toBe('"\'\rx"');
+  });
+  it('plain numbers, negative ones included, are left alone', () => {
+    expect(csvField(-3.5)).toBe('-3.5');
+    expect(csvField('-3.5')).toBe('-3.5');
+    expect(csvField('12')).toBe('12');
+    expect(csvField('a=b')).toBe('a=b');
+  });
 });
 
 describe('planToCsv', () => {
