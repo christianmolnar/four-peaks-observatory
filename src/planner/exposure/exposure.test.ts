@@ -7,7 +7,9 @@ import {
   MODE_ORDER,
   NO_STOP_TIME_NOTE,
   SNR_ASSUMPTION,
+  CORE_FRAME_COUNT,
   bandwidthOf,
+  coreAdvice,
   beamHalfAngleDeg,
   edgeShiftNm,
   filterWarnings,
@@ -603,5 +605,23 @@ describe('gain between marginal rows has its own range', () => {
       expect(r.gainPercentRange![1]).toBeCloseTo(r.gainPercent!, 9);
       expect(r.gainPercentRange![0]).toBeLessThan(r.gainPercentRange![1]);
     }
+  });
+});
+
+describe('coreAdvice', () => {
+  it('gives a short sub (long / 8, snapped), the named frame count and the estimate label for a flagged target', () => {
+    expect(coreAdvice({ brightCore: true }, 120)).toEqual({ label: ESTIMATE, subSeconds: 15, frames: CORE_FRAME_COUNT });
+    expect(coreAdvice({ brightCore: true }, 300)?.subSeconds).toBe(45);
+    expect(CORE_FRAME_COUNT).toBe(20);
+  });
+  it('gives nothing for an unflagged target', () => {
+    expect(coreAdvice({}, 120)).toBeNull();
+    expect(coreAdvice({ brightCore: false }, 120)).toBeNull();
+  });
+  it('gives nothing when the short sub would not be shorter than the long one', () => {
+    expect(coreAdvice({ brightCore: true }, 10)).toBeNull();
+  });
+  it('rejects a long sub that is not above zero', () => {
+    expect(() => coreAdvice({ brightCore: true }, 0)).toThrow(RangeError);
   });
 });

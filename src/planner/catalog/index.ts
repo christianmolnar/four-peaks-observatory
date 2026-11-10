@@ -28,6 +28,8 @@ export interface CatalogTarget {
   sizeArcmin?: { major: number; minor: number };
   /** Months (1 to 12) in which the target is well placed for evening and night imaging. */
   seasonMonths: number[];
+  /** Curated: the bright core would clip in long subs, so a short second set is worth shooting. Absent means no. */
+  brightCore?: boolean;
 }
 
 /**
@@ -77,6 +79,9 @@ function checkTarget(t: unknown, i: number): CatalogTarget {
       fail(`${at}.sizeArcmin`, 'expected { major, minor } as positive numbers');
     }
   }
+  if (o.brightCore !== undefined && typeof o.brightCore !== 'boolean') {
+    fail(`${at}.brightCore`, 'expected true or false');
+  }
   return {
     id: o.id,
     name: o.name,
@@ -86,6 +91,7 @@ function checkTarget(t: unknown, i: number): CatalogTarget {
     type: o.type as TargetType,
     sizeArcmin: o.sizeArcmin as CatalogTarget['sizeArcmin'],
     seasonMonths: o.seasonMonths as number[],
+    ...(o.brightCore === undefined ? {} : { brightCore: o.brightCore }),
   };
 }
 

@@ -5,6 +5,8 @@ import {
   AUTOFOCUS_EVERY_MIN,
   AUTOFOCUS_MIN,
   BORTLE_SQM,
+  CORE_FRAME_COUNT,
+  CORE_SUB_DIVISOR,
   DEFAULT_READ_NOISE_CLASS,
   DITHER_EVERY_FRAMES,
   DITHER_MIN_INTERVAL_S,
@@ -190,6 +192,8 @@ export interface ExposureTarget {
   type?: string;
   /** Catalog data. The starter catalog has none, so it is usually unknown. */
   surfaceBrightness?: SurfaceBrightness;
+  /** Curated catalog flag: the core would clip in long subs. */
+  brightCore?: boolean;
 }
 
 /** ASSUMPTION: types whose surface brightness is high without a catalog value (compact, bright objects). */
@@ -214,7 +218,31 @@ export function isOu4(t: Pick<ExposureTarget, 'id' | 'name' | 'aliases'>): boole
 }
 
 export function exposureTargetFrom(t: CatalogTarget): ExposureTarget {
-  return { id: t.id, name: t.name, aliases: t.aliases, type: t.type };
+  return { id: t.id, name: t.name, aliases: t.aliases, type: t.type, brightCore: t.brightCore };
+}
+
+// ------------------------------------------------------------ core exposure
+
+export interface CoreAdvice {
+  label: typeof ESTIMATE;
+  /** Short sub length for the core, seconds. */
+  subSeconds: number;
+  /** Fixed default (CORE_FRAME_COUNT), not tuned per night. */
+  frames: number;
+}
+
+/**
+ * A second, short set for a flagged bright core: the long sub divided by CORE_SUB_DIVISOR, snapped to the
+ * allowed sub lengths. Nothing for an unflagged target, or when the snapped short sub is not shorter than the
+ * long one (the long subs are already as short as the module goes). The train sets the long sub, so it is
+ * already inside `longSubSeconds`.
+ */
+export function coreAdvice(target: Pick<ExposureTarget, 'brightCore'>, longSubSeconds: number): CoreAdvice | null {
+  if (target.brightCore !== true) return null;
+  if (!(longSubSeconds > 0)) throw new RangeError(`longSubSeconds must be above zero: ${longSubSeconds}`);
+  const subSeconds = snapSub(longSubSeconds / CORE_SUB_DIVISOR);
+  if (subSeconds >= longSubSeconds) return null;
+  return { label: ESTIMATE, subSeconds, frames: CORE_FRAME_COUNT };
 }
 
 // ------------------------------------------------------------------ sub length

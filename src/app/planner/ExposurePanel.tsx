@@ -8,6 +8,7 @@ import {
   MODE_ORDER,
   NO_STOP_TIME_NOTE,
   SNR_ASSUMPTION,
+  coreAdvice,
   planExposure,
 } from '@/planner/exposure';
 import type { ExposureMode, ExposureTarget, ExposureWarning, ModeEstimate } from '@/planner/exposure';
@@ -101,6 +102,25 @@ function WarningsBox({ warnings }: { warnings: ExposureWarning[] }) {
         {below > 0 ? `${below} more below, scroll` : ''}
       </p>
     </>
+  );
+}
+
+/** One line for a flagged bright core, and a fold with the three steps to blend the two sets. */
+function CoreAdvice({ name, advice }: { name: string; advice: NonNullable<ReturnType<typeof coreAdvice>> }) {
+  return (
+    <div className="mt-4" data-testid="core-advice">
+      <p className="text-white font-normal text-sm">
+        {name}: add {advice.frames} x {advice.subSeconds} s for the core <span className="text-white/70 text-xs">({advice.label})</span>
+      </p>
+      <details className="mt-1">
+        <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">How to blend</summary>
+        <ul className="list-disc space-y-1 pl-5 text-white/80 font-normal text-sm">
+          <li>Stack the long and the short subs as two separate stacks.</li>
+          <li>Blend with a mask that takes the short stack where the long one nears clipping.</li>
+          <li>Tools: PixInsight HDRComposition, Siril, or a Photoshop layer mask.</li>
+        </ul>
+      </details>
+    </div>
   );
 }
 
@@ -213,6 +233,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
 
   const selected = report.modes[mode];
   const warnings = [...report.warnings, ...selected.warnings];
+  const core = coreAdvice(target, selected.subSeconds);
 
   return (
     <section aria-labelledby="exposure-heading" className={frame}>
@@ -245,6 +266,8 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
           ))}
         </div>
       </fieldset>
+
+      {core && <CoreAdvice name={entry.name} advice={core} />}
 
       {/* Fixed text: a heading that named the mode would wrap to two lines for the longer names and push everything below it. */}
       <h3 id="exposure-warnings-heading" className="text-white font-normal text-base mt-6 mb-2">Warnings and notes for the chosen mode</h3>

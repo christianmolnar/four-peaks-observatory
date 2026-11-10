@@ -121,7 +121,8 @@
     11,
     12
    ],
-   "openngc": "NGC1976"
+   "openngc": "NGC1976",
+   "brightCore": true
   },
   {
    "id": "m43",
@@ -436,7 +437,8 @@
     11,
     12
    ],
-   "openngc": "NGC0224"
+   "openngc": "NGC0224",
+   "brightCore": true
   },
   {
    "id": "m33",
@@ -510,7 +512,8 @@
     8,
     9
    ],
-   "openngc": "NGC6523"
+   "openngc": "NGC6523",
+   "brightCore": true
   },
   {
    "id": "m20",
@@ -535,7 +538,8 @@
     8,
     9
    ],
-   "openngc": "NGC6514"
+   "openngc": "NGC6514",
+   "brightCore": true
   },
   {
    "id": "m16",
@@ -585,7 +589,8 @@
     9,
     10
    ],
-   "openngc": "NGC6853"
+   "openngc": "NGC6853",
+   "brightCore": true
   },
   {
    "id": "m13",
@@ -611,7 +616,8 @@
     7,
     8
    ],
-   "openngc": "NGC6205"
+   "openngc": "NGC6205",
+   "brightCore": true
   }
  ]
 }

@@ -282,4 +282,36 @@ describe('Gain column and the overflow cue', () => {
     expect(countHiddenBelow(100, [])).toBe(0);
     expect(countHiddenBelow(100, [101])).toBe(0); // within 1 px: not hidden
   });
+  describe('core advice', () => {
+    const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) =>
+      user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
+
+    it('a flagged target shows one line with the estimate label and a three-bullet blend fold', async () => {
+      const user = userEvent.setup();
+      app(withTrain('deep-c11-reducer-2600'));
+      await pick(user, /Hercules Globular Cluster/);
+      const line = within(panel()).getByTestId('core-advice');
+      expect(line.querySelector('p')!.textContent).toMatch(/^Hercules Globular Cluster: add 20 x \d+ s for the core \(estimate\)$/);
+      const fold = line.querySelector('details') as HTMLDetailsElement;
+      expect(fold.open).toBe(false);
+      expect(within(fold).getByText('How to blend')).toBeTruthy();
+      expect(fold.querySelectorAll('li')).toHaveLength(3);
+      expect(fold.textContent).toMatch(/PixInsight HDRComposition, Siril, or a Photoshop layer mask/);
+    });
+
+    it('a flagged target shows nothing when the long subs are already the shortest allowed (HyperStar)', async () => {
+      const user = userEvent.setup();
+      app();
+      await pick(user, /Hercules Globular Cluster/);
+      expect(within(panel()).queryByTestId('core-advice')).toBeNull();
+    });
+
+    it('an unflagged target shows nothing', async () => {
+      const user = userEvent.setup();
+      app(withTrain('deep-c11-reducer-2600'));
+      await pick(user, /Bode's Galaxy/);
+      expect(within(panel()).queryByTestId('core-advice')).toBeNull();
+      expect(panel().textContent).not.toMatch(/for the core/);
+    });
+  });
 });

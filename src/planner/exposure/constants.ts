@@ -161,3 +161,10 @@ export const MOON_NOTE_SEPARATION_DEG = 60;
 
 /** ASSUMPTION: Bortle class used until the user sets one; the planner does not know the owner's sky. */
 export const DEFAULT_BORTLE = 6;
+
+// ---- Bright-core second set -------------------------------------------------
+
+/** ASSUMPTION: the core set uses subs this many times shorter than the recommended long sub (about 3 stops). */
+export const CORE_SUB_DIVISOR = 8;
+/** ASSUMPTION: a fixed, stated frame count for the core set; not tuned per night. */
+export const CORE_FRAME_COUNT = 20;

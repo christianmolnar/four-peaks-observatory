@@ -107,6 +107,16 @@ describe('loadTargets', () => {
     expect(() => loadTargets(bad)).toThrow('targets[0].raHours');
   });
 
+  it('accepts brightCore true or false and rejects anything else', () => {
+    expect(loadTargets({ targets: [{ ...starterTargets[0], brightCore: true }] })[0].brightCore).toBe(true);
+    expect(loadTargets({ targets: [starterTargets[0]] })[0].brightCore).toBeUndefined();
+    expect(() => loadTargets({ targets: [{ ...starterTargets[0], brightCore: 'yes' }] })).toThrow('targets[0].brightCore');
+  });
+
+  it('flags only these starter targets as bright core', () => {
+    expect(starterTargets.filter((t) => t.brightCore).map((t) => t.id).sort()).toEqual(['m13', 'm20', 'm27', 'm31', 'm42', 'm8']);
+  });
+
   it('rejects duplicate ids', () => {
     expect(() => loadTargets({ targets: [starterTargets[0], starterTargets[0]] })).toThrow(/duplicate id/);
   });
