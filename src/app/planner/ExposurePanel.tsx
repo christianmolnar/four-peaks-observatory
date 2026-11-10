@@ -105,21 +105,35 @@ function WarningsBox({ warnings }: { warnings: ExposureWarning[] }) {
   );
 }
 
-/** One line for a flagged bright core, and a fold with the three steps to blend the two sets. */
-function CoreAdvice({ name, advice }: { name: string; advice: NonNullable<ReturnType<typeof coreAdvice>> }) {
+/**
+ * One line for a flagged bright core, and a fold with the three steps to blend the two sets. The line's height
+ * is reserved (three lines on a phone, one from md up) and a flagged target without a core set keeps the same
+ * height, so the card never moves with the mode or the sky.
+ */
+function CoreAdvice({ name, advice }: { name: string; advice: ReturnType<typeof coreAdvice> }) {
   return (
     <div className="mt-4" data-testid="core-advice">
-      <p className="text-white font-normal text-sm">
-        {name}: add {advice.frames} x {advice.subSeconds} s for the core <span className="text-white/70 text-xs">({advice.label})</span>
+      <p className="h-[3.75rem] md:h-5 overflow-hidden text-white font-normal text-sm" data-testid="core-advice-line">
+        {advice ? (
+          <>
+            {name}: add {advice.frames} x {advice.subSeconds} s for the core <span className="text-white/70 text-xs">({advice.label})</span>
+          </>
+        ) : (
+          'No short set needed here.'
+        )}
       </p>
-      <details className="mt-1">
-        <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">How to blend</summary>
-        <ul className="list-disc space-y-1 pl-5 text-white/80 font-normal text-sm">
-          <li>Stack the long and the short subs as two separate stacks.</li>
-          <li>Blend with a mask that takes the short stack where the long one nears clipping.</li>
-          <li>Tools: PixInsight HDRComposition, Siril, or a Photoshop layer mask.</li>
-        </ul>
-      </details>
+      {advice ? (
+        <details className="mt-1">
+          <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">How to blend</summary>
+          <ul className="list-disc space-y-1 pl-5 text-white/80 font-normal text-sm">
+            <li>Stack the long and the short subs as two separate stacks.</li>
+            <li>Blend with a mask that takes the short stack where the long one nears clipping.</li>
+            <li>Tools: PixInsight HDRComposition, Siril, or a Photoshop layer mask.</li>
+          </ul>
+        </details>
+      ) : (
+        <div className="mt-1 min-h-11" aria-hidden="true" />
+      )}
     </div>
   );
 }
@@ -267,7 +281,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
         </div>
       </fieldset>
 
-      {core && <CoreAdvice name={entry.name} advice={core} />}
+      {target.brightCore === true && <CoreAdvice name={entry.name} advice={core} />}
 
       {/* Fixed text: a heading that named the mode would wrap to two lines for the longer names and push everything below it. */}
       <h3 id="exposure-warnings-heading" className="text-white font-normal text-base mt-6 mb-2">Warnings and notes for the chosen mode</h3>

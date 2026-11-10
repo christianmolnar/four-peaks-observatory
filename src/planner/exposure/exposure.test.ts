@@ -8,6 +8,8 @@ import {
   NO_STOP_TIME_NOTE,
   SNR_ASSUMPTION,
   CORE_FRAME_COUNT,
+  CORE_MIN_RATIO,
+  CORE_SUB_DIVISOR,
   bandwidthOf,
   coreAdvice,
   beamHalfAngleDeg,
@@ -609,17 +611,27 @@ describe('gain between marginal rows has its own range', () => {
 });
 
 describe('coreAdvice', () => {
-  it('gives a short sub (long / 8, snapped), the named frame count and the estimate label for a flagged target', () => {
-    expect(coreAdvice({ brightCore: true }, 120)).toEqual({ label: ESTIMATE, subSeconds: 15, frames: CORE_FRAME_COUNT });
-    expect(coreAdvice({ brightCore: true }, 300)?.subSeconds).toBe(45);
-    expect(CORE_FRAME_COUNT).toBe(20);
+  it('gives a short sub (long / CORE_SUB_DIVISOR, snapped), the named frame count and the estimate label for a flagged target', () => {
+    for (const long of [120, 300]) {
+      expect(coreAdvice({ brightCore: true }, long)).toEqual({
+        label: ESTIMATE,
+        subSeconds: snapSub(long / CORE_SUB_DIVISOR),
+        frames: CORE_FRAME_COUNT,
+      });
+    }
   });
   it('gives nothing for an unflagged target', () => {
     expect(coreAdvice({}, 120)).toBeNull();
     expect(coreAdvice({ brightCore: false }, 120)).toBeNull();
   });
-  it('gives nothing when the short sub would not be shorter than the long one', () => {
+  it('gives nothing when the long sub is under CORE_MIN_RATIO times the short one, and never a smaller ratio', () => {
     expect(coreAdvice({ brightCore: true }, 10)).toBeNull();
+    for (let long = 10; long <= 600; long += 5) {
+      const c = coreAdvice({ brightCore: true }, long);
+      if (c) expect(long / c.subSeconds).toBeGreaterThanOrEqual(CORE_MIN_RATIO);
+    }
+    // 15 s long: the 10 s floor is only 1.5x shorter
+    expect(coreAdvice({ brightCore: true }, 15)).toBeNull();
   });
   it('rejects a long sub that is not above zero', () => {
     expect(() => coreAdvice({ brightCore: true }, 0)).toThrow(RangeError);

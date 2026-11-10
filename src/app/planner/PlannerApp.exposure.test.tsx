@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { countHiddenBelow } from './ExposurePanel';
+import { CORE_FRAME_COUNT } from '@/planner/exposure';
 
 // The Exposure panel and the filter selector, driven with real events on the whole page.
 
@@ -291,7 +292,9 @@ describe('Gain column and the overflow cue', () => {
       app(withTrain('deep-c11-reducer-2600'));
       await pick(user, /Hercules Globular Cluster/);
       const line = within(panel()).getByTestId('core-advice');
-      expect(line.querySelector('p')!.textContent).toMatch(/^Hercules Globular Cluster: add 20 x \d+ s for the core \(estimate\)$/);
+      expect(line.querySelector('p')!.textContent).toMatch(
+        new RegExp(`^Hercules Globular Cluster: add ${CORE_FRAME_COUNT} x \\d+ s for the core \\(estimate\\)$`),
+      );
       const fold = line.querySelector('details') as HTMLDetailsElement;
       expect(fold.open).toBe(false);
       expect(within(fold).getByText('How to blend')).toBeTruthy();
@@ -299,11 +302,37 @@ describe('Gain column and the overflow cue', () => {
       expect(fold.textContent).toMatch(/PixInsight HDRComposition, Siril, or a Photoshop layer mask/);
     });
 
-    it('a flagged target shows nothing when the long subs are already the shortest allowed (HyperStar)', async () => {
+    it('a flagged target with no core set shows one fixed line instead (HyperStar subs are already the shortest)', async () => {
       const user = userEvent.setup();
       app();
       await pick(user, /Hercules Globular Cluster/);
-      expect(within(panel()).queryByTestId('core-advice')).toBeNull();
+      const line = within(panel()).getByTestId('core-advice');
+      expect(line.querySelector('p')!.textContent).toBe('No short set needed here.');
+      expect(line.querySelector('details')).toBeNull();
+    });
+
+    // jsdom has no layout, so this checks the markup that fixes the height: same line classes, and a fold or a
+    // placeholder of the same minimum height. The browser measurement is in the report.
+    it.each([HYPERSTAR, 'deep-c11-reducer-2600'])('the core block has the same reserved height in every mode and sky (%s)', async (train) => {
+      const user = userEvent.setup();
+      app(withTrain(train));
+      await pick(user, /Hercules Globular Cluster/);
+      const shape = () => {
+        const block = within(panel()).getByTestId('core-advice');
+        const line = block.querySelector('[data-testid="core-advice-line"]')!;
+        const second = block.children[1] as HTMLElement;
+        const tail = second.tagName === 'DETAILS' ? second.querySelector('summary')!.className : second.className;
+        return [block.className, line.className, block.children.length, tail.match(/min-h-11/) ? 'min-h-11' : tail].join('|');
+      };
+      const seen = new Set<string>();
+      for (const bortle of ['2', '9']) {
+        await user.selectOptions(within(panel()).getByLabelText(/Sky darkness/), bortle);
+        for (const mode of [/quick/i, /balanced/i, /deep/i]) {
+          await user.click(radio(mode));
+          seen.add(shape());
+        }
+      }
+      expect(seen.size).toBe(1);
     });
 
     it('an unflagged target shows nothing', async () => {

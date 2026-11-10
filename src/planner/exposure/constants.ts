@@ -168,3 +168,5 @@ export const DEFAULT_BORTLE = 6;
 export const CORE_SUB_DIVISOR = 8;
 /** ASSUMPTION: a fixed, stated frame count for the core set; not tuned per night. */
 export const CORE_FRAME_COUNT = 20;
+/** ASSUMPTION: a core set is only worth a second stack when the long sub is at least this many times longer than the short one (about 2 stops). */
+export const CORE_MIN_RATIO = 4;

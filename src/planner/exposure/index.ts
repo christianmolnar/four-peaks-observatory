@@ -6,6 +6,7 @@ import {
   AUTOFOCUS_MIN,
   BORTLE_SQM,
   CORE_FRAME_COUNT,
+  CORE_MIN_RATIO,
   CORE_SUB_DIVISOR,
   DEFAULT_READ_NOISE_CLASS,
   DITHER_EVERY_FRAMES,
@@ -233,15 +234,15 @@ export interface CoreAdvice {
 
 /**
  * A second, short set for a flagged bright core: the long sub divided by CORE_SUB_DIVISOR, snapped to the
- * allowed sub lengths. Nothing for an unflagged target, or when the snapped short sub is not shorter than the
- * long one (the long subs are already as short as the module goes). The train sets the long sub, so it is
+ * allowed sub lengths. Nothing for an unflagged target, or when the snapped short sub would be less than
+ * CORE_MIN_RATIO times shorter than the long one (the long subs are already near the shortest the module allows). The train sets the long sub, so it is
  * already inside `longSubSeconds`.
  */
 export function coreAdvice(target: Pick<ExposureTarget, 'brightCore'>, longSubSeconds: number): CoreAdvice | null {
   if (target.brightCore !== true) return null;
   if (!(longSubSeconds > 0)) throw new RangeError(`longSubSeconds must be above zero: ${longSubSeconds}`);
   const subSeconds = snapSub(longSubSeconds / CORE_SUB_DIVISOR);
-  if (subSeconds >= longSubSeconds) return null;
+  if (longSubSeconds / subSeconds < CORE_MIN_RATIO) return null;
   return { label: ESTIMATE, subSeconds, frames: CORE_FRAME_COUNT };
 }
 
