@@ -42,7 +42,7 @@ export default function AuthControl() {
       )}
       {state.kind === 'signedOut' && (
         // A real form so it also works with JS off; with JS on, Auth.js client adds the CSRF token.
-        <form method="post" action="/api/auth/signin/github" onSubmit={onSignIn}>
+        <form method="get" action="/api/auth/signin" onSubmit={onSignIn}>
           <input type="hidden" name="callbackUrl" value="/planner" />
           <button type="submit" className={btn}>
             Sign in with GitHub

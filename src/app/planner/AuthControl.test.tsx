@@ -23,8 +23,8 @@ describe('AuthControl', () => {
     mockSession(200, { signedIn: false, configured: true });
     const { container } = render(<AuthControl />);
     const form = container.querySelector('form') as HTMLFormElement;
-    expect(form.getAttribute('method')).toBe('post');
-    expect(form.getAttribute('action')).toBe('/api/auth/signin/github');
+    expect(form.getAttribute('method')).toBe('get');
+    expect(form.getAttribute('action')).toBe('/api/auth/signin');
     expect(screen.getByRole('button', { name: /sign in with github/i }).getAttribute('type')).toBe('submit');
   });
   it('signed out: submitting calls the Auth.js client sign-in', async () => {
