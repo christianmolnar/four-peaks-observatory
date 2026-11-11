@@ -11,7 +11,7 @@ module.exports = createJestConfig({
   testTimeout: 30000,
   testMatch: [
     '<rootDir>/src/planner/**/*.test.ts',
-    '<rootDir>/src/app/planner/**/*.test.tsx',
+    '<rootDir>/src/app/planner/**/*.test.{ts,tsx}',
     // Sign-in: owner list, requireUser, the session route.
     '<rootDir>/src/lib/planner-auth/**/*.test.ts',
     '<rootDir>/src/app/api/planner/**/*.test.ts',

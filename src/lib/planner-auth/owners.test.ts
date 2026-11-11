@@ -1,29 +1,37 @@
-import { authConfigured, isOwner, parseOwners } from './owners'
+import { authConfigured, isOwner, parseOwnerIds } from './owners'
 
-describe('owner list', () => {
-  it('parses a comma list, trimmed and lower-cased', () => {
-    expect(parseOwners(' Alice , bob ,,')).toEqual(['alice', 'bob'])
+describe('owner id list', () => {
+  it('parses a comma list of numeric ids, trimmed', () => {
+    expect(parseOwnerIds(' 12345 , 678 ,,')).toEqual(['12345', '678'])
+  })
+  it('drops anything that is not a plain positive integer', () => {
+    expect(parseOwnerIds('alice, 0, 012, -5, 1.5, 12a, 99')).toEqual(['99'])
   })
   it('is empty when unset or blank', () => {
-    expect(parseOwners(undefined)).toEqual([])
-    expect(parseOwners(' , ')).toEqual([])
+    expect(parseOwnerIds(undefined)).toEqual([])
+    expect(parseOwnerIds(' , ')).toEqual([])
   })
-  it('matches a listed login case-insensitively and nobody else', () => {
-    expect(isOwner('Alice', 'alice,bob')).toBe(true)
-    expect(isOwner('mallory', 'alice,bob')).toBe(false)
-    expect(isOwner('', 'alice')).toBe(false)
-    expect(isOwner(undefined, 'alice')).toBe(false)
-    expect(isOwner('alice', undefined)).toBe(false)
+  it('matches a listed id (string or number) and nobody else', () => {
+    expect(isOwner('42', '42,43')).toBe(true)
+    expect(isOwner(43, '42,43')).toBe(true)
+    expect(isOwner('44', '42,43')).toBe(false)
+    expect(isOwner('', '42')).toBe(false)
+    expect(isOwner(undefined, '42')).toBe(false)
+    expect(isOwner(null, '42')).toBe(false)
+    expect(isOwner('42', undefined)).toBe(false)
   })
-  it('reads PLANNER_OWNER_GITHUB by default', () => {
-    const prev = process.env.PLANNER_OWNER_GITHUB
-    process.env.PLANNER_OWNER_GITHUB = 'alice'
+  it('does not treat a login as an id', () => {
+    expect(isOwner('alice', 'alice')).toBe(false)
+  })
+  it('reads PLANNER_OWNER_GITHUB_ID by default', () => {
+    const prev = process.env.PLANNER_OWNER_GITHUB_ID
+    process.env.PLANNER_OWNER_GITHUB_ID = '42'
     try {
-      expect(isOwner('alice')).toBe(true)
-      expect(isOwner('bob')).toBe(false)
+      expect(isOwner('42')).toBe(true)
+      expect(isOwner('7')).toBe(false)
     } finally {
-      if (prev === undefined) delete process.env.PLANNER_OWNER_GITHUB
-      else process.env.PLANNER_OWNER_GITHUB = prev
+      if (prev === undefined) delete process.env.PLANNER_OWNER_GITHUB_ID
+      else process.env.PLANNER_OWNER_GITHUB_ID = prev
     }
   })
 })

@@ -535,7 +535,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       <header>
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/90 font-normal text-sm mt-2 max-w-3xl">
-          A free guest tool: no account, no sign-in. It starts from a sample profile; change the site, gear and horizon to plan your night.
+          A free guest tool; signing in is optional and only for owner features. It starts from a sample profile; change the site, gear and horizon to plan your night.
           Exposure and other worked-out values are estimates. Your profile and captured list stay in this browser and are never sent anywhere; export your profile to keep a copy.
         </p>
       </header>

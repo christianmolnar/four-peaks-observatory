@@ -4,7 +4,7 @@ import { authConfigured } from '@/lib/planner-auth/owners'
 
 declare module 'next-auth' {
   interface Session {
-    user: DefaultSession['user'] & { login?: string }
+    user: DefaultSession['user'] & { login?: string; githubId?: string }
   }
 }
 
@@ -15,11 +15,14 @@ export const { handlers, auth } = NextAuth(() => ({
   session: { strategy: 'jwt' },
   callbacks: {
     jwt({ token, profile }) {
+      // Only present at sign-in. The numeric id is the identity; the login is for display.
       if (profile?.login) token.login = profile.login as string
+      if (profile?.id !== undefined && profile.id !== null) token.githubId = String(profile.id)
       return token
     },
     session({ session, token }) {
       session.user.login = token.login as string | undefined
+      session.user.githubId = token.githubId as string | undefined
       return session
     },
   },

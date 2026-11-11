@@ -1,6 +1,6 @@
 # Imaging planner preview (`/planner`)
 
-Reachable by URL only; not in the header, `noindex`. All state is in the browser (localStorage keys `fpo-planner-profile-v1`, `fpo-planner-captured-v1`, `fpo-planner-itinerary-v1`). No server code.
+Reachable by URL only; not in the header, `noindex`. All state is in the browser (localStorage keys `fpo-planner-profile-v1`, `fpo-planner-captured-v1`, `fpo-planner-itinerary-v1`). The planner itself has no server code; the optional GitHub sign-in does (see Sign-in and owner gate).
 
 ## Manual check
 
@@ -92,3 +92,12 @@ Run it the same way (`~/tools/shots/bin/python docs/guides/planner-exposure-layo
 `docs/guides/planner-m2b-layout-check.py` does the same for the Planets section and the Night itinerary at 1280, 768 and 390 px (`--only planets,itinerary`): arrow keys and real mouse clicks through all eight planets; Tab never entering a hidden panel; Space ticking a box; eight reorders by keyboard, every filter, train and mode of a slot and each Details choice, with the sections, the details box and every slot's own height unchanged; nothing clipped; no sideways scroll. Last run: `docs/guides/planner-m2b-layout-check.out.txt`.
 
 Checked by mutant: the old warnings reserve (`min-h`, no fixed height) fails the sweep and the key-press repro at both widths; the old no-filters text fails at 1280, 1440, 1920, 2560 and 390 px.
+
+## Sign-in and owner gate
+
+- Signing in (GitHub, Auth.js, JWT) is optional. Every visitor gets the free planner; only owners get anything that costs money.
+- `/planner` is prerendered. The sign-in control asks `/api/planner/session` after load (401 signed out, 200 with `owner` and `login`).
+- Owners are numeric GitHub ids in `PLANNER_OWNER_GITHUB_ID` (comma list). Logins are not matched: a login can be renamed and claimed by someone else. Unset, empty or non-numeric entries mean nobody.
+- **Every route that costs money (model prompt box, AI lookup) must call `requireOwner()` first** (`src/lib/planner-auth/require-user.ts`): 401 signed out, 403 signed in but not an owner. `requireUser()` alone is not enough.
+- Env: `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_URL` (or `AUTH_TRUST_HOST=true` off Vercel), `PLANNER_OWNER_GITHUB_ID`.
+- With JS off the button posts without a CSRF token; Auth.js redirects to its own sign-in page, where the GitHub button works.
