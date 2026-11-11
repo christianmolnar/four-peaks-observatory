@@ -20,23 +20,25 @@ describe('GET /api/planner/session', () => {
     }
   })
 
-  it('is 401 signed out, configured true', async () => {
+  it('is 200 signed out, configured true, no-store', async () => {
     mockSession.mockResolvedValue(null)
     const res = await GET()
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
     expect(await res.json()).toEqual({ signedIn: false, configured: true })
   })
-  it('is 401 with configured false when sign-in env is missing', async () => {
+  it('is 200 with configured false when sign-in env is missing', async () => {
     delete process.env.AUTH_SECRET
     mockSession.mockResolvedValue(null)
     const res = await GET()
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ signedIn: false, configured: false })
   })
   it('reports owner true for a listed id', async () => {
     mockSession.mockResolvedValue({ user: { login: 'owner', githubId: '1001' } })
     const res = await GET()
     expect(res.status).toBe(200)
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
     expect(await res.json()).toEqual({ signedIn: true, owner: true, login: 'owner' })
   })
   it('reports owner false for any other id', async () => {

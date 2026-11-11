@@ -96,7 +96,7 @@ Checked by mutant: the old warnings reserve (`min-h`, no fixed height) fails the
 ## Sign-in and owner gate
 
 - Signing in (GitHub, Auth.js, JWT) is optional. Every visitor gets the free planner; only owners get anything that costs money.
-- `/planner` is prerendered. The sign-in control asks `/api/planner/session` after load (401 signed out, 200 with `owner` and `login`).
+- `/planner` is prerendered. The sign-in control asks `/api/planner/session` after load (200 always, `private, no-store`: `{signedIn:false, configured}` signed out, or `owner` and `login`). The control is a fixed 44 px row; `scripts/planner-auth-shift-check.py` proves the `h1` does not move.
 - Owners are numeric GitHub ids in `PLANNER_OWNER_GITHUB_ID` (comma list). Logins are not matched: a login can be renamed and claimed by someone else. Unset, empty or non-numeric entries mean nobody.
 - **Every route that costs money (model prompt box, AI lookup) must call `requireOwner()` first** (`src/lib/planner-auth/require-user.ts`): 401 signed out, 403 signed in but not an owner. `requireUser()` alone is not enough.
 - Env: `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_URL` (or `AUTH_TRUST_HOST=true` off Vercel), `PLANNER_OWNER_GITHUB_ID`.
