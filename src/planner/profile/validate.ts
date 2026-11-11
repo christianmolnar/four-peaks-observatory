@@ -39,7 +39,9 @@ export function arcsConflict(a: BlockedArc, b: BlockedArc): boolean {
   const spanA = (a.endAz - a.startAz + 360) % 360;
   const spanB = (b.endAz - b.startAz + 360) % 360;
   const d = (b.startAz - a.startAz + 360) % 360;
-  return d - spanA < MIN_ARC_DEG || 360 - d - spanB < MIN_ARC_DEG;
+  // The tolerance absorbs float error in the subtractions, so an exact gap of MIN_ARC_DEG is accepted in either order.
+  const least = MIN_ARC_DEG - 1e-9;
+  return d - spanA < least || 360 - d - spanB < least;
 }
 
 type Obj = Record<string, unknown>;

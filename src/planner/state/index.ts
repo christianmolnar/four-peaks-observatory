@@ -1,6 +1,5 @@
 import sample from '../data/sample-profile.json';
-import { ProfileError, parseProfile, validateProfile } from '../profile';
-import { arcsConflict } from '../profile';
+import { ProfileError, arcsConflict, parseProfile, validateProfile } from '../profile';
 import type { BlockedArc, Profile } from '../profile';
 import { zoneOffsetMs } from '../plan';
 
@@ -233,9 +232,9 @@ export function checkZoneFields(zones: readonly HorizonFields[], arcCheck: (arc:
 
 /**
  * The zone the chart previews while the boxes are being edited, and the slider positions (the plan itself uses the saved zones).
- * A box with a message falls back to `base` (the saved zone in the same row), never to a half-typed prefix. When the
+ * A box with a message falls back to `base` (that row's own last saved or loaded zone, carried with the row, never another row's), never to a half-typed prefix. When the
  * zone itself is refused, including the mix of a typed Start with a fallback End, Start and End both
- * fall back. Valid whenever `base` is. A new row has no `base`: with any message it is not drawn (null).
+ * fall back. Valid whenever `base` is. A new row has no `base` (null): with any message it is not drawn.
  */
 export function effectiveArc(
   fields: HorizonFields,

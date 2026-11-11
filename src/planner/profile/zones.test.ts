@@ -127,6 +127,15 @@ describe('validator: zone count and overlap', () => {
     expect(msgOf(withZones(null))).toMatch(/^\$\.sites\[0\]\.blockedArcs: expected an array/);
   });
 
+  it('a gap of exactly MIN_ARC_DEG is accepted in either order', () => {
+    const x = { startAz: 300, endAz: 60, heightDeg: 5 };
+    const y = { startAz: 60.1, endAz: 90, heightDeg: 5 };
+    expect(arcsConflict(x, y)).toBe(false);
+    expect(arcsConflict(y, x)).toBe(false);
+    expect(arcsConflict(x, { ...y, startAz: 60.09 })).toBe(true);
+    expect(arcsConflict({ ...y, startAz: 60.09 }, x)).toBe(true);
+  });
+
   it('arcsConflict is symmetric', () => {
     const arcs = [A, B, C, D, { startAz: 150, endAz: 230, heightDeg: 1 }, { startAz: 350, endAz: 30, heightDeg: 1 }];
     for (const x of arcs) for (const y of arcs) expect(arcsConflict(x, y)).toBe(arcsConflict(y, x));

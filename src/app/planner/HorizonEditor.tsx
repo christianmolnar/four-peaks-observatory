@@ -2,8 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { horizonAltitudeAt } from '@/planner/horizon';
-import { arcToHorizonPoints } from '@/planner/profile';
-import { MAX_ZONES } from '@/planner/profile';
+import { arcToHorizonPoints, MAX_ZONES } from '@/planner/profile';
 import type { BlockedArc } from '@/planner/profile';
 import { compass } from '@/planner/plan';
 import { HORIZON_RANGE } from '@/planner/state';

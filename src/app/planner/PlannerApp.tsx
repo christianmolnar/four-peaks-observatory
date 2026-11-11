@@ -156,6 +156,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [trainId, setTrainId] = useState<string>('');
   // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
   const [fields, setFields] = useState<HorizonFields[]>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? []));
+  // Each row's own last saved (or loaded) zone, in the same order as `fields`; null for a row added since. A bad box falls back to its own row's base only.
+  const [bases, setBases] = useState<(BlockedArc | null)[]>(() => [...((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? [])]);
   const [minAltText, setMinAltText] = useState<string>(String(DEFAULT_MIN_ALTITUDE));
   // The Minimum altitude in effect when the current run of typing began. While the text is bad the plan
   // keeps this number, never a half-typed prefix. A run ends on focus, Enter, or a pause (MIN_ALT_PAUSE_MS
@@ -197,6 +199,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
    */
   const loadForm = (arcs: readonly BlockedArc[], withMinAltitude: boolean) => {
     setFields(fieldsOf(arcs));
+    setBases([...arcs]);
     setJustSaved(false);
     if (withMinAltitude) {
       setMinAltText(String(DEFAULT_MIN_ALTITUDE));
@@ -291,14 +294,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     // A row that falls back to its saved zone can clash with a row typed over it; the clash is not drawn.
     const shown: BlockedArc[] = [];
     const arcs = fields.map((f, i) => {
-      const a = effectiveArc(f, errs[i], site.blockedArcs[i] ?? null, checkArc);
+      const a = effectiveArc(f, errs[i], bases[i] ?? null, checkArc);
       if (a === null || shown.some((o) => arcsConflict(a, o))) return null;
       shown.push(a);
       return a;
     });
     return { errors: errs, arcs };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- checkArc is a function of site and profile
-  }, [fields, site, profile]);
+  }, [fields, bases, site, profile]);
   // A slider follows its own box whenever the box holds a valid number, even when the zone is refused
   // (so an arrow key can step across the other end). Only a box with a message falls back to the preview.
   const sliderValues: Record<HorizonField, number>[] = fields.map((f, i) => ({
@@ -410,13 +413,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const saveArc = () => {
     if (!site) return;
     try {
-      const next = withSiteArcs(
-        profile,
-        site.id,
-        fields.map((z) => ({ startAz: Number(z.start), endAz: Number(z.end), heightDeg: Number(z.height) })),
-      );
+      const arcs = fields.map((z) => ({ startAz: Number(z.start), endAz: Number(z.end), heightDeg: Number(z.height) }));
+      const next = withSiteArcs(profile, site.id, arcs);
       saveProfile(window.localStorage, next);
       setProfile(next);
+      setBases(arcs);
       setJustSaved(true);
     } catch (e) {
       setNotice(`Not saved: ${(e as Error).message}`);
@@ -883,14 +884,17 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         onUseSample={() => loadForm(sampleProfile().sites[0]?.blockedArcs ?? [], true)}
         onClear={() => {
           setFields([]);
+          setBases([]);
           setJustSaved(false);
         }}
         onAdd={() => {
           setFields((f) => [...f, newZoneFields(f)]);
+          setBases((b) => [...b, null]);
           setJustSaved(false);
         }}
         onRemove={(i) => {
           setFields((f) => f.filter((_, j) => j !== i));
+          setBases((b) => b.filter((_, j) => j !== i));
           setJustSaved(false);
         }}
       />
