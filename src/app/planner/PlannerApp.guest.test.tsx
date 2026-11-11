@@ -146,7 +146,7 @@ describe('editing site and gear', () => {
     await u.clear(h);
     await u.type(h, '55');
     await u.click(screen.getByRole('button', { name: 'Save horizon' }));
-    expect(stored().sites[0].blockedArc.heightDeg).toBe(55);
+    expect(stored().sites[0].blockedArcs[0].heightDeg).toBe(55);
     first.unmount();
     app();
     await waitFor(() => expect(screen.getByTestId('horizon-summary').textContent).toMatch(/55° high/));
@@ -193,7 +193,7 @@ describe('profile JSON', () => {
 
   it.each([
     ['malformed JSON', '{"version": 2,', /not a planner profile.*not valid JSON/i],
-    ['a wrong version', JSON.stringify({ ...sampleProfile(), version: 9 }), /version 9; this planner reads version 2/],
+    ['a wrong version', JSON.stringify({ ...sampleProfile(), version: 9 }), /version 9; this planner reads version 3/],
     ['an array', '[1,2]', /not a planner profile/i],
     ['an invalid field', JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 123 }] }), /sites\[0\]\.latitude/],
   ])('rejects %s with a readable message and changes nothing', async (_n, text, message) => {

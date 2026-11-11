@@ -1,6 +1,6 @@
 {
   "_comment": "Sample profile, entered through the same schema as any user's. Fields starting with _ are notes and are ignored by the validator; any other unknown field is rejected. A field is present only where a manufacturer page was read on 2026-11-05 (see _source); absent fields are unknown and optics reports them as missing. Elevation is unknown. Filters, camera windows and read-noise class added 2026-11-07 from ~/Token/docs/reference/equipment.md (owner list, sizes as the owner states them) and ~/Token/research/astro-filters-owned.md, filter-choice.md, equipment-specs.json (web reads 2026-11-06); a filter or camera value is absent where the research found none.",
-  "version": 2,
+  "version": 3,
   "sites": [
     {
       "id": "fountain-hills",
@@ -8,7 +8,7 @@
       "latitude": 33.6115,
       "longitude": -111.719,
       "timeZone": "America/Phoenix",
-      "blockedArc": { "startAz": 120, "endAz": 320, "heightDeg": 42 },
+      "blockedArcs": [{ "startAz": 120, "endAz": 320, "heightDeg": 42 }],
       "_source": "Owner-entered; arc and height from the owner (2026-11-05)."
     }
   ],

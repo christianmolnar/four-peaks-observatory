@@ -8,7 +8,7 @@ import { dispersionArcsec, dispersionAltitudeDeg, planetCard, rotationClip } fro
 
 const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 500 };
 const night = tonightsNight(SITE, '2027-03-15');
-const ARC = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const ARC = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
 const NATIVE = { name: 'C11 + ASI676MC (planets)', scaleArcsecPx: (206.265 * 2) / 2800, nominal: false };
 const POWERMATE = { name: 'C11 + 2.5x Powermate + ASI676MC (planets)', scaleArcsecPx: (206.265 * 2) / 7000, nominal: true };
 const time = (d: Date) => d.toISOString().slice(11, 16);

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { sampleProfile, withSiteArc } from '@/planner/state';
-import { arcPath, describeArc } from './HorizonEditor';
+import { sampleProfile, withSiteArcs } from '@/planner/state';
+import { arcPath, describeArcs } from './HorizonEditor';
 import PlannerApp from './PlannerApp';
 
 // Server render of the first paint (effects do not run): the page for a fixed date and profile.
@@ -69,18 +69,18 @@ describe('planner page', () => {
   });
 
   it('clearing the arc shows "horizon not set" and the flat minimum in the list', () => {
-    const cleared = render(withSiteArc(wideProfile(), siteId, null));
+    const cleared = render(withSiteArcs(wideProfile(), siteId, []));
     expect(cleared).toContain('data-testid="horizon-not-set"');
     expect(cleared).toContain('Horizon not set: only the flat minimum altitude applies.');
     expect(cleared).toContain('flat 20 deg minimum (horizon not set)');
-    expect(cleared).toContain('Add a blocked arc');
+    expect(cleared).toContain('Add a zone');
     expect(cleared).not.toContain('aria-label="Start azimuth slider"');
     expect(html).not.toContain('flat 20 deg minimum');
   });
 
   it('changing the arc changes the usable windows in the list', () => {
-    const open = render(withSiteArc(wideProfile(), siteId, null));
-    const wall = render(withSiteArc(wideProfile(), siteId, { startAz: 90, endAz: 270, heightDeg: 80 }));
+    const open = render(withSiteArcs(wideProfile(), siteId, []));
+    const wall = render(withSiteArcs(wideProfile(), siteId, [{ startAz: 90, endAz: 270, heightDeg: 80 }]));
     expect(rows(wall)).toBeLessThan(rows(open));
     expect(open).toMatch(/>Orion Nebula</);
     expect(wall).not.toMatch(/>Orion Nebula</);
@@ -97,8 +97,9 @@ describe('planner page', () => {
 
 describe('horizon helpers', () => {
   it('describes the arc and the not-set state in words', () => {
-    expect(describeArc(null)).toMatch(/^Horizon not set/);
-    expect(describeArc({ startAz: 300, endAz: 60, heightDeg: 35 })).toContain('300 deg (NW) clockwise to 60 deg (NE)');
+    expect(describeArcs([])).toMatch(/^Horizon not set/);
+    expect(describeArcs([{ startAz: 300, endAz: 60, heightDeg: 35 }])).toContain('300 deg (NW) clockwise to 60 deg (NE)');
+    expect(describeArcs([{ startAz: 300, endAz: 60, heightDeg: 35 }, { startAz: 120, endAz: 200, heightDeg: 20 }])).toMatch(/^2 blocked zones: 1, from 300 deg.*; 2, from 120 deg/);
   });
 
   it('draws the sector with the large-arc flag only past 180 degrees', () => {

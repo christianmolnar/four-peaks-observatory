@@ -171,7 +171,10 @@ class Planner:
 
     def stored_arc(self):
         raw = self.p.evaluate("localStorage.getItem('fpo-planner-profile-v1')")
-        return None if raw is None else json.loads(raw)["sites"][0]["blockedArc"]
+        if raw is None:
+            return None
+        arcs = json.loads(raw)["sites"][0]["blockedArcs"]
+        return arcs[0] if arcs else None
 
     def clean(self):
         return (self.value("arc-start") == "120" and self.value("arc-end") == "320" and self.value("arc-height") == "42"

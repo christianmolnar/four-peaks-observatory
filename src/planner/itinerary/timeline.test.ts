@@ -14,7 +14,7 @@ import { clockOf, clockToInstant, makeScale, slotAltitudes, timelineGeometry } f
 const profile = validateProfile(sample);
 const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
 const ZONE = 'America/Phoenix'; // UTC-7 all year
-const HORIZON = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const HORIZON = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
 const NIGHT = tonightsNight(SITE, '2026-12-15'); // 01:49 to 12:55 UTC
 const fmt = (d: Date) => d.toISOString().slice(11, 16);
 const MIN = 60000;
@@ -128,7 +128,7 @@ describe('altitude through a slot', () => {
   });
   it('flags a start or end under the limit with the existing warning style', () => {
     const src = { kind: 'fixed', raHours: 5.9, decDeg: -5 } as const;
-    const a = slotAltitudes(src, SITE, NIGHT.start as Date, new Date((NIGHT.start as Date).getTime() + 30 * MIN), arcToHorizonPoints({ startAz: 0, endAz: 359, heightDeg: 89 }), 20);
+    const a = slotAltitudes(src, SITE, NIGHT.start as Date, new Date((NIGHT.start as Date).getTime() + 30 * MIN), arcToHorizonPoints([{ startAz: 0, endAz: 359, heightDeg: 89 }]), 20);
     expect(a.start.belowLimit).toBe(true);
     expect(a.start.limit).toBeGreaterThanOrEqual(80);
   });

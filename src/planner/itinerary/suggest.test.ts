@@ -35,7 +35,7 @@ function* permutations<T>(xs: readonly T[]): Generator<T[]> {
 
 describe('the sample night that made the old advice cut the light (2026-11-08, M31, M42, Jupiter)', () => {
   const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
-  const base: Omit<BuildInput, 'slots'> = { site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt };
+  const base: Omit<BuildInput, 'slots'> = { site: PHX, night, horizon: arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]), minAltitude: 20, bortle: 6, formatTime: fmt };
   const its = [item('m31'), item('m42'), item(planetIdOf('Jupiter'), { trainId: 'planet-c11-676' })];
 
   it('keeps the order or offers one with at least as much light, and the advice minutes are the totals line', () => {
@@ -107,7 +107,7 @@ function randomSet(rand: () => number, n: number, index: number): RandomSet | nu
     [its[i], its[j]] = [its[j], its[i]];
   }
   const startAt = rand() < 0.3 ? new Date((night.start as Date).getTime() + Math.floor(rand() * 240) * 60000) : null;
-  const horizon = rand() < 0.5 ? arcToHorizonPoints({ startAz: 100 + Math.floor(rand() * 60), endAz: 200 + Math.floor(rand() * 120), heightDeg: 20 + Math.floor(rand() * 30) }) : null;
+  const horizon = rand() < 0.5 ? arcToHorizonPoints([{ startAz: 100 + Math.floor(rand() * 60), endAz: 200 + Math.floor(rand() * 120), heightDeg: 20 + Math.floor(rand() * 30) }]) : null;
   return {
     label: `#${index} ${s.name} ${s.date} n=${n}`,
     base: withWindows({ site: s.site, night, horizon, minAltitude: pick([15, 20, 30]), bortle: pick([3, 5, 7]), startAt, formatTime: fmt }),
@@ -200,7 +200,7 @@ describe('against a brute force that runs buildItinerary on every order', () => 
 
 describe('behaviour of the advice', () => {
   const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
-  const base: Omit<BuildInput, 'slots'> = { site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt };
+  const base: Omit<BuildInput, 'slots'> = { site: PHX, night, horizon: arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]), minAltitude: 20, bortle: 6, formatTime: fmt };
 
   it('an empty or one-slot list has nothing to change', () => {
     expect(suggestOrder(inputFor([], base))).toMatchObject({ order: [], changed: false, steps: [] });
@@ -249,7 +249,7 @@ describe('behaviour of the advice', () => {
 
 describe('advice that names the same target twice', () => {
   const night = tonightsNight(PHX, '2026-11-08', 'America/Phoenix');
-  const base = withWindows({ site: PHX, night, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, formatTime: fmt });
+  const base = withWindows({ site: PHX, night, horizon: arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]), minAltitude: 20, bortle: 6, formatTime: fmt });
 
   const changedWith = (its: ItineraryItem[]) => {
     for (const k of its.keys()) {

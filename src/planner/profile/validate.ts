@@ -1,5 +1,5 @@
 import { migrateProfile } from './migrate';
-import { PROFILE_VERSION } from './types';
+import { MAX_ZONES, PROFILE_VERSION } from './types';
 import type {
   BlockedArc,
   ObservingPlan,
@@ -28,6 +28,19 @@ export class ProfileError extends Error {
 
 /** Smallest arc, and smallest gap between the arc's ends, in degrees. */
 export const MIN_ARC_DEG = 0.1;
+
+/**
+ * True when two zones overlap, or leave less than MIN_ARC_DEG of open horizon between them
+ * at either end. Touching zones are refused too: at a shared azimuth the horizon would have two
+ * heights, so `horizonAltitudeAt` would not be a function of azimuth. A gap of MIN_ARC_DEG is
+ * wider than the two edge steps `arcToHorizonPoints` places, so the points stay distinct.
+ */
+export function arcsConflict(a: BlockedArc, b: BlockedArc): boolean {
+  const spanA = (a.endAz - a.startAz + 360) % 360;
+  const spanB = (b.endAz - b.startAz + 360) % 360;
+  const d = (b.startAz - a.startAz + 360) % 360;
+  return d - spanA < MIN_ARC_DEG || 360 - d - spanB < MIN_ARC_DEG;
+}
 
 type Obj = Record<string, unknown>;
 
@@ -100,8 +113,7 @@ function withoutUndefined<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 }
 
-function blockedArc(v: unknown, path: string): BlockedArc | null {
-  if (v === null) return null;
+function blockedArc(v: unknown, path: string): BlockedArc {
   const o = obj(v, path);
   onlyKeys(o, path, ['startAz', 'endAz', 'heightDeg']);
   const startAz = num(o, 'startAz', path, 0, 360);
@@ -117,13 +129,32 @@ function blockedArc(v: unknown, path: string): BlockedArc | null {
   if (360 - span < MIN_ARC_DEG) {
     throw new ProfileError(
       path,
-      `arc must leave at least ${MIN_ARC_DEG} degrees unblocked (start ${startAz}, end ${endAz}); shorten it. Use null only when nothing is blocked`,
+      `arc must leave at least ${MIN_ARC_DEG} degrees unblocked (start ${startAz}, end ${endAz}); shorten it. Remove the zone if nothing is blocked`,
     );
   }
   if (startAz === 360 || endAz === 360) {
     throw new ProfileError(`${path}.${startAz === 360 ? 'startAz' : 'endAz'}`, 'use 0 instead of 360');
   }
   return { startAz, endAz, heightDeg };
+}
+
+function blockedArcs(v: unknown, path: string): BlockedArc[] {
+  const list = arr(v, path);
+  if (list.length > MAX_ZONES) {
+    throw new ProfileError(path, `at most ${MAX_ZONES} blocked zones, got ${list.length}`);
+  }
+  const zones = list.map((z, i) => blockedArc(z, `${path}[${i}]`));
+  for (let i = 0; i < zones.length; i++) {
+    for (let j = i + 1; j < zones.length; j++) {
+      if (arcsConflict(zones[i], zones[j])) {
+        throw new ProfileError(
+          `${path}[${j}]`,
+          `zone ${j + 1} overlaps or touches zone ${i + 1}; zones need at least ${MIN_ARC_DEG} degrees of open horizon between them`,
+        );
+      }
+    }
+  }
+  return zones;
 }
 
 function timeZone(o: Obj, path: string): string {
@@ -138,8 +169,8 @@ function timeZone(o: Obj, path: string): string {
 
 function site(v: unknown, path: string): ProfileSite {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'timeZone', 'blockedArc']);
-  if (o.blockedArc === undefined) throw new ProfileError(`${path}.blockedArc`, 'expected an arc object or null');
+  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'timeZone', 'blockedArcs']);
+  if (o.blockedArcs === undefined) throw new ProfileError(`${path}.blockedArcs`, 'expected a list of zones (may be empty)');
   return withoutUndefined({
     id: str(o, 'id', path),
     name: str(o, 'name', path),
@@ -147,7 +178,7 @@ function site(v: unknown, path: string): ProfileSite {
     longitude: num(o, 'longitude', path, -180, 180),
     elevationM: o.elevationM === undefined ? undefined : num(o, 'elevationM', path, -500, 9000),
     timeZone: o.timeZone === undefined ? undefined : timeZone(o, path),
-    blockedArc: blockedArc(o.blockedArc, `${path}.blockedArc`),
+    blockedArcs: blockedArcs(o.blockedArcs, `${path}.blockedArcs`),
   });
 }
 

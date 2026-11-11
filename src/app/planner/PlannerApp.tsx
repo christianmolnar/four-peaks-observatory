@@ -5,20 +5,20 @@ import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
 import { makeCsvTime, planToCsv } from '@/planner/export';
-import { arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
+import { arcsConflict, arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
 import {
-  DEFAULT_ARC,
   DEFAULT_MIN_ALTITUDE,
   MIN_ALTITUDE_RANGE,
   PROFILE_KEY,
-  checkArcFields,
+  checkZoneFields,
   checkWholeDegrees,
   defaultDateForProfile,
   effectiveArc,
   fieldsFromArc,
+  newZoneFields,
   friendlyArcError,
   loadCaptured,
   loadProfile,
@@ -26,7 +26,7 @@ import {
   saveCaptured,
   sameFields,
   saveProfile,
-  withSiteArc,
+  withSiteArcs,
   withTrainFilter,
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
@@ -142,7 +142,10 @@ const TOAST_MS = 6000;
 /** A pause this long with no keystroke ends a run of typing in Minimum altitude. */
 const MIN_ALT_PAUSE_MS = 600;
 
-const fieldsOf = (arc: BlockedArc | null): HorizonFields | null => (arc ? fieldsFromArc(arc) : null);
+/** A site with no blocked zones; one array so memo keys stay stable. */
+const NO_ZONES: readonly BlockedArc[] = [];
+
+const fieldsOf = (arcs: readonly BlockedArc[]): HorizonFields[] => arcs.map(fieldsFromArc);
 
 export default function PlannerApp({ initialDate, initialProfile }: PlannerAppProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
@@ -152,7 +155,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const [siteId, setSiteId] = useState<string>('');
   const [trainId, setTrainId] = useState<string>('');
   // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
-  const [fields, setFields] = useState<HorizonFields | null>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArc ?? null));
+  const [fields, setFields] = useState<HorizonFields[]>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? []));
   const [minAltText, setMinAltText] = useState<string>(String(DEFAULT_MIN_ALTITUDE));
   // The Minimum altitude in effect when the current run of typing began. While the text is bad the plan
   // keeps this number, never a half-typed prefix. A run ends on focus, Enter, or a pause (MIN_ALT_PAUSE_MS
@@ -192,8 +195,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
    * The one place the form is set from saved data: Discard, Use sample horizon, a site change, an
    * import and a profile reset all end here. `withMinAltitude` also puts Minimum altitude back to its default.
    */
-  const loadForm = (arc: BlockedArc | null, withMinAltitude: boolean) => {
-    setFields(fieldsOf(arc));
+  const loadForm = (arcs: readonly BlockedArc[], withMinAltitude: boolean) => {
+    setFields(fieldsOf(arcs));
     setJustSaved(false);
     if (withMinAltitude) {
       setMinAltText(String(DEFAULT_MIN_ALTITUDE));
@@ -216,7 +219,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       setProfile(r.profile);
       if (r.error) setImportError(r.error);
     }
-    loadForm(loaded.sites[0]?.blockedArc ?? null, true);
+    loadForm(loaded.sites[0]?.blockedArcs ?? [], true);
     if (!initialDate) {
       setDate(defaultDateForProfile(new Date(), loaded));
     }
@@ -267,13 +270,13 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     () => (siteLat !== undefined && siteLon !== undefined ? { latitude: siteLat, longitude: siteLon, elevationM: siteElev } : null),
     [siteLat, siteLon, siteElev],
   );
-  const savedFields = site ? fieldsOf(site.blockedArc) : null;
-  const dirty = site !== undefined && !sameFields(fields, savedFields);
+  const savedArcs = site?.blockedArcs ?? NO_ZONES;
+  const dirty = site !== undefined && !sameFields(fields, fieldsOf(savedArcs));
 
   const checkArc = (next: BlockedArc): string | null => {
     if (!site) return 'No site.';
     try {
-      withSiteArc(profile, site.id, next);
+      withSiteArcs(profile, site.id, [next]); // this zone alone; overlaps between rows are checked by checkZoneFields
     } catch (e) {
       if (e instanceof ProfileError) return friendlyArcError(e);
       throw e;
@@ -282,28 +285,34 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   };
 
   // Everything below is derived from the text on each render; nothing is stored about it.
-  const { errors, arc } = useMemo(() => {
-    if (!site || fields === null) return { errors: {} as HorizonErrors, arc: null as BlockedArc | null };
-    const errs = checkArcFields(fields, checkArc);
-    return { errors: errs, arc: effectiveArc(fields, errs, site.blockedArc ?? DEFAULT_ARC, checkArc) };
+  const { errors, arcs } = useMemo(() => {
+    if (!site) return { errors: [] as HorizonErrors[], arcs: [] as (BlockedArc | null)[] };
+    const errs = checkZoneFields(fields, checkArc);
+    // A row that falls back to its saved zone can clash with a row typed over it; the clash is not drawn.
+    const shown: BlockedArc[] = [];
+    const arcs = fields.map((f, i) => {
+      const a = effectiveArc(f, errs[i], site.blockedArcs[i] ?? null, checkArc);
+      if (a === null || shown.some((o) => arcsConflict(a, o))) return null;
+      shown.push(a);
+      return a;
+    });
+    return { errors: errs, arcs };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- checkArc is a function of site and profile
   }, [fields, site, profile]);
-  // A slider follows its own box whenever the box holds a valid number, even when the arc is refused
+  // A slider follows its own box whenever the box holds a valid number, even when the zone is refused
   // (so an arrow key can step across the other end). Only a box with a message falls back to the preview.
-  const sliderValues: Record<HorizonField, number> = {
-    start: errors.start === undefined && fields ? Number(fields.start) : (arc?.startAz ?? 0),
-    end: errors.end === undefined && fields ? Number(fields.end) : (arc?.endAz ?? 0),
-    height: errors.height === undefined && fields ? Number(fields.height) : (arc?.heightDeg ?? 0),
-  };
-  // The plan, the list and the altitude chart use the saved arc: the draft only previews in the horizon editor.
-  const savedArc = site?.blockedArc ?? null;
-  // Keyed on the arc's numbers, not the object: saving the profile for another reason (a filter) makes new objects.
-  const arcStart = savedArc?.startAz;
-  const arcEnd = savedArc?.endAz;
-  const arcHeight = savedArc?.heightDeg;
+  const sliderValues: Record<HorizonField, number>[] = fields.map((f, i) => ({
+    start: errors[i].start === undefined ? Number(f.start) : (arcs[i]?.startAz ?? 0),
+    end: errors[i].end === undefined ? Number(f.end) : (arcs[i]?.endAz ?? 0),
+    height: errors[i].height === undefined ? Number(f.height) : (arcs[i]?.heightDeg ?? 0),
+  }));
+  // The plan, the list and the altitude chart use the saved zones: the draft only previews in the horizon editor.
+  // Keyed on the zones' numbers, not the objects: saving the profile for another reason (a filter) makes new objects.
+  const savedKey = JSON.stringify(savedArcs);
   const horizon = useMemo(
-    () => (arcStart !== undefined && arcEnd !== undefined && arcHeight !== undefined ? arcToHorizonPoints({ startAz: arcStart, endAz: arcEnd, heightDeg: arcHeight }) : null),
-    [arcStart, arcEnd, arcHeight],
+    () => (savedArcs.length > 0 ? arcToHorizonPoints(savedArcs) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey is savedArcs' content
+    [savedKey],
   );
 
   const minCheck = checkWholeDegrees(minAltText, MIN_ALTITUDE_RANGE.min, MIN_ALTITUDE_RANGE.max, '');
@@ -393,15 +402,19 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     }
   };
 
-  const editField = (field: HorizonField, text: string) => {
-    setFields((f) => (f ? { ...f, [field]: text } : f));
+  const editField = (zone: number, field: HorizonField, text: string) => {
+    setFields((f) => f.map((z, i) => (i === zone ? { ...z, [field]: text } : z)));
     setJustSaved(false);
   };
 
   const saveArc = () => {
     if (!site) return;
     try {
-      const next = withSiteArc(profile, site.id, fields === null ? null : { startAz: Number(fields.start), endAz: Number(fields.end), heightDeg: Number(fields.height) });
+      const next = withSiteArcs(
+        profile,
+        site.id,
+        fields.map((z) => ({ startAz: Number(z.start), endAz: Number(z.end), heightDeg: Number(z.height) })),
+      );
       saveProfile(window.localStorage, next);
       setProfile(next);
       setJustSaved(true);
@@ -419,7 +432,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     }
     const sample = sampleProfile();
     setProfile(sample);
-    loadForm(sample.sites[0]?.blockedArc ?? null, true);
+    loadForm(sample.sites[0]?.blockedArcs ?? [], true);
     setSiteId('');
     setTrainId('');
     setImportError(null);
@@ -451,7 +464,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     }
     setProfile(next);
     setDate(defaultDateForProfile(new Date(), next));
-    loadForm(next.sites[0]?.blockedArc ?? null, true);
+    loadForm(next.sites[0]?.blockedArcs ?? [], true);
     setSiteId('');
     setTrainId('');
     try {
@@ -518,9 +531,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const zoneName = siteZone ?? zone;
   const zoneText = zoneName ? `Times are in ${siteZone ? "the site's" : "your browser's"} time zone (${zoneName}).` : '';
   const horizonText =
-    savedArc === null
+    savedArcs.length === 0
       ? 'Horizon not set: only the flat minimum altitude applies.'
-      : `Horizon: blocked ${savedArc.startAz}° (${compass(savedArc.startAz)}) to ${savedArc.endAz}° (${compass(savedArc.endAz)}), ${savedArc.heightDeg}° high.`;
+      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.`;
   const nightText =
     night === undefined
       ? 'Loading the date…'
@@ -574,7 +587,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
               value={site.id}
               onChange={(e) => {
                 setSiteId(e.target.value);
-                loadForm(profile.sites.find((x) => x.id === e.target.value)?.blockedArc ?? null, true);
+                loadForm(profile.sites.find((x) => x.id === e.target.value)?.blockedArcs ?? [], true);
               }}
             >
               {profile.sites.map((s) => (
@@ -860,20 +873,24 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         siteName={site.name}
         fields={fields}
         errors={errors}
-        preview={arc}
+        previews={arcs}
         sliderValues={sliderValues}
         dirty={dirty}
         saved={justSaved}
         onField={editField}
         onSave={saveArc}
-        onDiscard={() => loadForm(site.blockedArc, false)}
-        onUseSample={() => loadForm(sampleProfile().sites[0]?.blockedArc ?? null, true)}
+        onDiscard={() => loadForm(site.blockedArcs, false)}
+        onUseSample={() => loadForm(sampleProfile().sites[0]?.blockedArcs ?? [], true)}
         onClear={() => {
-          setFields(null);
+          setFields([]);
           setJustSaved(false);
         }}
         onAdd={() => {
-          setFields(fieldsFromArc(DEFAULT_ARC));
+          setFields((f) => [...f, newZoneFields(f)]);
+          setJustSaved(false);
+        }}
+        onRemove={(i) => {
+          setFields((f) => f.filter((_, j) => j !== i));
           setJustSaved(false);
         }}
       />

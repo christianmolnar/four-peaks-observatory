@@ -1,5 +1,6 @@
 import sample from '../data/sample-profile.json';
 import { ProfileError, parseProfile, validateProfile } from '../profile';
+import { arcsConflict } from '../profile';
 import type { BlockedArc, Profile } from '../profile';
 import { zoneOffsetMs } from '../plan';
 
@@ -79,15 +80,15 @@ export function saveCaptured(storage: Pick<Storage, 'setItem'>, ids: ReadonlySet
 }
 
 /**
- * A copy of the profile with one site's blocked arc replaced, run through the
+ * A copy of the profile with one site's blocked zones replaced, run through the
  * M1b validator. Throws ProfileError (message starts with the field path) when
- * the arc is invalid, and the profile is unchanged.
+ * the list is invalid (more than MAX_ZONES, overlapping, a bad arc), and the profile is unchanged.
  */
-export function withSiteArc(profile: Profile, siteId: string, arc: BlockedArc | null): Profile {
+export function withSiteArcs(profile: Profile, siteId: string, arcs: BlockedArc[]): Profile {
   if (!profile.sites.some((s) => s.id === siteId)) throw new ProfileError('$.sites', `unknown site "${siteId}"`);
   return validateProfile({
     ...profile,
-    sites: profile.sites.map((s) => (s.id === siteId ? { ...s, blockedArc: arc } : s)),
+    sites: profile.sites.map((s) => (s.id === siteId ? { ...s, blockedArcs: arcs } : s)),
   });
 }
 
@@ -132,7 +133,7 @@ export function friendlyArcError(e: ProfileError): string {
   return e.message.replace(/^\$[^:]*: /, '');
 }
 
-/** The three horizon text boxes, exactly as typed. The only copy of the form's state. */
+/** The three boxes of one zone, exactly as typed. The zone list is the only copy of the form's state. */
 export interface HorizonFields {
   start: string;
   end: string;
@@ -148,7 +149,7 @@ export const HORIZON_RANGE: Record<HorizonField, { min: number; max: number }> =
 };
 export const MIN_ALTITUDE_RANGE = { min: 0, max: 89 } as const;
 export const DEFAULT_MIN_ALTITUDE = 20;
-/** What a new blocked arc starts as, and the fallback base when no horizon is saved. */
+/** What the first blocked zone starts as. */
 export const DEFAULT_ARC: BlockedArc = { startAz: 90, endAz: 180, heightDeg: 30 };
 
 export function fieldsFromArc(arc: BlockedArc): HorizonFields {
@@ -174,23 +175,25 @@ export function checkWholeDegrees(text: string, min: number, max: number, unit =
 }
 
 /**
- * True when two sets of boxes mean the same arc: boxes that hold valid whole numbers compare by
+ * True when two sets of boxes mean the same zone: boxes that hold valid whole numbers compare by
  * number (0150 is 150), anything else by its text.
  */
-export const sameFields = (a: HorizonFields | null, b: HorizonFields | null): boolean => {
-  if (a === null || b === null) return a === b;
-  return (['start', 'end', 'height'] as const).every((k) => {
+const sameZone = (a: HorizonFields, b: HorizonFields): boolean =>
+  (['start', 'end', 'height'] as const).every((k) => {
     const x = checkWholeDegrees(a[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
     const y = checkWholeDegrees(b[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
     return x.ok && y.ok ? x.value === y.value : a[k] === b[k];
   });
-};
+
+/** True when two zone lists mean the same zones in the same order. */
+export const sameFields = (a: readonly HorizonFields[], b: readonly HorizonFields[]): boolean =>
+  a.length === b.length && a.every((z, i) => sameZone(z, b[i]));
 
 export interface HorizonErrors {
   start?: string;
   end?: string;
   height?: string;
-  /** The three numbers are fine but the arc is refused (start equals end, too wide). */
+  /** The three numbers are fine but the zone is refused (start equals end, too wide, overlaps another). */
   arc?: string;
 }
 
@@ -203,38 +206,65 @@ function numbersOf(fields: HorizonFields): BlockedArc | null {
 }
 
 /**
- * Every message for the current text, computed from scratch on each call. Nothing is stored,
- * so a message cannot outlive the text it was about. `arcCheck` is the profile validator's verdict on an arc.
+ * Every message for the current text of every zone, computed from scratch on each call. Nothing is
+ * stored, so a message cannot outlive the text it was about. `arcCheck` is the profile validator's
+ * verdict on one zone alone; a zone that overlaps or touches another is refused here with the other's number.
  */
-export function checkArcFields(fields: HorizonFields, arcCheck: (arc: BlockedArc) => string | null): HorizonErrors {
-  const errors: HorizonErrors = {};
-  for (const k of ['start', 'end', 'height'] as const) {
-    const c = checkWholeDegrees(fields[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
-    if (!c.ok) errors[k] = c.error;
-  }
-  const arc = numbersOf(fields);
-  if (arc) {
-    const message = arcCheck(arc);
-    if (message !== null) errors.arc = message;
-  }
-  return errors;
+export function checkZoneFields(zones: readonly HorizonFields[], arcCheck: (arc: BlockedArc) => string | null): HorizonErrors[] {
+  const arcs = zones.map(numbersOf);
+  return zones.map((fields, i) => {
+    const errors: HorizonErrors = {};
+    for (const k of ['start', 'end', 'height'] as const) {
+      const c = checkWholeDegrees(fields[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
+      if (!c.ok) errors[k] = c.error;
+    }
+    const arc = arcs[i];
+    if (arc) {
+      const message = arcCheck(arc);
+      if (message !== null) errors.arc = message;
+      else {
+        const clash = arcs.findIndex((other, j) => j !== i && other !== null && arcsConflict(arc, other));
+        if (clash >= 0) errors.arc = `Overlaps or touches zone ${clash + 1}.`;
+      }
+    }
+    return errors;
+  });
 }
 
 /**
- * The arc the chart previews while the boxes are being edited, and the slider positions (the plan itself uses the saved arc).
- * A box with a message falls back to `base` (the saved arc), never to a half-typed prefix. When the
- * arc itself is refused, including the mix of a typed Start with a fallback End, Start and End both
- * fall back. Valid whenever `base` is.
+ * The zone the chart previews while the boxes are being edited, and the slider positions (the plan itself uses the saved zones).
+ * A box with a message falls back to `base` (the saved zone in the same row), never to a half-typed prefix. When the
+ * zone itself is refused, including the mix of a typed Start with a fallback End, Start and End both
+ * fall back. Valid whenever `base` is. A new row has no `base`: with any message it is not drawn (null).
  */
 export function effectiveArc(
   fields: HorizonFields,
   errors: HorizonErrors,
-  base: BlockedArc,
+  base: BlockedArc | null,
   arcCheck: (arc: BlockedArc) => string | null,
-): BlockedArc {
+): BlockedArc | null {
+  if (base === null) return Object.keys(errors).length > 0 ? null : numbersOf(fields);
   const pick = (k: HorizonField, fallback: number): number => (errors[k] === undefined ? Number(fields[k]) : fallback);
   const arc = { startAz: pick('start', base.startAz), endAz: pick('end', base.endAz), heightDeg: pick('height', base.heightDeg) };
   return errors.arc !== undefined || arcCheck(arc) !== null ? { ...arc, startAz: base.startAz, endAz: base.endAz } : arc;
+}
+
+/**
+ * Where a new zone starts: the default for the first, else the middle of the widest open gap, up to 30 degrees wide, at
+ * the default height. Whole degrees. If no gap is wide enough the zone still comes up and says "Overlaps".
+ */
+export function newZoneFields(zones: readonly HorizonFields[]): HorizonFields {
+  const arcs = zones.map(numbersOf).filter((a): a is BlockedArc => a !== null).sort((a, b) => a.startAz - b.startAz);
+  if (arcs.length === 0) return fieldsFromArc(DEFAULT_ARC);
+  let best = { from: 0, gap: -1 };
+  arcs.forEach((a, i) => {
+    const next = arcs[(i + 1) % arcs.length];
+    const gap = (next.startAz - a.endAz + 360) % 360 || 360;
+    if (gap > best.gap) best = { from: a.endAz, gap };
+  });
+  const width = Math.max(1, Math.min(30, Math.floor(best.gap) - 2));
+  const start = Math.round(best.from + (best.gap - width) / 2) % 360;
+  return fieldsFromArc({ startAz: start, endAz: (start + width) % 360, heightDeg: DEFAULT_ARC.heightDeg });
 }
 
 /**

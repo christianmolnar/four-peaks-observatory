@@ -27,7 +27,7 @@ import { slotInputFor } from './resolve';
 
 const profile = validateProfile(sample);
 const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
-const HORIZON = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const HORIZON = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
 const NIGHT = tonightsNight(SITE, '2026-12-15'); // 01:49 to 12:55 UTC
 const fmt = (d: Date) => d.toISOString().slice(11, 16);
 const REDUCER_533 = 'deep-c11-reducer-533';

@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { horizonAltitudeAt } from '@/planner/horizon';
 import { arcToHorizonPoints } from '@/planner/profile';
+import { MAX_ZONES } from '@/planner/profile';
 import type { BlockedArc } from '@/planner/profile';
 import { compass } from '@/planner/plan';
 import { HORIZON_RANGE } from '@/planner/state';
@@ -35,31 +36,34 @@ export function arcPath(arc: BlockedArc): string {
   ].join(' ');
 }
 
-export function describeArc(arc: BlockedArc | null): string {
-  if (arc === null) return 'Horizon not set: nothing is blocked and only the flat minimum altitude applies.';
-  return `Blocked from ${arc.startAz} deg (${compass(arc.startAz)}) clockwise to ${arc.endAz} deg (${compass(arc.endAz)}), up to ${arc.heightDeg} deg high. Nothing is blocked elsewhere.`;
+export function describeArcs(arcs: readonly BlockedArc[]): string {
+  if (arcs.length === 0) return 'Horizon not set: nothing is blocked and only the flat minimum altitude applies.';
+  const one = (a: BlockedArc) => `from ${a.startAz} deg (${compass(a.startAz)}) clockwise to ${a.endAz} deg (${compass(a.endAz)}), up to ${a.heightDeg} deg high`;
+  if (arcs.length === 1) return `Blocked ${one(arcs[0])}. Nothing is blocked elsewhere.`;
+  return `${arcs.length} blocked zones: ${arcs.map((a, i) => `${i + 1}, ${one(a)}`).join('; ')}. Nothing is blocked elsewhere.`;
 }
 
 export interface HorizonEditorProps {
   siteName: string;
-  /** The text in the three boxes; null when the draft is "no horizon". */
-  fields: HorizonFields | null;
-  /** Messages for the current text, computed by the parent on every render. */
-  errors: HorizonErrors;
-  /** The arc the plan is using now: the last valid one. Drawn in the chart. */
-  preview: BlockedArc | null;
-  /** Slider positions: the number in the box when it is fine, else the plan's number. */
-  sliderValues: Record<HorizonField, number>;
+  /** The text in the three boxes of each zone row; empty when the draft is "no horizon". */
+  fields: readonly HorizonFields[];
+  /** Messages for the current text of each row, computed by the parent on every render. */
+  errors: readonly HorizonErrors[];
+  /** Each row's zone as the chart draws it: the last valid one, or null for a new row with a message. */
+  previews: readonly (BlockedArc | null)[];
+  /** Slider positions per row: the number in the box when it is fine, else the plan's number. */
+  sliderValues: readonly Record<HorizonField, number>[];
   /** The draft differs from what is saved. */
   dirty: boolean;
   /** Just saved, and nothing edited since. */
   saved: boolean;
-  onField: (field: HorizonField, text: string) => void;
+  onField: (zone: number, field: HorizonField, text: string) => void;
   onSave: () => void;
   onDiscard: () => void;
   onUseSample: () => void;
   onClear: () => void;
   onAdd: () => void;
+  onRemove: (zone: number) => void;
 }
 
 const FIELDS: { key: HorizonField; id: string; label: string }[] = [
@@ -67,6 +71,8 @@ const FIELDS: { key: HorizonField; id: string; label: string }[] = [
   { key: 'end', id: 'arc-end', label: 'End azimuth' },
   { key: 'height', id: 'arc-height', label: 'Height' },
 ];
+/** The first zone keeps the ids the page has always had; later zones add their number. */
+const fieldId = (id: string, zone: number): string => (zone === 0 ? id : `${id}-${zone + 1}`);
 
 const btn =
   'inline-flex h-11 w-full sm:w-44 items-center justify-center rounded-lg border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 disabled:hover:bg-transparent';
@@ -75,7 +81,7 @@ export default function HorizonEditor({
   siteName,
   fields,
   errors,
-  preview,
+  previews,
   sliderValues,
   dirty,
   saved,
@@ -85,10 +91,12 @@ export default function HorizonEditor({
   onUseSample,
   onClear,
   onAdd,
+  onRemove,
 }: HorizonEditorProps) {
-  const points = preview ? arcToHorizonPoints(preview) : null;
-  const summary = describeArc(preview);
-  const invalid = Object.keys(errors).length > 0;
+  const drawn = previews.filter((a): a is BlockedArc => a !== null);
+  const points = fields.length > 0 ? arcToHorizonPoints(drawn) : null;
+  const summary = describeArcs(drawn);
+  const invalid = errors.some((e) => Object.keys(e).length > 0);
   const canSave = dirty && !invalid;
   // The text is sized against the drawing's scale on screen, so it is never smaller than MIN_TEXT_PX whatever the width.
   const compassRef = useRef<SVGSVGElement>(null);
@@ -112,7 +120,7 @@ export default function HorizonEditor({
         <h2 id="horizon-heading" className="basis-full text-xl font-light text-white tracking-[0.15em]">
           HORIZON: {siteName.toUpperCase()}
         </h2>
-        {preview === null ? (
+        {fields.length === 0 ? (
           <span className="inline-block rounded bg-orange-400/20 text-orange-200 font-normal text-sm px-2 py-0.5" data-testid="horizon-not-set">
             Horizon not set
           </span>
@@ -146,7 +154,9 @@ export default function HorizonEditor({
             ))}
             <line x1={C} y1={C - R} x2={C} y2={C + R} stroke="#475569" strokeWidth="0.75" />
             <line x1={C - R} y1={C} x2={C + R} y2={C} stroke="#475569" strokeWidth="0.75" />
-            {preview && <path d={arcPath(preview)} fill="#f97316" fillOpacity="0.55" stroke="#fb923c" strokeWidth="1.5" />}
+            {drawn.map((a, i) => (
+              <path key={i} d={arcPath(a)} fill="#f97316" fillOpacity="0.55" stroke="#fb923c" strokeWidth="1.5" />
+            ))}
             <circle cx={C} cy={C} r="2.5" fill="#e2e8f0" />
             {(
               [
@@ -180,33 +190,48 @@ export default function HorizonEditor({
             if (canSave) onSave();
           }}
         >
-          {fields === null ? (
-            <div className="min-h-[300px]">
+          <div className="min-h-[300px]">
+            {fields.length === 0 && (
               <p className="text-white/80 font-normal text-sm mb-3">
                 No obstruction is entered, so the planner uses the flat minimum altitude only. It does not guess a horizon.
               </p>
-              <button type="button" className={btn} onClick={onAdd}>
-                Add a blocked arc
-              </button>
-            </div>
-          ) : (
-            <div className="min-h-[300px]">
-              {FIELDS.map(({ key, id, label }) => (
-                <NumberSlider
-                  key={key}
-                  id={id}
-                  label={label}
-                  unit="deg"
-                  min={HORIZON_RANGE[key].min}
-                  max={HORIZON_RANGE[key].max}
-                  text={fields[key]}
-                  sliderValue={sliderValues[key]}
-                  onText={(t) => onField(key, t)}
-                  error={key === 'height' ? (errors.height ?? null) : (errors[key] ?? errors.arc ?? null)}
-                />
-              ))}
-            </div>
-          )}
+            )}
+            {fields.map((zone, n) => (
+              <div key={n} role="group" aria-labelledby={`zone-${n + 1}-title`} className="mb-3 rounded-lg border border-white/15 p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h3 id={`zone-${n + 1}-title`} className="text-sm font-medium text-white tracking-wide">
+                    Zone {n + 1}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(n)}
+                    aria-label={`Remove zone ${n + 1}`}
+                    className="h-11 px-3 text-sm font-normal text-white/90 underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
+                  >
+                    Remove zone
+                  </button>
+                </div>
+                {FIELDS.map(({ key, id, label }) => (
+                  <NumberSlider
+                    key={key}
+                    id={fieldId(id, n)}
+                    label={label}
+                    unit="deg"
+                    min={HORIZON_RANGE[key].min}
+                    max={HORIZON_RANGE[key].max}
+                    text={zone[key]}
+                    sliderValue={sliderValues[n][key]}
+                    onText={(t) => onField(n, key, t)}
+                    error={key === 'height' ? (errors[n].height ?? null) : (errors[n][key] ?? errors[n].arc ?? null)}
+                  />
+                ))}
+              </div>
+            ))}
+            <button type="button" className={btn} onClick={onAdd} disabled={fields.length >= MAX_ZONES}>
+              {fields.length === 0 ? 'Add a zone' : 'Add another zone'}
+            </button>
+            {fields.length >= MAX_ZONES && <p className="text-white/80 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
+          </div>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <button type="submit" className={btn} disabled={!canSave}>
               Save horizon
@@ -219,7 +244,7 @@ export default function HorizonEditor({
             </button>
           </div>
           <p className="text-white/75 font-normal text-[13px] leading-5 mt-3">
-            Azimuth is degrees clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). The arc runs clockwise from start to end and may cross north. Whole degrees only. Nothing is stored until you press Save horizon.
+            Azimuth is degrees clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone runs clockwise from start to end and may cross north. Zones may not overlap or touch. Whole degrees only. Nothing is stored until you press Save horizon.
           </p>
         </form>
       </div>
@@ -228,14 +253,14 @@ export default function HorizonEditor({
       <button
         type="button"
         onClick={onClear}
-        disabled={fields === null}
+        disabled={fields.length === 0}
         className="col-start-2 row-start-1 self-start h-11 px-1 text-sm font-normal text-white/90 underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded disabled:opacity-40 disabled:no-underline"
       >
         Clear horizon
       </button>
 
       <details className="col-span-2 mt-4">
-        <summary className="cursor-pointer text-white/90 font-normal text-sm">Horizon as a table</summary>
+        <summary className="cursor-pointer py-3 text-white/90 font-normal text-sm">Horizon as a table</summary>
         <table className="mt-2 text-sm font-normal text-white/90">
           <caption className="sr-only">Obstruction height by compass direction</caption>
           <thead>

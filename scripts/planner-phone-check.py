@@ -8,7 +8,9 @@ night, the night graph's numbers table closed and open, the Site and Gear panels
 off for the start inside the night. Measured from bounding boxes of every visible text node.
 
 Run: ~/tools/shots/bin/python scripts/planner-phone-check.py [--url http://127.0.0.1:PORT | --start] [--shots DIR]
-  [--widths 360,402] [--counts 1,3,6,8] [--starts before,inside,after]
+  [--widths 360,402] [--counts 1,3,6,8] [--starts before,inside,after] [--horizon-only]
+--horizon-only checks just the horizon editor with 1 to 4 zones (add, edit, remove): text 12 px or more, taps 44 px, no sideways
+scroll, axe clean, and the page above the editor does not move when a zone is added or removed.
 Without --url it starts its own next dev; with --start it runs `next start` (needs a build). Exit 0 only if every check passes.
 """
 import argparse, os, signal, socket, subprocess, sys, time, urllib.request, json
@@ -125,6 +127,31 @@ CHART_JS = """() => {
   return bad;
 }"""
 
+# The horizon editor: every control 44 px tall, every piece of text 12 px or more, the compass inside its box.
+HORIZON_JS = """() => {
+  const bad = [];
+  const sec = document.querySelector('#horizon');
+  if (!sec) return [{missing: 'horizon editor'}];
+  const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+  for (const el of sec.querySelectorAll('button, input, summary, a[href]')) {
+    if (!vis(el) || el.closest('[aria-hidden=true]')) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height < 43.5) bad.push({tap: (el.textContent || el.id || el.tagName).trim().slice(0, 28), h: r.height});
+  }
+  const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = walker.nextNode())) {
+    const p = n.parentElement;
+    if (!n.textContent.trim() || !p || p.closest('svg,.sr-only') || !vis(p)) continue;
+    const fs = parseFloat(getComputedStyle(p).fontSize);
+    if (fs < 11.95) bad.push({font: n.textContent.trim().slice(0, 24), px: fs});
+  }
+  return bad;
+}"""
+
+# Document-space top of things above the horizon editor, for the "nothing above moves" check.
+ABOVE_JS = """() => ['#plan-site', '#itinerary-heading', '#horizon'].map((q) => { const el = document.querySelector(q); return el ? Math.round((el.getBoundingClientRect().top + scrollY) * 10) / 10 : null; })"""
+
 TRAIN_COUNT_JS = "() => [...document.querySelectorAll('#plan-train option')].map(o => o.text)"
 
 
@@ -146,6 +173,45 @@ def prepare(page, count=6):
     page.wait_for_timeout(300)
 
 
+def horizon_check(page, w, shots=None):
+    """Adds zones one at a time to 4, then removes them; returns (label, problems) for each step."""
+    results = []
+    tops = page.evaluate(ABOVE_JS)
+
+    def step(label, hidden=0):
+        page.wait_for_timeout(200)
+        m = page.evaluate(MEASURE_JS)
+        problems = m["clipped"] + m["offscreen"] + m["scrollers"] + m["controls"] + ([{"docScroll": m["docScroll"]}] if m["docScroll"] > m["vw"] else [])
+        problems += page.evaluate(HORIZON_JS) + page.evaluate(CHART_JS)
+        zones = page.locator("#horizon [role=group]").count()
+        paths = page.locator("#horizon svg[role=img] path").count()
+        if paths != zones - hidden:
+            problems.append({"compass paths": paths, "zones": zones})
+        now = page.evaluate(ABOVE_JS)
+        if now != tops:
+            problems.append({"above the editor moved": {"before": tops, "after": now}})
+        ax = page.evaluate("async () => (await axe.run('#horizon')).violations.map(v => v.id + ': ' + v.nodes.length + ' e.g. ' + v.nodes[0].html.slice(0, 120))")
+        results.append((f"{w}px | horizon | {label} | {zones} zones", problems, ax))
+
+    step("sample")
+    for n in (2, 3, 4):
+        page.get_by_role("button", name="Add another zone").click()
+        step(f"added zone {n}")
+        if shots and n == 4:
+            os.makedirs(shots, exist_ok=True)
+            page.locator("#horizon").screenshot(path=f"{shots}/horizon-4-zones-{w}.png")
+    if not page.get_by_role("button", name="Add another zone").is_disabled():
+        results.append((f"{w}px | horizon | fifth zone", [{"add button still enabled at 4 zones": True}], []))
+    # An error message in zone 4 (the longest text a zone can show) must not move anything either.
+    page.locator("#arc-start-4-number").fill("130")
+    step("overlap message in zone 4", hidden=1)
+    page.locator("#arc-start-4-number").fill("90")
+    for n in (4, 3, 2):
+        page.get_by_role("button", name=f"Remove zone {n}").click()
+        step(f"removed zone {n}")
+    return results
+
+
 STARTS = {"before": "15:00", "inside": "23:00", "after": "11:00"}
 
 
@@ -157,6 +223,7 @@ def main():
     ap.add_argument("--widths", default="360,375,390,402,430,768,820,1024,1100,1280,1440")
     ap.add_argument("--counts", default="1,3,6,8")
     ap.add_argument("--starts", default="before,inside,after")
+    ap.add_argument("--horizon-only", action="store_true")
     args = ap.parse_args()
     proc = None
     base = args.url
@@ -179,6 +246,25 @@ def main():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch()
+            if args.horizon_only:
+                for w in [int(x) for x in args.widths.split(",")]:
+                    ctx = browser.new_context(viewport={"width": w, "height": 900}, has_touch=w < 1024, is_mobile=w < 1024, device_scale_factor=3 if w < 1024 else 1)
+                    page = ctx.new_page()
+                    page.goto(base + "/planner", wait_until="networkidle")
+                    page.wait_for_selector("#horizon", state="attached")
+                    page.wait_for_timeout(500)
+                    page.add_script_tag(path=AXE)
+                    for label, problems, ax in horizon_check(page, w, args.shots):
+                        ok = not problems and not ax
+                        bad += not ok
+                        total += 1
+                        print(("PASS " if ok else "FAIL ") + f"{label}: problems={len(problems)} axe={ax}", flush=True)
+                        for x in problems[:12]:
+                            print("   ", json.dumps(x))
+                    ctx.close()
+                browser.close()
+                print(f"{total - bad} PASS, {bad} FAIL")
+                sys.exit(1 if bad else 0)
             for w, count in [(int(x), int(c)) for x in args.widths.split(",") for c in args.counts.split(",")]:
                 ctx = browser.new_context(viewport={"width": w, "height": 900}, has_touch=w < 1024, is_mobile=w < 1024, device_scale_factor=3 if w < 1024 else 1)
                 page = ctx.new_page()

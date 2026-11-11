@@ -28,7 +28,7 @@ const app = () => render(<PlannerApp initialDate="2026-12-15" initialProfile={wi
 // Helsinki on 2027-04-20: a short night (00:55 to 01:41), where a start of 00:13 is before the night and shows the start note.
 const helsinki = () => {
   const p = withTrain('deep-c11-reducer-533');
-  return { ...p, sites: [{ ...p.sites[0], id: 'helsinki', name: 'Helsinki', latitude: 60.17, longitude: 24.94, timeZone: 'Europe/Helsinki', blockedArc: { startAz: 0, endAz: 1, heightDeg: 0 } }] };
+  return { ...p, sites: [{ ...p.sites[0], id: 'helsinki', name: 'Helsinki', latitude: 60.17, longitude: 24.94, timeZone: 'Europe/Helsinki', blockedArcs: [{ startAz: 0, endAz: 1, heightDeg: 0 }] }] };
 };
 const helApp = () => render(<PlannerApp initialDate="2027-04-20" initialProfile={helsinki()} />);
 const section = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });

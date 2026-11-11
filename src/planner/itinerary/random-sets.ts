@@ -13,16 +13,16 @@ export const clock = (tz: string) => { const f = new Intl.DateTimeFormat('en-GB'
 export interface Place { name: string; site: { latitude: number; longitude: number; elevationM: number }; tz: string; horizon: HorizonPoint[] | null; minAltitude: number; dates: string[] }
 const H = arcToHorizonPoints;
 export const PLACES: Place[] = [
-  { name: 'fountain-hills', site: { latitude: 33.6115, longitude: -111.719, elevationM: 500 }, tz: 'America/Phoenix', horizon: H({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, dates: ['2026-11-08', '2026-12-21', '2027-04-10', '2027-08-15'] },
-  { name: 'sydney', site: { latitude: -33.87, longitude: 151.21, elevationM: 50 }, tz: 'Australia/Sydney', horizon: H({ startAz: 300, endAz: 60, heightDeg: 25 }), minAltitude: 25, dates: ['2026-10-03', '2026-10-04', '2027-04-03', '2027-01-20'] },
+  { name: 'fountain-hills', site: { latitude: 33.6115, longitude: -111.719, elevationM: 500 }, tz: 'America/Phoenix', horizon: H([{ startAz: 120, endAz: 320, heightDeg: 42 }]), minAltitude: 20, dates: ['2026-11-08', '2026-12-21', '2027-04-10', '2027-08-15'] },
+  { name: 'sydney', site: { latitude: -33.87, longitude: 151.21, elevationM: 50 }, tz: 'Australia/Sydney', horizon: H([{ startAz: 300, endAz: 60, heightDeg: 25 }]), minAltitude: 25, dates: ['2026-10-03', '2026-10-04', '2027-04-03', '2027-01-20'] },
   { name: 'santiago', site: { latitude: -33.45, longitude: -70.67, elevationM: 570 }, tz: 'America/Santiago', horizon: null, minAltitude: 20, dates: ['2026-09-05', '2027-04-03', '2026-12-01'] },
-  { name: 'quito', site: { latitude: -0.18, longitude: -78.47, elevationM: 2850 }, tz: 'America/Guayaquil', horizon: H({ startAz: 200, endAz: 260, heightDeg: 30 }), minAltitude: 15, dates: ['2026-11-20', '2027-03-01'] },
+  { name: 'quito', site: { latitude: -0.18, longitude: -78.47, elevationM: 2850 }, tz: 'America/Guayaquil', horizon: H([{ startAz: 200, endAz: 260, heightDeg: 30 }]), minAltitude: 15, dates: ['2026-11-20', '2027-03-01'] },
   { name: 'kiritimati', site: { latitude: 1.87, longitude: -157.4, elevationM: 0 }, tz: 'Pacific/Kiritimati', horizon: null, minAltitude: 20, dates: ['2026-12-31', '2027-06-01'] },
   { name: 'apia', site: { latitude: -13.83, longitude: -171.76, elevationM: 0 }, tz: 'Pacific/Apia', horizon: null, minAltitude: 20, dates: ['2026-11-15', '2027-07-01'] },
   { name: 'suva', site: { latitude: -18.14, longitude: 178.44, elevationM: 0 }, tz: 'Pacific/Fiji', horizon: null, minAltitude: 25, dates: ['2026-12-10'] },
   { name: 'reykjavik', site: { latitude: 64.13, longitude: -21.9, elevationM: 0 }, tz: 'Atlantic/Reykjavik', horizon: null, minAltitude: 15, dates: ['2026-11-08', '2027-02-14'] },
   { name: 'tromso', site: { latitude: 69.65, longitude: 18.96, elevationM: 0 }, tz: 'Europe/Oslo', horizon: null, minAltitude: 15, dates: ['2026-10-25', '2027-02-20'] },
-  { name: 'london', site: { latitude: 51.48, longitude: 0, elevationM: 0 }, tz: 'Europe/London', horizon: H({ startAz: 90, endAz: 180, heightDeg: 20 }), minAltitude: 20, dates: ['2026-10-24', '2026-10-25', '2027-03-28'] },
+  { name: 'london', site: { latitude: 51.48, longitude: 0, elevationM: 0 }, tz: 'Europe/London', horizon: H([{ startAz: 90, endAz: 180, heightDeg: 20 }]), minAltitude: 20, dates: ['2026-10-24', '2026-10-25', '2027-03-28'] },
   { name: 'newyork', site: { latitude: 40.71, longitude: -74.0, elevationM: 10 }, tz: 'America/New_York', horizon: null, minAltitude: 20, dates: ['2026-10-31', '2026-11-01', '2027-03-14'] },
   { name: 'auckland', site: { latitude: -36.85, longitude: 174.76, elevationM: 0 }, tz: 'Pacific/Auckland', horizon: null, minAltitude: 20, dates: ['2026-09-26', '2026-09-27', '2027-04-04'] },
 ];

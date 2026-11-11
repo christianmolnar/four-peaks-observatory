@@ -1,11 +1,15 @@
 /**
  * Bump when the JSON shape changes. Older versions are migrated on load
- * (see `migrate.ts`): 1 -> 2 adds the filter library.
+ * (see `migrate.ts`): 1 -> 2 adds the filter library; 2 -> 3 turns a site's
+ * `blockedArc` into the `blockedArcs` list.
  */
-export const PROFILE_VERSION = 2;
+export const PROFILE_VERSION = 3;
+
+/** Most blocked zones one site can hold. */
+export const MAX_ZONES = 4;
 
 /**
- * One contiguous blocked arc, clockwise from `startAz` to `endAz` (degrees from
+ * One contiguous blocked zone, clockwise from `startAz` to `endAz` (degrees from
  * north). It may cross north: 300 to 60 blocks 300..360 and 0..60.
  */
 export interface BlockedArc {
@@ -23,8 +27,8 @@ export interface ProfileSite {
   elevationM?: number;
   /** IANA time zone name, e.g. America/Phoenix. Absent: times show in the browser's zone. */
   timeZone?: string;
-  /** null: nothing is blocked. */
-  blockedArc: BlockedArc | null;
+  /** Blocked zones, 0 to MAX_ZONES, none overlapping or touching. Empty: nothing is blocked. */
+  blockedArcs: BlockedArc[];
 }
 
 export interface ProfileScope {

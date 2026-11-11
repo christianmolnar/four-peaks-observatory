@@ -11,10 +11,10 @@ import type { Profile } from './index';
 
 // Neutral fixture; no real gear or places.
 const full = (): Profile => ({
-  version: 2,
+  version: 3,
   sites: [
-    { id: 's1', name: 'Test Ridge', latitude: 40, longitude: -105, elevationM: 1500, blockedArc: { startAz: 100, endAz: 200, heightDeg: 30 } },
-    { id: 's2', name: 'Open Field', latitude: -33, longitude: 151, blockedArc: null },
+    { id: 's1', name: 'Test Ridge', latitude: 40, longitude: -105, elevationM: 1500, blockedArcs: [{ startAz: 100, endAz: 200, heightDeg: 30 }] },
+    { id: 's2', name: 'Open Field', latitude: -33, longitude: 151, blockedArcs: [] },
   ],
   equipment: {
     scopes: [{ id: 'sc', name: 'Scope', focalLengthMm: 1000, apertureMm: 200 }],
@@ -66,7 +66,7 @@ describe('validateProfile', () => {
     failsAt((p) => { p.trains[0].kind = 'weird'; }, '$.trains[0].kind');
     failsAt((p) => { p.plans[0].date = '2026-02-30'; }, '$.plans[0].date');
     failsAt((p) => { p.plans[0].targetIds = [3]; }, '$.plans[0].targetIds[0]');
-    failsAt((p) => { p.version = 3; }, '$.version');
+    failsAt((p) => { p.version = 4; }, '$.version');
     failsAt((p) => { p.version = 0; }, '$.version');
     failsAt((p) => { p.equipment.filters[0].kind = 'rainbow'; }, '$.equipment.filters[0].kind');
     failsAt((p) => { p.equipment.filters[0].sizeMm = -48; }, '$.equipment.filters[0].sizeMm');
@@ -84,17 +84,18 @@ describe('validateProfile', () => {
   });
 
   it('rejects bad arcs', () => {
-    failsAt((p) => { p.sites[0].blockedArc.heightDeg = 120; }, '$.sites[0].blockedArc.heightDeg');
-    failsAt((p) => { p.sites[0].blockedArc.endAz = 100; }, '$.sites[0].blockedArc');
-    failsAt((p) => { p.sites[0].blockedArc.startAz = 360; }, '$.sites[0].blockedArc.startAz');
-    failsAt((p) => { p.sites[0].blockedArc = { startAz: 0, endAz: 359.95, heightDeg: 10 }; }, '$.sites[0].blockedArc');
-    failsAt((p) => { delete p.sites[0].blockedArc; }, '$.sites[0].blockedArc');
+    failsAt((p) => { p.sites[0].blockedArcs[0].heightDeg = 120; }, '$.sites[0].blockedArcs[0].heightDeg');
+    failsAt((p) => { p.sites[0].blockedArcs[0].endAz = 100; }, '$.sites[0].blockedArcs[0]');
+    failsAt((p) => { p.sites[0].blockedArcs[0].startAz = 360; }, '$.sites[0].blockedArcs[0].startAz');
+    failsAt((p) => { p.sites[0].blockedArcs = [{ startAz: 0, endAz: 359.95, heightDeg: 10 }]; }, '$.sites[0].blockedArcs[0]');
+    failsAt((p) => { delete p.sites[0].blockedArcs; }, '$.sites[0].blockedArcs');
+    failsAt((p) => { p.sites[0].blockedArcs = null; }, '$.sites[0].blockedArcs');
   });
 
   it('explains arcs that cannot be fixed by the old advice', () => {
     const msg = (arc: unknown): string => {
       const p = clone(full()) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-      p.sites[0].blockedArc = arc;
+      p.sites[0].blockedArcs = [arc];
       try { validateProfile(p); } catch (e) { return (e as Error).message; }
       throw new Error('expected an error');
     };
@@ -102,20 +103,20 @@ describe('validateProfile', () => {
     expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).not.toMatch(/use 0 instead/);
     expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).toMatch(/start and end must differ/);
     // A near-full arc must not be told to use null, which means nothing is blocked.
-    expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).not.toMatch(/use null for no arc/);
+    expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).not.toMatch(/use null/);
     expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).toMatch(/shorten it/);
     // The advice still works where it applies.
     const p = clone(full());
-    p.sites[0].blockedArc = { startAz: 100, endAz: 360, heightDeg: 10 };
-    expect(() => validateProfile(p)).toThrow('$.sites[0].blockedArc.endAz: use 0 instead of 360');
-    p.sites[0].blockedArc = { startAz: 100, endAz: 0, heightDeg: 10 };
+    p.sites[0].blockedArcs = [{ startAz: 100, endAz: 360, heightDeg: 10 }];
+    expect(() => validateProfile(p)).toThrow('$.sites[0].blockedArcs[0].endAz: use 0 instead of 360');
+    p.sites[0].blockedArcs = [{ startAz: 100, endAz: 0, heightDeg: 10 }];
     expect(() => validateProfile(p)).not.toThrow();
   });
 
   it('rejects unknown fields with their path, but allows _ notes', () => {
     failsAt((p) => { p.equipment.scopes[0].focalLengthmm = 2800; }, '$.equipment.scopes[0].focalLengthmm');
     failsAt((p) => { p.sites[0].lat = 1; }, '$.sites[0].lat');
-    failsAt((p) => { p.sites[0].blockedArc.heigthDeg = 1; }, '$.sites[0].blockedArc.heigthDeg');
+    failsAt((p) => { p.sites[0].blockedArcs[0].heigthDeg = 1; }, '$.sites[0].blockedArcs[0].heigthDeg');
     failsAt((p) => { p.equipment.accessories[0].factr = 1; }, '$.equipment.accessories[0].factr');
     failsAt((p) => { p.equipment.cameras[0].pixelSize = 1; }, '$.equipment.cameras[0].pixelSize');
     failsAt((p) => { p.equipment.smartScopes[0].mount = 'eq'; }, '$.equipment.smartScopes[0].mount');
@@ -127,7 +128,7 @@ describe('validateProfile', () => {
     const p = clone(full()) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     p._comment = 'x';
     p.sites[0]._source = 'y';
-    p.sites[0].blockedArc._note = 'z';
+    p.sites[0].blockedArcs[0]._note = 'z';
     p.trains[0]._why = 'w';
     expect(() => validateProfile(p)).not.toThrow();
   });
@@ -175,7 +176,7 @@ describe('parseProfile', () => {
 
 describe('arcToHorizonPoints', () => {
   it('arc 120 to 320 at 42: limit 42 at az 200, none at az 90, correct on both edges', () => {
-    const pts = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+    const pts = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
     expect(horizonAltitudeAt(pts, 200)).toBe(42);
     expect(horizonAltitudeAt(pts, 90)).toBe(0);
     expect(horizonAltitudeAt(pts, 120)).toBe(42);
@@ -188,7 +189,7 @@ describe('arcToHorizonPoints', () => {
   });
 
   it('wraps across north: arc 300 to 60', () => {
-    const pts = arcToHorizonPoints({ startAz: 300, endAz: 60, heightDeg: 35 });
+    const pts = arcToHorizonPoints([{ startAz: 300, endAz: 60, heightDeg: 35 }]);
     for (const az of [300, 330, 359.99, 0, 360, 30, 60]) {
       expect(horizonAltitudeAt(pts, az)).toBe(35);
     }
@@ -198,7 +199,7 @@ describe('arcToHorizonPoints', () => {
   });
 
   it('wrap when the start edge sits at 0 and the end edge at 359', () => {
-    const pts = arcToHorizonPoints({ startAz: 0, endAz: 90, heightDeg: 20 });
+    const pts = arcToHorizonPoints([{ startAz: 0, endAz: 90, heightDeg: 20 }]);
     expect(horizonAltitudeAt(pts, 0)).toBe(20);
     expect(horizonAltitudeAt(pts, 90)).toBe(20);
     expect(horizonAltitudeAt(pts, 359.995)).toBeCloseTo(10, 5); // inside the edge step
@@ -206,19 +207,19 @@ describe('arcToHorizonPoints', () => {
   });
 
   it('returns sorted points with no duplicate azimuths', () => {
-    const pts = arcToHorizonPoints({ startAz: 300, endAz: 60, heightDeg: 35 });
+    const pts = arcToHorizonPoints([{ startAz: 300, endAz: 60, heightDeg: 35 }]);
     expect(pts).toHaveLength(4);
     expect(pts.map((p) => p.az)).toEqual([...pts.map((p) => p.az)].sort((a, b) => a - b));
     expect(new Set(pts.map((p) => p.az)).size).toBe(4);
   });
 
   it('no arc is a set, clear horizon', () => {
-    const pts = arcToHorizonPoints(null);
+    const pts = arcToHorizonPoints([]);
     expect(horizonAltitudeAt(pts, 123)).toBe(0);
   });
 
   it('refuses arcs too narrow to place their edges', () => {
-    expect(() => arcToHorizonPoints({ startAz: 10, endAz: 10.001, heightDeg: 5 })).toThrow(RangeError);
+    expect(() => arcToHorizonPoints([{ startAz: 10, endAz: 10.001, heightDeg: 5 }])).toThrow(RangeError);
   });
 });
 
@@ -237,12 +238,12 @@ describe('filters and the v1 -> v2 migration', () => {
     plans: [{ id: 'p1', name: 'Night', date: '2026-12-05', siteId: 's1', trainId: 't1', targetIds: ['m42'], notes: 'kept' }],
   });
 
-  it('loads a saved v1 profile as v2, keeps every field, and adds an empty filter library', () => {
+  it('loads a saved v1 profile as v3, keeps every field, and adds an empty filter library', () => {
     const p = parseProfile(v1Text);
-    expect(p.version).toBe(2);
+    expect(p.version).toBe(3);
     expect(p.equipment.filters).toEqual([]);
     const old = JSON.parse(v1Text);
-    expect(p.sites).toEqual(old.sites);
+    expect(p.sites).toEqual([{ id: 's1', name: 'Saved Ridge', latitude: 40, longitude: -105, blockedArcs: [old.sites[0].blockedArc] }]);
     expect(p.equipment.scopes).toEqual(old.equipment.scopes);
     expect(p.equipment.accessories).toEqual(old.equipment.accessories);
     expect(p.equipment.cameras).toEqual(old.equipment.cameras);
@@ -255,7 +256,7 @@ describe('filters and the v1 -> v2 migration', () => {
   it('migrateProfile does not mutate its input and leaves unknown versions to the validator', () => {
     const input = JSON.parse(v1Text);
     const before = JSON.stringify(input);
-    expect((migrateProfile(input) as { version: number }).version).toBe(2);
+    expect((migrateProfile(input) as { version: number }).version).toBe(3);
     expect(JSON.stringify(input)).toBe(before);
     expect(migrateProfile({ version: 7 })).toEqual({ version: 7 });
     expect(migrateProfile(null)).toBeNull();

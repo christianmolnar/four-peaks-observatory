@@ -31,7 +31,7 @@ const summary = () => screen.getByTestId('horizon-summary').textContent;
 const nightSummary = () => screen.getByTestId('night-summary').textContent;
 const status = () => screen.getByTestId('horizon-status').textContent;
 const stored = () => window.localStorage.getItem(PROFILE_KEY);
-const storedArc = () => JSON.parse(stored() as string).sites[0].blockedArc;
+const storedArc = () => JSON.parse(stored() as string).sites[0].blockedArcs[0] ?? null;
 // The page ends a run of typing 600 ms after the last key (a real timer). On a busy machine one key took longer than that to render,
 // and the run ended in the middle of a test. A fake clock moves only when the test says so (`pause`), whatever the load.
 beforeEach(() => jest.useFakeTimers());
@@ -212,14 +212,14 @@ describe('draft and commit', () => {
     const u = user();
     box(START).focus();
     const seen: string[] = [];
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 10; i++) {
       const el = document.activeElement as HTMLElement;
       seen.push(el.getAttribute('aria-label') || el.id || el.textContent || '');
       await u.tab();
     }
     expect(seen.slice(0, 6)).toEqual(['arc-start-number', 'Start azimuth slider', 'arc-end-number', 'End azimuth slider', 'arc-height-number', 'Height slider']);
-    // Save and Discard are disabled on a clean form, so the next stop is Use sample horizon, then Clear horizon.
-    expect(seen.slice(6, 9)).toEqual(['Use sample horizon', 'Clear horizon', 'Horizon as a table']);
+    // Save and Discard are disabled on a clean form, so the next stops are Add another zone, Use sample horizon, then Clear horizon.
+    expect(seen.slice(6, 10)).toEqual(['Add another zone', 'Use sample horizon', 'Clear horizon', 'Horizon as a table']);
   });
 
   it('the Edit horizon link jumps to the editor', () => {
@@ -497,7 +497,7 @@ describe('external events set the boxes from the saved data, in one place', () =
 
   it('Use sample horizon is an unsaved draft: Discard undoes it and nothing was stored', async () => {
     const p = sampleProfile();
-    const saved = { ...p, sites: [{ ...p.sites[0], blockedArc: { startAz: 10, endAz: 100, heightDeg: 20 } }] };
+    const saved = { ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 10, endAz: 100, heightDeg: 20 }] }] };
     app(saved);
     const u = user();
     expect(box(START).value).toBe('10');
@@ -742,8 +742,8 @@ describe('toasts clear themselves and never take a click', () => {
   });
 });
 
-describe('Clear horizon and Add a blocked arc', () => {
-  it('Clear is a draft: Discard brings the arc back; Save stores null', async () => {
+describe('Clear horizon and Add a zone', () => {
+  it('Clear is a draft: Discard brings the arc back; Save stores no zones', async () => {
     app();
     const u = user();
     await u.click(button('Clear horizon'));
@@ -754,8 +754,184 @@ describe('Clear horizon and Add a blocked arc', () => {
     await u.click(button('Clear horizon'));
     await u.click(button('Save horizon'));
     expect(storedArc()).toBeNull();
-    await u.click(button('Add a blocked arc'));
+    await u.click(button('Add a zone'));
     expect(box(START).value).toBe('90');
     expect(status()).toBe('Unsaved changes');
+  });
+});
+
+describe('up to four zones', () => {
+  const idOf = (zone: number, id: string) => (zone === 0 ? id : `${id}-${zone + 1}`);
+  const zbox = (zone: number, id: string) => document.getElementById(`${idOf(zone, id)}-number`) as HTMLInputElement;
+  const zmsg = (zone: number, id: string) => ((document.getElementById(`${idOf(zone, id)}-msg`) as HTMLElement).textContent as string).replace(/^! /, '');
+  const zoneCount = () => document.querySelectorAll('#horizon [role=group]').length;
+  const storedArcs = () => JSON.parse(stored() as string).sites[0].blockedArcs;
+  async function typeInto(u: U, el: HTMLInputElement, text: string) {
+    await u.clear(el);
+    if (text !== '') await u.type(el, text);
+  }
+
+  it('starts with the sample as one zone and offers Add another zone', () => {
+    app();
+    expect(zoneCount()).toBe(1);
+    expect(button('Add another zone').disabled).toBe(false);
+  });
+
+  it('adds zones to four; the fifth cannot be added; each new zone is placed without overlap', async () => {
+    app();
+    const u = user();
+    for (let n = 2; n <= 4; n++) {
+      await u.click(button('Add another zone'));
+      expect(zoneCount()).toBe(n);
+    }
+    expect(button('Add another zone').disabled).toBe(true);
+    await u.click(button('Add another zone'));
+    expect(zoneCount()).toBe(4);
+    expect(screen.getByText('4 zones is the most.')).toBeTruthy();
+    for (let n = 0; n < 4; n++) for (const id of ['arc-start', 'arc-end', 'arc-height']) expect(zmsg(n, id)).toBe('');
+    expect(status()).toBe('Unsaved changes');
+    await u.click(button('Save horizon'));
+    const arcs = storedArcs();
+    expect(arcs).toHaveLength(4);
+    expect(arcs[0]).toEqual({ startAz: 120, endAz: 320, heightDeg: 42 });
+    expect(status()).toBe('Saved');
+    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(4);
+  });
+
+  it('overlapping zones show a clear error on both rows, disable Save, and store nothing', async () => {
+    app();
+    const u = user();
+    await u.click(button('Add another zone'));
+    await typeInto(u, zbox(1, 'arc-start'), '200');
+    await typeInto(u, zbox(1, 'arc-end'), '250');
+    expect(zmsg(1, 'arc-start')).toBe('Overlaps or touches zone 1.');
+    expect(zmsg(0, 'arc-start')).toBe('Overlaps or touches zone 2.');
+    expect(status()).toBe('Fix the highlighted box to save');
+    expect(button('Save horizon').disabled).toBe(true);
+    expect(stored()).toBeNull();
+    // The refused zone is not drawn; the chart keeps the one valid zone.
+    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(1);
+    // Moving it clear of zone 1 clears both messages and Save stores two zones.
+    await typeInto(u, zbox(1, 'arc-start'), '330');
+    await typeInto(u, zbox(1, 'arc-end'), '350');
+    expect(zmsg(1, 'arc-start')).toBe('');
+    expect(zmsg(0, 'arc-start')).toBe('');
+    await u.click(button('Save horizon'));
+    expect(storedArcs()).toEqual([
+      { startAz: 120, endAz: 320, heightDeg: 42 },
+      { startAz: 330, endAz: 350, heightDeg: 30 },
+    ]);
+  });
+
+  it('a zone that only touches another is refused too', async () => {
+    app();
+    const u = user();
+    await u.click(button('Add another zone'));
+    await typeInto(u, zbox(1, 'arc-start'), '320');
+    await typeInto(u, zbox(1, 'arc-end'), '350');
+    expect(zmsg(1, 'arc-start')).toMatch(/^Overlaps or touches zone 1/);
+    expect(button('Save horizon').disabled).toBe(true);
+  });
+
+  it('each zone has the same field rules: a bad Start in zone 2 says so under zone 2 only', async () => {
+    app();
+    const u = user();
+    await u.click(button('Add another zone'));
+    await typeInto(u, zbox(1, 'arc-start'), '500');
+    expect(zmsg(1, 'arc-start')).toBe('Use 0 to 359 degrees.');
+    expect(zmsg(0, 'arc-start')).toBe('');
+    await typeInto(u, zbox(1, 'arc-height'), '91');
+    expect(zmsg(1, 'arc-height')).toBe('Use 0 to 90 degrees.');
+    expect(button('Save horizon').disabled).toBe(true);
+  });
+
+  it('edits zone 2 with the box and the slider, and saves it', async () => {
+    app();
+    const u = user();
+    await u.click(button('Add another zone'));
+    const start = Number(zbox(1, 'arc-start').value);
+    fireEvent.change(screen.getAllByRole('slider', { name: 'Height slider' })[1], { target: { value: '66' } });
+    expect(zbox(1, 'arc-height').value).toBe('66');
+    expect(zbox(0, 'arc-height').value).toBe('42');
+    await u.click(button('Save horizon'));
+    expect(storedArcs()[1]).toMatchObject({ startAz: start, heightDeg: 66 });
+    expect(storedArcs()[0]).toEqual({ startAz: 120, endAz: 320, heightDeg: 42 });
+  });
+
+  it('removes a zone: the rows renumber, the chart loses it, Save stores the rest', async () => {
+    const p = sampleProfile();
+    const three = {
+      ...p,
+      sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 10, endAz: 40, heightDeg: 15 }, { startAz: 100, endAz: 160, heightDeg: 60 }, { startAz: 220, endAz: 300, heightDeg: 20 }] }],
+    };
+    app(three);
+    expect(zoneCount()).toBe(3);
+    const u = user();
+    await u.click(button('Remove zone 2'));
+    expect(zoneCount()).toBe(2);
+    expect(zbox(1, 'arc-start').value).toBe('220');
+    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(2);
+    expect(status()).toBe('Unsaved changes');
+    await u.click(button('Save horizon'));
+    expect(storedArcs()).toEqual([{ startAz: 10, endAz: 40, heightDeg: 15 }, { startAz: 220, endAz: 300, heightDeg: 20 }]);
+  });
+
+  it('removing every zone is the empty list; Add a zone starts one again', async () => {
+    app();
+    const u = user();
+    await u.click(button('Remove zone 1'));
+    expect(zoneCount()).toBe(0);
+    expect(screen.getByTestId('horizon-not-set')).toBeTruthy();
+    await u.click(button('Save horizon'));
+    expect(storedArcs()).toEqual([]);
+    await u.click(button('Add a zone'));
+    expect(zoneCount()).toBe(1);
+    expect(zbox(0, 'arc-start').value).toBe('90');
+  });
+
+  it('Discard brings back the saved zones, and Use sample horizon restores the single zone', async () => {
+    app();
+    const u = user();
+    await u.click(button('Add another zone'));
+    await u.click(button('Add another zone'));
+    expect(zoneCount()).toBe(3);
+    await u.click(button('Discard changes'));
+    expect(zoneCount()).toBe(1);
+    await u.click(button('Add another zone'));
+    await u.click(button('Use sample horizon'));
+    expect(zoneCount()).toBe(1);
+    clean();
+  });
+
+  it('the plan above the editor uses the saved zones only, and adding or removing a zone does not move it', async () => {
+    app();
+    const u = user();
+    const before = nightSummary();
+    const list = () => document.querySelector('#horizon')!.previousElementSibling?.outerHTML;
+    const above = list();
+    await u.click(button('Add another zone'));
+    await u.click(button('Add another zone'));
+    expect(list()).toBe(above);
+    await u.click(button('Remove zone 3'));
+    expect(nightSummary()).toBe(before);
+    expect(list()).toBe(above);
+  });
+
+  it('a saved two-zone horizon changes the plan, and a v2 profile in storage loads as one zone with the same plan', async () => {
+    const same = app();
+    const planBefore = document.body.textContent;
+    same.unmount();
+    cleanup();
+    const p = sampleProfile();
+    const v2 = JSON.parse(JSON.stringify(p));
+    v2.version = 2;
+    v2.sites[0].blockedArc = v2.sites[0].blockedArcs[0];
+    delete v2.sites[0].blockedArcs;
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(v2));
+    render(<PlannerApp initialDate="2026-12-15" />);
+    await waitFor(() => expect(zbox(0, 'arc-start').value).toBe('120'));
+    expect(zoneCount()).toBe(1);
+    expect(document.body.textContent).toBe(planBefore);
+    window.localStorage.clear();
   });
 });

@@ -1,7 +1,8 @@
 import { ProfileError } from '../profile';
 import {
   CAPTURED_KEY,
-  checkArcFields,
+  checkZoneFields,
+  newZoneFields,
   checkWholeDegrees,
   effectiveArc,
   fieldsFromArc,
@@ -14,7 +15,7 @@ import {
   saveCaptured,
   sameFields,
   saveProfile,
-  withSiteArc,
+  withSiteArcs,
   withTrainFilter,
   defaultDateForProfile,
 } from './index';
@@ -38,11 +39,11 @@ describe('profile storage', () => {
 
   it('round-trips a saved profile', () => {
     const s = memory();
-    const edited = withSiteArc(sampleProfile(), sampleProfile().sites[0].id, { startAz: 10, endAz: 50, heightDeg: 25 });
+    const edited = withSiteArcs(sampleProfile(), sampleProfile().sites[0].id, [{ startAz: 10, endAz: 50, heightDeg: 25 }]);
     saveProfile(s, edited);
     const r = loadProfile(s);
     expect(r.stored).toBe(true);
-    expect(r.profile.sites[0].blockedArc).toEqual({ startAz: 10, endAz: 50, heightDeg: 25 });
+    expect(r.profile.sites[0].blockedArcs).toEqual([{ startAz: 10, endAz: 50, heightDeg: 25 }]);
   });
 
   it('rejects stored data with the field path, shows the sample, and leaves the stored text alone', () => {
@@ -80,23 +81,23 @@ describe('captured', () => {
   });
 });
 
-describe('withSiteArc', () => {
+describe('withSiteArcs', () => {
   const p = sampleProfile();
   const id = p.sites[0].id;
 
   it('sets, changes and clears the arc', () => {
-    expect(withSiteArc(p, id, { startAz: 300, endAz: 60, heightDeg: 35 }).sites[0].blockedArc).toEqual({ startAz: 300, endAz: 60, heightDeg: 35 });
-    expect(withSiteArc(p, id, null).sites[0].blockedArc).toBeNull();
-    expect(p.sites[0].blockedArc).toEqual({ startAz: 120, endAz: 320, heightDeg: 42 });
+    expect(withSiteArcs(p, id, [{ startAz: 300, endAz: 60, heightDeg: 35 }]).sites[0].blockedArcs).toEqual([{ startAz: 300, endAz: 60, heightDeg: 35 }]);
+    expect(withSiteArcs(p, id, []).sites[0].blockedArcs).toEqual([]);
+    expect(p.sites[0].blockedArcs).toEqual([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
   });
 
   it('rejects arcs the M1b validator rejects, with the field path', () => {
-    expect(() => withSiteArc(p, id, { startAz: 100, endAz: 100, heightDeg: 30 })).toThrow(/\$\.sites\[0\]\.blockedArc: .*differ/);
-    expect(() => withSiteArc(p, id, { startAz: 0, endAz: 359.99, heightDeg: 30 })).toThrow(/shorten/);
-    expect(() => withSiteArc(p, id, { startAz: 10, endAz: 50, heightDeg: 91 })).toThrow(/heightDeg/);
-    expect(() => withSiteArc(p, id, { startAz: -5, endAz: 50, heightDeg: 30 })).toThrow(/startAz/);
-    expect(() => withSiteArc(p, id, { startAz: Number.NaN, endAz: 50, heightDeg: 30 })).toThrow(/startAz/);
-    expect(() => withSiteArc(p, 'nope', null)).toThrow(/unknown site/);
+    expect(() => withSiteArcs(p, id, [{ startAz: 100, endAz: 100, heightDeg: 30 }])).toThrow(/\$\.sites\[0\]\.blockedArcs\[0\]: .*differ/);
+    expect(() => withSiteArcs(p, id, [{ startAz: 0, endAz: 359.99, heightDeg: 30 }])).toThrow(/shorten/);
+    expect(() => withSiteArcs(p, id, [{ startAz: 10, endAz: 50, heightDeg: 91 }])).toThrow(/heightDeg/);
+    expect(() => withSiteArcs(p, id, [{ startAz: -5, endAz: 50, heightDeg: 30 }])).toThrow(/startAz/);
+    expect(() => withSiteArcs(p, id, [{ startAz: Number.NaN, endAz: 50, heightDeg: 30 }])).toThrow(/startAz/);
+    expect(() => withSiteArcs(p, 'nope', [])).toThrow(/unknown site/);
   });
 });
 
@@ -141,7 +142,7 @@ describe('checkWholeDegrees', () => {
 describe('effectiveArc', () => {
   const base = { startAz: 120, endAz: 320, heightDeg: 42 };
   const refuse = (a: { startAz: number; endAz: number }) => (a.startAz === a.endAz ? 'Start and End must differ.' : null);
-  const eff = (f: { start: string; end: string; height: string }) => effectiveArc(f, checkArcFields(f, refuse), base, refuse);
+  const eff = (f: { start: string; end: string; height: string }) => effectiveArc(f, checkZoneFields([f], refuse)[0], base, refuse);
 
   it('uses every box that is fine and the saved number for a box with a message', () => {
     expect(eff({ start: '150', end: '320', height: '50' })).toEqual({ startAz: 150, endAz: 320, heightDeg: 50 });
@@ -155,8 +156,9 @@ describe('effectiveArc', () => {
   });
 });
 
-describe('checkArcFields', () => {
+describe('checkZoneFields', () => {
   const ok = () => null;
+  const checkArcFields = (f: { start: string; end: string; height: string }, check: (a: { startAz: number; endAz: number; heightDeg: number }) => string | null) => checkZoneFields([f], check)[0];
   it('is computed from the text alone: same text, same answer', () => {
     const f = fieldsFromArc({ startAz: 120, endAz: 320, heightDeg: 42 });
     expect(checkArcFields(f, ok)).toEqual({});
@@ -182,13 +184,14 @@ describe('checkArcFields', () => {
 
   it('sameFields compares valid boxes by number, so 0150 is 150 and 12.0 is 12', () => {
     const saved = { start: '120', end: '320', height: '45' };
-    expect(sameFields({ ...saved, height: '045' }, saved)).toBe(true);
-    expect(sameFields({ ...saved, start: '0120' }, saved)).toBe(true);
-    expect(sameFields({ ...saved, start: '121' }, saved)).toBe(false);
-    expect(sameFields({ ...saved, start: '12.0' }, { ...saved, start: '12' })).toBe(true);
-    expect(sameFields({ ...saved, start: '' }, saved)).toBe(false);
-    expect(sameFields(null, null)).toBe(true);
-    expect(sameFields(null, saved)).toBe(false);
+    expect(sameFields([{ ...saved, height: '045' }], [saved])).toBe(true);
+    expect(sameFields([{ ...saved, start: '0120' }], [saved])).toBe(true);
+    expect(sameFields([{ ...saved, start: '121' }], [saved])).toBe(false);
+    expect(sameFields([{ ...saved, start: '12.0' }], [{ ...saved, start: '12' }])).toBe(true);
+    expect(sameFields([{ ...saved, start: '' }], [saved])).toBe(false);
+    expect(sameFields([], [])).toBe(true);
+    expect(sameFields([], [saved])).toBe(false);
+    expect(sameFields([saved], [saved, saved])).toBe(false);
   });
 });
 
@@ -216,7 +219,7 @@ describe('friendlyArcError', () => {
   const id = sampleProfile().sites[0].id;
   const msg = (arc: { startAz: number; endAz: number; heightDeg: number }) => {
     try {
-      withSiteArc(sampleProfile(), id, arc);
+      withSiteArcs(sampleProfile(), id, [arc]);
     } catch (e) {
       if (e instanceof ProfileError) return friendlyArcError(e);
     }
@@ -256,13 +259,14 @@ describe('train filter', () => {
     delete v1.equipment.filters;
     for (const t of v1.trains) delete t.filterId;
     v1.sites[0].blockedArc = { startAz: 100, endAz: 200, heightDeg: 33 };
+    delete v1.sites[0].blockedArcs;
     const store = memory({ [PROFILE_KEY]: JSON.stringify(v1) });
     const r = loadProfile(store);
     expect(r.error).toBeNull();
     expect(r.stored).toBe(true);
-    expect(r.profile.version).toBe(2);
+    expect(r.profile.version).toBe(3);
     expect(r.profile.equipment.filters).toEqual([]);
-    expect(r.profile.sites[0].blockedArc).toEqual({ startAz: 100, endAz: 200, heightDeg: 33 });
+    expect(r.profile.sites[0].blockedArcs).toEqual([{ startAz: 100, endAz: 200, heightDeg: 33 }]);
   });
 });
 
@@ -277,5 +281,36 @@ describe('defaultTonightDate with a site time zone', () => {
   });
   it('Phoenix zone agrees with the longitude rule', () => {
     expect(defaultTonightDate(new Date(Date.UTC(2026, 10, 6, 4, 0)), -112, 'America/Phoenix')).toBe('2026-11-05');
+  });
+});
+
+describe('zone rows', () => {
+  const ok = () => null;
+  const row = (startAz: number, endAz: number, heightDeg = 30) => fieldsFromArc({ startAz, endAz, heightDeg });
+
+  it('newZoneFields: the first zone is the default, later ones sit in the widest open gap and never clash', () => {
+    expect(newZoneFields([])).toEqual({ start: '90', end: '180', height: '30' });
+    const one = [row(120, 320)];
+    const second = newZoneFields(one);
+    expect(second).toEqual({ start: '25', end: '55', height: '30' });
+    const all = [...one, second, newZoneFields([...one, second])];
+    expect(checkZoneFields(all, ok)).toEqual([{}, {}, {}]);
+    const four = [...all, newZoneFields(all)];
+    expect(checkZoneFields(four, ok)).toEqual([{}, {}, {}, {}]);
+  });
+
+  it('checkZoneFields flags overlapping and touching zones on both rows, and only when the numbers are valid', () => {
+    const e = checkZoneFields([row(100, 160), row(150, 200), row(160, 170), row(300, 310)], ok);
+    expect(e[0].arc).toMatch(/^Overlaps or touches zone 2/);
+    expect(e[1].arc).toMatch(/^Overlaps or touches zone 1/);
+    expect(e[2].arc).toMatch(/^Overlaps or touches zone 1/); // touches zone 1 at 160
+    expect(e[3]).toEqual({});
+    expect(checkZoneFields([row(100, 160), { start: '', end: '150', height: '9' }], ok)[0]).toEqual({});
+  });
+
+  it('effectiveArc: a new row (no saved zone) is drawn only when it has no message', () => {
+    const f = row(200, 250);
+    expect(effectiveArc(f, {}, null, ok)).toEqual({ startAz: 200, endAz: 250, heightDeg: 30 });
+    expect(effectiveArc(f, { arc: 'Overlaps or touches zone 1.' }, null, ok)).toBeNull();
   });
 });

@@ -81,7 +81,7 @@ describe('usableWindowsOnTrack', () => {
   it('agrees with usableWindows for a fixed target', () => {
     const night = tonightsNight(site, DATE);
     const m42 = starterTargets.find((t) => t.id === 'm42')!;
-    const args = { horizon: arcToHorizonPoints({ startAz: 150, endAz: 210, heightDeg: 45 }), minAltitude: 20, start: night.start!, end: night.end! };
+    const args = { horizon: arcToHorizonPoints([{ startAz: 150, endAz: 210, heightDeg: 45 }]), minAltitude: 20, start: night.start!, end: night.end! };
     const a = usableWindows({ ...args, raHours: m42.raHours, decDeg: m42.decDeg, site });
     const b = usableWindowsOnTrack({ ...args, altAzAt: (d) => targetAltAz(m42.raHours, m42.decDeg, d, site) });
     expect(a.windows.length).toBeGreaterThan(0);
@@ -184,7 +184,7 @@ describe('horizon', () => {
 
   it('a wall across the south shortens the southern windows and splits or removes them', () => {
     const open = planTonight(base());
-    const walled = planTonight(base({ horizon: arcToHorizonPoints({ startAz: 90, endAz: 270, heightDeg: 60 }) }));
+    const walled = planTonight(base({ horizon: arcToHorizonPoints([{ startAz: 90, endAz: 270, heightDeg: 60 }]) }));
     expect(walled.horizonSet).toBe(true);
     const m42Open = open.entries.find((e) => e.id === 'm42')!;
     const m42Wall = walled.entries.find((e) => e.id === 'm42')!;
@@ -203,7 +203,7 @@ describe('horizon', () => {
 
   it('a lower wall leaves windows but shorter than open sky', () => {
     const open = planTonight(base());
-    const low = planTonight(base({ horizon: arcToHorizonPoints({ startAz: 90, endAz: 270, heightDeg: 35 }) }));
+    const low = planTonight(base({ horizon: arcToHorizonPoints([{ startAz: 90, endAz: 270, heightDeg: 35 }]) }));
     const a = open.entries.find((e) => e.id === 'm42')!;
     const b = low.entries.find((e) => e.id === 'm42')!;
     expect(b.usableMinutes).toBeGreaterThan(0);
@@ -281,7 +281,7 @@ describe('fit', () => {
 describe('altitudeTrack', () => {
   it('runs from start to end with the limit at each azimuth', () => {
     const night = tonightsNight(site, DATE);
-    const horizon = arcToHorizonPoints({ startAz: 90, endAz: 270, heightDeg: 40 });
+    const horizon = arcToHorizonPoints([{ startAz: 90, endAz: 270, heightDeg: 40 }]);
     const t = altitudeTrack({ kind: 'fixed', raHours: 5.588, decDeg: -5.39 }, site, horizon, 20, night.start!, night.end!, 10);
     expect(t[0].time).toEqual(night.start);
     expect(t[t.length - 1].time).toEqual(night.end);
@@ -313,9 +313,9 @@ describe('helpers', () => {
 });
 
 describe('score and peak details (each pins a rule the list depends on)', () => {
-  const wall = arcToHorizonPoints({ startAz: 150, endAz: 210, heightDeg: 50 });
+  const wall = arcToHorizonPoints([{ startAz: 150, endAz: 210, heightDeg: 50 }]);
   const walled = planTonight(base({ horizon: wall }));
-  const fullWall = planTonight(base({ horizon: arcToHorizonPoints({ startAz: 90, endAz: 270, heightDeg: 60 }) }));
+  const fullWall = planTonight(base({ horizon: arcToHorizonPoints([{ startAz: 90, endAz: 270, heightDeg: 60 }]) }));
   const open = planTonight(base());
 
   it('the peak is the highest point while usable, not the highest of the night', () => {

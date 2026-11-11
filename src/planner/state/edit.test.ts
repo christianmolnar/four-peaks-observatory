@@ -41,7 +41,7 @@ describe('replaceItem', () => {
     const p = sample();
     const s = p.sites[0];
     const next = replaceItem(p, 'sites', s.id, { ...textsOf('sites', s), latitude: '35.5', longitude: '-110', elevationM: '700', timeZone: 'America/Denver' });
-    expect(next.sites[0]).toMatchObject({ latitude: 35.5, longitude: -110, elevationM: 700, timeZone: 'America/Denver', blockedArc: s.blockedArc });
+    expect(next.sites[0]).toMatchObject({ latitude: 35.5, longitude: -110, elevationM: 700, timeZone: 'America/Denver', blockedArcs: s.blockedArcs });
   });
   it('an empty optional box means unknown, not zero', () => {
     const p = sample();
@@ -105,7 +105,7 @@ describe('addItem and removeItem', () => {
   it('a new site starts with no horizon blocked and the coordinates of the first site', () => {
     const p = sample();
     const n = addItem(p, 'sites').sites[1];
-    expect(n.blockedArc).toBeNull();
+    expect(n.blockedArcs).toEqual([]);
     expect(n.latitude).toBe(p.sites[0].latitude);
   });
   it('removes an unused item', () => {

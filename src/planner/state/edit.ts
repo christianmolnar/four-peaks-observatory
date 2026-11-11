@@ -129,7 +129,7 @@ function friendly(e: unknown, list: ListKey): Error {
 /** Builds the item from the boxes. Throws an Error naming the box that is wrong. */
 function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>): Item {
   const out: Record<string, unknown> = { id: base.id };
-  if (list === 'sites') out.blockedArc = (base as Record<string, unknown>).blockedArc ?? null;
+  if (list === 'sites') out.blockedArcs = (base as Record<string, unknown>).blockedArcs ?? [];
   for (const f of LIST_SPECS[list].fields) {
     const t = (texts[f.key] ?? '').trim();
     if (t === '') {
@@ -180,7 +180,7 @@ export function addItem(profile: Profile, list: ListKey): Profile {
   const name = `New ${LIST_SPECS[list].noun}`;
   const item: Record<string, unknown> =
     list === 'sites'
-      ? { id, name, latitude: profile.sites[0]?.latitude ?? 0, longitude: profile.sites[0]?.longitude ?? 0, blockedArc: null }
+      ? { id, name, latitude: profile.sites[0]?.latitude ?? 0, longitude: profile.sites[0]?.longitude ?? 0, blockedArcs: [] }
       : list === 'smartScopes'
         ? { id, name, mountMode: 'alt-az' }
         : { id, name };
@@ -322,7 +322,7 @@ export function profileFromText(text: string): Profile {
     throw new Error(`${NOT_A_PROFILE} The version must be a number, not text (this planner reads version ${PROFILE_VERSION}).`);
   }
   if (migrated.version !== PROFILE_VERSION) {
-    throw new Error(`${NOT_A_PROFILE} It is version ${JSON.stringify(migrated.version)}; this planner reads version ${PROFILE_VERSION} (and upgrades version 1).`);
+    throw new Error(`${NOT_A_PROFILE} It is version ${JSON.stringify(migrated.version)}; this planner reads version ${PROFILE_VERSION} (and upgrades versions 1 and 2).`);
   }
   try {
     return validateProfile(migrated);

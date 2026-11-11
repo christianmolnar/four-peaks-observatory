@@ -12,7 +12,7 @@ const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
 const NIGHT = tonightsNight(SITE, '2026-12-15');
 const fmt = (d: Date) => d.toISOString().slice(11, 16);
 const items: ItineraryItem[] = ['m31', 'm42'].map((targetId, i) => ({ id: `e${i}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: i ? 'say, "hi"' : '' }));
-const plan = buildItinerary({ site: SITE, night: NIGHT, horizon: arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 }), minAltitude: 20, bortle: 6, slots: items.map((i) => slotInputFor(i, profile, starterTargets)), formatTime: fmt });
+const plan = buildItinerary({ site: SITE, night: NIGHT, horizon: arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]), minAltitude: 20, bortle: 6, slots: items.map((i) => slotInputFor(i, profile, starterTargets)), formatTime: fmt });
 
 describe('itinerary export', () => {
   it('CSV: a header, then one row per slot with start, end and the three altitudes with directions', () => {

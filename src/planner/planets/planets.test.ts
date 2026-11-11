@@ -26,7 +26,7 @@ import {
 
 // The site of the sample profile; the Horizons fixture was fetched for the same place.
 const SITE: Site = { latitude: 33.6115, longitude: -111.719, elevationM: 500 };
-const ARC = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const ARC = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
 const APERTURE = 279.4;
 
 type Row = (typeof fixture.positions)[number];

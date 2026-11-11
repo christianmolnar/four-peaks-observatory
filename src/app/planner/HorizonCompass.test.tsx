@@ -14,10 +14,10 @@ const editor = () =>
   render(
     <HorizonEditor
       siteName="Test"
-      fields={{ start: '120', end: '320', height: '42' }}
-      errors={{}}
-      preview={{ startAz: 120, endAz: 320, heightDeg: 42 }}
-      sliderValues={{ start: 120, end: 320, height: 42 }}
+      fields={[{ start: '120', end: '320', height: '42' }]}
+      errors={[{}]}
+      previews={[{ startAz: 120, endAz: 320, heightDeg: 42 }]}
+      sliderValues={[{ start: 120, end: 320, height: 42 }]}
       dirty={false}
       saved={false}
       onField={noop}
@@ -26,6 +26,7 @@ const editor = () =>
       onUseSample={noop}
       onClear={noop}
       onAdd={noop}
+      onRemove={noop}
     />,
   );
 
@@ -53,5 +54,64 @@ describe('the horizon compass text is at least 12 px on screen at any width', ()
       expect(y - f / 2).toBeGreaterThanOrEqual(0);
       expect(y + f / 2).toBeLessThanOrEqual(size);
     }
+  });
+});
+
+describe('the compass draws every zone', () => {
+  const ZONES = [
+    { startAz: 120, endAz: 320, heightDeg: 42 },
+    { startAz: 20, endAz: 60, heightDeg: 10 },
+    { startAz: 70, endAz: 100, heightDeg: 25 },
+    { startAz: 330, endAz: 10, heightDeg: 55 },
+  ];
+  const withZones = (n: number) =>
+    render(
+      <HorizonEditor
+        siteName="Test"
+        fields={ZONES.slice(0, n).map((z) => ({ start: String(z.startAz), end: String(z.endAz), height: String(z.heightDeg) }))}
+        errors={ZONES.slice(0, n).map(() => ({}))}
+        previews={ZONES.slice(0, n)}
+        sliderValues={ZONES.slice(0, n).map((z) => ({ start: z.startAz, end: z.endAz, height: z.heightDeg }))}
+        dirty={false}
+        saved={false}
+        onField={noop}
+        onSave={noop}
+        onDiscard={noop}
+        onUseSample={noop}
+        onClear={noop}
+        onAdd={noop}
+        onRemove={noop}
+      />,
+    );
+
+  it.each([1, 2, 3, 4])('%i zone(s): one sector each, each with its own path, and a row per zone', (n) => {
+    const { container } = withZones(n);
+    const sectors = container.querySelectorAll('svg[role=img] path');
+    expect(sectors).toHaveLength(n);
+    expect(new Set([...sectors].map((p) => p.getAttribute('d'))).size).toBe(n);
+    expect(container.querySelectorAll('[role=group]')).toHaveLength(n);
+    expect(container.querySelector('svg desc')?.textContent).toContain(n === 1 ? 'Blocked from 120 deg' : `${n} blocked zones`);
+  });
+
+  it('a new row with a message is not drawn', () => {
+    const { container } = render(
+      <HorizonEditor
+        siteName="Test"
+        fields={[{ start: '120', end: '320', height: '42' }, { start: '', end: '', height: '' }]}
+        errors={[{}, { start: 'Enter a number from 0 to 359.' }]}
+        previews={[ZONES[0], null]}
+        sliderValues={[{ start: 120, end: 320, height: 42 }, { start: 0, end: 0, height: 0 }]}
+        dirty
+        saved={false}
+        onField={noop}
+        onSave={noop}
+        onDiscard={noop}
+        onUseSample={noop}
+        onClear={noop}
+        onAdd={noop}
+        onRemove={noop}
+      />,
+    );
+    expect(container.querySelectorAll('svg[role=img] path')).toHaveLength(1);
   });
 });

@@ -15,7 +15,7 @@ import NightTimeline from './NightTimeline';
 const profile = validateProfile(sample);
 const SITE = { latitude: 33.6115, longitude: -111.719, elevationM: 0 };
 const NIGHT = tonightsNight(SITE, '2026-12-15');
-const HORIZON = arcToHorizonPoints({ startAz: 120, endAz: 320, heightDeg: 42 });
+const HORIZON = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
 const fmt = (d: Date) => d.toISOString().slice(11, 16);
 
 function draw(ids: string[], startAt?: Date) {

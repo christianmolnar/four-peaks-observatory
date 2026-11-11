@@ -14,7 +14,7 @@ describe('sample profile', () => {
     expect(profile.equipment.cameras).toHaveLength(3);
     expect(profile.equipment.smartScopes).toHaveLength(4);
     expect(profile.trains.map((t) => t.kind).filter((k) => k === 'smart')).toHaveLength(4);
-    expect(profile.version).toBe(2);
+    expect(profile.version).toBe(3);
   });
 
   describe('owner filters', () => {
@@ -72,8 +72,8 @@ describe('sample profile', () => {
     for (const p of profile.plans) for (const id of p.targetIds) expect(ids.has(id)).toBe(true);
   });
 
-  it('gives the blocked arc 120 to 320 at 42 deg', () => {
-    const pts = arcToHorizonPoints(profile.sites[0].blockedArc);
+  it('gives the one blocked zone 120 to 320 at 42 deg', () => {
+    const pts = arcToHorizonPoints(profile.sites[0].blockedArcs);
     expect(horizonAltitudeAt(pts, 200)).toBe(42);
     expect(horizonAltitudeAt(pts, 90)).toBe(0);
   });

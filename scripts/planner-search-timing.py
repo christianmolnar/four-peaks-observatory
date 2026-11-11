@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SAMPLE = json.load(open(os.path.join(REPO, "src/planner/data/sample-profile.json")))
-QUITO = {"id": "quito", "name": "Quito", "latitude": -0.18, "longitude": -78.47, "timeZone": "America/Guayaquil", "blockedArc": {"startAz": 200, "endAz": 260, "heightDeg": 30}}
+QUITO = {"id": "quito", "name": "Quito", "latitude": -0.18, "longitude": -78.47, "timeZone": "America/Guayaquil", "blockedArcs": [{"startAz": 200, "endAz": 260, "heightDeg": 30}]}
 
 
 def slot(i, target, train, flt, mode):
