@@ -147,7 +147,8 @@
     11,
     12
    ],
-   "openngc": "NGC1982"
+   "openngc": "NGC1982",
+   "brightCore": true
   },
   {
    "id": "ngc1977",
@@ -538,8 +539,7 @@
     8,
     9
    ],
-   "openngc": "NGC6514",
-   "brightCore": true
+   "openngc": "NGC6514"
   },
   {
    "id": "m16",
@@ -589,8 +589,7 @@
     9,
     10
    ],
-   "openngc": "NGC6853",
-   "brightCore": true
+   "openngc": "NGC6853"
   },
   {
    "id": "m13",
