@@ -305,3 +305,85 @@ describe('input checks', () => {
     expect(n.slots[0].start.getTime()).toBeGreaterThanOrEqual((n.start as Date).getTime());
   });
 });
+
+describe('exact packing (inputs where heuristics lost minutes)', () => {
+  const POR: Site = { latitude: 45.52, longitude: -122.68, elevationM: 0 };
+  const SYD: Site = { latitude: -33.87, longitude: 151.21, elevationM: 0 };
+  const total = (n: { outcomes: { gotMin: number }[] }): number => n.outcomes.reduce((a, o) => a + o.gotMin, 0);
+  const got = (n: { outcomes: { subjectId: string; gotMin: number }[] }, id: string): number => n.outcomes.find((o) => o.subjectId === id)?.gotMin ?? -1;
+
+  it('Phoenix 2026-12-10, four zones, min alt 25, six 2 h subjects: 555 / 550 / 545', () => {
+    const horizon = arcToHorizonPoints([
+      { startAz: 60, endAz: 110, heightDeg: 35 }, { startAz: 230, endAz: 300, heightDeg: 42 },
+      { startAz: 150, endAz: 170, heightDeg: 50 }, { startAz: 340, endAz: 20, heightDeg: 30 },
+    ]);
+    const input = base({
+      subjects: [M42(2), M31(2), ROSETTE(2), PLEIADES(2), subject('m33', 1.564, 30.66, 2), subject('m1', 5.575, 22.01, 2)],
+      horizon, nights: 3,
+    });
+    const r = planCampaign(input);
+    expect(r.nights.map(total)).toEqual([555, 550, 545]);
+    expect(planCampaign(input)).toEqual(r);
+  });
+
+  it('Sydney 2027-05-10, min alt 30, five subjects: 620 min, M16 at 150, no flip', () => {
+    const input = base({
+      site: SYD, timeZone: 'Australia/Sydney', startDate: '2027-05-10', minAltitude: 30,
+      subjects: [subject('m8', 18.06, -24.38, 3), subject('m104', 12.666, -11.62, 3), subject('tuc', 0.4, -72.08, 3.5), subject('m16', 18.313, -13.78, 2.5), subject('car', 10.75, -59.87, 3)],
+    });
+    const n = scheduleNight(input, 0);
+    expect(total(n)).toBeGreaterThanOrEqual(620);
+    expect(got(n, 'm16')).toBe(150);
+    expect(n.slots.filter((s) => s.flip)).toHaveLength(0);
+  });
+
+  it('Portland 2027-03-15, min alt 30, four 2.5 h subjects: 510 min, M101 at 150', () => {
+    const input = base({
+      site: POR, timeZone: 'America/Los_Angeles', startDate: '2027-03-15', minAltitude: 30,
+      subjects: [subject('m81', 9.926, 69.07, 2.5), subject('m51', 13.498, 47.2, 2.5), subject('m101', 14.053, 54.35, 2.5), subject('m44', 8.67, 19.67, 2.5)],
+    });
+    const n = scheduleNight(input, 0);
+    expect(total(n)).toBeGreaterThanOrEqual(510);
+    expect(got(n, 'm101')).toBe(150);
+  });
+
+  it('Portland 2027-01-20, min alt 30, seven 2 h subjects (beam): the best total each night, 440 / 435 / 430', () => {
+    const input = base({
+      site: POR, timeZone: 'America/Los_Angeles', startDate: '2027-01-20', minAltitude: 30, nights: 3,
+      subjects: [M42(2), M31(2), ROSETTE(2), PLEIADES(2), subject('m33', 1.564, 30.66, 2), subject('m1', 5.575, 22.01, 2), subject('ic434', 5.68, -2.46, 2)],
+    });
+    const r = planCampaign(input);
+    expect(r.nights.map(total)).toEqual([440, 435, 430]);
+    expect(planCampaign(input)).toEqual(r);
+  });
+
+  it('Phoenix 2027-03-15, two zones, six 2.5 h subjects: the carry never lowers a total', () => {
+    const horizon = arcToHorizonPoints([{ startAz: 60, endAz: 110, heightDeg: 35 }, { startAz: 230, endAz: 290, heightDeg: 42 }]);
+    const input = base({
+      startDate: '2027-03-15', horizon, nights: 3,
+      subjects: [subject('m81', 9.926, 69.07, 2.5), subject('m51', 13.498, 47.2, 2.5), subject('m101', 14.053, 54.35, 2.5), subject('m44', 8.67, 19.67, 2.5), subject('m65', 11.32, 13.09, 2.5), subject('m104', 12.666, -11.62, 2.5)],
+    });
+    const r = planCampaign(input);
+    r.nights.forEach((n, k) => expect(total(n)).toBe(total(scheduleNight(input, k))));
+  });
+
+  it('says the grid lost the edge, not the flip, when the window holds the time and the flip', () => {
+    // M81 from Portland on 2027-03-15 at min alt 63.6: a 192 min window, 3 h wanted.
+    const input = base({
+      site: POR, timeZone: 'America/Los_Angeles', startDate: '2027-03-15', minAltitude: 63.6,
+      subjects: [subject('m81', 9.926, 69.07, 3)],
+    });
+    const o = scheduleNight(input, 0).outcomes[0];
+    expect(o.gotMin).toBeLessThan(180);
+    expect(o.reason?.code).toBe('window-too-short');
+    expect(o.reason?.text).toContain('grid');
+  });
+
+  it('5 subjects x 10 h x 14 nights runs in a few seconds', () => {
+    const input = base({ subjects: [M42(10), M31(10), ROSETTE(10), PLEIADES(10), subject('m1', 5.575, 22.01, 10)], nights: 14, minAltitude: 20 });
+    const t = Date.now();
+    planCampaign(input);
+    // About 2 s on its own; the ceiling leaves room for jest workers running other suites at the same time.
+    expect(Date.now() - t).toBeLessThan(6000);
+  });
+});
