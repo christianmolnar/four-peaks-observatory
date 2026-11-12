@@ -114,7 +114,7 @@ describe('loadTargets', () => {
   });
 
   it('flags only these starter targets as bright core', () => {
-    expect(starterTargets.filter((t) => t.brightCore).map((t) => t.id).sort()).toEqual(['m13', 'm20', 'm27', 'm31', 'm42', 'm8']);
+    expect(starterTargets.filter((t) => t.brightCore).map((t) => t.id).sort()).toEqual(['m13', 'm31', 'm42', 'm43', 'm8']);
   });
 
   it('rejects duplicate ids', () => {
