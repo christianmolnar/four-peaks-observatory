@@ -52,6 +52,7 @@ export type ShortCode =
   | 'below-min-altitude'
   | 'blocked-by-horizon'
   | 'window-too-short'
+  | 'flip-cuts-slot'
   | 'no-room';
 
 export interface ShortReason {
@@ -67,12 +68,13 @@ export interface SubjectNight {
   usableMin: number;
   /** Meridian transit of the aim point inside the night; null when it falls outside the night. */
   transit: Date | null;
-  /** True when every placement of the requested length inside the windows straddles the transit (a flip cannot be avoided, whatever else is imaged). */
+  /** True when the requested length fits only as a slot that straddles the transit, flip time included (a flip cannot be avoided, whatever else is imaged). False when a clean slot fits, or when no slot of the full length fits at all. */
   unavoidableFlip: boolean;
 }
 
 export interface CampaignSlot {
   subjectId: string;
+  /** On a 5-minute grid from the start of the night, so up to 5 minutes at a window edge can go unused. */
   start: Date;
   /** End of the slot including the flip when there is one. */
   end: Date;
@@ -106,7 +108,7 @@ export interface CandidateFit {
 }
 
 export interface NightPacking {
-  /** Length of the usable night (from the start time to dawn), minutes. */
+  /** Length of the usable night (from the start time to dawn), whole minutes. */
   nightMin: number;
   /** Imaging plus flip minutes of every slot. */
   usedMin: number;

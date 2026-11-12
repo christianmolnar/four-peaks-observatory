@@ -19,7 +19,9 @@ export function validateInput(input: CampaignInput): void {
   if (!Number.isInteger(input.nights) || input.nights < 1 || input.nights > MAX_NIGHTS) {
     throw new RangeError(`nights must be a whole number from 1 to ${MAX_NIGHTS}: ${input.nights}`);
   }
-  if (!Number.isFinite(input.minAltitude)) throw new RangeError('minAltitude must be a number');
+  if (!Number.isFinite(input.minAltitude) || input.minAltitude < 0 || input.minAltitude >= 90) {
+    throw new RangeError(`minAltitude must be from 0 up to (not including) 90 degrees: ${input.minAltitude}`);
+  }
   parseLocalDate(input.startDate);
   const seen = new Set<string>();
   for (const s of [...input.subjects, ...(input.candidates ?? [])]) {
@@ -102,12 +104,17 @@ export function analyseSubject(input: CampaignInput, subject: CampaignSubject, s
       : { code: 'blocked-by-horizon', text: `${subject.name} is above ${input.minAltitude} degrees only while it is behind a blocked zone.` };
   }
 
+  // Same start grid and rules as the scheduler: a flip is unavoidable when no clean slot of the full length fits but a straddling one (flip included) does.
   const lengthMin = subject.hoursPerNight * 60;
-  // Windows that can hold the whole length; a flip is unavoidable when every start in each of them straddles the transit.
-  const holding = windows.filter((w) => minutes(w) >= lengthMin);
-  const unavoidableFlip = transit !== null && holding.length > 0 && holding.every((w) => {
-    const latest = w.end.getTime() - lengthMin * 60000;
-    return slotCrossesMeridian(transit, w.start, lengthMin) && slotCrossesMeridian(transit, new Date(latest), lengthMin);
-  });
+  const spans = windows.map((w) => ({ s: w.start.getTime(), e: w.end.getTime() }));
+  const t0 = start.getTime();
+  const fits = (flip: boolean): boolean => {
+    const dur = (lengthMin + (flip ? MERIDIAN_FLIP_MIN : 0)) * 60000;
+    for (let s = t0; s + dur <= end.getTime(); s += GRID_MS) {
+      if (spans.some((w) => s >= w.s && s + dur <= w.e) && slotCrossesMeridian(transit, new Date(s), lengthMin) === flip) return true;
+    }
+    return false;
+  };
+  const unavoidableFlip = transit !== null && !fits(false) && fits(true);
   return { subjectId: subject.id, subject, windows, usableMin: windows.reduce((a, w) => a + minutes(w), 0), transit, unavoidableFlip, alt, noWindowReason };
 }

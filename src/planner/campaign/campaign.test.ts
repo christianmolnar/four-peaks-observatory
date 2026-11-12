@@ -32,7 +32,7 @@ const usableAt = (s: CampaignSubject, input: CampaignInput, t: number): boolean 
   return p.altitude >= limitAltitudeAt(input.horizon, p.azimuth, input.minAltitude) - 1e-6;
 };
 const assertSlotUsable = (slot: CampaignSlot, s: CampaignSubject, input: CampaignInput) => {
-  const end = slot.start.getTime() + slot.integrationMin * MIN;
+  const end = slot.end.getTime();
   for (let t = slot.start.getTime(); t <= end; t += 5 * MIN) expect(usableAt(s, input, t)).toBe(true);
   expect(usableAt(s, input, end)).toBe(true);
 };
@@ -225,7 +225,72 @@ describe.each([2.5, 1.5])('packing: 4 x %s h in a 9 h night', (hours) => {
   });
 });
 
+describe('packing: total minutes come first', () => {
+  const four = [M42(2.5), M31(2.5), ROSETTE(2.5), PLEIADES(2.5)];
+
+  it.each([30, 20])('Phoenix 2026-12-10, min alt %s: four subjects at 2.5 h all get 150', (minAltitude) => {
+    const input = base({ subjects: four, minAltitude });
+    const n = scheduleNight(input, 0);
+    expect(n.outcomes.map((o) => o.gotMin)).toEqual([150, 150, 150, 150]);
+    expect(n.outcomes.every((o) => o.reason === null)).toBe(true);
+    for (const s of n.slots) assertSlotUsable(s, four.find((x) => x.id === s.subjectId) as CampaignSubject, input);
+    if (minAltitude === 30) {
+      expect(n.packing.usedMin).toBe(610);
+      expect(n.slots.filter((s) => s.flip)).toHaveLength(1);
+    }
+  });
+
+  it('a 9 h night gives three of four subjects their full 2.5 h', () => {
+    const night = tonightsNight(PHX, '2026-12-10', TZ);
+    const startTime = clockOf(new Date((night.end as Date).getTime() - 9 * 60 * MIN), TZ);
+    const n = scheduleNight(base({ subjects: four, startTime, minAltitude: 20 }), 0);
+    expect(n.outcomes.filter((o) => o.gotMin === 150).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('short reasons', () => {
+  it('blames the flip, not the window, when the window holds the imaging time but not the flip too', () => {
+    // M42 on 2026-12-10 at min alt 48.1: one 129.4 min window, transit inside it.
+    const input = base({ subjects: [M42(2)], minAltitude: 48.1 });
+    const n = scheduleNight(input, 0);
+    const o = n.outcomes[0];
+    expect(n.subjects[0].windows.map((w) => (w.end.getTime() - w.start.getTime()) / MIN)[0]).toBeGreaterThanOrEqual(120);
+    expect(o.gotMin).toBeLessThan(120);
+    expect(o.reason?.code).toBe('flip-cuts-slot');
+    expect(o.reason?.text).toContain('flip');
+    expect(n.subjects[0].unavoidableFlip).toBe(false);
+  });
+});
+
+describe('carrying a shortfall across nights', () => {
+  it('gives every one of six 2 h subjects minutes on at least one of three nights', () => {
+    const horizon = arcToHorizonPoints([
+      { startAz: 60, endAz: 110, heightDeg: 40 },
+      { startAz: 230, endAz: 300, heightDeg: 47 },
+      { startAz: 120, endAz: 160, heightDeg: 35 },
+      { startAz: 0, endAz: 40, heightDeg: 33 },
+    ]);
+    // Without the carry-over the Pleiades get 0 min on all three nights here.
+    const subs = [M42(2), M31(2), ROSETTE(2), PLEIADES(2), subject('m33', 1.564, 30.66, 2), subject('m1', 5.575, 22.01, 2)];
+    const r = planCampaign(base({ subjects: subs, horizon, nights: 3, minAltitude: 25 }));
+    expect(r.perSubject.map((p) => p.gotMin > 0)).toEqual([true, true, true, true, true, true]);
+    expect(planCampaign(base({ subjects: subs, horizon, nights: 3, minAltitude: 25 }))).toEqual(r);
+  });
+});
+
+describe('output', () => {
+  it('reports whole minutes', () => {
+    const p = scheduleNight(base({ subjects: [M42(2)], candidates: [M31(2)] }), 0).packing;
+    for (const v of [p.nightMin, p.usedMin, p.slewMin, p.leftMin]) expect(Number.isInteger(v)).toBe(true);
+  });
+});
+
 describe('input checks', () => {
+  it('rejects a minimum altitude outside [0, 90)', () => {
+    for (const minAltitude of [-30, -0.1, 90, 95]) expect(() => planCampaign(base({ subjects: [M42(2)], minAltitude }))).toThrow(/minAltitude/);
+    expect(() => planCampaign(base({ subjects: [M42(2)], minAltitude: 0 }))).not.toThrow();
+  });
+
   it('rejects more than 14 nights, bad hours and duplicate ids', () => {
     expect(() => planCampaign(base({ subjects: [M42(2)], nights: 15 }))).toThrow(/nights/);
     expect(() => planCampaign(base({ subjects: [M42(2.01)] }))).toThrow(/hoursPerNight/);
