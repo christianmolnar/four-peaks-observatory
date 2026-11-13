@@ -49,15 +49,12 @@ const clockIn = (timeZone?: string): ((d: Date) => string) => {
   return (d) => f.format(d);
 };
 
-type SeasonFilter = 'all' | 'in' | 'out';
-type SetupFilter = 'all' | 'fits' | 'too-large' | 'deep-sky' | 'planets';
+type TypeFilter = 'all' | 'deep-sky' | 'planets';
 
-const SETUP_LABELS: Record<SetupFilter, string> = {
+const TYPE_LABELS: Record<TypeFilter, string> = {
   all: 'All',
-  fits: 'Fits this setup',
-  'too-large': 'Too large for this setup',
-  'deep-sky': 'Deep sky only',
-  planets: 'Planets only',
+  'deep-sky': 'Deep-sky',
+  planets: 'Planets',
 };
 
 type RankedEntry = NonNullable<ReturnType<typeof planTonight>>['entries'][number];
@@ -175,8 +172,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       if (!next.delete(id)) next.add(id);
       return next;
     });
-  const [season, setSeason] = useState<SeasonFilter>('all');
-  const [setup, setSetup] = useState<SetupFilter>('all');
+  const [type, setType] = useState<TypeFilter>('all');
   const [onlyUsable, setOnlyUsable] = useState(true);
   const [showNoFit, setShowNoFit] = useState(false);
   const [selectedId, setSelectedId] = useState<string>('');
@@ -352,16 +348,12 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     if (!plan) return [];
     return plan.entries.filter((e) => {
       if (onlyUsable && e.usableMinutes <= 0) return false;
-      if (!showNoFit && setup !== 'too-large' && e.fit === 'too-large') return false;
-      if (season === 'in' && e.inSeason !== true) return false;
-      if (season === 'out' && e.inSeason !== false) return false;
-      if (setup === 'fits' && e.fit !== 'fits') return false;
-      if (setup === 'too-large' && e.fit !== 'too-large') return false;
-      if (setup === 'planets' && !e.isPlanet) return false;
-      if (setup === 'deep-sky' && e.isPlanet) return false;
+      if (!showNoFit && e.fit === 'too-large') return false;
+      if (type === 'planets' && !e.isPlanet) return false;
+      if (type === 'deep-sky' && e.isPlanet) return false;
       return true;
     });
-  }, [plan, onlyUsable, showNoFit, season, setup]);
+  }, [plan, onlyUsable, showNoFit, type]);
 
   const selected = filtered.find((e) => e.id === selectedId) ?? filtered[0];
   const track = useMemo(() => {
@@ -662,18 +654,10 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           <h2 id="list-heading" className="text-xl font-light text-white tracking-[0.15em]">TARGETS</h2>
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <label htmlFor="f-season" className="block text-white/90 font-normal text-sm mb-1">Season</label>
-              <WrapSelect id="f-season" className="w-full" value={season} onChange={(e) => setSeason(e.target.value as SeasonFilter)}>
-                <option value="all">All</option>
-                <option value="in">In season tonight</option>
-                <option value="out">Out of season</option>
-              </WrapSelect>
-            </div>
-            <div>
-              <label htmlFor="f-setup" className="block text-white/90 font-normal text-sm mb-1">Setup</label>
-              <WrapSelect id="f-setup" className="w-full" value={setup} onChange={(e) => setSetup(e.target.value as SetupFilter)}>
-                {(Object.keys(SETUP_LABELS) as SetupFilter[]).map((k) => (
-                  <option key={k} value={k}>{SETUP_LABELS[k]}</option>
+              <label htmlFor="f-type" className="block text-white/90 font-normal text-sm mb-1">Type</label>
+              <WrapSelect id="f-type" className="w-full" value={type} onChange={(e) => setType(e.target.value as TypeFilter)}>
+                {(Object.keys(TYPE_LABELS) as TypeFilter[]).map((k) => (
+                  <option key={k} value={k}>{TYPE_LABELS[k]}</option>
                 ))}
               </WrapSelect>
             </div>

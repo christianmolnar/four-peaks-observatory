@@ -237,7 +237,7 @@ describe('Exposure panel for a planet', () => {
   it('says planning here is for deep-sky targets', async () => {
     const user = userEvent.setup();
     app(withTrain('deep-c11-2600'));
-    await user.selectOptions(screen.getByLabelText('Setup'), 'planets');
+    await user.selectOptions(screen.getByLabelText('Type'), 'planets');
     const planetButton = within(screen.getByTestId('target-table')).getAllByRole('button')[0];
     await user.click(planetButton);
     expect(panel().textContent).toMatch(/for deep-sky targets/);
@@ -284,8 +284,9 @@ describe('Gain column and the overflow cue', () => {
     expect(countHiddenBelow(100, [101])).toBe(0); // within 1 px: not hidden
   });
   describe('core advice', () => {
-    const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) =>
-      user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
+    const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
+      await user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
+    };
 
     it('a flagged target shows one line with the estimate label and a three-bullet blend fold', async () => {
       const user = userEvent.setup();
