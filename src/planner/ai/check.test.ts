@@ -272,11 +272,17 @@ describe('last-target verdict', () => {
     expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 31 } })).toContain('31 frames x 120 s is 3720 s, more than the 3600 s slot');
     expect(kinds(INPUT, { ...p, lastTarget: { ...p.lastTarget!, frames: 30 } })).toEqual([]);
   });
+  it('R3: frames must equal floor(minutes x 60 / sub), within 1', () => {
+    const p = plan();
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 1 } })).toContain('lastTarget: 1 frames');
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 28 } })).toContain('should be 30');
+    for (const f of [29, 30]) expect(kinds(INPUT, { ...p, lastTarget: { ...p.lastTarget!, frames: f } })).toEqual([]);
+  });
   it('sub length must match the exposure entry; 0 frames cannot be useful', () => {
     const p = plan();
     expect(msg({ ...p, lastTarget: { ...p.lastTarget!, subSeconds: 60, frames: 60 } })).toContain('exposure entry for t3 says 120');
     expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 0, usefulness: 'useful' } })).toContain('0 frames');
-    expect(kinds(INPUT, { ...p, lastTarget: { ...p.lastTarget!, frames: 0, usefulness: 'not_useful' } })).toEqual([]);
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 0, usefulness: 'not_useful' } })).not.toContain('usefulness must be');
   });
   it('a verdict with no slot is a mismatch', () => {
     const input: AiPlanInput = { ...INPUT, targets: [{ id: 's', name: 's', raHours: 12, decDeg: -80 }] };
@@ -284,19 +290,50 @@ describe('last-target verdict', () => {
     expect(kinds(input, p)).toEqual(['verdict-mismatch']);
   });
   it('warns when 30+ min of night remain after the last slot and its target could use more', () => {
-    const [first] = validSlots(INPUT, 30);
-    const p = planOf(INPUT, [first], { cut: ['t2', 't3'], fitsAll: false });
+    const tr = Math.round(transitOf(INPUT, 't1') / MIN) * MIN;
+    const p = planOf(INPUT, [['t1', clock(tr), clock(tr + 30 * MIN)]], { cut: ['t2', 't3'], fitsAll: false });
     expect(checkPlan(INPUT, night(), p)).toEqual([]);
     const w = planWarnings(INPUT, night(), p).find((x) => x.kind === 'free-time-after-last');
     expect(w?.id).toBe('t1');
     expect(w?.message).toContain('takes all the observable time left');
   });
+  it('R3: warns when the last slot ends at its transit and the target stays usable long after the flip', () => {
+    const p = planOf(INPUT, [
+      ['t1', '2026-12-10T18:48-07:00', '2026-12-10T19:48-07:00'],
+      ['t3', '2026-12-10T22:49-07:00', '2026-12-10T23:19-07:00'],
+      ['t2', '2026-12-10T23:44-07:00', '2026-12-11T00:44-07:00'],
+    ]);
+    expect(checkPlan(INPUT, night(), p)).toEqual([]);
+    const w = planWarnings(INPUT, night(), p).filter((x) => x.kind === 'free-time-after-last');
+    expect(w).toHaveLength(1);
+    expect(w[0].id).toBe('t2');
+    expect(w[0].message).toContain('start at the transit');
+    expect(w[0].message).toMatch(/usable (\d+) min after the transit/);
+    const run = Number(/usable (\d+) min after the transit/.exec(w[0].message)![1]);
+    expect(run).toBeGreaterThan(200);
+    // The advice is real: the same target starting at its transit and running that long verifies.
+    const moved = planOf(INPUT, [
+      ['t1', '2026-12-10T18:48-07:00', '2026-12-10T19:48-07:00'],
+      ['t3', '2026-12-10T22:49-07:00', '2026-12-10T23:19-07:00'],
+      ['t2', '2026-12-11T00:44-07:00', clock(Date.parse('2026-12-11T00:44-07:00') + run * MIN)],
+    ]);
+    expect(checkPlan(INPUT, night(), moved)).toEqual([]);
+    expect(planWarnings(INPUT, night(), moved)).toEqual([]);
+  });
+  it('R3: no transit-forward warning when the run after the transit is shorter than the slot or under the minimum', () => {
+    const p = planOf(INPUT, [
+      ['t1', '2026-12-10T18:48-07:00', '2026-12-10T19:48-07:00'],
+      ['t3', '2026-12-10T22:49-07:00', '2026-12-10T23:19-07:00'],
+      ['t2', '2026-12-10T23:44-07:00', '2026-12-11T00:44-07:00'],
+    ]);
+    const w = planWarnings({ ...INPUT, minAltitude: 60 }, night({ ...INPUT, minAltitude: 60 }), p);
+    expect(w.filter((x) => x.message.includes('start at the transit'))).toEqual([]);
+  });
   it('no warning when the last slot runs to the end of its window', () => {
     const { facts } = buildFacts(INPUT);
     const t1 = facts.targets[0];
     const [, end] = t1.windows.at(-1)!;
-    const tr = t1.transit ? Date.parse(t1.transit) : Infinity;
-    const endMs = Math.min(Date.parse(end), tr > Date.parse(end) ? Date.parse(end) : tr);
+    const endMs = Date.parse(end);
     const p = planOf(INPUT, [['t1', clock(endMs - 30 * MIN), clock(endMs)]], { cut: ['t2', 't3'], fitsAll: false });
     const w = planWarnings(INPUT, night(), p).filter((x) => x.kind === 'free-time-after-last');
     expect(w).toEqual([]);

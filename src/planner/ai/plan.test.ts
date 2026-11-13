@@ -1,9 +1,9 @@
-import { createAnthropicCaller, DEFAULT_MODEL, MissingKeyError, redactKey } from './anthropic';
+import { createAnthropicCaller, DEFAULT_MODEL, MAX_TOKENS, MissingKeyError, redactKey } from './anthropic';
 import { planNightWithAi, ModelReplyError } from './plan';
 import type { CallModel, ModelMessage } from './plan';
 import { checkPlan } from './check';
 import { buildFacts, nightOf } from './facts';
-import { buildUserPrompt, SYSTEM_PROMPT } from './prompt';
+import { buildRetryPrompt, buildUserPrompt, SYSTEM_PROMPT } from './prompt';
 import { INPUT, clock, lowMinute, MIN, planOf, validSlots } from './testkit';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -242,11 +242,26 @@ describe('facts for the model', () => {
     expect(plain.rig).toBeUndefined();
     expect(plain.bortle).toBeUndefined();
   });
-  it('token budget: 12 targets stay under 40k characters per call (about 12k tokens), so 6 calls stay under 80k input tokens', () => {
-    const targets = Array.from({ length: 12 }, (_, i) => ({ id: `x${i}`, name: `Label ${i}`, raHours: i * 2, decDeg: 20, info: { type: 'nebula', sizeArcmin: { major: 60, minor: 40 } } }));
-    const { facts } = buildFacts({ ...rich, targets, date: '2026-12-21' });
-    const chars = SYSTEM_PROMPT.length + buildUserPrompt(facts).length;
-    expect(chars).toBeLessThan(40_000);
+  it('token budget: no call sends more than 40,000 characters, resent malformed reply (capped by MAX_TOKENS) included; six calls stay under 240,000', () => {
+    const worst = { ...rich, site: { ...rich.site, latitude: 60 }, date: '2026-12-21', targets: Array.from({ length: 12 }, (_, i) => ({ id: `x${i}`, name: 'N'.repeat(120), raHours: i * 2, decDeg: 20, info: { type: 'nebula', sizeArcmin: { major: 60, minor: 40 } } })) };
+    const { facts } = buildFacts(worst);
+    const first = SYSTEM_PROMPT.length + buildUserPrompt(facts).length;
+    expect(first).toBeLessThan(28_000);
+    // A reply cut at the cap is at most MAX_TOKENS tokens, taken at 4 characters each; it is resent with the retry message.
+    const perCall = first + MAX_TOKENS * 4 + buildRetryPrompt('x'.repeat(300)).length;
+    expect(perCall).toBeLessThan(40_000);
+    expect(perCall * 6).toBeLessThan(240_000);
+  });
+  it('R3: MAX_TOKENS is near 3000, above a full 12-target plan, and a reply cut by it is malformed JSON that gets the retry', async () => {
+    expect(MAX_TOKENS).toBe(3000);
+    const full = JSON.stringify(planOf(INPUT, validSlots()));
+    expect(full.length / 3).toBeLessThan(MAX_TOKENS / 3);
+    const cut = full.slice(0, Math.floor(full.length * 0.8));
+    const m = fake([cut, good()]);
+    const r = await planNightWithAi(INPUT, { callModel: m.call });
+    expect(r.modelCalls).toBe(2);
+    expect(m.seen[1][2].content).toBe(cut);
+    expect(m.seen[1][3].content).toContain('could not be used');
   });
   it('S3: sampleTimes start at night.start and end at night.end, whole minutes', () => {
     const { facts } = buildFacts(INPUT);

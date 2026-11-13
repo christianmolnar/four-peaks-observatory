@@ -3,7 +3,8 @@ import { CALL_TIMEOUT_MS } from './plan';
 import type { CallModel } from './plan';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
-const MAX_TOKENS = 8000;
+/** A real plan is about 1.5-2k tokens; a runaway reply ends here, well before the 50 s timeout. A reply cut by the cap is not valid JSON, so the caller treats it as malformed. */
+export const MAX_TOKENS = 3000;
 
 export class MissingKeyError extends Error {}
 

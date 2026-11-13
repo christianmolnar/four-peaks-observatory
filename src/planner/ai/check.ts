@@ -159,6 +159,8 @@ function checkVerdict(plan: ModelPlan, timed: readonly Timed[], add: (k: Violati
   if (v.id !== last.id) add('verdict-mismatch', `lastTarget is ${v.id} but the last slot in time is ${last.id}.`, last.id);
   if (v.leftoverMinutes !== minutes) add('verdict-mismatch', `lastTarget.leftoverMinutes is ${v.leftoverMinutes} but the last slot (${last.id}) is ${minutes} min long.`, last.id);
   if (v.frames * v.subSeconds > minutes * 60) add('verdict-mismatch', `lastTarget: ${v.frames} frames x ${v.subSeconds} s is ${v.frames * v.subSeconds} s, more than the ${minutes * 60} s slot.`, last.id);
+  const expected = Math.floor((minutes * 60) / v.subSeconds);
+  if (v.frames > expected || v.frames < expected - 1) add('verdict-mismatch', `lastTarget: ${v.frames} frames is wrong for ${minutes} min at ${v.subSeconds} s subs; should be ${expected} (floor of minutes x 60 / subSeconds, one less is allowed).`, last.id);
   if (v.frames < 1 && v.usefulness !== 'not_useful') add('verdict-mismatch', `lastTarget has 0 frames, so usefulness must be not_useful.`, last.id);
   const exposure = plan.exposures.find((e) => e.id === v.id);
   if (exposure && exposure.subSeconds !== v.subSeconds) add('verdict-mismatch', `lastTarget.subSeconds is ${v.subSeconds} but the exposure entry for ${v.id} says ${exposure.subSeconds}.`, last.id);
@@ -238,8 +240,31 @@ export function planWarnings(input: AiPlanInput, night: Night, plan: ModelPlan):
   }
   const freeMin = (nightEnd - last.end.getTime()) / MIN;
   const more = (reach - last.end.getTime()) / MIN;
-  if (freeMin >= MIN_USEFUL_SLOT_MIN && more >= 1) {
+  const flip = afterTransitWarning(input, t, last, transit, nightEnd);
+  if (flip) out.push({ kind: 'free-time-after-last', id: last.id, message: flip });
+  else if (freeMin >= MIN_USEFUL_SLOT_MIN && more >= 1) {
     out.push({ kind: 'free-time-after-last', id: last.id, message: `${last.id} is the last slot and ends ${isoOf(last.end, tz)}, but ${freeMin} min of night remain and it stays usable ${more} more min (to ${isoOf(new Date(reach), tz)}); the last target takes all the observable time left.` });
   }
   return out;
+}
+
+/**
+ * A last slot that ends at or before its transit leaves the time after the flip unused. When the target stays usable
+ * from the transit forward (to the night end or the first unusable minute) for at least MIN_USEFUL_SLOT_MIN and longer
+ * than the slot, the message saying to start at the transit; otherwise null.
+ */
+function afterTransitWarning(input: AiPlanInput, t: AiTarget, last: Timed, transit: number, nightEnd: number): string | null {
+  if (transit < last.end.getTime() || transit > nightEnd) return null;
+  const usable = (ms: number): boolean => {
+    const p = targetAltAz(t.raHours, t.decDeg, new Date(ms), input.site);
+    return classifySky(p.altitude, p.azimuth, input.horizon, input.minAltitude) === 'ok';
+  };
+  if (!usable(transit)) return null;
+  let to = transit;
+  while (to + MIN <= nightEnd && usable(to + MIN)) to += MIN;
+  const run = (to - transit) / MIN;
+  const slotMin = (last.end.getTime() - last.start.getTime()) / MIN;
+  if (run < MIN_USEFUL_SLOT_MIN || run <= slotMin) return null;
+  const tz = input.timeZone;
+  return `${last.id} is the last slot (${slotMin} min) and ends at or before its transit ${isoOf(new Date(transit), tz)}, but it is usable ${run} min after the transit (to ${isoOf(new Date(to), tz)}); start at the transit to take the time after the flip.`;
 }
