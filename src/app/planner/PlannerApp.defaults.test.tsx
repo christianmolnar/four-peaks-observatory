@@ -1,9 +1,9 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { sampleProfile } from '@/planner/state';
+import { sampleProfile, defaultDateForProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 
 // The page opens on what the user already chose: tonight's sky, the gear picked at the top, nothing asked twice.
@@ -17,20 +17,34 @@ const app = () => render(<PlannerApp initialDate="2026-12-15" initialProfile={na
 afterEach(cleanup);
 
 describe('planner defaults', () => {
-  it('opens with Season "In season tonight" and Type "All"', () => {
+  it('opens with Type "All", no Season control, and the date picker on the given night', () => {
     app();
-    expect((screen.getByLabelText('Season') as HTMLSelectElement).value).toBe('in');
     expect((screen.getByLabelText('Type') as HTMLSelectElement).value).toBe('all');
+    expect(screen.queryByLabelText('Season')).toBeNull();
+    expect(document.getElementById('f-season')).toBeNull();
+    expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).toBe('2026-12-15');
   });
 
-  it('still lets the user widen the season', async () => {
+  it('defaults the date to today for the site zone when none is given', () => {
+    render(<PlannerApp initialProfile={narrow()} />);
+    expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).toBe(defaultDateForProfile(new Date(), narrow()));
+  });
+
+  it('re-ranks the list when the date moves to the other half of the year, with no season control', () => {
     app();
-    const season = screen.getByLabelText('Season') as HTMLSelectElement;
-    expect([...season.options].map((o) => o.value)).toEqual(['all', 'in', 'out']);
-    const count = () => screen.getByTestId('target-table').querySelectorAll('th[scope="row"]').length;
-    const inSeason = count();
-    await userEvent.setup().selectOptions(season, 'all');
-    expect(count()).toBeGreaterThan(inSeason);
+    const names = () =>
+      [...screen.getByTestId('target-table').querySelectorAll('th[scope="row"]')].map((r) => (r.textContent as string).trim());
+    const winter = names();
+    fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2027-06-15' } });
+    const summer = names();
+    expect(summer).not.toEqual(winter);
+    const rank = (list: string[], name: string) => list.findIndex((n) => n.startsWith(name));
+    // A summer object climbs the list; a winter object drops out.
+    expect(rank(winter, 'Hercules Globular Cluster')).toBeGreaterThan(rank(summer, 'Hercules Globular Cluster'));
+    expect(rank(winter, 'Running Man Nebula')).toBeGreaterThanOrEqual(0);
+    expect(rank(summer, 'Running Man Nebula')).toBe(-1);
+    fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2026-12-15' } });
+    expect(names()).toEqual(winter);
   });
 
   it('has one gear selector: Train; the Type filter offers only target types', () => {

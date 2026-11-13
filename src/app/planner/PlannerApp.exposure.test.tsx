@@ -204,7 +204,6 @@ describe('Filter selector and its warnings', () => {
 // Dates and numbers come from the sample site on 2026-12-15 with the HyperStar train and no filter.
 describe('meridian flip, through the whole page', () => {
   const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
-    await user.selectOptions(screen.getByLabelText('Season'), 'all'); // these targets are out of season in December
     await user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
     await user.click(within(panel()).getByText('Quick & Beautiful'));
     return radio(/Quick/).closest('label')!.textContent ?? '';
@@ -286,7 +285,6 @@ describe('Gain column and the overflow cue', () => {
   });
   describe('core advice', () => {
     const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
-      await user.selectOptions(screen.getByLabelText('Season'), 'all'); // these targets are out of season in December
       await user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
     };
 
