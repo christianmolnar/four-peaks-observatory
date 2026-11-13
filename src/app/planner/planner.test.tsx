@@ -52,7 +52,7 @@ describe('planner page', () => {
   });
 
   it('labels every control and gives both charts a text alternative', () => {
-    for (const id of ['plan-date', 'plan-site', 'plan-train', 'f-season', 'f-setup', 'profile-import', 'arc-start-number', 'arc-end-number', 'arc-height-number']) {
+    for (const id of ['plan-date', 'plan-site', 'plan-train', 'f-season', 'f-type', 'profile-import', 'arc-start-number', 'arc-end-number', 'arc-height-number']) {
       expect(html).toContain(`for="${id}"`);
     }
     expect(html).toContain('aria-label="Start azimuth slider"');
