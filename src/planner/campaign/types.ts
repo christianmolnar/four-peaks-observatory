@@ -10,7 +10,7 @@ export interface CampaignTarget {
 }
 
 /**
- * One thing framed on its own. A pair framed together (M42 + Running Man) is one subject with two targets and an
+ * One thing framed on its own. Two targets framed together are one subject with two targets and an
  * `aim`: the point the frame is centred on. A single-target subject aims at its target.
  */
 export interface CampaignSubject {

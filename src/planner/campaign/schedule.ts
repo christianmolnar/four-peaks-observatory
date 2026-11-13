@@ -115,8 +115,13 @@ function optionsOf(g: SubjectGrid, subject: number, frame: Frame): Option[] {
   return out;
 }
 
-/** What a night's plan is worth, in the order Christian ranked it: total minutes, subjects at full length, fewer flips, minutes for the subjects owed most, altitude-weighted minutes. */
+/**
+ * What a night's plan is worth, in the order Christian ranked it. `served` (subjects with no minutes so far that this
+ * night serves) leads, but only among plans within MAX_LOSS_MIN of the best total; then total minutes, subjects at full
+ * length, fewer flips, minutes for the subjects owed most, altitude-weighted minutes.
+ */
 interface Score {
+  served: number;
   minutes: number;
   full: number;
   flips: number;
@@ -124,12 +129,19 @@ interface Score {
   altitude: number;
 }
 
-const ZERO: Score = { minutes: 0, full: 0, flips: 0, owed: 0, altitude: 0 };
+const ZERO: Score = { served: 0, minutes: 0, full: 0, flips: 0, owed: 0, altitude: 0 };
 const beats = (a: Score, b: Score): boolean =>
-  a.minutes !== b.minutes ? a.minutes > b.minutes
-    : a.full !== b.full ? a.full > b.full
-      : a.flips !== b.flips ? a.flips < b.flips
-        : a.owed !== b.owed ? a.owed > b.owed : a.altitude > b.altitude;
+  a.served !== b.served ? a.served > b.served
+    : a.minutes !== b.minutes ? a.minutes > b.minutes
+      : a.full !== b.full ? a.full > b.full
+        : a.flips !== b.flips ? a.flips < b.flips
+          : a.owed !== b.owed ? a.owed > b.owed : a.altitude > b.altitude;
+
+/** A night may give up at most this many minutes of total to serve a subject that has none yet. */
+export const MAX_LOSS_MIN = 5;
+/** Weight of serving a subject still at 0 after two nights, over serving one that is at 0 earlier in the campaign. */
+const STARVED_WEIGHT = 1000;
+const STARVED_AFTER_NIGHTS = 2;
 
 /** Up to this many subjects the search over (time, subjects placed) is exact; above it only the best BEAM_WIDTH sets are kept at each step. */
 export const EXACT_SUBJECTS_MAX = 6;
@@ -137,83 +149,118 @@ const BEAM_WIDTH = 96;
 
 interface State {
   score: Score;
-  /** The option placed to arrive here; null when arriving by letting a 5-minute step pass. */
+  /** The option placed to arrive here; null only for the empty start. */
   via: Option | null;
+  prev: State | null;
 }
 
 /**
  * The best plan for one night: dynamic programming over (grid step, set of subjects placed). Each subject takes at most
  * one slot, of any length from 5 minutes to the requested one, clean or straddling the transit, and the next slot starts
  * at least the slew time after the end of the one before (the next grid step, as slots end on the grid).
- * The score adds up slot by slot, so the best plan is found exactly (beam-pruned above EXACT_SUBJECTS_MAX subjects).
+ *
+ * The plan sought is the best by `beats` among those whose total is within MAX_LOSS_MIN of the best total T*. A prefix
+ * of such a plan, ending in (step, set), has at least M - MAX_LOSS_MIN minutes, M being the most any prefix reaching
+ * that (step, set) has (else swapping in the M prefix would beat T*). So each cell keeps only its entries with M and
+ * M - 5 minutes (minutes are multiples of 5), the best by `beats` for each; the score adds up slot by slot, so this is
+ * exact (beam-pruned above EXACT_SUBJECTS_MAX subjects). A first, integer-only pass backwards gives T* and, for every
+ * cell, the most minutes still to be had, so the forward pass drops what cannot reach T* - MAX_LOSS_MIN.
  */
-function bestPlan(grids: readonly SubjectGrid[], frame: Frame, deficit: readonly number[]): (Placement | null)[] {
+function bestPlan(grids: readonly SubjectGrid[], frame: Frame, deficit: readonly number[], weight: readonly number[]): (Placement | null)[] {
   const n = grids.length;
   const steps = Math.floor((frame.t1 - frame.t0) / GRID_MS);
   const options = grids.flatMap((g, i) => optionsOf(g, i, frame));
   const byStart: Option[][] = Array.from({ length: steps + 2 }, () => []);
   for (const o of options) byStart[o.k].push(o);
   const masks = 1 << n;
-  // table[t][mask]: the best way to have placed `mask`, with the next slot not starting before step t.
-  const table: (State | null)[][] = Array.from({ length: steps + 2 }, () => new Array<State | null>(masks).fill(null));
-  table[0][0] = { score: ZERO, via: null };
+  // table[t][mask]: the best ways to have placed `mask`, with the next slot not starting before step t. Best minutes first.
+  const table: (State[] | null)[][] = Array.from({ length: steps + 2 }, () => new Array<State[] | null>(masks).fill(null));
+  table[0][0] = [{ score: ZERO, via: null, prev: null }];
+  // most[t * masks + mask]: the most minutes still to be had from that cell (whole-night optimum from [0][0]). Integers only, so cheap.
+  const most = new Int32Array((steps + 2) * masks);
+  for (let t = steps; t >= 0; t--) {
+    for (let mask = 0; mask < masks; mask++) {
+      let v = most[(t + 1) * masks + mask];
+      for (const o of byStart[t]) {
+        if (mask & (1 << o.subject)) continue;
+        const w = o.ell + most[Math.min(o.endStep + 1, steps + 1) * masks + (mask | (1 << o.subject))];
+        if (w > v) v = w;
+      }
+      most[t * masks + mask] = v;
+    }
+  }
+  const need = most[0] - MAX_LOSS_MIN;
+  // top[t * masks + mask]: the most minutes in that cell (-1 while empty), read in the inner loop without touching the cell.
+  const top = new Int32Array((steps + 2) * masks).fill(-1);
+  top[0] = 0;
   const wants = grids.map((g) => g.subject.hoursPerNight * 60);
   const scratch: Score = { ...ZERO };
-  const relax = (t: number, mask: number, from: Score, via: Option | null): void => {
-    const cur = table[t][mask];
-    if (via && cur && from.minutes + via.ell < cur.score.minutes) return;
+  const relax = (t: number, mask: number, from: State, via: Option | null): void => {
     if (via) {
-      scratch.minutes = from.minutes + via.ell;
-      scratch.full = from.full + (via.ell >= wants[via.subject] ? 1 : 0);
-      scratch.flips = from.flips + (via.flip ? 1 : 0);
-      scratch.owed = from.owed + via.ell * deficit[via.subject];
-      scratch.altitude = from.altitude + via.ell * via.mean;
-    } else Object.assign(scratch, from);
-    if (!cur || beats(scratch, cur.score)) table[t][mask] = { score: { ...scratch }, via };
+      scratch.served = from.score.served + weight[via.subject];
+      scratch.minutes = from.score.minutes + via.ell;
+      scratch.full = from.score.full + (via.ell >= wants[via.subject] ? 1 : 0);
+      scratch.flips = from.score.flips + (via.flip ? 1 : 0);
+      scratch.owed = from.score.owed + via.ell * deficit[via.subject];
+      scratch.altitude = from.score.altitude + via.ell * via.mean;
+    }
+    // Letting a step pass keeps the same state: nothing is copied, and the walk back sees only placements.
+    const cand = via ? scratch : from.score;
+    const make = (): State => (via ? { score: { ...scratch }, via, prev: from } : from);
+    const cell = table[t][mask];
+    if (!cell) {
+      table[t][mask] = [make()];
+      top[t * masks + mask] = cand.minutes;
+      return;
+    }
+    const best = cell[0].score.minutes;
+    const m = cand.minutes;
+    if (m < best - MAX_LOSS_MIN) return;
+    if (m > best) {
+      table[t][mask] = m - best <= MAX_LOSS_MIN ? [make(), cell[0]] : [make()];
+      top[t * masks + mask] = m;
+      return;
+    }
+    const at = cell.length > 1 && cell[1].score.minutes === m ? 1 : cell[0].score.minutes === m ? 0 : -1;
+    if (at < 0) cell.push(make());
+    else if (beats(cand, cell[at].score)) cell[at] = make();
   };
   for (let t = 0; t <= steps; t++) {
     const row = table[t];
     if (n > EXACT_SUBJECTS_MAX) {
-      const live = row.flatMap((st, m) => (st ? [m] : []));
+      const live = row.flatMap((c, m) => (c ? [m] : []));
       if (live.length > BEAM_WIDTH) {
-        live.sort((x, y) => (beats((row[x] as State).score, (row[y] as State).score) ? -1 : beats((row[y] as State).score, (row[x] as State).score) ? 1 : x - y));
+        // Sets are ranked by total minutes first, so the beam keeps the best total the exact search would find.
+        const key = (m: number): number => (row[m] as State[])[0].score.minutes;
+        live.sort((x, y) => key(y) - key(x) || (beats((row[x] as State[])[0].score, (row[y] as State[])[0].score) ? -1 : beats((row[y] as State[])[0].score, (row[x] as State[])[0].score) ? 1 : x - y));
         for (const m of live.slice(BEAM_WIDTH)) row[m] = null;
       }
     }
     for (let mask = 0; mask < masks; mask++) {
-      const st = row[mask];
-      if (!st) continue;
-      relax(t + 1, mask, st.score, null);
-      for (const o of byStart[t]) {
-        if (mask & (1 << o.subject)) continue;
-        const tt = Math.min(o.endStep + 1, steps + 1);
-        const m2 = mask | (1 << o.subject);
-        const cur = table[tt][m2];
-        if (cur !== null && cur.score.minutes > st.score.minutes + o.ell) continue;
-        relax(tt, m2, st.score, o);
+      const cell = row[mask];
+      if (!cell) continue;
+      for (const st of cell) {
+        if (st.score.minutes + most[(t + 1) * masks + mask] >= need) relax(t + 1, mask, st, null);
+        const from = st.score.minutes;
+        for (const o of byStart[t]) {
+          if (mask & (1 << o.subject)) continue;
+          const tt = Math.min(o.endStep + 1, steps + 1);
+          const m2 = mask | (1 << o.subject);
+          const at = tt * masks + m2;
+          if (from + o.ell < top[at] - MAX_LOSS_MIN || from + o.ell + most[at] < need) continue;
+          relax(tt, m2, st, o);
+        }
       }
     }
   }
-  // Walk back from the best final state.
-  let mask = 0;
+  // Every final entry is within the tolerance of the best total (those below it were never kept).
   let best: State | null = null;
-  table[steps + 1].forEach((st, m) => {
-    if (st && (best === null || beats(st.score, best.score))) {
-      best = st;
-      mask = m;
-    }
-  });
+  for (const st of table[steps + 1].flatMap((c) => c ?? [])) {
+    if (st.score.minutes >= need && (best === null || beats(st.score, best.score))) best = st;
+  }
   const placed: (Placement | null)[] = grids.map(() => null);
-  let t = steps + 1;
-  while (t > 0 || mask !== 0) {
-    const st = table[t][mask] as State;
-    if (st.via === null) {
-      t -= 1;
-    } else {
-      placed[st.via.subject] = placementOf(st.via, grids[st.via.subject], frame);
-      mask &= ~(1 << st.via.subject);
-      t = st.via.k;
-    }
+  for (let st = best; st; st = st.prev) {
+    if (st.via) placed[st.via.subject] = placementOf(st.via, grids[st.via.subject], frame);
   }
   return placed;
 }
@@ -244,15 +291,19 @@ function emptyNight(date: string, input: CampaignInput, reason: ShortReason | nu
 }
 
 /**
- * One night. `deficit[i]` is how many minutes subject i is behind from earlier nights: when the nights cannot give
- * everyone everything, the subjects most behind win the tie between plans with the same total minutes, subjects at full length and flips. Absent: no one.
+ * One night. `deficit[i]` is how many minutes subject i is behind from earlier nights. A subject with no minutes on any
+ * earlier night is served first, at a cost of up to MAX_LOSS_MIN minutes of the night's total; among plans equal on
+ * that, total, subjects at full length and flips, the subjects most behind win. Absent: no one is behind.
  */
 export function scheduleNight(input: CampaignInput, index: number, deficit: readonly number[] = []): CampaignNight {
   const b = nightBounds(input, index);
   if (!b.start || !b.end) return emptyNight(b.date, input, b.reason);
   const frame: Frame = { t0: b.start.getTime(), t1: b.end.getTime() };
   const grids = input.subjects.map((s) => analyseSubject(input, s, b.start as Date, b.end as Date));
-  const placed = bestPlan(grids, frame, input.subjects.map((_, i) => deficit[i] ?? 0));
+  const owed = input.subjects.map((_, i) => deficit[i] ?? 0);
+  // A subject is at 0 so far when its whole deficit equals everything asked on the earlier nights (every subject on night 0).
+  const weight = input.subjects.map((s, i) => (owed[i] >= s.hoursPerNight * 60 * index ? (index >= STARVED_AFTER_NIGHTS ? STARVED_WEIGHT : 1) : 0));
+  const placed = bestPlan(grids, frame, owed, weight);
   const taken = placed.flatMap((p) => (p ? [p.span] : []));
 
   const outcomes = grids.map((g, i): SubjectOutcome => {
