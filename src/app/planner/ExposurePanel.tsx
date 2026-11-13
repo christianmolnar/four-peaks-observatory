@@ -4,7 +4,6 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { nextMeridianTransit } from '@/planner/astro';
 import type { Site } from '@/planner/astro';
 import {
-  DEFAULT_BORTLE,
   MODE_ORDER,
   NO_STOP_TIME_NOTE,
   SNR_ASSUMPTION,
@@ -15,7 +14,6 @@ import type { ExposureMode, ExposureTarget, ExposureWarning, ModeEstimate } from
 import type { OpticalTrain } from '@/planner/optics';
 import type { PlanEntry } from '@/planner/plan';
 import type { ProfileCamera, ProfileFilter } from '@/planner/profile';
-import WrapSelect from './WrapSelect';
 
 export interface ExposurePanelProps {
   entry: PlanEntry;
@@ -26,6 +24,10 @@ export interface ExposurePanelProps {
   filter: ProfileFilter | null;
   /** The site, for the real meridian crossing. */
   site: Site;
+  /** Sky darkness of the chosen site (Bortle 1 to 9); set once in the site editor. */
+  bortle: number;
+  /** False: the site has none and DEFAULT_BORTLE is an assumption, said so. */
+  bortleSet: boolean;
   formatTime: (d: Date) => string;
 }
 
@@ -190,9 +192,8 @@ function ModeCard({ m, checked, onSelect, formatTime }: { m: ModeEstimate; check
  * sky: the cards always hold the same rows, each row reserves the height of its longest wrap, and the warnings
  * box has a fixed height (it scrolls, and says so when it does).
  */
-export default function ExposurePanel({ entry, target, optics, camera, filter, site, formatTime }: ExposurePanelProps) {
+export default function ExposurePanel({ entry, target, optics, camera, filter, site, bortle, bortleSet, formatTime }: ExposurePanelProps) {
   const [mode, setMode] = useState<ExposureMode>('balanced');
-  const [bortle, setBortle] = useState<number>(DEFAULT_BORTLE);
 
   const report = useMemo(() => {
     if (!optics || !camera || entry.isPlanet) return null;
@@ -258,13 +259,8 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
 
       <div className="mt-4 grid gap-4 md:grid-cols-3 items-start">
         <div>
-          <label htmlFor="exposure-bortle" className="block text-white/90 font-normal text-sm mb-1">Sky darkness (Bortle class)</label>
-          <WrapSelect id="exposure-bortle" className="w-full" value={bortle} onChange={(e) => setBortle(Number(e.target.value))}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((b) => (
-              <option key={b} value={b}>Bortle {b}</option>
-            ))}
-          </WrapSelect>
-          <p className="text-white/60 text-xs mt-1 min-h-8">Assumed {DEFAULT_BORTLE} until you change it; not saved.</p>
+          <p className="block text-white/90 font-normal text-sm mb-1" data-testid="exposure-sky">Sky darkness: Bortle {bortle}</p>
+          <p className="text-white/60 text-xs mt-1 min-h-8">{bortleSet ? 'From the site.' : `Assumed, the site has none.`} Change it under Site and gear.</p>
         </div>
         <p className="md:col-span-2 text-white/80 font-normal text-sm h-[9rem] md:h-[5rem] overflow-y-auto" data-testid="exposure-filter">
           {filterLine(filter)}

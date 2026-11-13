@@ -1,7 +1,8 @@
 /**
  * Bump when the JSON shape changes. Older versions are migrated on load
  * (see `migrate.ts`): 1 -> 2 adds the filter library; 2 -> 3 turns a site's
- * `blockedArc` into the `blockedArcs` list.
+ * `blockedArc` into the `blockedArcs` list. A site's optional `bortle` needed no bump:
+ * no older profile has it, and absent means not set.
  */
 export const PROFILE_VERSION = 3;
 
@@ -27,6 +28,8 @@ export interface ProfileSite {
   elevationM?: number;
   /** IANA time zone name, e.g. America/Phoenix. Absent: times show in the browser's zone. */
   timeZone?: string;
+  /** Sky darkness at the site, Bortle class 1 to 9 (whole number). Absent: not set, and the planner assumes DEFAULT_BORTLE and says so. */
+  bortle?: number;
   /** Blocked zones, 0 to MAX_ZONES, none overlapping or touching. Empty: nothing is blocked. */
   blockedArcs: BlockedArc[];
 }

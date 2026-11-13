@@ -7,25 +7,29 @@ import { starterTargets } from '@/planner/catalog';
 import { makeCsvTime, planToCsv } from '@/planner/export';
 import { arcsConflict, arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
-import { exposureTargetFrom } from '@/planner/exposure';
+import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
 import {
   DEFAULT_MIN_ALTITUDE,
   MIN_ALTITUDE_RANGE,
   PROFILE_KEY,
+  SELECTION_KEY,
   checkZoneFields,
   checkWholeDegrees,
   defaultDateForProfile,
+  defaultTonightDate,
   effectiveArc,
   fieldsFromArc,
   newZoneFields,
   friendlyArcError,
   loadCaptured,
   loadProfile,
+  loadSelection,
   sampleProfile,
   saveCaptured,
   sameFields,
   saveProfile,
+  saveSelection,
   withSiteArcs,
   withTrainFilter,
 } from '@/planner/state';
@@ -218,9 +222,19 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       setProfile(r.profile);
       if (r.error) setImportError(r.error);
     }
-    loadForm(loaded.sites[0]?.blockedArcs ?? [], true);
+    // The site and train last chosen; one that is gone from the profile falls back to the first, as before.
+    let remembered = null;
+    try {
+      remembered = loadSelection(window.localStorage);
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+    const home = loaded.sites.find((s) => s.id === remembered?.siteId) ?? loaded.sites[0];
+    if (home && home.id === remembered?.siteId) setSiteId(home.id);
+    if (loaded.trains.some((t) => t.id === remembered?.trainId)) setTrainId(remembered!.trainId);
+    loadForm(home?.blockedArcs ?? [], true);
     if (!initialDate) {
-      setDate(defaultDateForProfile(new Date(), loaded));
+      setDate(defaultDateForProfile(new Date(), home ? { ...loaded, sites: [home] } : loaded));
     }
   }, [initialDate, initialProfile]);
 
@@ -265,6 +279,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const siteElev = site?.elevationM;
   const siteZone = site?.timeZone;
   const formatTime = useMemo(() => clockIn(siteZone), [siteZone]);
+  // The evening "tonight" means at this site; any other picked date is "that night".
+  const tonightDate = useMemo(
+    () => (siteLon !== undefined ? defaultTonightDate(new Date(), siteLon, siteZone) : ''),
+    [siteLon, siteZone],
+  );
   const astroSite = useMemo(
     () => (siteLat !== undefined && siteLon !== undefined ? { latitude: siteLat, longitude: siteLon, elevationM: siteElev } : null),
     [siteLat, siteLon, siteElev],
@@ -382,6 +401,15 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   }, [profile, train]);
   const selectedTarget = selected ? starterTargets.find((t) => t.id === selected.id) : undefined;
 
+  /** Remembers the site and train chosen at the top, so a reload opens on them. */
+  const rememberSelection = (nextSiteId: string, nextTrainId: string) => {
+    try {
+      saveSelection(window.localStorage, { siteId: nextSiteId, trainId: nextTrainId });
+    } catch (e) {
+      setNotice(`Site and train choice not saved, so it is lost on reload: ${(e as Error).message}`);
+    }
+  };
+
   const chooseFilter = (filterId: string) => {
     if (!train) return;
     try {
@@ -423,6 +451,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     } catch (e) {
       setNotice(`Could not clear the stored profile: ${(e as Error).message}`);
     }
+    try {
+      window.localStorage.removeItem(SELECTION_KEY);
+    } catch (e) {
+      setNotice(`Could not clear the stored site and train choice: ${(e as Error).message}`);
+    }
     const sample = sampleProfile();
     setProfile(sample);
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
@@ -461,6 +494,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     setSiteId('');
     setTrainId('');
     try {
+      window.localStorage.removeItem(SELECTION_KEY); // the old ids belong to the old profile
       saveProfile(window.localStorage, next);
       setNotice(`Imported ${file.name}.`);
     } catch (e) {
@@ -521,6 +555,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   }
 
   const night = plan?.night;
+  const isTonight = date === '' || date === tonightDate;
+  const nightWord = isTonight ? 'tonight' : 'that night';
+  const bortle = site.bortle ?? DEFAULT_BORTLE;
   const zoneName = siteZone ?? zone;
   const zoneText = zoneName ? `Times are in ${siteZone ? "the site's" : "your browser's"} time zone (${zoneName}).` : '';
   const horizonText =
@@ -566,7 +603,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       </div>
 
       <section aria-labelledby="controls-heading" className={panel}>
-        <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">TONIGHT</h2>
+        <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">{isTonight ? 'TONIGHT' : `THAT NIGHT (${date})`}</h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr] items-start">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
@@ -580,6 +617,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
               value={site.id}
               onChange={(e) => {
                 setSiteId(e.target.value);
+                rememberSelection(e.target.value, train.id);
                 loadForm(profile.sites.find((x) => x.id === e.target.value)?.blockedArcs ?? [], true);
               }}
             >
@@ -590,7 +628,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           </div>
           <div>
             <label htmlFor="plan-train" className="block text-white/90 font-normal text-sm mb-1">Train</label>
-            <WrapSelect id="plan-train" className="w-full" value={train.id} onChange={(e) => setTrainId(e.target.value)}>
+            <WrapSelect id="plan-train" className="w-full" value={train.id} onChange={(e) => { setTrainId(e.target.value); rememberSelection(site.id, e.target.value); }}>
               {profile.trains.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}{t.kind === 'smart' ? ' (smart scope)' : ''}</option>
               ))}
@@ -663,7 +701,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             </div>
             <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
               <input type="checkbox" checked={onlyUsable} onChange={(e) => setOnlyUsable(e.target.checked)} className="accent-sky-400" />
-              Only targets usable tonight
+              Only targets usable {nightWord}
             </label>
             <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
               <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="accent-sky-400" />
@@ -684,7 +722,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           <p className="text-white/90 font-normal">No targets match these filters.</p>
         ) : (
           <>
-            <ul className="lg:hidden space-y-3" data-testid="target-cards" aria-label="Targets ranked for tonight">
+            <ul className="lg:hidden space-y-3" data-testid="target-cards" aria-label={`Targets ranked for ${nightWord}${isTonight ? '' : ` (${date})`}`}>
               {filtered.map((e, i) => {
                 const t = targetText(e, formatTime);
                 const isSel = selected?.id === e.id;
@@ -733,7 +771,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             </ul>
             <div className="hidden lg:block">
             <table className="w-full text-left text-sm font-normal text-white/90" data-testid="target-table">
-              <caption className="sr-only">Targets ranked for tonight</caption>
+              <caption className="sr-only">Targets ranked for {nightWord}{isTonight ? '' : ` (${date})`}</caption>
               <thead className="text-white">
                 <tr className="border-b border-white/20">
                   <th scope="col" className="py-2 pr-3">Captured</th>
@@ -823,6 +861,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           camera={trainInfo.camera}
           filter={trainInfo.filter}
           site={site}
+          bortle={bortle}
+          bortleSet={site.bortle !== undefined}
           formatTime={formatTime}
         />
       )}
@@ -836,6 +876,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           night={stableNight}
           horizon={horizon}
           minAltitude={minAltitude}
+          bortle={bortle}
+          bortleSet={site.bortle !== undefined}
           formatTime={formatTime}
           timeZone={siteZone || zone || undefined}
           report={itineraryReport}

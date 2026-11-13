@@ -5,6 +5,42 @@ import { zoneOffsetMs } from '../plan';
 
 export const PROFILE_KEY = 'fpo-planner-profile-v1';
 export const CAPTURED_KEY = 'fpo-planner-captured-v1';
+export const SELECTION_KEY = 'fpo-planner-selection-v1';
+
+/** The site and train last chosen at the top of the page; either may be gone from the profile by now. */
+export interface Selection {
+  siteId: string;
+  trainId: string;
+}
+
+/**
+ * The saved selection, or null when none is stored. Damaged text throws, in words, so the page can say
+ * the choice starts over; a storage that cannot be read throws too. Whether the ids still exist is the caller's check.
+ */
+export function loadSelection(storage: Pick<Storage, 'getItem'>): Selection | null {
+  let text: string | null;
+  try {
+    text = storage.getItem(SELECTION_KEY);
+  } catch (e) {
+    throw new Error(`Your last site and train could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+  }
+  if (text === null) return null;
+  let v: unknown;
+  try {
+    v = JSON.parse(text);
+  } catch {
+    v = null;
+  }
+  const o = v as Record<string, unknown> | null;
+  if (typeof o !== 'object' || o === null || typeof o.siteId !== 'string' || typeof o.trainId !== 'string') {
+    throw new Error('Your saved site and train choice is damaged, so the first of each is used.');
+  }
+  return { siteId: o.siteId, trainId: o.trainId };
+}
+
+export function saveSelection(storage: Pick<Storage, 'setItem'>, selection: Selection): void {
+  storage.setItem(SELECTION_KEY, JSON.stringify({ siteId: selection.siteId, trainId: selection.trainId }));
+}
 
 /** The default profile for a first visit, loaded through the same validator as any user's. */
 export function sampleProfile(): Profile {

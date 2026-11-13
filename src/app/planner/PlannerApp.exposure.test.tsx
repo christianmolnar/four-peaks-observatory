@@ -15,6 +15,10 @@ const withTrain = (id: string) => {
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
 const HYPERSTAR = 'wide-c11-hyperstar-2600';
+const withBortle = (bortle: number) => {
+  const p = withTrain(HYPERSTAR);
+  return { ...p, sites: p.sites.map((x, i) => (i === 0 ? { ...x, bortle } : x)) };
+};
 const app = (profile = withTrain(HYPERSTAR)) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
 const panel = () => screen.getByRole('region', { name: /^EXPOSURE:/ });
 const radio = (name: RegExp) => within(panel()).getByRole('radio', { name }) as HTMLInputElement;
@@ -84,14 +88,15 @@ describe('Exposure panel', () => {
     expect(radio(/Deep/).checked).toBe(true);
   });
 
-  it('a different Bortle class changes the sub lengths', async () => {
-    const user = userEvent.setup();
-    app();
+  it('a different Bortle class on the site changes the sub lengths', () => {
     const subs = () => within(panel()).getAllByText(/^\d+ s \(range/).map((n) => n.textContent);
+    app();
     const before = subs();
-    await user.selectOptions(screen.getByLabelText('Sky darkness (Bortle class)'), '9');
+    cleanup();
+    app(withBortle(9));
     expect(subs()).not.toEqual(before);
-    await user.selectOptions(screen.getByLabelText('Sky darkness (Bortle class)'), '2');
+    cleanup();
+    app(withBortle(2));
     expect(subs()).not.toEqual(before);
   });
 
@@ -326,8 +331,10 @@ describe('Gain column and the overflow cue', () => {
         return [block.className, line.className, block.children.length, tail.match(/min-h-11/) ? 'min-h-11' : tail].join('|');
       };
       const seen = new Set<string>();
-      for (const bortle of ['2', '9']) {
-        await user.selectOptions(within(panel()).getByLabelText(/Sky darkness/), bortle);
+      for (const bortle of [2, 9]) {
+        cleanup();
+        app({ ...withTrain(train), sites: withTrain(train).sites.map((x, i) => (i === 0 ? { ...x, bortle } : x)) });
+        await pick(user, /Hercules Globular Cluster/);
         for (const mode of [/quick/i, /balanced/i, /deep/i]) {
           await user.click(radio(mode));
           seen.add(shape());

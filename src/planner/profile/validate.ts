@@ -169,9 +169,15 @@ function timeZone(o: Obj, path: string): string {
   return v;
 }
 
+function bortle(o: Obj, path: string): number {
+  const v = num(o, 'bortle', path, 1, 9);
+  if (!Number.isInteger(v)) throw new ProfileError(`${path}.bortle`, `expected a whole number from 1 to 9, got ${v}`);
+  return v;
+}
+
 function site(v: unknown, path: string): ProfileSite {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'timeZone', 'blockedArcs']);
+  onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'timeZone', 'bortle', 'blockedArcs']);
   if (o.blockedArcs === undefined) throw new ProfileError(`${path}.blockedArcs`, 'expected a list of zones (may be empty)');
   return withoutUndefined({
     id: str(o, 'id', path),
@@ -180,6 +186,7 @@ function site(v: unknown, path: string): ProfileSite {
     longitude: num(o, 'longitude', path, -180, 180),
     elevationM: o.elevationM === undefined ? undefined : num(o, 'elevationM', path, -500, 9000),
     timeZone: o.timeZone === undefined ? undefined : timeZone(o, path),
+    bortle: o.bortle === undefined ? undefined : bortle(o, path),
     blockedArcs: blockedArcs(o.blockedArcs, `${path}.blockedArcs`),
   });
 }
