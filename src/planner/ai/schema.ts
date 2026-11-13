@@ -1,6 +1,6 @@
-import { CLOCK_RE } from '../itinerary/timeline';
+import { ISO_PATTERN, ISO_RE } from './instant';
 
-/** One imaging slot. Times are local 24 h "HH:MM" in the facts' time zone. */
+/** One imaging slot. Times are ISO local instants with the UTC offset ("2026-10-31T01:30-06:00"), as in the facts. */
 export interface PlanSlot {
   id: string;
   start: string;
@@ -11,6 +11,25 @@ export interface ExposureEntry {
   id: string;
   /** Optimal one-night integration, minutes. */
   minutes: number;
+  /** Sub-exposure length, seconds. */
+  subSeconds: number;
+}
+
+export const USEFULNESS = ['useful', 'marginal', 'not_useful'] as const;
+export type Usefulness = (typeof USEFULNESS)[number];
+
+/** The verdict on the last slot of the night: whatever observable time is left, and whether it is worth shooting. */
+export interface LastTargetVerdict {
+  /** The target of the last plan slot. */
+  id: string;
+  /** Length of that slot in minutes (all the observable time left for it). */
+  leftoverMinutes: number;
+  subSeconds: number;
+  /** About leftoverMinutes x 60 / subSeconds, never more. */
+  frames: number;
+  usefulness: Usefulness;
+  /** One line. */
+  reason: string;
 }
 
 /** The model's answer for one night. */
@@ -21,6 +40,8 @@ export interface ModelPlan {
   /** Targets that do not fit tonight, any order. */
   cut: string[];
   fitsAll: boolean;
+  /** Required when `plan` is not empty. */
+  lastTarget?: LastTargetVerdict;
   notes?: string;
 }
 
@@ -43,9 +64,9 @@ export const PLAN_JSON_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['id', 'minutes'],
+        required: ['id', 'minutes', 'subSeconds'],
         additionalProperties: false,
-        properties: { id: { type: 'string' }, minutes: { type: 'number', exclusiveMinimum: 0 } },
+        properties: { id: { type: 'string' }, minutes: { type: 'number', exclusiveMinimum: 0 }, subSeconds: { type: 'number', exclusiveMinimum: 0 } },
       },
     },
     plan: {
@@ -56,13 +77,26 @@ export const PLAN_JSON_SCHEMA = {
         additionalProperties: false,
         properties: {
           id: { type: 'string' },
-          start: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
-          end: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+          start: { type: 'string', pattern: ISO_PATTERN },
+          end: { type: 'string', pattern: ISO_PATTERN },
         },
       },
     },
     cut: { type: 'array', items: { type: 'string' } },
     fitsAll: { type: 'boolean' },
+    lastTarget: {
+      type: 'object',
+      required: ['id', 'leftoverMinutes', 'subSeconds', 'frames', 'usefulness', 'reason'],
+      additionalProperties: false,
+      properties: {
+        id: { type: 'string' },
+        leftoverMinutes: { type: 'number', minimum: 0 },
+        subSeconds: { type: 'number', exclusiveMinimum: 0 },
+        frames: { type: 'integer', minimum: 0 },
+        usefulness: { enum: [...USEFULNESS] },
+        reason: { type: 'string' },
+      },
+    },
     notes: { type: 'string' },
   },
 } as const;
@@ -103,6 +137,16 @@ function listOf<T>(v: unknown, what: string, item: (x: unknown, i: number) => T 
   return { ok: true, value: out };
 }
 
+function parseVerdict(x: unknown): LastTargetVerdict | string {
+  if (!isObj(x) || !isStr(x.id)) return 'needs a string id';
+  const n = (k: string, ok: (v: number) => boolean, what: string): string | null => (typeof x[k] === 'number' && Number.isFinite(x[k]) && ok(x[k] as number) ? null : `${k} must be ${what}`);
+  const bad = n('leftoverMinutes', (v) => v >= 0, 'a number, 0 or more') ?? n('subSeconds', (v) => v > 0, 'a positive number') ?? n('frames', (v) => Number.isInteger(v) && v >= 0, 'a whole number, 0 or more');
+  if (bad) return bad;
+  if (typeof x.usefulness !== 'string' || !(USEFULNESS as readonly string[]).includes(x.usefulness)) return `usefulness must be one of ${USEFULNESS.join(', ')}`;
+  if (!isStr(x.reason)) return 'reason must be a non-empty string';
+  return { id: x.id, leftoverMinutes: x.leftoverMinutes as number, subSeconds: x.subSeconds as number, frames: x.frames as number, usefulness: x.usefulness as Usefulness, reason: x.reason };
+}
+
 /** Parses and validates a plan reply. Unknown keys are dropped; anything missing or mistyped is an error naming the field. */
 export function parsePlanReply(text: string): Parsed<ModelPlan> {
   const j = parseJsonReply(text);
@@ -113,13 +157,14 @@ export function parsePlanReply(text: string): Parsed<ModelPlan> {
   const exposures = listOf<ExposureEntry>(o.exposures, 'exposures', (x) => {
     if (!isObj(x) || !isStr(x.id)) return 'needs a string id';
     if (typeof x.minutes !== 'number' || !Number.isFinite(x.minutes) || x.minutes <= 0) return 'minutes must be a positive number';
-    return { id: x.id, minutes: x.minutes };
+    if (typeof x.subSeconds !== 'number' || !Number.isFinite(x.subSeconds) || x.subSeconds <= 0) return 'subSeconds must be a positive number';
+    return { id: x.id, minutes: x.minutes, subSeconds: x.subSeconds };
   });
   if (!exposures.ok) return exposures;
   const plan = listOf<PlanSlot>(o.plan, 'plan', (x) => {
     if (!isObj(x) || !isStr(x.id)) return 'needs a string id';
-    if (typeof x.start !== 'string' || !CLOCK_RE.test(x.start)) return 'start must be "HH:MM" (24 h)';
-    if (typeof x.end !== 'string' || !CLOCK_RE.test(x.end)) return 'end must be "HH:MM" (24 h)';
+    if (typeof x.start !== 'string' || !ISO_RE.test(x.start)) return 'start must be a local ISO time with offset, like 2026-10-31T01:30-06:00';
+    if (typeof x.end !== 'string' || !ISO_RE.test(x.end)) return 'end must be a local ISO time with offset, like 2026-10-31T01:30-06:00';
     return { id: x.id, start: x.start, end: x.end };
   });
   if (!plan.ok) return plan;
@@ -128,6 +173,11 @@ export function parsePlanReply(text: string): Parsed<ModelPlan> {
   if (typeof o.fitsAll !== 'boolean') return { ok: false, error: 'fitsAll must be true or false' };
   if (o.notes !== undefined && typeof o.notes !== 'string') return { ok: false, error: 'notes must be a string' };
   const value: ModelPlan = { exposures: exposures.value, plan: plan.value, cut: cut.value, fitsAll: o.fitsAll };
+  if (o.lastTarget !== undefined) {
+    const v = parseVerdict(o.lastTarget);
+    if (typeof v === 'string') return { ok: false, error: `lastTarget: ${v}` };
+    value.lastTarget = v;
+  }
   if (o.notes !== undefined) value.notes = o.notes;
   return { ok: true, value };
 }

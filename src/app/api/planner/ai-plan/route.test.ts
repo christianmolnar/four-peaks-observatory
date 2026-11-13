@@ -11,6 +11,7 @@ import { MAX_BODY_BYTES, RATE_LIMIT, resetRateLimit } from '@/planner/ai/request
 import { INPUT, planOf, validSlots } from '@/planner/ai/testkit'
 import { POST } from './route'
 
+const CATALOG_ID = 'ic405'
 const KEY = 'sk-ant-test-secret-0123456789abcdef'
 const OWNER = { login: 'owner', githubId: '1001' }
 const body = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
@@ -63,7 +64,23 @@ describe('POST /api/planner/ai-plan', () => {
     expect(j.violations).toEqual([])
     expect(j.facts.targets).toHaveLength(3)
     expect(j.plan.plan).toHaveLength(3)
+    expect(j.lastTarget).toMatchObject({ id: 't3', usefulness: 'useful' })
+    expect(Array.isArray(j.warnings)).toBe(true)
     expect(JSON.stringify(j)).not.toContain(KEY)
+  })
+  it('object facts come from the catalog by catalogId, rig and bortle pass through to the model', async () => {
+    const withInfo = body({ targets: [{ ...INPUT.targets[0], catalogId: CATALOG_ID }, ...INPUT.targets.slice(1)], rig: { focalLengthMm: 400, camera: 'Cam' }, bortle: 5 })
+    expect((await post(withInfo)).status).toBe(200)
+    const sent = JSON.parse((model.mock.calls[0][0] as { content: string }[])[1].content.split('\n\n').slice(1).join('\n\n'))
+    expect(sent.targets[0].object.type).toBeDefined()
+    expect(sent.rig).toEqual({ focalLengthMm: 400, camera: 'Cam' })
+    expect(sent.bortle).toBe(5)
+  })
+  it('400 on an unknown catalogId, a bad rig or a bad bortle', async () => {
+    for (const bad of [{ targets: [{ ...INPUT.targets[0], catalogId: 'nope' }] }, { rig: { focalLengthMm: -1 } }, { rig: { camera: 5 } }, { bortle: 10 }, { bortle: 4.5 }]) {
+      expect((await post(body(bad))).status).toBe(400)
+    }
+    expect(model).not.toHaveBeenCalled()
   })
   it('400 on invalid JSON and on each invalid field, without calling the model', async () => {
     expect((await post(null, '{')).status).toBe(400)

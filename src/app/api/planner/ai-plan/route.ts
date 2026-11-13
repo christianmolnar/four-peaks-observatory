@@ -6,7 +6,7 @@ import { MAX_BODY_BYTES, parseBody, RATE_LIMIT, takeRateSlot } from '@/planner/a
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-// Up to four sequential model calls (plan, three repairs) plus the optional review.
+// At most 6 model calls and a 110 s budget (planNightWithAi stops repairing when a full call no longer fits).
 export const maxDuration = 120
 
 const noStore = { 'Cache-Control': 'private, no-store' }

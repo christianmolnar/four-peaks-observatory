@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { CALL_TIMEOUT_MS } from './plan';
 import type { CallModel } from './plan';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const MAX_TOKENS = 8000;
-const TIMEOUT_MS = 100_000;
 
 export class MissingKeyError extends Error {}
 
@@ -21,7 +21,7 @@ export function createAnthropicCaller(env: Record<string, string | undefined> = 
   const apiKey = env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new MissingKeyError('ANTHROPIC_API_KEY is not set; the AI night plan needs it.');
   const model = env.PLANNER_AI_MODEL?.trim() || DEFAULT_MODEL;
-  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 1 });
+  const client = new Anthropic({ apiKey, timeout: CALL_TIMEOUT_MS, maxRetries: 0 });
   return async (messages) => {
     const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
     const turns = messages.filter((m): m is typeof m & { role: 'user' | 'assistant' } => m.role !== 'system');

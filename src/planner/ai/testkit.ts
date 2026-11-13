@@ -1,7 +1,7 @@
 import { nextMeridianTransit, targetAltAz } from '../astro';
-import { clockOf } from '../itinerary/timeline';
 import { checkPlan } from './check';
 import { nightOf } from './facts';
+import { isoOf } from './instant';
 import type { AiPlanInput, Night } from './facts';
 import type { ModelPlan } from './schema';
 
@@ -25,21 +25,35 @@ export const INPUT: AiPlanInput = {
 };
 
 export const night = (input: AiPlanInput = INPUT): Night => nightOf(input);
-export const clock = (d: Date | number): string => clockOf(new Date(d), TZ);
+/** An instant as the plan and facts write it: ISO local time with UTC offset, in `tz` (default Phoenix). */
+export const clock = (d: Date | number, tz: string = TZ): string => isoOf(new Date(d), tz);
 
-/** A plan with the given slots, every target either in the plan or cut, exposures 60 min, fitsAll consistent. */
+/**
+ * A plan with the given slots (ISO times), every target either in the plan or cut, exposures 60 min with 120 s subs,
+ * fitsAll consistent, and a consistent verdict for the last slot in time.
+ */
 export function planOf(input: AiPlanInput, slots: [string, string, string][], over: Partial<ModelPlan> = {}): ModelPlan {
   const planned = new Set(slots.map((s) => s[0]));
   const cut = input.targets.map((t) => t.id).filter((id) => !planned.has(id));
-  return { exposures: input.targets.map((t) => ({ id: t.id, minutes: 60 })), plan: slots.map(([id, start, end]) => ({ id, start, end })), cut, fitsAll: cut.length === 0, ...over };
+  const last = [...slots].sort((a, b) => Date.parse(a[1]) - Date.parse(b[1])).at(-1);
+  const minutes = last ? (Date.parse(last[2]) - Date.parse(last[1])) / MIN : 0;
+  const lastTarget = last ? { id: last[0], leftoverMinutes: minutes, subSeconds: 120, frames: Math.floor((minutes * 60) / 120), usefulness: 'useful' as const, reason: 'Enough frames to stack.' } : undefined;
+  return {
+    exposures: input.targets.map((t) => ({ id: t.id, minutes: 60, subSeconds: 120 })),
+    plan: slots.map(([id, start, end]) => ({ id, start, end })),
+    cut,
+    fitsAll: cut.length === 0,
+    ...(lastTarget ? { lastTarget } : {}),
+    ...over,
+  };
 }
 
 /** First start (whole minute, at or after `from`) where `id` can image `len` minutes with no violation, searched with the exact check itself. */
 export function earliestSlot(input: AiPlanInput, id: string, from: number, len: number): { start: number; end: number } {
   const n = night(input);
   for (let t = Math.ceil(from / MIN) * MIN; t + len * MIN <= n.end.getTime(); t += MIN) {
-    const probe = planOf(input, [[id, clock(t), clock(t + len * MIN)]]);
-    const own = checkPlan(input, n, probe).filter((v) => v.id === id && v.kind !== 'missing-target');
+    const probe = planOf(input, [[id, clock(t, input.timeZone), clock(t + len * MIN, input.timeZone)]]);
+    const own = checkPlan(input, n, probe).filter((v) => v.id === id && v.kind !== 'missing-target' && v.kind !== 'verdict-mismatch');
     if (own.length === 0) return { start: t, end: t + len * MIN };
   }
   throw new Error(`no ${len} min slot for ${id}`);
@@ -51,7 +65,7 @@ export function validSlots(input: AiPlanInput = INPUT, len = 60): [string, strin
   let cursor = night(input).start.getTime();
   for (const t of input.targets) {
     const s = earliestSlot(input, t.id, cursor, len);
-    out.push([t.id, clock(s.start), clock(s.end)]);
+    out.push([t.id, clock(s.start, input.timeZone), clock(s.end, input.timeZone)]);
     cursor = s.end + 5 * MIN;
   }
   return out;

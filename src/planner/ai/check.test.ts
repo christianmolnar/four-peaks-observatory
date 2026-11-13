@@ -1,9 +1,10 @@
 import { targetAltAz } from '../astro';
-import { checkPlan } from './check';
+import { checkPlan, planWarnings } from './check';
 import type { ViolationKind } from './check';
-import { buildFacts } from './facts';
+import { buildFacts, nightOf } from './facts';
+import { isoOf, parseIso } from './instant';
 import type { AiPlanInput } from './facts';
-import { clock, INPUT, lowMinute, MIN, night, planOf, transitOf, validSlots } from './testkit';
+import { clock, earliestSlot, INPUT, lowMinute, MIN, night, planOf, transitOf, validSlots } from './testkit';
 
 const kinds = (input: AiPlanInput, plan: ReturnType<typeof planOf>): ViolationKind[] => checkPlan(input, night(input), plan).map((v) => v.kind);
 
@@ -60,7 +61,8 @@ describe('checkPlan', () => {
   });
 
   it('outside-night: starts before dusk', () => {
-    expect(kinds(INPUT, planOf(INPUT, [['t1', '12:00', '13:00']]))).toContain('outside-night');
+    const noon = night().start.getTime() - 6 * 60 * MIN;
+    expect(kinds(INPUT, planOf(INPUT, [['t1', clock(noon), clock(noon + 60 * MIN)]]))).toContain('outside-night');
   });
 
   it('outside-night: ends after dawn', () => {
@@ -70,7 +72,7 @@ describe('checkPlan', () => {
   });
 
   it('bad-time: end equal to start', () => {
-    expect(kinds(INPUT, planOf(INPUT, [['t1', '22:00', '22:00']]))).toContain('bad-time');
+    expect(kinds(INPUT, planOf(INPUT, [['t1', clock(night().start.getTime() + 60 * MIN), clock(night().start.getTime() + 60 * MIN)]]))).toContain('bad-time');
   });
 
   it('overlap and slew-gap between consecutive slots', () => {
@@ -93,9 +95,9 @@ describe('checkPlan', () => {
   it('unknown-target in plan, cut and exposures', () => {
     const slots = validSlots();
     const p = planOf(INPUT, slots, {});
-    expect(kinds(INPUT, { ...p, plan: [...p.plan, { id: 'zz', start: '22:00', end: '23:00' }] })).toContain('unknown-target');
+    expect(kinds(INPUT, { ...p, plan: [...p.plan, { id: 'zz', start: clock(night().start.getTime() + 60 * MIN), end: clock(night().start.getTime() + 120 * MIN) }] })).toContain('unknown-target');
     expect(kinds(INPUT, { ...p, cut: ['zz'], fitsAll: false })).toContain('unknown-target');
-    expect(kinds(INPUT, { ...p, exposures: [...p.exposures, { id: 'zz', minutes: 5 }] })).toContain('unknown-target');
+    expect(kinds(INPUT, { ...p, exposures: [...p.exposures, { id: 'zz', minutes: 5, subSeconds: 60 }] })).toContain('unknown-target');
   });
 
   it('in-plan-and-cut, duplicate-cut, missing-target', () => {
@@ -133,7 +135,9 @@ describe('buildFacts', () => {
   it('is facts only: windows agree with the check and samples carry flags', () => {
     const { facts, night: n } = buildFacts(INPUT);
     expect(facts.targets).toHaveLength(3);
-    expect(facts.sampleTimes[0]).toBe(clock(n.start));
+    expect(facts.sampleTimes[0]).toBe(facts.night.start);
+    expect(Date.parse(facts.sampleTimes[0])).toBeGreaterThanOrEqual(n.start.getTime());
+    expect(Date.parse(facts.sampleTimes.at(-1)!)).toBeLessThanOrEqual(n.end.getTime());
     for (const t of facts.targets) {
       expect(t.samples).toHaveLength(facts.sampleTimes.length);
       expect(t.windows.length).toBeGreaterThan(0);
@@ -148,5 +152,153 @@ describe('buildFacts', () => {
     const { facts } = buildFacts(input);
     expect(facts.targets[0].windows).toEqual([]);
     expect(facts.targets[0].samples.every((r) => r[2] === 'low')).toBe(true);
+  });
+});
+
+const DENVER = { site: { latitude: 39.7, longitude: -105, elevationM: 0 }, timeZone: 'America/Denver', horizon: null, minAltitude: 30 };
+
+describe('M1: clock changes', () => {
+  const fall: AiPlanInput = { ...DENVER, date: '2026-10-31', targets: [{ id: 'a', name: 'a', raHours: 1, decDeg: 0 }] };
+  it('instants carry the offset; a repeated clock hour is two different instants', () => {
+    expect(parseIso('2026-11-01T01:30-06:00', 'America/Denver')).toMatchObject({ ok: true });
+    const a = parseIso('2026-11-01T01:30-06:00', 'America/Denver');
+    const b = parseIso('2026-11-01T01:30-07:00', 'America/Denver');
+    expect(a.ok && b.ok && b.at.getTime() - a.at.getTime()).toBe(60 * MIN);
+    expect(isoOf(new Date('2026-11-01T07:30:00Z'), 'America/Denver')).toBe('2026-11-01T01:30-06:00');
+    expect(isoOf(new Date('2026-11-01T08:30:00Z'), 'America/Denver')).toBe('2026-11-01T01:30-07:00');
+  });
+  it('fall-back night: the evaluator input (01:30 to 02:30 on the repeated clock, 2 real hours) does not verify', () => {
+    const n = nightOf(fall);
+    const v = checkPlan(fall, n, planOf(fall, [['a', '2026-11-01T01:30-06:00', '2026-11-01T02:30-07:00']]));
+    expect(v.map((x) => x.kind)).toContain('below-min-altitude');
+    // The honest hour (01:30 MDT to 01:30 MST) is checked as 60 real minutes, not skipped.
+    const hour = checkPlan(fall, n, planOf(fall, [['a', '2026-11-01T01:30-06:00', '2026-11-01T01:30-07:00']]));
+    expect(hour.map((x) => x.kind)).not.toContain('bad-time');
+  });
+  it('the facts of that night list the repeated clock hour twice, told apart by offset', () => {
+    const { facts } = buildFacts(fall);
+    expect(new Set(facts.sampleTimes).size).toBe(facts.sampleTimes.length);
+    expect(facts.sampleTimes.some((t) => t.endsWith('-06:00'))).toBe(true);
+    expect(facts.sampleTimes.some((t) => t.endsWith('-07:00'))).toBe(true);
+  });
+  it('spring-forward: a clock time that does not exist, or a wrong offset, is bad-time', () => {
+    const spring: AiPlanInput = { ...fall, date: '2026-03-07' };
+    const n = nightOf(spring);
+    for (const start of ['2026-03-08T02:30-07:00', '2026-03-08T02:30-06:00', '2026-03-08T01:30-06:00']) {
+      const v = checkPlan(spring, n, planOf(spring, [['a', start, '2026-03-08T04:30-06:00']]));
+      expect(v.map((x) => x.kind)).toContain('bad-time');
+    }
+    const ok = parseIso('2026-03-08T03:30-06:00', 'America/Denver');
+    expect(ok.ok).toBe(true);
+  });
+  it('spring-forward: 01:30 MST to 03:30 MDT is 60 real minutes, so the verdict length must say 60', () => {
+    const spring: AiPlanInput = { ...fall, date: '2026-03-07' };
+    const n = nightOf(spring);
+    const slot: [string, string, string] = ['a', '2026-03-08T01:30-07:00', '2026-03-08T03:30-06:00'];
+    const bad120 = checkPlan(spring, n, planOf(spring, [slot], { lastTarget: { id: 'a', leftoverMinutes: 120, subSeconds: 120, frames: 60, usefulness: 'useful', reason: 'x' } }));
+    expect(bad120.map((x) => x.message).join(' ')).toContain('is 60 min long');
+  });
+  it('a malformed or non-existent time never throws', () => {
+    expect(parseIso('2026-02-31T01:30-07:00', 'America/Denver').ok).toBe(false);
+    expect(parseIso('01:30', 'America/Denver').ok).toBe(false);
+  });
+});
+
+describe('M2: the transit minute', () => {
+  it('a slot that starts or ends at facts.targets[i].transit has no flip violation', () => {
+    const { facts } = buildFacts(INPUT);
+    const n = night();
+    let tested = 0;
+    for (const t of facts.targets) {
+      if (!t.transit) continue;
+      const at = Date.parse(t.transit);
+      for (const slot of [[at, at + 30 * MIN], [at - 30 * MIN, at]]) {
+        const v = checkPlan(INPUT, n, planOf(INPUT, [[t.id, clock(slot[0]), clock(slot[1])]]));
+        expect(v.filter((x) => x.kind === 'flip-in-slot')).toEqual([]);
+        tested++;
+      }
+      // One minute either side of the printed minute is inside the slot.
+      const across = checkPlan(INPUT, n, planOf(INPUT, [[t.id, clock(at - MIN), clock(at + MIN)]]));
+      expect(across.map((x) => x.kind)).toContain('flip-in-slot');
+    }
+    expect(tested).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('S2: degenerate plans', () => {
+  it('an empty plan with a usable window is a violation naming the target and span', () => {
+    const v = checkPlan(INPUT, night(), planOf(INPUT, []));
+    const e = v.find((x) => x.kind === 'empty-plan');
+    expect(e?.message).toContain('has no slot');
+    expect(e?.message).toMatch(/usable for \d+ min/);
+  });
+  it('an empty plan on a night with no usable window is allowed', () => {
+    const input: AiPlanInput = { ...INPUT, targets: [{ id: 's', name: 's', raHours: 12, decDeg: -80 }] };
+    expect(checkPlan(input, night(input), planOf(input, [])).map((x) => x.kind)).not.toContain('empty-plan');
+  });
+  it('a cut target that fits free time (with slew) is a warning, not a violation', () => {
+    const slots = validSlots().slice(0, 2);
+    const plan = planOf(INPUT, slots);
+    expect(checkPlan(INPUT, night(), plan)).toEqual([]);
+    const w = planWarnings(INPUT, night(), plan);
+    expect(w.find((x) => x.kind === 'cut-fits-free-time')?.id).toBe('t3');
+  });
+  it('no warning for a cut target that cannot fit', () => {
+    const input: AiPlanInput = { ...INPUT, targets: [...INPUT.targets.slice(0, 1), { id: 's', name: 's', raHours: 12, decDeg: -80 }] };
+    const slot = earliestSlot(input, 't1', night(input).start.getTime(), 60);
+    const plan = planOf(input, [['t1', clock(slot.start), clock(slot.end)]]);
+    expect(planWarnings(input, night(input), plan).filter((x) => x.kind === 'cut-fits-free-time')).toEqual([]);
+  });
+});
+
+describe('last-target verdict', () => {
+  const plan = (): ReturnType<typeof planOf> => planOf(INPUT, validSlots());
+  const msg = (p: ReturnType<typeof planOf>): string => checkPlan(INPUT, night(), p).map((x) => `${x.kind}: ${x.message}`).join('\n');
+  it('missing when the plan has a slot', () => {
+    const { lastTarget, ...rest } = plan();
+    void lastTarget;
+    expect(kinds(INPUT, rest as ReturnType<typeof planOf>)).toEqual(['missing-verdict']);
+  });
+  it('names a different target than the last slot', () => {
+    const p = plan();
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, id: 't1' } })).toContain('lastTarget is t1 but the last slot in time is t3');
+  });
+  it('leftoverMinutes must equal the last slot length', () => {
+    const p = plan();
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, leftoverMinutes: 59 } })).toContain('leftoverMinutes is 59 but the last slot (t3) is 60 min long');
+  });
+  it('frames x sub may not exceed the slot', () => {
+    const p = plan();
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 31 } })).toContain('31 frames x 120 s is 3720 s, more than the 3600 s slot');
+    expect(kinds(INPUT, { ...p, lastTarget: { ...p.lastTarget!, frames: 30 } })).toEqual([]);
+  });
+  it('sub length must match the exposure entry; 0 frames cannot be useful', () => {
+    const p = plan();
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, subSeconds: 60, frames: 60 } })).toContain('exposure entry for t3 says 120');
+    expect(msg({ ...p, lastTarget: { ...p.lastTarget!, frames: 0, usefulness: 'useful' } })).toContain('0 frames');
+    expect(kinds(INPUT, { ...p, lastTarget: { ...p.lastTarget!, frames: 0, usefulness: 'not_useful' } })).toEqual([]);
+  });
+  it('a verdict with no slot is a mismatch', () => {
+    const input: AiPlanInput = { ...INPUT, targets: [{ id: 's', name: 's', raHours: 12, decDeg: -80 }] };
+    const p = planOf(input, [], { lastTarget: { id: 's', leftoverMinutes: 0, subSeconds: 60, frames: 0, usefulness: 'not_useful', reason: 'x' } });
+    expect(kinds(input, p)).toEqual(['verdict-mismatch']);
+  });
+  it('warns when 30+ min of night remain after the last slot and its target could use more', () => {
+    const [first] = validSlots(INPUT, 30);
+    const p = planOf(INPUT, [first], { cut: ['t2', 't3'], fitsAll: false });
+    expect(checkPlan(INPUT, night(), p)).toEqual([]);
+    const w = planWarnings(INPUT, night(), p).find((x) => x.kind === 'free-time-after-last');
+    expect(w?.id).toBe('t1');
+    expect(w?.message).toContain('takes all the observable time left');
+  });
+  it('no warning when the last slot runs to the end of its window', () => {
+    const { facts } = buildFacts(INPUT);
+    const t1 = facts.targets[0];
+    const [, end] = t1.windows.at(-1)!;
+    const tr = t1.transit ? Date.parse(t1.transit) : Infinity;
+    const endMs = Math.min(Date.parse(end), tr > Date.parse(end) ? Date.parse(end) : tr);
+    const p = planOf(INPUT, [['t1', clock(endMs - 30 * MIN), clock(endMs)]], { cut: ['t2', 't3'], fitsAll: false });
+    const w = planWarnings(INPUT, night(), p).filter((x) => x.kind === 'free-time-after-last');
+    expect(w).toEqual([]);
   });
 });
