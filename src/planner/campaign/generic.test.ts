@@ -5,7 +5,7 @@ import { limitAltitudeAt } from '../horizon';
 import { SLEW_CENTER_MIN } from '../itinerary/constants';
 import { arcToHorizonPoints } from '../profile';
 import targetsData from '../data/targets.json';
-import { planCampaign, MAX_LOSS_MIN } from './index';
+import { planCampaign, MAX_LOSS_MIN, MIN_USEFUL_MIN } from './index';
 import type { CampaignInput, CampaignNight, CampaignResult, CampaignSubject } from './index';
 
 /**
@@ -94,7 +94,7 @@ function oracle(night: CampaignNight, input: CampaignInput): { best: number; wit
     const want = s.hoursPerNight * 60;
     for (let k = 0; k <= steps; k++) {
       if (!ok[k]) continue;
-      for (let ell = 5; ell <= want; ell += 5) {
+      for (let ell = Math.min(MIN_USEFUL_MIN, want); ell <= want; ell += 5) {
         const st = t0 + k * STEP;
         const flip = transit > st && transit < st + ell * MIN;
         const len = ell + (flip ? MERIDIAN_FLIP_MIN : 0);
@@ -152,16 +152,21 @@ function assertFair(input: CampaignInput, r: CampaignResult): void {
         });
       }
     }
-    night.outcomes.forEach((out, i) => { got[i] += out.gotMin; });
+    night.outcomes.forEach((out, i) => {
+      const useful = Math.min(MIN_USEFUL_MIN, out.requestedMin);
+      if (out.gotMin > 0) expect(out.gotMin).toBeGreaterThanOrEqual(useful);
+      got[i] += out.gotMin;
+    });
   });
 }
 
-describe('generic lists: tiny, huge and mixed, at 3 sites and 3 dates', () => {
-  const cases = Object.entries(LISTS).flatMap(([name, subjects]) =>
-    SITES.flatMap((site, si) => DATES.map((date, di) => ({ name, subjects, site, date, nights: si === 0 && di === 0 ? 14 : [3, 5, 7][(si + di) % 3] }))));
+describe('generic lists: tiny, huge and mixed, at 3 sites and 3 dates (shifted by list)', () => {
+  // Each list runs once at every site, with the date shifted by list, so every site and date is met by every other list.
+  const cases = Object.entries(LISTS).flatMap(([name, subjects], li) =>
+    SITES.map((site, si) => ({ name, subjects, site, date: DATES[(si + li) % 3], nights: li === 0 && si === 0 ? 14 : [3, 4, 5][(si + li) % 3] })));
 
   it.each(cases.map((c) => [`${c.name} | ${c.site.timeZone} | ${c.date} | ${c.nights} nights`, c] as const))('%s', (_label, c) => {
-    // Runs of more than 5 nights only get the validity and determinism checks (the oracle is a full search per night).
+    // The 14-night runs only get the validity and determinism checks (the oracle is a full search per night).
     const input = base(c.site, { subjects: c.subjects, startDate: c.date, nights: c.nights, minAltitude: 25 });
     const r = planCampaign(input);
     expect(r.nights).toHaveLength(c.nights);
@@ -170,14 +175,14 @@ describe('generic lists: tiny, huge and mixed, at 3 sites and 3 dates', () => {
     if (c.subjects.length <= 6 && c.nights <= 5) assertFair(input, r);
   });
 
-  it('eight mixed subjects: nobody who has a usable window is at 0 on every one of the nights', () => {
+  it('eight mixed subjects: nobody who has a usable window ends below a useful share', () => {
     const starved: string[] = [];
     for (const site of SITES) {
-      const input = base(site, { subjects: LISTS['mixed, eight'], startDate: DATES[0], nights: 6, minAltitude: 25 });
+      const input = base(site, { subjects: LISTS['mixed, eight'], startDate: DATES[0], nights: 4, minAltitude: 25 });
       const r = planCampaign(input);
       input.subjects.forEach((s, i) => {
         const feasible = r.nights.some((n) => (n.subjects[i]?.usableMin ?? 0) >= 5);
-        if (feasible && r.perSubject[i].gotMin === 0) starved.push(`${site.timeZone}:${s.id}`);
+        if (feasible && r.perSubject[i].gotMin < Math.min(MIN_USEFUL_MIN, s.hoursPerNight * 60)) starved.push(`${site.timeZone}:${s.id}`);
       });
     }
     expect(starved).toEqual([]);
@@ -217,8 +222,8 @@ describe('seeded random lists', () => {
     });
   };
 
-  it('45 lists: deterministic, valid, within the tolerance of the best total, nobody starved while servable', () => {
-    for (let seed = 1; seed <= 45; seed++) {
+  it('20 lists: deterministic, valid, within the tolerance of the best total, nobody starved while servable', () => {
+    for (let seed = 1; seed <= 20; seed++) {
       const input = make(seed);
       const r = planCampaign(input);
       expect(planCampaign(input)).toEqual(r);

@@ -9,8 +9,8 @@ import type { CampaignInput, CampaignSubject, ShortReason, SubjectNight } from '
 export const GRID_MIN = 5;
 export const GRID_MS = GRID_MIN * 60000;
 export const MAX_NIGHTS = 14;
-/** Shortest slot the packing report offers. */
-export const MIN_FIT_MIN = 30;
+/** Shortest slot the scheduler places (or the whole request when that is shorter) and the packing report offers. Anything less is a token, not data. */
+export const MIN_USEFUL_MIN = 30;
 export { MERIDIAN_FLIP_MIN };
 
 export const aimOf = (s: CampaignSubject): { raHours: number; decDeg: number } => s.aim ?? s.targets[0];
@@ -54,6 +54,9 @@ export interface NightBounds {
 export function nightBounds(input: CampaignInput, index: number): NightBounds {
   const date = addDays(input.startDate, index);
   const night = tonightsNight(input.site, date, input.timeZone);
+  if (night.kind === 'polar-night') {
+    return { date, start: null, end: null, reason: { code: 'polar-night', text: `Polar night on ${date}: the Sun stays below -18 degrees all day, so there is no dusk or dawn to plan around. The campaign planner does not plan 24 hour nights.` } };
+  }
   if (night.kind !== 'normal' || !night.start || !night.end) {
     return { date, start: null, end: null, reason: { code: 'no-astronomical-night', text: `No astronomical night on ${date}.` } };
   }

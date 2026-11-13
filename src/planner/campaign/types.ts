@@ -48,6 +48,7 @@ export interface CampaignInput {
 
 export type ShortCode =
   | 'no-astronomical-night'
+  | 'polar-night'
   | 'start-after-dawn'
   | 'below-min-altitude'
   | 'blocked-by-horizon'

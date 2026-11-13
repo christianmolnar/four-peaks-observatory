@@ -1,5 +1,5 @@
 import { SLEW_CENTER_MIN } from '../itinerary/constants';
-import { GRID_MIN, GRID_MS, MERIDIAN_FLIP_MIN, MIN_FIT_MIN, analyseSubject, nightBounds, slotCrossesMeridian, validateInput } from './analysis';
+import { GRID_MIN, GRID_MS, MERIDIAN_FLIP_MIN, MIN_USEFUL_MIN, analyseSubject, nightBounds, slotCrossesMeridian, validateInput } from './analysis';
 import type { SubjectGrid } from './analysis';
 import type { CampaignInput, CampaignNight, CampaignResult, CampaignSlot, CandidateFit, NightPacking, ShortReason, SubjectOutcome } from './types';
 
@@ -102,7 +102,7 @@ function optionsOf(g: SubjectGrid, subject: number, frame: Frame): Option[] {
     const w = windows.find((x) => s >= x.s && s < x.e);
     if (!w) continue;
     const limit = Math.min(w.e, frame.t1);
-    for (let ell = GRID_MIN; ell <= want; ell += GRID_MIN) {
+    for (let ell = Math.min(MIN_USEFUL_MIN, want); ell <= want; ell += GRID_MIN) {
       const flip = slotCrossesMeridian(g.transit, new Date(s), ell);
       const flipMin = flip ? MERIDIAN_FLIP_MIN : 0;
       const e = s + (ell + flipMin) * MIN_MS;
@@ -116,9 +116,10 @@ function optionsOf(g: SubjectGrid, subject: number, frame: Frame): Option[] {
 }
 
 /**
- * What a night's plan is worth, in the order Christian ranked it. `served` (subjects with no minutes so far that this
- * night serves) leads, but only among plans within MAX_LOSS_MIN of the best total; then total minutes, subjects at full
- * length, fewer flips, minutes for the subjects owed most, altitude-weighted minutes.
+ * What a night's plan is worth. Only plans within MAX_LOSS_MIN of the best total are compared. `served` (subjects at 0 so
+ * far, or idle for IDLE_NIGHTS nights, that this night serves with a useful slot) leads; then `owed` (minutes for the
+ * subjects behind most, so a subject that was dropped comes back); then total minutes, subjects at full length, fewer
+ * flips, altitude-weighted minutes.
  */
 interface Score {
   served: number;
@@ -132,19 +133,18 @@ interface Score {
 const ZERO: Score = { served: 0, minutes: 0, full: 0, flips: 0, owed: 0, altitude: 0 };
 const beats = (a: Score, b: Score): boolean =>
   a.served !== b.served ? a.served > b.served
-    : a.minutes !== b.minutes ? a.minutes > b.minutes
-      : a.full !== b.full ? a.full > b.full
-        : a.flips !== b.flips ? a.flips < b.flips
-          : a.owed !== b.owed ? a.owed > b.owed : a.altitude > b.altitude;
+    : a.owed !== b.owed ? a.owed > b.owed
+      : a.minutes !== b.minutes ? a.minutes > b.minutes
+        : a.full !== b.full ? a.full > b.full
+          : a.flips !== b.flips ? a.flips < b.flips : a.altitude > b.altitude;
 
 /** A night may give up at most this many minutes of total to serve a subject that has none yet. */
 export const MAX_LOSS_MIN = 5;
-/** Weight of serving a subject still at 0 after two nights, over serving one that is at 0 earlier in the campaign. */
-const STARVED_WEIGHT = 1000;
-const STARVED_AFTER_NIGHTS = 2;
+/** A subject that got nothing on this many nights in a row, though not at 0 overall, counts as unserved again. */
+const IDLE_NIGHTS = 2;
 
 /** Up to this many subjects the search over (time, subjects placed) is exact; above it only the best BEAM_WIDTH sets are kept at each step. */
-export const EXACT_SUBJECTS_MAX = 6;
+export const EXACT_SUBJECTS_MAX = 7;
 const BEAM_WIDTH = 96;
 
 interface State {
@@ -291,18 +291,19 @@ function emptyNight(date: string, input: CampaignInput, reason: ShortReason | nu
 }
 
 /**
- * One night. `deficit[i]` is how many minutes subject i is behind from earlier nights. A subject with no minutes on any
- * earlier night is served first, at a cost of up to MAX_LOSS_MIN minutes of the night's total; among plans equal on
- * that, total, subjects at full length and flips, the subjects most behind win. Absent: no one is behind.
+ * One night. `deficit[i]` is how many minutes subject i is behind from earlier nights, `idle[i]` how many nights in a row it
+ * got nothing. A subject at 0 so far, or idle for IDLE_NIGHTS nights, is served first, then the subjects most behind win,
+ * at a cost of up to MAX_LOSS_MIN minutes of the night's total; among plans equal on that, total, subjects at full length
+ * and flips decide. No slot is shorter than MIN_USEFUL_MIN (or the whole request when shorter). Absent: no one is behind.
  */
-export function scheduleNight(input: CampaignInput, index: number, deficit: readonly number[] = []): CampaignNight {
+export function scheduleNight(input: CampaignInput, index: number, deficit: readonly number[] = [], idle: readonly number[] = []): CampaignNight {
   const b = nightBounds(input, index);
   if (!b.start || !b.end) return emptyNight(b.date, input, b.reason);
   const frame: Frame = { t0: b.start.getTime(), t1: b.end.getTime() };
   const grids = input.subjects.map((s) => analyseSubject(input, s, b.start as Date, b.end as Date));
   const owed = input.subjects.map((_, i) => deficit[i] ?? 0);
   // A subject is at 0 so far when its whole deficit equals everything asked on the earlier nights (every subject on night 0).
-  const weight = input.subjects.map((s, i) => (owed[i] >= s.hoursPerNight * 60 * index ? (index >= STARVED_AFTER_NIGHTS ? STARVED_WEIGHT : 1) : 0));
+  const weight = input.subjects.map((s, i) => (owed[i] >= s.hoursPerNight * 60 * index || (idle[i] ?? 0) >= IDLE_NIGHTS ? 1 : 0));
   const placed = bestPlan(grids, frame, owed, weight);
   const taken = placed.flatMap((p) => (p ? [p.span] : []));
 
@@ -323,13 +324,13 @@ export function scheduleNight(input: CampaignInput, index: number, deficit: read
     ...(input.candidates ?? []).map((s) => analyseSubject(input, s, b.start as Date, b.end as Date)),
   ];
   const next = asked.map((g): CandidateFit => {
-    const p = placeLongest(g, frame, taken, Math.floor(nightExact / GRID_MIN) * GRID_MIN, MIN_FIT_MIN);
+    const p = placeLongest(g, frame, taken, Math.floor(nightExact / GRID_MIN) * GRID_MIN, MIN_USEFUL_MIN);
     if (p) return { subjectId: g.subjectId, fitMin: p.slot.integrationMin, flip: p.slot.flip, reason: null };
     const reason: ShortReason = g.windows.length === 0 && g.noWindowReason
       ? g.noWindowReason
-      : placeLongest(g, frame, [], MIN_FIT_MIN, MIN_FIT_MIN)
-        ? { code: 'no-room', text: `${g.subject.name}: no gap of ${MIN_FIT_MIN} min is left in its window.` }
-        : { code: 'window-too-short', text: `${g.subject.name}: its clear time tonight is under ${MIN_FIT_MIN} min.` };
+      : placeLongest(g, frame, [], MIN_USEFUL_MIN, MIN_USEFUL_MIN)
+        ? { code: 'no-room', text: `${g.subject.name}: no gap of ${MIN_USEFUL_MIN} min is left in its window.` }
+        : { code: 'window-too-short', text: `${g.subject.name}: its clear time tonight is under ${MIN_USEFUL_MIN} min.` };
     return { subjectId: g.subjectId, fitMin: 0, flip: false, reason };
   });
   const packing: NightPacking = { nightMin, usedMin, slewMin, leftMin: nightMin - usedMin - slewMin, next };
@@ -341,9 +342,10 @@ export function planCampaign(input: CampaignInput): CampaignResult {
   validateInput(input);
   const nights: CampaignNight[] = [];
   const deficit = input.subjects.map(() => 0);
+  const idle = input.subjects.map(() => 0);
   for (let n = 0; n < input.nights; n++) {
-    const night = scheduleNight(input, n, deficit);
-    night.outcomes.forEach((o, i) => { deficit[i] += o.requestedMin - o.gotMin; });
+    const night = scheduleNight(input, n, deficit, idle);
+    night.outcomes.forEach((o, i) => { deficit[i] += o.requestedMin - o.gotMin; idle[i] = o.gotMin === 0 ? idle[i] + 1 : 0; });
     nights.push(night);
   }
   const perSubject = input.subjects.map((s, i) => ({
