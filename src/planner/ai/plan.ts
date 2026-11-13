@@ -1,4 +1,4 @@
-import { checkPlan, planWarnings } from './check';
+import { checkPlan, countFlips, planWarnings } from './check';
 import type { PlanWarning, Violation } from './check';
 import { buildFacts } from './facts';
 import type { AiPlanInput, NightFacts } from './facts';
@@ -42,6 +42,8 @@ export interface AiPlanResult {
   lastTarget: LastTargetVerdict | null;
   /** The facts the model was given and the check used. */
   facts: NightFacts;
+  /** Slots that span their target's transit (each is one meridian flip). Always 0 when flips are not allowed and the plan is verified. */
+  flips: number;
   repairRounds: number;
   modelCalls: number;
   quality?: QualityVerdict & { repaired: boolean };
@@ -115,6 +117,7 @@ export async function planNightWithAi(input: AiPlanInput, opts: AiPlanOptions): 
     warnings: [],
     lastTarget: null,
     facts,
+    flips: 0,
     repairRounds: rounds,
     modelCalls: 0,
   };
@@ -136,6 +139,7 @@ export async function planNightWithAi(input: AiPlanInput, opts: AiPlanOptions): 
     }
   }
   result.warnings = planWarnings(input, night, result.plan);
+  result.flips = countFlips(input, night, result.plan);
   result.lastTarget = result.plan.lastTarget ?? null;
   result.modelCalls = budget.calls;
   return result;

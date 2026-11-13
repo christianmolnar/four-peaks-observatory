@@ -5,6 +5,8 @@ export interface PlanSlot {
   id: string;
   start: string;
   end: string;
+  /** Optional: the imaging minutes the model plans in this slot. At most the slot length, minus the flip time when the slot spans the transit. */
+  exposureMinutes?: number;
 }
 
 export interface ExposureEntry {
@@ -79,6 +81,7 @@ export const PLAN_JSON_SCHEMA = {
           id: { type: 'string' },
           start: { type: 'string', pattern: ISO_PATTERN },
           end: { type: 'string', pattern: ISO_PATTERN },
+          exposureMinutes: { type: 'number', exclusiveMinimum: 0 },
         },
       },
     },
@@ -126,15 +129,19 @@ export function parseJsonReply(text: string): Parsed<unknown> {
   }
 }
 
-function listOf<T>(v: unknown, what: string, item: (x: unknown, i: number) => T | string): Parsed<T[]> {
-  if (!Array.isArray(v)) return { ok: false, error: `${what} must be an array` };
+const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
+const good = <T,>(value: T): { ok: true; value: T } => ({ ok: true, value });
+
+/** Each item is parsed to a result of its own, so a valid item may itself be a string (a cut id). */
+function listOf<T>(v: unknown, what: string, item: (x: unknown, i: number) => Parsed<T>): Parsed<T[]> {
+  if (!Array.isArray(v)) return fail(`${what} must be an array`);
   const out: T[] = [];
   for (let i = 0; i < v.length; i++) {
     const r = item(v[i], i);
-    if (typeof r === 'string') return { ok: false, error: `${what}[${i}]: ${r}` };
-    out.push(r);
+    if (!r.ok) return fail(`${what}[${i}]: ${r.error}`);
+    out.push(r.value);
   }
-  return { ok: true, value: out };
+  return good(out);
 }
 
 function parseVerdict(x: unknown): LastTargetVerdict | string {
@@ -155,20 +162,21 @@ export function parsePlanReply(text: string): Parsed<ModelPlan> {
   if (!isObj(o)) return { ok: false, error: 'the reply must be one JSON object' };
 
   const exposures = listOf<ExposureEntry>(o.exposures, 'exposures', (x) => {
-    if (!isObj(x) || !isStr(x.id)) return 'needs a string id';
-    if (typeof x.minutes !== 'number' || !Number.isFinite(x.minutes) || x.minutes <= 0) return 'minutes must be a positive number';
-    if (typeof x.subSeconds !== 'number' || !Number.isFinite(x.subSeconds) || x.subSeconds <= 0) return 'subSeconds must be a positive number';
-    return { id: x.id, minutes: x.minutes, subSeconds: x.subSeconds };
+    if (!isObj(x) || !isStr(x.id)) return fail('needs a string id');
+    if (typeof x.minutes !== 'number' || !Number.isFinite(x.minutes) || x.minutes <= 0) return fail('minutes must be a positive number');
+    if (typeof x.subSeconds !== 'number' || !Number.isFinite(x.subSeconds) || x.subSeconds <= 0) return fail('subSeconds must be a positive number');
+    return good({ id: x.id, minutes: x.minutes, subSeconds: x.subSeconds });
   });
   if (!exposures.ok) return exposures;
   const plan = listOf<PlanSlot>(o.plan, 'plan', (x) => {
-    if (!isObj(x) || !isStr(x.id)) return 'needs a string id';
-    if (typeof x.start !== 'string' || !ISO_RE.test(x.start)) return 'start must be a local ISO time with offset, like 2026-10-31T01:30-06:00';
-    if (typeof x.end !== 'string' || !ISO_RE.test(x.end)) return 'end must be a local ISO time with offset, like 2026-10-31T01:30-06:00';
-    return { id: x.id, start: x.start, end: x.end };
+    if (!isObj(x) || !isStr(x.id)) return fail('needs a string id');
+    if (typeof x.start !== 'string' || !ISO_RE.test(x.start)) return fail('start must be a local ISO time with offset, like 2026-10-31T01:30-06:00');
+    if (typeof x.end !== 'string' || !ISO_RE.test(x.end)) return fail('end must be a local ISO time with offset, like 2026-10-31T01:30-06:00');
+    if (x.exposureMinutes !== undefined && (typeof x.exposureMinutes !== 'number' || !Number.isFinite(x.exposureMinutes) || x.exposureMinutes <= 0)) return fail('exposureMinutes must be a positive number');
+    return good({ id: x.id, start: x.start, end: x.end, ...(x.exposureMinutes !== undefined ? { exposureMinutes: x.exposureMinutes as number } : {}) });
   });
   if (!plan.ok) return plan;
-  const cut = listOf<string>(o.cut, 'cut', (x) => (isStr(x) ? x : 'must be a target id string'));
+  const cut = listOf<string>(o.cut, 'cut', (x) => (isStr(x) ? good(x) : fail('must be a target id string')));
   if (!cut.ok) return cut;
   if (typeof o.fitsAll !== 'boolean') return { ok: false, error: 'fitsAll must be true or false' };
   if (o.notes !== undefined && typeof o.notes !== 'string') return { ok: false, error: 'notes must be a string' };

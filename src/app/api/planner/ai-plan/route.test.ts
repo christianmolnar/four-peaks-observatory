@@ -76,6 +76,12 @@ describe('POST /api/planner/ai-plan', () => {
     expect(sent.rig).toEqual({ focalLengthMm: 400, camera: 'Cam' })
     expect(sent.bortle).toBe(5)
   })
+  it('allowFlips passes through to the facts and must be a boolean', async () => {
+    const j = await (await post(body({ allowFlips: true }))).json()
+    expect(j.facts.meridianFlips).toEqual({ allowed: true, minutes: 10 })
+    expect((await (await post(body())).json()).facts.meridianFlips.allowed).toBe(false)
+    expect((await post(body({ allowFlips: 'yes' }))).status).toBe(400)
+  })
   it('400 on an unknown catalogId, a bad rig or a bad bortle', async () => {
     for (const bad of [{ targets: [{ ...INPUT.targets[0], catalogId: 'nope' }] }, { rig: { focalLengthMm: -1 } }, { rig: { camera: 5 } }, { bortle: 10 }, { bortle: 4.5 }]) {
       expect((await post(body(bad))).status).toBe(400)

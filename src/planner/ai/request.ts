@@ -35,7 +35,7 @@ const str = (v: unknown, max = 80): v is string => typeof v === 'string' && v.le
 /** Validates the request body. Returns the input and the review flag, or the first problem. */
 export function parseBody(b: unknown): { input: AiPlanInput; qualityReview: boolean } | string {
   if (!isObj(b)) return 'body must be a JSON object'
-  const { targets, site, horizon, minAltitude, date, timeZone, startTime, qualityReview, rig, bortle } = b
+  const { targets, site, horizon, minAltitude, date, timeZone, startTime, qualityReview, rig, bortle, allowFlips } = b
   if (!Array.isArray(targets) || targets.length < 1) return 'targets must be a non-empty array'
   if (targets.length > MAX_TARGETS) return `at most ${MAX_TARGETS} targets`
   const ids = new Set<string>()
@@ -63,6 +63,7 @@ export function parseBody(b: unknown): { input: AiPlanInput; qualityReview: bool
   try { new Intl.DateTimeFormat('en-US', { timeZone }) } catch { return `unknown timeZone ${timeZone}` }
   if (startTime !== undefined && (typeof startTime !== 'string' || !CLOCK_RE.test(startTime))) return 'startTime must be HH:MM'
   if (qualityReview !== undefined && typeof qualityReview !== 'boolean') return 'qualityReview must be true or false'
+  if (allowFlips !== undefined && typeof allowFlips !== 'boolean') return 'allowFlips must be true or false'
   if (bortle !== undefined && (!num(bortle) || !Number.isInteger(bortle) || bortle < 1 || bortle > 9)) return 'bortle must be a whole number from 1 to 9'
   const rigOut = parseRig(rig)
   if (typeof rigOut === 'string') return rigOut
@@ -78,7 +79,7 @@ export function parseBody(b: unknown): { input: AiPlanInput; qualityReview: bool
     hz = horizon.map((p: Obj) => ({ az: p.az as number, alt: p.alt as number }))
   }
   return {
-    input: { targets: ts, rig: rigOut, bortle: bortle as number | undefined, site: { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM as number | undefined }, timeZone, horizon: hz, minAltitude, date, startTime: startTime as string | undefined },
+    input: { targets: ts, rig: rigOut, bortle: bortle as number | undefined, site: { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM as number | undefined }, timeZone, horizon: hz, minAltitude, date, startTime: startTime as string | undefined, allowFlips: allowFlips === true },
     qualityReview: qualityReview === true,
   }
 }

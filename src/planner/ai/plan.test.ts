@@ -3,8 +3,9 @@ import { planNightWithAi, ModelReplyError } from './plan';
 import type { CallModel, ModelMessage } from './plan';
 import { checkPlan } from './check';
 import { buildFacts, nightOf } from './facts';
+import { parsePlanReply } from './schema';
 import { buildRetryPrompt, buildUserPrompt, SYSTEM_PROMPT } from './prompt';
-import { INPUT, clock, lowMinute, MIN, planOf, validSlots } from './testkit';
+import { INPUT, clock, lowMinute, MIN, planOf, transitOf, validSlots } from './testkit';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -295,6 +296,40 @@ describe('prompt', () => {
   });
   it('PROMPT.md holds the exact system prompt', () => {
     expect(readFileSync(join(__dirname, 'PROMPT.md'), 'utf8')).toContain(SYSTEM_PROMPT);
+  });
+});
+
+describe('R4: cut list and flips', () => {
+  const withCut = (): string => JSON.stringify(planOf(INPUT, validSlots().slice(0, 2)));
+  it('parsePlanReply accepts a non-empty cut list', () => {
+    const r = parsePlanReply(withCut());
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.cut).toEqual(['t3']);
+    expect(parsePlanReply(JSON.stringify({ ...JSON.parse(withCut()), cut: [3] }))).toEqual({ ok: false, error: 'cut[0]: must be a target id string' });
+  });
+  it('a reply with a cut list ends verified in one call', async () => {
+    const m = fake([withCut()]);
+    const r = await planNightWithAi(INPUT, { callModel: m.call });
+    expect(r.status).toBe('verified');
+    expect(r.modelCalls).toBe(1);
+    expect(r.plan.cut).toEqual(['t3']);
+    expect(r.plan.fitsAll).toBe(false);
+    expect(r.flips).toBe(0);
+  });
+  it('flips on: the model is told, a crossing slot verifies and the result counts the flip', async () => {
+    const on = { ...INPUT, allowFlips: true };
+    const tr = Math.round(transitOf(on, 't2') / MIN) * MIN;
+    const p = planOf(on, [['t2', clock(tr - 30 * MIN), clock(tr + 30 * MIN)]], { cut: ['t1', 't3'], fitsAll: false });
+    p.lastTarget = { ...p.lastTarget!, frames: 25 };
+    const m = fake([JSON.stringify(p)]);
+    const r = await planNightWithAi(on, { callModel: m.call });
+    expect(r.violations).toEqual([]);
+    expect(r.status).toBe('verified');
+    expect(r.flips).toBe(1);
+    expect(m.seen[0][1].content).toContain('"meridianFlips":{"allowed":true,"minutes":10}');
+    const off = await planNightWithAi(INPUT, { callModel: fake([JSON.stringify(p)]).call });
+    expect(off.status).toBe('unverified');
+    expect(off.violations.map((v) => v.kind)).toContain('flip-in-slot');
   });
 });
 

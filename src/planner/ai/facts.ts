@@ -1,6 +1,6 @@
 import { bodyAltAz, moonIllumination, moonSeparation, nextMeridianTransit, targetAltAz } from '../astro';
 import type { Site } from '../astro';
-import { analyseSubject, nightBounds, validateInput } from '../campaign/analysis';
+import { analyseSubject, MERIDIAN_FLIP_MIN, nightBounds, validateInput } from '../campaign/analysis';
 import type { CampaignInput } from '../campaign/types';
 import { limitAltitudeAt } from '../horizon';
 import type { HorizonPoint } from '../horizon';
@@ -53,6 +53,8 @@ export interface AiPlanInput {
   rig?: RigInfo;
   /** Bortle class 1 to 9 of the site's sky. */
   bortle?: number;
+  /** A slot may span its target's meridian transit; the flip then costs MERIDIAN_FLIP_MIN of that slot. Default false. */
+  allowFlips?: boolean;
 }
 
 /** ok: usable. low: under the minimum altitude. blocked: over the minimum but under the horizon zone. */
@@ -84,6 +86,8 @@ export interface NightFacts {
   minAltitudeDeg: number;
   /** Least gap between one slot's end and the next slot's start. */
   slewMin: number;
+  /** Whether a slot may span its target's transit, and the minutes a flip takes out of the slot that spans it. */
+  meridianFlips: { allowed: boolean; minutes: number };
   /** Every FACTS_STEP_MIN from `night.start`, then `night.end` (ISO local instants with offset). */
   sampleTimes: string[];
   /** The rig and sky; absent when the caller gave none. */
@@ -176,6 +180,7 @@ export function buildFacts(input: AiPlanInput): { facts: NightFacts; night: Nigh
     night: { start: clock(first), end: clock(last), minutes: Math.floor((last.getTime() - first.getTime()) / MIN) },
     minAltitudeDeg: input.minAltitude,
     slewMin: SLEW_CENTER_MIN,
+    meridianFlips: { allowed: input.allowFlips === true, minutes: MERIDIAN_FLIP_MIN },
     sampleTimes: times.map(clock),
     ...(input.rig ? { rig: input.rig } : {}),
     ...(input.bortle !== undefined ? { bortle: input.bortle } : {}),

@@ -1,7 +1,8 @@
 import { targetAltAz } from '../astro';
-import { checkPlan, planWarnings } from './check';
+import { checkPlan, countFlips, planWarnings } from './check';
 import type { ViolationKind } from './check';
 import { buildFacts, nightOf } from './facts';
+import { MERIDIAN_FLIP_MIN } from '../campaign/analysis';
 import { isoOf, parseIso } from './instant';
 import type { AiPlanInput } from './facts';
 import { clock, earliestSlot, INPUT, lowMinute, MIN, night, planOf, transitOf, validSlots } from './testkit';
@@ -337,5 +338,75 @@ describe('last-target verdict', () => {
     const p = planOf(INPUT, [['t1', clock(endMs - 30 * MIN), clock(endMs)]], { cut: ['t2', 't3'], fitsAll: false });
     const w = planWarnings(INPUT, night(), p).filter((x) => x.kind === 'free-time-after-last');
     expect(w).toEqual([]);
+  });
+});
+
+describe('R4: transit-forward warning when the transit minute is blocked', () => {
+  const HORIZON_INPUT: AiPlanInput = { ...INPUT, horizon: [{ az: 0, alt: 0 }, { az: 170, alt: 0 }, { az: 172, alt: 80 }, { az: 188, alt: 80 }, { az: 190, alt: 0 }] };
+  const slots: [string, string, string][] = [
+    ['t1', '2026-12-10T18:48-07:00', '2026-12-10T19:48-07:00'],
+    ['t2', '2026-12-10T23:21-07:00', '2026-12-11T00:21-07:00'],
+  ];
+  it('warns, names the first usable minute and the run from there, and the advice verifies', () => {
+    const n = night(HORIZON_INPUT);
+    const p = planOf(HORIZON_INPUT, slots);
+    expect(checkPlan(HORIZON_INPUT, n, p)).toEqual([]);
+    const w = planWarnings(HORIZON_INPUT, n, p).filter((x) => x.kind === 'free-time-after-last');
+    expect(w).toHaveLength(1);
+    expect(w[0].id).toBe('t2');
+    expect(w[0].message).toContain('2026-12-11T01:07-07:00');
+    expect(w[0].message).toMatch(/usable 196 min after the transit/);
+    const moved = planOf(HORIZON_INPUT, [slots[0], ['t2', '2026-12-11T01:07-07:00', '2026-12-11T04:23-07:00']]);
+    expect(checkPlan(HORIZON_INPUT, n, moved)).toEqual([]);
+    expect(planWarnings(HORIZON_INPUT, n, moved).filter((x) => x.kind === 'free-time-after-last')).toEqual([]);
+  });
+});
+
+describe('R4: meridian flips', () => {
+  const tr = Math.round(transitOf(INPUT, 't2') / MIN) * MIN;
+  const crossing = (len = 60): ReturnType<typeof planOf> => planOf(INPUT, [['t2', clock(tr - 30 * MIN), clock(tr - 30 * MIN + len * MIN)]]);
+  const ON: AiPlanInput = { ...INPUT, allowFlips: true };
+  const withVerdict = (p: ReturnType<typeof planOf>, frames: number, over: object = {}): ReturnType<typeof planOf> => ({ ...p, lastTarget: { ...p.lastTarget!, frames, ...over } });
+
+  it('off (the default): a crossing slot is a violation and no flip is counted as allowed', () => {
+    const v = checkPlan(INPUT, night(), crossing()).filter((x) => x.kind === 'flip-in-slot');
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toContain('flips are not allowed');
+    expect(checkPlan({ ...INPUT, allowFlips: false }, night(), crossing()).map((x) => x.kind)).toContain('flip-in-slot');
+    expect(buildFacts(INPUT).facts.meridianFlips).toEqual({ allowed: false, minutes: MERIDIAN_FLIP_MIN });
+  });
+  it('off: a slot may still start or end at the transit', () => {
+    expect(kinds(INPUT, planOf(INPUT, [['t2', clock(tr - 60 * MIN), clock(tr)]]))).toEqual([]);
+    expect(kinds(INPUT, planOf(INPUT, [['t2', clock(tr), clock(tr + 60 * MIN)]]))).toEqual([]);
+  });
+  it('on: a crossing slot with the flip taken out verifies and is counted', () => {
+    const p = crossing();
+    const eff = 60 - MERIDIAN_FLIP_MIN;
+    const ok = withVerdict({ ...p, plan: [{ ...p.plan[0], exposureMinutes: eff }] }, (eff * 60) / 120);
+    expect(checkPlan(ON, night(ON), ok)).toEqual([]);
+    expect(countFlips(ON, night(ON), ok)).toBe(1);
+    expect(buildFacts(ON).facts.meridianFlips).toEqual({ allowed: true, minutes: MERIDIAN_FLIP_MIN });
+    expect(countFlips(INPUT, night(), planOf(INPUT, [['t2', clock(tr), clock(tr + 60 * MIN)]]))).toBe(0);
+  });
+  it('on: frames and exposureMinutes must respect the flip time', () => {
+    const p = crossing();
+    const bad = withVerdict(p, 30);
+    expect(checkPlan(ON, night(ON), bad).map((x) => x.message).join('\n')).toContain(`should be 25`);
+    expect(checkPlan(ON, night(ON), withVerdict(p, 24))).toEqual([]);
+    expect(checkPlan(ON, night(ON), withVerdict(p, 25))).toEqual([]);
+    const over = { ...p, plan: [{ ...p.plan[0], exposureMinutes: 55 }] };
+    expect(checkPlan(ON, night(ON), withVerdict(over, 25)).map((x) => x.kind)).toEqual(['exposure-mismatch']);
+    // not crossing: no allowance taken
+    expect(checkPlan(ON, night(ON), planOf(ON, [['t2', clock(tr - 60 * MIN), clock(tr)]]))).toEqual([]);
+  });
+  it('on: a slot no longer than the flip is a violation', () => {
+    const p = planOf(ON, [['t2', clock(tr - 5 * MIN), clock(tr - 5 * MIN + MERIDIAN_FLIP_MIN * MIN)]]);
+    const k = checkPlan(ON, night(ON), withVerdict(p, 0, { usefulness: 'not_useful' })).map((x) => x.kind);
+    expect(k).toContain('flip-in-slot');
+  });
+  it('on: the transit-forward advice is not given (a crossing slot is allowed)', () => {
+    const p = planOf(ON, [['t2', clock(tr - 60 * MIN), clock(tr)]]);
+    expect(planWarnings(INPUT, night(), p).some((x) => x.message.includes('start at the transit'))).toBe(true);
+    expect(planWarnings(ON, night(ON), p).some((x) => x.message.includes('start at the transit'))).toBe(false);
   });
 });
