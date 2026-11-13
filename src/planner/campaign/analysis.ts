@@ -1,17 +1,21 @@
 import { nextMeridianTransit, targetAltAz } from '../astro';
+import { surfaceBrightnessOf } from '../exposure';
 import { MERIDIAN_FLIP_MIN } from '../exposure/constants';
 import { usableWindows } from '../horizon';
 import type { TimeWindow } from '../horizon';
 import { clockToInstant } from '../itinerary/timeline';
 import { parseLocalDate, tonightsNight } from '../plan';
+import { USEFUL_RANGE_MIN } from './constants';
+import type { UsefulRange } from './constants';
 import type { CampaignInput, CampaignSubject, ShortReason, SubjectNight } from './types';
 
 export const GRID_MIN = 5;
 export const GRID_MS = GRID_MIN * 60000;
 export const MAX_NIGHTS = 14;
-/** Shortest slot the scheduler places (or the whole request when that is shorter) and the packing report offers. Anything less is a token, not data. */
-export const MIN_USEFUL_MIN = 30;
 export { MERIDIAN_FLIP_MIN };
+
+/** The target's useful range: its own override, else the range of its surface brightness class. */
+export const usefulRangeOf = (s: CampaignSubject): UsefulRange => s.useful ?? USEFUL_RANGE_MIN[surfaceBrightnessOf(s)];
 
 export const aimOf = (s: CampaignSubject): { raHours: number; decDeg: number } => s.aim ?? s.targets[0];
 
@@ -29,9 +33,18 @@ export function validateInput(input: CampaignInput): void {
     seen.add(s.id);
     if (s.targets.length === 0) throw new RangeError(`Subject ${s.id} has no target`);
     if (s.targets.length > 1 && !s.aim) throw new RangeError(`Subject ${s.id} frames ${s.targets.length} targets together and needs an aim point`);
-    const m = s.hoursPerNight * 60;
-    if (!Number.isFinite(m) || m <= 0 || m % GRID_MIN !== 0) {
-      throw new RangeError(`Subject ${s.id}: hoursPerNight must be positive and a multiple of ${GRID_MIN} minutes: ${s.hoursPerNight}`);
+    if (s.hoursPerNight !== undefined) {
+      const m = s.hoursPerNight * 60;
+      if (!Number.isFinite(m) || m <= 0 || m % GRID_MIN !== 0) {
+        throw new RangeError(`Subject ${s.id}: hoursPerNight must be positive and a multiple of ${GRID_MIN} minutes: ${s.hoursPerNight}`);
+      }
+    }
+    const { minMin, maxMin } = usefulRangeOf(s);
+    if (!Number.isFinite(minMin) || !Number.isFinite(maxMin) || minMin <= 0 || minMin > maxMin || minMin % GRID_MIN !== 0 || maxMin % GRID_MIN !== 0) {
+      throw new RangeError(`Subject ${s.id}: the useful range must be positive multiples of ${GRID_MIN} minutes with min <= max: ${minMin} to ${maxMin}`);
+    }
+    if (s.value !== undefined && !(Number.isFinite(s.value) && s.value > 0)) {
+      throw new RangeError(`Subject ${s.id}: value must be a positive number: ${s.value}`);
     }
   }
 }
@@ -107,8 +120,8 @@ export function analyseSubject(input: CampaignInput, subject: CampaignSubject, s
       : { code: 'blocked-by-horizon', text: `${subject.name} is above ${input.minAltitude} degrees only while it is behind a blocked zone.` };
   }
 
-  // Same start grid and rules as the scheduler: a flip is unavoidable when no clean slot of the full length fits but a straddling one (flip included) does.
-  const lengthMin = subject.hoursPerNight * 60;
+  // Same start grid and rules as the scheduler: a flip is unavoidable when no clean slot of the minUseful length fits but a straddling one (flip included) does.
+  const lengthMin = usefulRangeOf(subject).minMin;
   const spans = windows.map((w) => ({ s: w.start.getTime(), e: w.end.getTime() }));
   const t0 = start.getTime();
   const fits = (flip: boolean): boolean => {

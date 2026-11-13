@@ -1,4 +1,5 @@
 import type { Site } from '../astro';
+import type { SurfaceBrightness } from '../exposure';
 import type { HorizonPoint, TimeWindow } from '../horizon';
 
 /** One catalog object (or any fixed J2000 position) that goes into a subject. */
@@ -20,8 +21,16 @@ export interface CampaignSubject {
   targets: CampaignTarget[];
   /** Required when there are two or more targets; absent for one target. */
   aim?: { raHours: number; decDeg: number };
-  /** Hours of imaging wanted each night. */
-  hoursPerNight: number;
+  /** Catalog type (e.g. 'galaxy'), read with `surfaceBrightness` by `surfaceBrightnessOf` to pick the useful range. */
+  type?: string;
+  /** Surface brightness class. Absent: from `type`, else 'unknown'. */
+  surfaceBrightness?: SurfaceBrightness;
+  /** Per-target override of the useful range (minutes of integration, multiples of 5, min <= max). Absent: the class range. */
+  useful?: { minMin: number; maxMin: number };
+  /** Marginal gain of more integration once the target is useful; higher is lengthened first. Absent: the list order (earlier is higher). */
+  value?: number;
+  /** Optional cap on imaging hours in one night (multiple of 5 minutes). Never lowers a first useful slot below the target's minUseful. */
+  hoursPerNight?: number;
 }
 
 export interface CampaignInput {
@@ -69,7 +78,7 @@ export interface SubjectNight {
   usableMin: number;
   /** Meridian transit of the aim point inside the night; null when it falls outside the night. */
   transit: Date | null;
-  /** True when the requested length fits only as a slot that straddles the transit, flip time included (a flip cannot be avoided, whatever else is imaged). False when a clean slot fits, or when no slot of the full length fits at all. */
+  /** True when the target's minUseful fits only as a slot that straddles the transit, flip time included (a flip cannot be avoided, whatever else is imaged). False when a clean slot fits, or when no slot of that length fits at all. */
   unavoidableFlip: boolean;
 }
 
@@ -90,17 +99,16 @@ export interface CampaignSlot {
 
 export interface SubjectOutcome {
   subjectId: string;
-  requestedMin: number;
-  /** Imaging minutes placed (flip time not counted). */
+  /** Imaging minutes placed tonight (flip time not counted). */
   gotMin: number;
   slot: CampaignSlot | null;
-  /** Why `gotMin` is under `requestedMin`; null when it got everything. */
+  /** Why nothing was placed tonight; null when it got a slot or was already done. */
   reason: ShortReason | null;
 }
 
 export interface CandidateFit {
   subjectId: string;
-  /** Longest imaging length of at least 30 min that fits in the room left; 0 when none does. */
+  /** Longest imaging length of at least MIN_SLOT_MIN that fits in the room left; 0 when none does. */
   fitMin: number;
   /** True when that fit straddles the transit (its flip is inside the slot). */
   flip: boolean;
@@ -117,8 +125,30 @@ export interface NightPacking {
   slewMin: number;
   /** nightMin - usedMin - slewMin. */
   leftMin: number;
-  /** One entry per candidate and per subject that got no minutes, in input order. */
+  /** One entry per candidate, in input order. */
   next: CandidateFit[];
+}
+
+/** One target that still needed its first useful slot tonight. */
+export interface CutEntry {
+  subjectId: string;
+  /** True when tonight's plan gives it a slot that makes it useful. */
+  fits: boolean;
+  /** Minutes it would take in the room left (slot, flip and the slew after the other slots); null when it fits, or when no slot of its minUseful fits in its clear time at all. */
+  needMin: number | null;
+  /** Why it does not fit; null when it fits. */
+  reason: ShortReason | null;
+}
+
+/** Where tonight's list runs out: targets in list order, the free time left after the plan, the last that fits and the first that does not. */
+export interface NightCutLine {
+  entries: CutEntry[];
+  /** Free time after the plan (the packing's leftMin). */
+  leftMin: number;
+  lastFitId: string | null;
+  firstCutId: string | null;
+  /** E.g. "ngc-b: needs 90 min, 40 left"; null when everything fits. */
+  text: string | null;
 }
 
 export interface CampaignNight {
@@ -133,9 +163,41 @@ export interface CampaignNight {
   /** In subject input order. */
   outcomes: SubjectOutcome[];
   packing: NightPacking;
+  cutLine: NightCutLine;
+}
+
+/** `full`: reached maxUseful. `useful`: reached minUseful only. `cut`: never reached minUseful in the nights given. */
+export type SubjectStatus = 'full' | 'useful' | 'cut';
+
+export interface SubjectResult {
+  subjectId: string;
+  minUsefulMin: number;
+  maxUsefulMin: number;
+  /** Imaging minutes over all nights. */
+  totalMin: number;
+  nightsUsed: number;
+  status: SubjectStatus;
+  /** Why it is cut; null otherwise. */
+  reason: ShortReason | null;
+}
+
+/** Where the whole list runs out, in list order. */
+export interface CutLine {
+  /** The last target before the first cut one that is not cut; null when the first target is cut (or there is no cut). */
+  lastFitId: string | null;
+  firstCutId: string | null;
+  /** Minutes the first cut target would need on the night with the most room left, when a slot of its minUseful fits its clear time; null otherwise. */
+  needMin: number | null;
+  /** Free time after the plan on that night; null with needMin. */
+  leftMin: number | null;
+  /** E.g. "ngc-b: needs 90 min, 40 left (2026-12-11)", or the reason it is cut; null when nothing is cut. */
+  text: string | null;
+  /** Every cut target, in list order. */
+  cutIds: string[];
 }
 
 export interface CampaignResult {
   nights: CampaignNight[];
-  perSubject: { subjectId: string; requestedMin: number; gotMin: number }[];
+  perSubject: SubjectResult[];
+  cutLine: CutLine;
 }
