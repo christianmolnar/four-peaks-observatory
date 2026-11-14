@@ -46,7 +46,7 @@ describe('"tonight" in every section follows the date', () => {
     expect(pageText()).toMatch(/Tue 15 Dec/i);
     expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
     expect(screen.getAllByText('Jupiter: Tue 15 Dec').length).toBeGreaterThan(0);
-    expect(pageText()).toMatch(/Estimates for Tue 15 Dec, not predictions/);
+    expect(pageText()).toMatch(/Worked out for Tue 15 Dec\./);
     expect(pageText()).toMatch(/estimates for Tue 15 Dec, not predictions/);
   });
 
@@ -55,7 +55,7 @@ describe('"tonight" in every section follows the date', () => {
     await app(defaultTonightDate(new Date(), s.longitude, s.timeZone));
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
     expect(screen.getAllByText('Jupiter: tonight').length).toBeGreaterThan(0);
-    expect(pageText()).toMatch(/Estimates for tonight, not predictions/);
+    expect(pageText()).toMatch(/Worked out for tonight\./);
     expect(pageText()).toMatch(/estimates for tonight, not predictions/);
   });
 });

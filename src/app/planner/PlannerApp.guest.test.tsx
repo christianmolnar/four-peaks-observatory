@@ -52,7 +52,12 @@ describe('guest start', () => {
   it('opens with a full plan from the sample and the guest intro', async () => {
     await app();
     await waitFor(() => expect(screen.getByTestId('target-list')).toBeTruthy());
-    const intro = document.querySelector('header p')?.textContent ?? '';
+    const lead = document.querySelector('header p')!.textContent ?? '';
+    expect(lead.length).toBeLessThan(120); // one short line; the rest is behind "More"
+    const more = document.querySelector('header details') as HTMLDetailsElement;
+    expect(more.open).toBe(false);
+    expect(more.querySelector('summary')!.textContent).toMatch(/More$/);
+    const intro = document.querySelector('header')?.textContent ?? '';
     expect(intro).toMatch(/free guest tool/i);
     expect(intro).toMatch(/estimates/i);
     expect(intro).toMatch(/stay in this browser/i);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { nextMeridianTransit } from '@/planner/astro';
 import type { Site } from '@/planner/astro';
 import {
@@ -10,7 +10,7 @@ import {
   coreAdvice,
   planExposure,
 } from '@/planner/exposure';
-import type { ExposureMode, ExposureTarget, ExposureWarning, ModeEstimate } from '@/planner/exposure';
+import type { ExposureMode, ExposureTarget, ExposureWarning, ModeEstimate, WarningCode } from '@/planner/exposure';
 import type { OpticalTrain } from '@/planner/optics';
 import type { PlanEntry } from '@/planner/plan';
 import type { ProfileCamera, ProfileFilter } from '@/planner/profile';
@@ -32,6 +32,45 @@ export interface ExposurePanelProps {
   formatTime: (d: Date) => string;
   /** "tonight" or "that night (date)", from the page. */
   nightWord: string;
+  /** Opens the page's controls and puts focus on one of them (Evening of, Train, Filter). */
+  onGoToControl: (id: ControlId) => void;
+}
+
+/** The page controls a warning can send the reader to; the ids are the controls' own. */
+export type ControlId = 'plan-date' | 'plan-train' | 'plan-filter';
+
+interface WarningAction {
+  /** One sentence: what to change (or, where nothing can be changed, what to do). */
+  sentence: string;
+  /** Real controls on this page that make the change; none when the sentence is all there is. */
+  controls?: readonly { id: ControlId; label: string }[];
+}
+
+const CHANGE_FILTER = { id: 'plan-filter', label: 'Change the filter' } as const;
+const CHANGE_TRAIN = { id: 'plan-train', label: 'Change the train' } as const;
+const CHANGE_DATE = { id: 'plan-date', label: 'Change the date' } as const;
+
+/**
+ * The warnings a reader can act on, each with what to change. A code that is not here is context only and goes to Notes;
+ * a warning with no possible action belongs there too, so every entry must say what to do.
+ */
+const ACT_ON: Partial<Record<WarningCode, WarningAction>> = {
+  'filter-rated-slower': { sentence: 'Pick a filter rated for this speed, or another train.', controls: [CHANGE_FILTER, CHANGE_TRAIN] },
+  'filter-uvir-missing': { sentence: 'Pick a filter that blocks UV/IR, or add a UV/IR cut filter to the train.', controls: [CHANGE_FILTER] },
+  'filter-visual-colour': { sentence: 'Pick an imaging filter instead.', controls: [CHANGE_FILTER] },
+  'moon-near': { sentence: 'Pick a night when the Moon is farther away or down, or a target farther from it.', controls: [CHANGE_DATE] },
+  'no-usable-time': { sentence: 'Pick another date or another target.', controls: [CHANGE_DATE] },
+  'limited-by-usable-time': { sentence: 'Pick a night with more usable time to reach the mode\'s length.', controls: [CHANGE_DATE] },
+  'meridian-flip': { sentence: 'Plan a pause to flip and re-centre at the crossing; its time is already counted.' },
+  'target-ou4': { sentence: 'Pick a brighter target for a short session, or plan many nights of narrowband.' },
+};
+
+/** Warnings to act on, and the rest, which fold into one closed line of Notes. */
+export function splitWarnings(warnings: readonly ExposureWarning[]): { act: ExposureWarning[]; notes: ExposureWarning[] } {
+  const act: ExposureWarning[] = [];
+  const notes: ExposureWarning[] = [];
+  for (const w of warnings) (w.code in ACT_ON ? act : notes).push(w);
+  return { act, notes };
 }
 
 const num = (x: number): string => String(Number(x.toFixed(1)));
@@ -49,64 +88,57 @@ function filterLine(f: ProfileFilter | null): string {
   ].join(' ');
 }
 
-function WarningList({ warnings }: { warnings: ExposureWarning[] }) {
-  if (warnings.length === 0) return <p className="text-white/70 font-normal text-sm">No warnings for this choice.</p>;
-  return (
-    <ul className="space-y-2">
-      {warnings.map((w) => (
-        <li key={`${w.code}-${w.text.slice(0, 24)}`} className="text-sm font-normal text-white/90">
-          <span className={`mr-2 rounded border px-1.5 py-0.5 text-xs font-medium ${w.severity === 'warning' ? 'border-orange-300/60 text-orange-200' : 'border-sky-300/50 text-sky-200'}`}>
-            {w.severity === 'warning' ? 'Warning' : 'Note'}
-          </span>
-          {w.text}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** How many list items reach below the bottom edge of the box (fully or in part), so the reader is told to scroll. */
-export function countHiddenBelow(boxBottom: number, itemBottoms: readonly number[]): number {
-  return itemBottoms.filter((b) => b > boxBottom + 1).length;
-}
+const linkBtn = 'min-h-11 px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400 rounded';
 
 /**
- * The warnings box: a fixed height with its own scrollbar, plus one reserved line under it that says
- * "N more below, scroll" when something is cut off (a phone's thin overlay scrollbar is easy to miss).
- * The line is always there, so the cue appearing moves nothing.
+ * The warnings and notes for the chosen mode. It grows to fit and is not there at all when there is nothing to say.
+ * Warnings to act on come first with the word "Warning", what they mean and what to change; everything else is
+ * one closed "Notes (N)" line.
  */
-function WarningsBox({ warnings }: { warnings: ExposureWarning[] }) {
-  const box = useRef<HTMLDivElement>(null);
-  const [below, setBelow] = useState(0);
-  const measure = useCallback(() => {
-    const el = box.current;
-    if (!el) return;
-    const bottom = el.getBoundingClientRect().bottom;
-    setBelow(countHiddenBelow(bottom, [...el.querySelectorAll('li')].map((li) => li.getBoundingClientRect().bottom)));
-  }, []);
-  useLayoutEffect(() => {
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [measure, warnings]);
+export function Warnings({ warnings, onGoToControl }: { warnings: ExposureWarning[]; onGoToControl: (id: ControlId) => void }) {
+  if (warnings.length === 0) return null;
+  const { act, notes } = splitWarnings(warnings);
   return (
-    <>
-      <div
-        ref={box}
-        onScroll={measure}
-        className="h-[26rem] md:h-[16.5rem] overflow-y-scroll pr-2 [scrollbar-color:rgba(255,255,255,0.5)_rgba(255,255,255,0.1)]"
-        role="region"
-        aria-labelledby="exposure-warnings-heading"
-        tabIndex={0}
-        aria-live="polite"
-        data-testid="exposure-warnings"
-      >
-        <WarningList warnings={warnings} />
-      </div>
-      <p className="mt-1 h-5 text-xs text-sky-200" data-testid="exposure-warnings-cue">
-        {below > 0 ? `${below} more below, scroll` : ''}
-      </p>
-    </>
+    <div className="mt-6" role="region" aria-label="Warnings and notes for the chosen mode" aria-live="polite" data-testid="exposure-warnings">
+      {act.length > 0 && (
+        <ul className="space-y-3">
+          {act.map((w) => {
+            const action = ACT_ON[w.code]!;
+            return (
+              <li key={`${w.code}-${w.text.slice(0, 24)}`} className="text-sm font-normal text-white/90" data-testid={`warning-${w.code}`}>
+                <span className="mr-2 rounded border border-orange-300/60 px-1.5 py-0.5 text-xs font-medium text-orange-200">Warning</span>
+                {w.text}
+                <span className="mt-1 block text-white/80">
+                  <span className="text-white/70">What to change: </span>
+                  {action.sentence}
+                  {action.controls?.map((c) => (
+                    <button key={c.id} type="button" className={`${linkBtn} ml-1`} onClick={() => onGoToControl(c.id)}>
+                      {c.label}
+                    </button>
+                  ))}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {notes.length > 0 && (
+        <details className="group mt-1" data-testid="exposure-notes">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm">
+            <DisclosureChevron />
+            Notes ({notes.length})
+          </summary>
+          <ul className="space-y-2 pb-2">
+            {notes.map((w) => (
+              <li key={`${w.code}-${w.text.slice(0, 24)}`} className="text-sm font-normal text-white/90">
+                <span className="mr-2 rounded border border-sky-300/50 px-1.5 py-0.5 text-xs font-medium text-sky-200">Note</span>
+                {w.text}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -147,7 +179,7 @@ function CoreAdvice({ name, advice }: { name: string; advice: ReturnType<typeof 
 function Row({ label, room, children }: { label: string; room: string; children: React.ReactNode }) {
   return (
     <div className="py-1.5 border-b border-white/10 last:border-b-0">
-      <dt className="text-white/70 text-xs">{label}, estimate</dt>
+      <dt className="text-white/70 text-xs">{label}</dt>
       <dd className={`text-white text-sm tabular-nums ${room}`}>{children}</dd>
     </div>
   );
@@ -164,7 +196,7 @@ function ModeCard({ m, checked, onSelect, formatTime }: { m: ModeEstimate; check
           <h3 className="text-white font-normal text-base">{m.modeLabel}</h3>
           <span aria-hidden={!checked} className={`text-xs text-sky-200 ${checked ? '' : 'invisible'}`}>Selected</span>
         </div>
-        <p className="text-white/70 text-xs mt-0.5">Aims for {m.modeRangeMin[0]} to {m.modeRangeMin[1]} minutes of light. All values are estimates.</p>
+        <p className="text-white/70 text-xs mt-0.5">Aims for {m.modeRangeMin[0]} to {m.modeRangeMin[1]} minutes of light.</p>
         <dl className="mt-2">
           <Row label="Sub length" room="min-h-10">{m.subSeconds} s (range {range(m.subSecondsRange, 's')})</Row>
           <Row label="Sub count" room="min-h-10">{m.subCount} (range {range(m.subCountRange, 'subs')})</Row>
@@ -190,12 +222,12 @@ function ModeCard({ m, checked, onSelect, formatTime }: { m: ModeEstimate; check
 }
 
 /**
- * The Exposure panel for the selected target: three mode cards, the marginal-benefit rows, and the warnings.
- * Every number is an estimate and says so. The panel's size does not depend on the chosen mode, filter or
- * sky: the cards always hold the same rows, each row reserves the height of its longest wrap, and the warnings
- * box has a fixed height (it scrolls, and says so when it does).
+ * The Exposure panel for the selected target: three mode cards, the warnings, and one closed fold with the marginal-benefit
+ * rows and the inputs used. One line at the top says every number is an estimate. The cards always hold the same rows and
+ * each row reserves the height of its longest wrap, so a different mode, filter or sky does not resize them; the warnings
+ * take the room they need and none when there are none.
  */
-export default function ExposurePanel({ entry, target, optics, camera, filter, site, bortle, bortleSet, formatTime, nightWord }: ExposurePanelProps) {
+export default function ExposurePanel({ entry, target, optics, camera, filter, site, bortle, bortleSet, formatTime, nightWord, onGoToControl }: ExposurePanelProps) {
   const [mode, setMode] = useState<ExposureMode>('balanced');
 
   const report = useMemo(() => {
@@ -256,8 +288,9 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
   return (
     <section aria-labelledby="exposure-heading" className={frame}>
       {heading}
-      <p className="text-white/80 font-normal text-sm">
-        Estimates for {nightWord}, not predictions. Each number carries a range, and the sky, seeing and equipment will move it. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
+      <p className="text-white font-normal text-sm" data-testid="exposure-estimate-line">These numbers are estimates; trust the range, not the single number.</p>
+      <p className="mt-1 text-white/70 font-normal text-xs">
+        Worked out for {nightWord}. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
       </p>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3 items-start">
@@ -282,51 +315,53 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
 
       {target.brightCore === true && <CoreAdvice name={entry.name} advice={core} />}
 
-      {/* Fixed text: a heading that named the mode would wrap to two lines for the longer names and push everything below it. */}
-      <h3 id="exposure-warnings-heading" className="text-white font-normal text-base mt-6 mb-2">Warnings and notes for the chosen mode</h3>
-      {/* Whatever the mode, filter or target says, nothing below this box moves; see WarningsBox. */}
-      <WarningsBox warnings={warnings} />
+      <Warnings warnings={warnings} onGoToControl={onGoToControl} />
 
-      <h3 className="text-white font-normal text-base mt-6 mb-2">What more time buys (estimate)</h3>
-      <table className="w-full table-fixed text-left text-xs md:text-sm font-normal text-white/90" data-testid="marginal-table">
-        <caption className="sr-only">Signal-to-noise against integration time, relative to 30 minutes</caption>
-        <thead className="text-white">
-          <tr className="border-b border-white/20 align-bottom">
-            <th scope="col" className="w-[3.5rem] md:w-[4.25rem] py-2 pr-2">Light</th>
-            <th scope="col" className="py-2 pr-2">Signal-to-noise vs 30 min, estimate (range)</th>
-            <th scope="col" className="w-[5.25rem] md:w-auto py-2 pr-2">Gain on step before, estimate (range)</th>
-            <th scope="col" className="py-2">{nightWord.charAt(0).toUpperCase() + nightWord.slice(1)}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.marginal.map((r) => (
-            <tr key={r.minutes} className="border-b border-white/10 align-top">
-              <th scope="row" className="py-2 pr-2 font-normal">{r.minutes} min</th>
-              <td className="py-2 pr-2 tabular-nums">
-                x{r.relativeSnr.toFixed(2)}
-                <span className="block text-white/70">range x{r.relativeSnrRange[0].toFixed(2)} to x{r.relativeSnrRange[1].toFixed(2)}</span>
-              </td>
-              <td className="py-2 pr-2 tabular-nums">
-                {r.gainPercent === null || r.gainPercentRange === null ? (
-                  'baseline'
-                ) : (
-                  <>
-                    +{r.gainPercent.toFixed(0)}%
-                    <span className="block text-white/70">range +{r.gainPercentRange[0].toFixed(0)}% to +{r.gainPercentRange[1].toFixed(0)}%</span>
-                  </>
-                )}
-              </td>
-              <td className="py-2">{r.availableTonight ? 'enough usable time' : `only ${Math.round(entry.usableMinutes)} usable min`}</td>
+      <details className="group mt-4" data-testid="exposure-more">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm">
+          <DisclosureChevron />
+          What more time buys and the inputs used
+        </summary>
+        <table className="w-full table-fixed text-left text-xs md:text-sm font-normal text-white/90" data-testid="marginal-table">
+          <caption className="sr-only">Signal-to-noise against integration time, relative to 30 minutes</caption>
+          <thead className="text-white">
+            <tr className="border-b border-white/20 align-bottom">
+              <th scope="col" className="w-[3.5rem] md:w-[4.25rem] py-2 pr-2">Light</th>
+              <th scope="col" className="py-2 pr-2">Signal-to-noise vs 30 min, estimate (range)</th>
+              <th scope="col" className="w-[5.25rem] md:w-auto py-2 pr-2">Gain on step before, estimate (range)</th>
+              <th scope="col" className="py-2">{nightWord.charAt(0).toUpperCase() + nightWord.slice(1)}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="text-white/70 font-normal text-xs mt-2">{SNR_ASSUMPTION}</p>
-      <p className="text-white/70 font-normal text-xs mt-1">{NO_STOP_TIME_NOTE}</p>
+          </thead>
+          <tbody>
+            {report.marginal.map((r) => (
+              <tr key={r.minutes} className="border-b border-white/10 align-top">
+                <th scope="row" className="py-2 pr-2 font-normal">{r.minutes} min</th>
+                <td className="py-2 pr-2 tabular-nums">
+                  x{r.relativeSnr.toFixed(2)}
+                  <span className="block text-white/70">range x{r.relativeSnrRange[0].toFixed(2)} to x{r.relativeSnrRange[1].toFixed(2)}</span>
+                </td>
+                <td className="py-2 pr-2 tabular-nums">
+                  {r.gainPercent === null || r.gainPercentRange === null ? (
+                    'baseline'
+                  ) : (
+                    <>
+                      +{r.gainPercent.toFixed(0)}%
+                      <span className="block text-white/70">range +{r.gainPercentRange[0].toFixed(0)}% to +{r.gainPercentRange[1].toFixed(0)}%</span>
+                    </>
+                  )}
+                </td>
+                <td className="py-2">{r.availableTonight ? 'enough usable time' : `only ${Math.round(entry.usableMinutes)} usable min`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-white/70 font-normal text-xs mt-2">{SNR_ASSUMPTION}</p>
+        <p className="text-white/70 font-normal text-xs mt-1">{NO_STOP_TIME_NOTE}</p>
 
-      <p className="text-white/60 font-normal text-xs mt-4" data-testid="exposure-inputs">
-        Inputs: f/{optics.focalRatio?.toFixed(2)}, {camera.pixelSizeUm} um pixels, read noise {report.readNoiseE} e (class {camera.readNoiseClass ?? 'not set, medium assumed'}), passband {report.bandwidthNm} nm, Bortle {bortle}, Moon {(entry.moonIllumination * 100).toFixed(0)}% lit and {entry.moonSeparation.toFixed(0)} degrees away{entry.moonUp ? '' : ' (down)'}, {Math.round(entry.usableMinutes)} usable minutes. Sky-limited sub about {Math.round(report.skyLimitedSeconds)} s before each mode&apos;s margin. Finish assumes imaging runs without a gap from the first usable minute; setup happens before it.
-      </p>
+        <p className="text-white/60 font-normal text-xs mt-4" data-testid="exposure-inputs">
+          Inputs: f/{optics.focalRatio?.toFixed(2)}, {camera.pixelSizeUm} um pixels, read noise {report.readNoiseE} e (class {camera.readNoiseClass ?? 'not set, medium assumed'}), passband {report.bandwidthNm} nm, Bortle {bortle}, Moon {(entry.moonIllumination * 100).toFixed(0)}% lit and {entry.moonSeparation.toFixed(0)} degrees away{entry.moonUp ? '' : ' (down)'}, {Math.round(entry.usableMinutes)} usable minutes. Sky-limited sub about {Math.round(report.skyLimitedSeconds)} s before each mode&apos;s margin. Finish assumes imaging runs without a gap from the first usable minute; setup happens before it.
+        </p>
+      </details>
     </section>
   );
 }

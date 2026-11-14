@@ -55,7 +55,9 @@ import CampaignPanel from './CampaignPanel';
 import AltitudeChart from './AltitudeChart';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
+import DisclosureChevron from './DisclosureChevron';
 import ExposurePanel from './ExposurePanel';
+import type { ControlId } from './ExposurePanel';
 import HorizonEditor from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
@@ -625,6 +627,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     setResetFocus((n) => n + 1);
   };
 
+  /** A warning's "Change the filter" and the like: opens the strip's controls and puts focus on the one it names. */
+  const goToControl = (id: ControlId) => {
+    flushSync(() => setControlsOpen(true));
+    document.getElementById(id)?.focus();
+  };
+
   const toggleCaptured = (id: string) => {
     const next = new Set(captured);
     if (next.has(id)) next.delete(id);
@@ -905,9 +913,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       <header>
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/90 font-normal text-sm mt-2 max-w-3xl">
-          A free guest tool; signing in is optional and only for owner features. It starts from a sample profile; change the site, gear and horizon to plan your night.
-          Exposure and other worked-out values are estimates. Your profile and captured list stay in this browser and are never sent anywhere; export your profile to keep a copy.
+          A free guest tool, starting from a sample profile. Exposure and other worked-out values are estimates.
         </p>
+        <details className="group mt-1 max-w-3xl">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm">
+            <DisclosureChevron />
+            More
+          </summary>
+          <p className="pb-2 text-white/90 font-normal text-sm">
+            Signing in is optional and only for owner features. Change the site, gear and horizon to plan your night.
+            Your profile and captured list stay in this browser and are never sent anywhere; export your profile to keep a copy.
+          </p>
+        </details>
       </header>
 
       <p aria-live="polite" className="sr-only">{added?.say ?? ''}</p>
@@ -1199,6 +1216,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           bortleSet={site.bortle !== undefined}
           formatTime={formatTime}
           nightWord={nightWord}
+          onGoToControl={goToControl}
         />
       )}
 
