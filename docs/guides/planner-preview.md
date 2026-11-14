@@ -72,7 +72,7 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
 
 ## Layout check (real browser)
 
-jsdom has no layout, so it cannot see a button move. `docs/guides/planner-layout-check.py` drives headless Chromium with real key presses and a real mouse at 1280 and 390 px (the Exposure and the Itinerary scripts below also run at 768 px): Save, Discard, Use sample horizon and Clear horizon keep identical bounding boxes before and after each rejected value, and a real mouse click (90 ms hold, aimed in the top fifth of the button) works first time after bad typing. It needs Playwright for Python and its Chromium, which the repo does not depend on:
+jsdom has no layout, so it cannot see a button move. `docs/guides/planner-layout-check.py` drives headless Chromium with real key presses and a real mouse at 1280 and 390 px (the Exposure script below also runs at 768 px): Save, Discard, Use sample horizon and Clear horizon keep identical bounding boxes before and after each rejected value, and a real mouse click (90 ms hold, aimed in the top fifth of the button) works first time after bad typing. It needs Playwright for Python and its Chromium, which the repo does not depend on:
 
     ~/tools/shots/bin/python docs/guides/planner-layout-check.py
 
@@ -95,7 +95,6 @@ Not done yet from the design review: chart beside the list, cards on phones, jar
 
 Run it the same way (`~/tools/shots/bin/python docs/guides/planner-exposure-layout-check.py`, about 15 minutes; `--only modes,filters,smart,m2a,empty,sweep` picks sections, `ONLY_WIDTH=768` one width); last run: `docs/guides/planner-exposure-layout-check.out.txt`.
 
-`docs/guides/planner-m2b-layout-check.py` does the same for the Night itinerary at 1280, 768 and 390 px: eight reorders by keyboard, every filter, train and mode of a slot and each Details choice, with the sections, the details box and every slot's own height unchanged; nothing clipped; no sideways scroll. Last run: `docs/guides/planner-m2b-layout-check.out.txt`.
 
 Checked by mutant: the old warnings reserve (`min-h`, no fixed height) fails the sweep and the key-press repro at both widths; the old no-filters text fails at 1280, 1440, 1920, 2560 and 390 px.
 
