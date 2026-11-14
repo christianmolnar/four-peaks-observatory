@@ -304,6 +304,75 @@ describe('Find my site', () => {
     expect((await screen.findByText(/^Filled in the elevation for these coordinates\./)).textContent).not.toMatch(/time zone/);
   });
 
+  describe('a lookup\'s write is part of the live boxes (round 4)', () => {
+    const nameBox = () => box(/^Name/);
+    const emptySiteBoxes = async (u: ReturnType<typeof userEvent.setup>) => {
+      for (const l of [/^Latitude/, /^Longitude/, /^Elevation/, /^Time zone/]) await u.clear(box(l));
+    };
+    const useFirstCandidate = async (u: ReturnType<typeof userEvent.setup>, candidate: object, text = 'Phoenix') => {
+      fetchMock.mockResolvedValue(reply({ candidates: [candidate] }));
+      await u.clear(box(/Find my site/));
+      await u.type(box(/Find my site/), text);
+      await u.click(screen.getByRole('button', { name: 'Find' }));
+      await u.click(await screen.findByRole('button', { name: /^(Use|Replace saved values with) / }));
+    };
+
+    it('S1: Use fills the four boxes, then typing in Name keeps all four', async () => {
+      const u = userEvent.setup();
+      open();
+      await emptySiteBoxes(u);
+      await useFirstCandidate(u, PHOENIX);
+      await u.type(nameBox(), 'X');
+      expect(box(/^Latitude/).value).toBe('33.4484');
+      expect(box(/^Longitude/).value).toBe('-112.074');
+      expect(box(/^Elevation/).value).toBe('331');
+      expect(box(/^Time zone/).value).toBe('America/Phoenix');
+      expect(nameBox().value.endsWith('X')).toBe(true);
+    });
+
+    it('S2: an elevation lookup, then typing in Name, keeps the elevation', async () => {
+      const u = userEvent.setup();
+      open();
+      await u.clear(box(/^Elevation/));
+      fetchMock.mockResolvedValue(reply({ elevationM: 40 }));
+      await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+      await waitFor(() => expect(box(/^Elevation/).value).toBe('40'));
+      await u.type(nameBox(), 'X');
+      expect(box(/^Elevation/).value).toBe('40');
+    });
+
+    it('Use, then type, then Save stores the looked-up coordinates', async () => {
+      const u = userEvent.setup();
+      const { onChange } = open();
+      await emptySiteBoxes(u);
+      await useFirstCandidate(u, PHOENIX);
+      await u.type(nameBox(), 'X');
+      await u.click(screen.getAllByRole('button', { name: /^Save/ })[0]);
+      expect(onChange).toHaveBeenCalledTimes(1);
+      const saved = onChange.mock.calls[0][0].sites[0];
+      expect(saved.latitude).toBeCloseTo(33.4484, 4);
+      expect(saved.longitude).toBeCloseTo(-112.074, 3);
+      expect(saved.elevationM).toBe(331);
+      expect(saved.timeZone).toBe('America/Phoenix');
+    });
+
+    it('two lookups in a row, then typing: the second reads the first\'s values, and both survive the keystroke', async () => {
+      const u = userEvent.setup();
+      open();
+      await emptySiteBoxes(u);
+      await useFirstCandidate(u, PHOENIX);
+      // The second lookup must see the first one's filled boxes (it may replace what a lookup wrote).
+      await useFirstCandidate(u, { ...PHOENIX, name: 'Tucson', latitude: 32.2217, longitude: -110.9265, elevationM: 728 }, 'Tucson');
+      expect(box(/^Latitude/).value).toBe('32.2217');
+      expect(box(/^Elevation/).value).toBe('728');
+      await u.type(nameBox(), 'X');
+      expect(box(/^Latitude/).value).toBe('32.2217');
+      expect(box(/^Longitude/).value).toBe('-110.9265');
+      expect(box(/^Elevation/).value).toBe('728');
+      expect(box(/^Time zone/).value).toBe('America/Phoenix');
+    });
+  });
+
   it('Bortle stays the editable box, with a note that it is not looked up', () => {
     open();
     expect(screen.getByText(/Bortle class\) is not looked up/)).toBeTruthy();

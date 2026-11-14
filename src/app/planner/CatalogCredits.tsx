@@ -15,7 +15,7 @@ export default function CatalogCredits() {
       <a className="underline" href="https://github.com/evansiroky/timezone-boundary-builder" rel="noreferrer">
         timezone-boundary-builder
       </a>
-      , built from{' '}
+      , built from data ©{' '}
       <a className="underline" href="https://www.openstreetmap.org/copyright" rel="noreferrer">
         OpenStreetMap contributors
       </a>

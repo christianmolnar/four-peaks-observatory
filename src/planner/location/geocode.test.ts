@@ -1,6 +1,7 @@
 import { CounterStoreError, MemoryCounterStore } from '@/planner/ai/counter-store'
 import type { CounterStore } from '@/planner/ai/counter-store'
-import { ELEVATION_TIMEOUT_MS, LocationService, TOPO_DAILY_CAP, LookupUnavailableError, NOMINATIM_TIMEOUT_MS, OPEN_METEO_TIMEOUT_MS, USER_AGENT } from './geocode'
+import { ELEVATION_TIMEOUT_MS, PLACE_ELEVATION_BUDGET_MS, LocationService, TOPO_DAILY_CAP, LookupUnavailableError, NOMINATIM_TIMEOUT_MS, OPEN_METEO_TIMEOUT_MS, USER_AGENT } from './geocode'
+import { CLIENT_TIMEOUT_MS } from './client'
 import { parseQuery } from './query'
 
 const json = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status })
@@ -177,6 +178,34 @@ describe('timeouts: every outbound fetch is bounded', () => {
     const settled = expect(p).rejects.toThrow(LookupUnavailableError)
     await jest.advanceTimersByTimeAsync(OPEN_METEO_TIMEOUT_MS + NOMINATIM_TIMEOUT_MS + 10)
     await settled
+  })
+
+  it('worst case of a place search (every upstream as slow as allowed) ends before the browser gives up', async () => {
+    // Open-Meteo hangs (6 s); Nominatim's gate is busy for 3 attempts, then answers at its limit; both elevation sources hang.
+    let nomGets = 0
+    const inner = new MemoryCounterStore()
+    const store: CounterStore = {
+      incr: (k, t) => inner.incr(k, t),
+      decr: (k) => inner.decr(k),
+      get: async (k) => (k.startsWith('planner:loc:nom:') && ++nomGets <= 3 ? 1 : inner.get(k)),
+    }
+    const slowNominatim = (): Promise<Response> => new Promise((res) => setTimeout(() => res(json([NOM_PHOENIX])), NOMINATIM_TIMEOUT_MS - 100))
+    const fetch = (url: string): Promise<Response> => (url.startsWith('https://nominatim.openstreetmap.org/') ? slowNominatim() : never())
+    const service = new LocationService({ fetch, store })
+    const started = Date.now()
+    const p = service.searchPlaces(q('Phoenix Arizona'))
+    let out: Awaited<typeof p> | undefined
+    void p.then((v) => { out = v })
+    let elapsed = 0
+    while (out === undefined && elapsed < 40_000) {
+      await jest.advanceTimersByTimeAsync(50)
+      elapsed = Date.now() - started
+    }
+    expect(out?.[0].source).toBe('nominatim')
+    expect('elevationM' in out![0]).toBe(false)
+    expect(elapsed).toBeGreaterThanOrEqual(OPEN_METEO_TIMEOUT_MS + NOMINATIM_TIMEOUT_MS - 100 + PLACE_ELEVATION_BUDGET_MS)
+    expect(elapsed).toBeLessThanOrEqual(19_000)
+    expect(elapsed + 5000).toBeLessThanOrEqual(CLIENT_TIMEOUT_MS)
   })
 
   it('a hanging elevation call ends in an error for the elevation route', async () => {

@@ -5,7 +5,7 @@ import type { CoordinateDetails, PlaceCandidate } from './types'
 export type ClientFetch = (input: string, init?: RequestInit) => Promise<Response>
 
 /** The browser waits at most this long for our route (which itself bounds its upstream calls). */
-export const CLIENT_TIMEOUT_MS = 20000
+export const CLIENT_TIMEOUT_MS = 25000
 
 /** A lookup that failed, with a message fit to show the user. */
 export class LookupError extends Error {}

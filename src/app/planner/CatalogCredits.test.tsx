@@ -15,7 +15,7 @@ describe('catalog credits', () => {
 
   it('credits OpenStreetMap for the time-zone boundaries, under ODbL, always', () => {
     expect(text).toContain('Time-zone boundaries');
-    expect(text).toContain('OpenStreetMap contributors');
+    expect(text).toContain('built from data © OpenStreetMap contributors');
     expect(text).toContain('timezone-boundary-builder');
     expect(text).toContain('ODbL');
     expect(html).toContain('href="https://www.openstreetmap.org/copyright"');

@@ -10,13 +10,15 @@ import type { PlaceCandidate } from './types'
 export const USER_AGENT = 'FourPeaksObservatory-planner/1.0 (+https://fourpeaksobservatory.com; site-location lookup, button-press only)'
 
 export const MAX_CANDIDATES = 5
-/** Every outbound call is bounded. Worst case for one search: Open-Meteo, the gate wait, Nominatim, then elevation. */
+/** Every outbound call is bounded. Worst case for one search: Open-Meteo (6 s), the gate wait (3 s, or the search fails), Nominatim (6 s), then the elevation budget (3 s): about 18 s. */
 export const OPEN_METEO_TIMEOUT_MS = 6000
 export const NOMINATIM_TIMEOUT_MS = 6000
 export const ELEVATION_TIMEOUT_MS = 5000
 /** Second elevation source. Its public API allows 1 call a second and 1,000 a day; we stay under both (see `elevationTurn`, `TOPO_DAILY_CAP`). */
 export const TOPO_TIMEOUT_MS = 5000
 export const TOPO_DAILY_CAP = 900
+/** Both elevation sources together, when they only decorate a place search: keeps the search's worst case (about 18 s) under the browser's wait. */
+export const PLACE_ELEVATION_BUDGET_MS = 3000
 export const CACHE_TTL_MS = 24 * 3600 * 1000
 export const CACHE_MAX_ENTRIES = 500
 
@@ -175,7 +177,7 @@ export class LocationService {
     // Nominatim has no heights. One batched call fills them in; if that fails the field is simply left out (editable).
     if (out.length > 0) {
       try {
-        const heights = await this.elevations(out)
+        const heights = await this.within(PLACE_ELEVATION_BUDGET_MS, this.elevations(out), 'Elevation lookup for the place results')
         out.forEach((c, i) => {
           const h = heights[i]
           if (h !== undefined) c.elevationM = h
@@ -234,6 +236,16 @@ export class LocationService {
     const list = typeof body === 'object' && body !== null ? (body as { results?: unknown }).results : undefined
     if (!Array.isArray(list) || list.length !== points.length) throw new UpstreamError('Open Topo Data elevation answered with an unexpected shape')
     return list.map((r) => plausibleElevation(typeof r === 'object' && r !== null ? (r as { elevation?: unknown }).elevation : undefined))
+  }
+
+  /** The promise's result, or UpstreamError once `ms` have passed (the late result is dropped, its failure swallowed). */
+  private within<T>(ms: number, work: Promise<T>, label: string): Promise<T> {
+    work.catch(() => undefined)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new UpstreamError(`${label} timed out`)), ms)
+    })
+    return Promise.race([work, late]).finally(() => clearTimeout(timer))
   }
 
   /**

@@ -3,7 +3,7 @@ import { chargeLookup, failure, getLocationService, publicCache } from '@/planne
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-// Open-Meteo (6 s), Nominatim queue (about 4 s) and its call (6 s), elevation (5 s).
+// Worst case about 18 s: Open-Meteo (6 s), Nominatim queue (3 s) and its call (6 s), elevation budget (3 s). The browser waits 25 s.
 export const maxDuration = 30
 
 /**

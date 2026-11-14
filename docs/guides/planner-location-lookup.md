@@ -60,7 +60,9 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 - Same visitor key and counter store as the AI plan (`guest-limits.ts`, `counter-store.ts`), own key prefix `planner:loc:`. The key is an HMAC of the IP bucket; no IP is stored or logged.
 - A cache hit costs nothing. A miss is one lookup, whatever the number of outbound calls behind it.
 - 429 with `Retry-After` when a cap is reached. 503 when the counter store, the cap setting or the visitor secret is unavailable. 502 with a plain message when both services are down.
-- Every outbound call has a timeout: 6 s place search (each service), 5 s per elevation source (worst case 10 s; the route allows 15). The browser waits at most 20 s.
+- Every outbound call has a timeout: 6 s place search (each service), 5 s per elevation source.
+- Place search, worst case about 18 s (pinned in `geocode.test.ts`): Open-Meteo 6 s, Nominatim queue 3 s, Nominatim 6 s, then 3 s shared by both elevation sources (if they have not answered the heights are left out). The route allows 30 s; the browser waits 25 s.
+- Elevation lookup for typed coordinates, worst case about 14 s: Open-Meteo 5 s, Open Topo Data queue up to 4 s, its call 5 s. The route allows 15 s.
 
 ## Elevation endpoint reachability
 

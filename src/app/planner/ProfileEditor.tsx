@@ -132,7 +132,7 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
   };
   const apply = (next: Record<string, string>, changed: SiteFieldKey[]) => {
     changed.forEach((k) => filled.current.add(k));
-    setTexts(next);
+    commit(next);
   };
   return (
     <FormShell
