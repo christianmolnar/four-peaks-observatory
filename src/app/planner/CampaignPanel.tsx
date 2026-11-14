@@ -345,6 +345,10 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
           formatTime={formatTime}
           applyNote={applyNote}
           currentDate={base?.date ?? ''}
+          onUseDate={(date) => {
+            setMovedTo(date);
+            onUseDate(date);
+          }}
           onApply={(night, items, startTime, date) =>
             void onApply(items, startTime, `night ${night} of the several-night plan`).then((applied) => {
               if (applied) {
@@ -380,6 +384,7 @@ function Result({
   formatTime,
   applyNote,
   currentDate,
+  onUseDate,
   onApply,
 }: {
   done: Done;
@@ -390,6 +395,7 @@ function Result({
   formatTime: (d: Date) => string;
   applyNote: { night: number; kind: 'applied' | 'kept' } | null;
   currentDate: string;
+  onUseDate: (date: string) => void;
   onApply: (night: number, items: ItineraryItem[], startTime: string | null, date: string) => void;
 }) {
   const { result, names, input } = done;
@@ -486,6 +492,7 @@ function Result({
                       applyNote={applyNote?.night === i + 1 ? applyNote.kind : null}
                       stale={stale.length > 0}
                       currentDate={currentDate}
+                      onUseDate={onUseDate}
                       onApply={onApply}
                     />
                   )}
@@ -510,6 +517,7 @@ function NightBody({
   applyNote,
   stale,
   currentDate,
+  onUseDate,
   onApply,
 }: {
   night: CampaignNight;
@@ -522,6 +530,7 @@ function NightBody({
   applyNote: 'applied' | 'kept' | null;
   stale: boolean;
   currentDate: string;
+  onUseDate: (date: string) => void;
   onApply: (night: number, items: ItineraryItem[], startTime: string | null, date: string) => void;
 }) {
   const { input, names } = done;
@@ -625,11 +634,20 @@ function NightBody({
         <p id={noteId} className="mt-1 text-white/70 font-normal text-xs" data-testid={noteId}>
           {applyBlock ??
             (applyNote === 'applied'
-              ? `Done: your itinerary below now holds this night’s order, first start time and, for each slot, the closest exposure mode to its length. It does not keep the plan’s slot times or exact lengths: the itinerary times each slot again with its own estimate, so its times will not match the ones above. Evening of at the top of the page is now ${nightDateText(night.date)}, so the itinerary describes this night.`
+              ? `Done: your itinerary below now holds this night’s order, first start time and, for each slot, the closest exposure mode to its length. It does not keep the plan’s slot times or exact lengths: the itinerary times each slot again with its own estimate, so its times will not match the ones above. ${
+                  night.date === currentDate
+                    ? `Evening of at the top of the page is now ${nightDateText(night.date)}, so the itinerary describes this night.`
+                    : `Evening of at the top of the page is ${currentDate ? nightDateText(currentDate) : 'not set'}, and the itinerary is timed on that evening, not on ${nightDateText(night.date)}.`
+                }`
               : applyNote === 'kept'
                 ? 'Your itinerary was left as it was.'
                 : `This replaces your night itinerary below with this night’s order, first start time and, for each slot, the closest exposure mode to its length. The plan’s slot times and exact lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the ones above.${night.date !== currentDate ? ` It also sets Evening of at the top of the page to ${nightDateText(night.date)}, so the itinerary describes this night.` : ''}`)}
         </p>
+        {applyNote === 'applied' && night.date !== currentDate && (
+          <button type="button" className={`${btn44} mt-2`} onClick={() => onUseDate(night.date)} data-testid={`campaign-use-date-${number}`}>
+            Set Evening of to {nightDateText(night.date)}
+          </button>
+        )}
       </div>
     </div>
   );
