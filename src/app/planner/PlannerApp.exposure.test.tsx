@@ -7,7 +7,7 @@ import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { countHiddenBelow } from './ExposurePanel';
 import { CORE_FRAME_COUNT } from '@/planner/exposure';
-import { pageProps, ready } from './testkit';
+import { listRows, nameButton, pageProps, ready, rowName } from './testkit';
 
 // The Exposure panel and the filter selector, driven with real events on the whole page.
 
@@ -108,10 +108,10 @@ describe('Exposure panel', () => {
   it('picking another target keeps the panel and names the target', async () => {
     const user = userEvent.setup();
     await app();
-    const buttons = within(screen.getByTestId('target-table')).getAllByRole('button', { pressed: false });
-    const name = buttons[0].textContent as string;
-    await user.click(buttons[0]);
-    expect(panel().querySelector('h2')!.textContent).toBe(`EXPOSURE: ${name.toUpperCase()}`);
+    const rows = listRows();
+    const second = rows[1];
+    await user.click(second.querySelector('button[aria-expanded]') as HTMLElement);
+    expect(panel().querySelector('h2')!.textContent).toBe(`EXPOSURE: ${rowName(second).toUpperCase()}`);
   });
 });
 
@@ -215,7 +215,7 @@ describe('Filter selector and its warnings', () => {
 // Dates and numbers come from the sample site on 2026-12-15 with the HyperStar train and no filter.
 describe('meridian flip, through the whole page', () => {
   const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
-    await user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
+    await user.click(nameButton(name));
     await user.click(within(panel()).getByText('Quick & Beautiful'));
     return radio(/Quick/).closest('label')!.textContent ?? '';
   };
@@ -249,8 +249,7 @@ describe('Exposure panel for a planet', () => {
     const user = userEvent.setup();
     await app(withTrain('deep-c11-2600'));
     await user.selectOptions(screen.getByLabelText('Type'), 'planets');
-    const planetButton = within(screen.getByTestId('target-table')).getAllByRole('button')[0];
-    await user.click(planetButton);
+    await user.click(listRows()[0].querySelector('button[aria-expanded]') as HTMLElement);
     expect(panel().textContent).toMatch(/for deep-sky targets/);
   });
 });
@@ -296,7 +295,7 @@ describe('Gain column and the overflow cue', () => {
   });
   describe('core advice', () => {
     const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
-      await user.click(within(screen.getByTestId('target-table')).getByRole('button', { name }));
+      await user.click(nameButton(name));
     };
 
     it('a flagged target shows one line with the estimate label and a three-bullet blend fold', async () => {

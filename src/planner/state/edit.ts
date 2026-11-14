@@ -261,6 +261,7 @@ export function replaceTrain(profile: Profile, id: string, parts: OpticalTrainPa
           accessoryIds: parts.accessoryIds,
           cameraId: parts.cameraId,
           ...(parts.filterId === '' ? {} : { filterId: parts.filterId }),
+          ...(old.kind === 'optical' && old.tag !== undefined ? { tag: old.tag } : {}),
         };
   return checkTrains(profile, profile.trains.map((t) => (t.id === id ? next : t)));
 }

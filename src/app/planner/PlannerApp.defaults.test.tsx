@@ -5,7 +5,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { sampleProfile, defaultDateForProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { pageProps, ready, rowNames, showAll } from './testkit';
 
 // The page opens on what the user already chose: tonight's sky, the gear picked at the top, nothing asked twice.
 
@@ -38,8 +38,10 @@ describe('planner defaults', () => {
 
   it('re-ranks the list when the date moves to the other half of the year, with no season control', async () => {
     await app();
-    const names = () =>
-      [...screen.getByTestId('target-table').querySelectorAll('th[scope="row"]')].map((r) => (r.textContent as string).trim());
+    const names = () => {
+      showAll();
+      return rowNames();
+    };
     const winter = names();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2027-06-15' } });
     await ready();
@@ -65,12 +67,12 @@ describe('planner defaults', () => {
     expect(screen.queryByText(/Too large for this setup/)).toBeNull();
   });
 
-  it('shows only targets that fit the Train, and the toggle adds the too-large ones', async () => {
+  it('shows only targets that fit the Train, and the toggle adds the ones that do not fit in a group of their own', async () => {
     await app();
-    const rows = () => screen.getByTestId('target-table').textContent as string;
-    expect(rows()).not.toContain('Too large');
+    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
     await ready();
-    expect(rows()).toContain('Too large');
+    expect(screen.getByRole('button', { name: /^Does not fit this frame \(\d+\)/ })).toBeTruthy();
+    expect(screen.getByTestId('target-list').textContent).not.toContain('Too large');
   });
 });

@@ -303,7 +303,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     const u = user();
     await type(u, MINALT, '30');
     await ready();
-    const rows = screen.getByTestId('target-table').textContent;
+    const rows = screen.getByTestId('target-list').textContent;
     expect(msg(MINALT)).toBe('');
     await pause(); // 30 is now the value in effect; a new run of typing begins
     await u.clear(box(MINALT));
@@ -313,13 +313,13 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
         expect(slider(MINALT).value).toBe('30');
         expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
         await ready();
-        expect(screen.getByTestId('target-table').textContent).toBe(rows);
+        expect(screen.getByTestId('target-list').textContent).toBe(rows);
       }
     }
     expect(box(MINALT).value).toBe('450');
     expect(slider(MINALT).value).toBe('30');
     await ready();
-    expect(screen.getByTestId('target-table').textContent).toBe(rows);
+    expect(screen.getByTestId('target-list').textContent).toBe(rows);
   });
 
   it('a bad Minimum altitude keeps 30 whether it is emptied or has a digit added', async () => {
@@ -327,7 +327,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     const u = user();
     await type(u, MINALT, '30');
     await ready();
-    const rows = screen.getByTestId('target-table').textContent;
+    const rows = screen.getByTestId('target-list').textContent;
     await pause();
     await u.clear(box(MINALT));
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 30 until fixed.');
@@ -338,7 +338,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(box(MINALT).value).toBe('300');
     expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
     await ready();
-    expect(screen.getByTestId('target-table').textContent).toBe(rows);
+    expect(screen.getByTestId('target-list').textContent).toBe(rows);
   });
 
   // Backspace and one-run rules: real key events, one at a time.
@@ -349,7 +349,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     await u.tab();
     await u.click(box(MINALT)); // focus: 45 is in effect
     await ready();
-    const rows45 = screen.getByTestId('target-table').textContent;
+    const rows45 = screen.getByTestId('target-list').textContent;
     await u.keyboard('{End}{Backspace}');
     expect(box(MINALT).value).toBe('4'); // 4 is a valid number and applies live
     await u.keyboard('{Backspace}');
@@ -357,15 +357,15 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 45 until fixed.');
     expect(slider(MINALT).value).toBe('45');
     await ready();
-    expect(screen.getByTestId('target-table').textContent).toBe(rows45);
+    expect(screen.getByTestId('target-list').textContent).toBe(rows45);
   });
 
   it('default 20, Backspace twice: plan stays 20 and the list keeps its rows', async () => {
     await app();
     const u = user();
     await ready();
-    const rows20 = screen.getByTestId('target-table').textContent;
-    const count = screen.getByTestId('target-table').querySelectorAll('tbody tr').length;
+    const rows20 = screen.getByTestId('target-list').textContent;
+    const count = screen.getByTestId('target-list').querySelectorAll('li').length;
     await u.click(box(MINALT));
     await u.keyboard('{End}{Backspace}');
     expect(box(MINALT).value).toBe('2');
@@ -374,9 +374,9 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 20 until fixed.');
     expect(slider(MINALT).value).toBe('20');
     await ready();
-    expect(screen.getByTestId('target-table').textContent).toBe(rows20);
+    expect(screen.getByTestId('target-list').textContent).toBe(rows20);
     await ready();
-    expect(screen.getByTestId('target-table').querySelectorAll('tbody tr').length).toBe(count);
+    expect(screen.getByTestId('target-list').querySelectorAll('li').length).toBe(count);
   });
 
   it('focus capture: 30 set, Tab away, click, select all, 450 without clearing: the message names 30', async () => {
@@ -385,7 +385,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     await type(u, MINALT, '30');
     await u.tab(); // leaves the box
     await ready();
-    const rows30 = screen.getByTestId('target-table').textContent;
+    const rows30 = screen.getByTestId('target-list').textContent;
     await u.click(box(MINALT));
     await u.keyboard('{Control>}a{/Control}');
     for (const key of '450') await u.keyboard(key);
@@ -393,7 +393,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
     expect(slider(MINALT).value).toBe('30');
     await ready();
-    expect(screen.getByTestId('target-table').textContent).toBe(rows30);
+    expect(screen.getByTestId('target-list').textContent).toBe(rows30);
   });
 
   it('one run: click, 30, select all, 450 with no pause names the value before the run (20), not 30', async () => {
@@ -673,7 +673,7 @@ describe('Save after bad typing, then reload', () => {
 });
 
 describe('the target list plans from the saved arc until Save', () => {
-  const rows = () => screen.getByTestId('target-table').textContent;
+  const rows = () => screen.getByTestId('target-list').textContent;
 
   it('typing 500 in Start, key by key, never changes the list or the Tonight summary', async () => {
     await app();

@@ -81,9 +81,15 @@ describe('GET /api/planner/geocode', () => {
   it('without AUTH_SECRET guests cannot be told apart: 503', async () => {
     const secret = process.env.AUTH_SECRET
     delete process.env.AUTH_SECRET
+    const log = jest.spyOn(console, 'error').mockImplementation(() => undefined)
     try {
-      expect((await place('Phoenix')).status).toBe(503)
+      const res = await place('Phoenix')
+      expect(res.status).toBe(503)
+      // The guest reads a line they can act on; the missing setting goes to the log, not to the page.
+      expect((await res.json()).error).toBe('Site search is not available right now. Enter latitude and longitude below.')
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('AUTH_SECRET'))
     } finally {
+      log.mockRestore()
       process.env.AUTH_SECRET = secret
     }
   })

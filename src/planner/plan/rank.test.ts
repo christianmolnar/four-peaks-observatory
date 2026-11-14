@@ -62,7 +62,7 @@ describe('one scoring engine: the curated 25', () => {
   it('rankTargets over the curated 25 gives planTonight\'s entries (the list is mixed by class, so compared in score order), with nothing screened out', () => {
     const plan = planTonight(input);
     const ranked = rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true });
-    expect([...ranked.entries].sort(compareEntries)).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
+    expect([...ranked.entries, ...ranked.planets].sort(compareEntries)).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
     expect(ranked.night).toEqual(plan.night);
   });
 
@@ -382,7 +382,8 @@ describe('brightness in the ranking', () => {
     const input: TonightInput = { site: phoenix, horizon: null, minAltitude: 20, date: DATE, train: narrow, targets: index.targets.filter((t) => t.curated) };
     const plan = planTonight(input);
     expect(plan.entries.filter((e) => !e.isPlanet).some((e) => e.score.brightness !== 0)).toBe(true);
-    expect([...rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true }).entries].sort(compareEntries)).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
+    const ranked = rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true });
+    expect([...ranked.entries, ...ranked.planets].sort(compareEntries)).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
   });
 });
 
@@ -579,5 +580,42 @@ describe('non-imaging objects (double stars) are not ranked unless asked', () =>
       const types = rank({ date, train: smart }).entries.map((e) => e.type);
       expect(types).not.toContain('double-star');
     }
+  });
+});
+
+describe('planets and the targets that do not fit sit beside the list, not inside the cut', () => {
+  it('every planet that is up is returned in `planets`, even when 100 catalog objects score higher', () => {
+    const r = rank({ date: '2026-11-13', minAltitude: 20, train: smart });
+    expect(r.entries).toHaveLength(100);
+    expect(r.entries.some((e) => e.isPlanet)).toBe(false);
+    expect(r.planets.length).toBeGreaterThan(0);
+    expect(r.planets.every((e) => e.isPlanet && e.usableMinutes > 0)).toBe(true);
+    const lowest = Math.min(...r.entries.map((e) => e.score.total));
+    expect(r.planets.some((e) => e.score.total < lowest)).toBe(true); // they would have been cut
+    const ids = r.planets.map((e) => e.id);
+    for (const id of ['planet-mars', 'planet-jupiter', 'planet-saturn']) expect(ids).toContain(id);
+  });
+
+  it('includePlanets false leaves `planets` empty', () => {
+    expect(rank({ includePlanets: false }).planets).toEqual([]);
+  });
+
+  it('includeNoFit scores what the size band hid into `noFit`, best first, and leaves `entries` as they were', () => {
+    const base = rank({ train: narrow, date: '2026-11-13', minAltitude: 20 });
+    const wide2 = rank({ train: narrow, date: '2026-11-13', minAltitude: 20, includeNoFit: true });
+    expect(base.noFit).toEqual([]);
+    expect(wide2.entries).toEqual(base.entries);
+    expect(wide2.counts.tooLarge).toBe(base.counts.tooLarge);
+    expect(wide2.noFit.length).toBeGreaterThan(0);
+    expect(wide2.noFit.some((e) => e.fit === 'too-large')).toBe(true);
+    const totals = wide2.noFit.map((e) => e.score.total);
+    expect(totals).toEqual([...totals].sort((a, b) => b - a));
+    expect(wide2.noFit.every((e) => !base.entries.some((b) => b.id === e.id))).toBe(true);
+  });
+
+  it('a hidden-name list never repeats a display name', () => {
+    const veil = (id: string): PlanTarget => ({ ...(catalog.find((t) => t.id === 'm42') as PlanTarget), id, name: id, displayName: 'Eastern Veil' });
+    const r = rank({ targets: [veil('a'), veil('b'), veil('c')], train: narrow, includePlanets: false, minFramePercent: 0 });
+    expect(new Set(r.hidden.tooLarge.map((h) => h.name)).size).toBe(r.hidden.tooLarge.length);
   });
 });

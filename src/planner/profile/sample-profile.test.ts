@@ -17,6 +17,20 @@ describe('sample profile', () => {
     expect(profile.version).toBe(3);
   });
 
+  describe('default train', () => {
+    it('is the deep-sky one: the first train is not set up for planets, and the two planet trains carry the planetary tag', () => {
+      expect(profile.trains[0].id).toBe('deep-c11-2600');
+      const tagged = profile.trains.filter((t) => t.kind === 'optical' && t.tag === 'planetary').map((t) => t.id);
+      expect(tagged).toEqual(['planet-c11-676', 'planet-c11-powermate-676']);
+    });
+
+    it('a tag other than "planetary" is refused, naming the field', () => {
+      const bad = JSON.parse(JSON.stringify(sample));
+      bad.trains[0].tag = 'wide';
+      expect(() => validateProfile(bad)).toThrow(/trains\[0\]\.tag/);
+    });
+  });
+
   describe('owner filters', () => {
     const byId = (id: string) => profile.equipment.filters.find((f) => f.id === id)!;
     const raw = (sample as { equipment: { filters: { id: string; _source?: string }[] } }).equipment.filters;

@@ -700,3 +700,18 @@ describe('prefix queries', () => {
     expect(index.search({ text })).toMatchObject({ hits: [], total: 0, notFoundLocally: false });
   });
 });
+
+describe('a search of several words needs every word', () => {
+  const found = (text: string): string[] => index.search({ text, limit: 12 }).hits.map((h) => h.target.displayName ?? h.target.name);
+
+  it('"heart nebula" finds the Heart Nebula and not the other "... Head Nebula" objects', () => {
+    const names = found('heart nebula');
+    expect(names[0]).toMatch(/Heart/);
+    for (const wrong of ['Monkey Head', 'Fish Head', 'Witch Head']) expect(names.some((n) => n.includes(wrong))).toBe(false);
+  });
+
+  it('a typo in one of the words still finds it ("orian nebula", "pleiadies")', () => {
+    expect(found('orian nebula').some((n) => /Orion/.test(n))).toBe(true);
+    expect(found('pleiadies').some((n) => /Pleiades/.test(n))).toBe(true);
+  });
+});

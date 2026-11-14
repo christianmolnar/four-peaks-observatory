@@ -1,18 +1,18 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
 import { loadCatalog } from '@/planner/catalog/loader';
-import type { CatalogIndex, SearchTarget } from '@/planner/catalog/search';
+import type { CatalogIndex } from '@/planner/catalog/search';
 import { makeCsvTime, planToCsv } from '@/planner/export';
 import { arcsConflict, arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
-import { PLANETS, altitudeTrack, compass, fitLabel, planTrainFor, seasonLabel, tonightsNight } from '@/planner/plan';
+import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
-import { planetIdOf } from '@/planner/itinerary/resolve';
+import { planetIdOf, SLOT_BODIES } from '@/planner/itinerary/resolve';
 import { rankTonightAsync } from '@/planner/tonight';
 import type { TonightQuery } from '@/planner/tonight';
 import {
@@ -58,9 +58,11 @@ import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
 import MyPlan from './MyPlan';
 import type { MyPlanRow } from './MyPlan';
+import TargetList, { Group } from './TargetList';
+import type { RowDescription } from './TargetList';
 import TargetSearch from './TargetSearch';
 import { createNightScorer } from './nightScorer';
-import { designationOf, nightStatus, sizeText, typeLabel } from './catalogText';
+import { designationOf, fitReason, nameList, nightStatus, peakText, sizeText, typeLabel } from './catalogText';
 import { useCatalog } from './useCatalog';
 import { useTonightList } from './useTonightList';
 
@@ -86,101 +88,47 @@ type RankedEntry = PlanEntry;
 /** Tonight's list holds at most this many targets. */
 const LIST_LIMIT = 100;
 
-/** The text of one ranked target, shared by the table row (md and up) and the card (below md). */
-function targetText(e: RankedEntry, formatTime: (d: Date) => string) {
+/** Moon, windows and the full reason of one target: what the compact row leaves out. */
+function detailText(e: RankedEntry, formatTime: (d: Date) => string) {
+  const parts = [`usable ${e.score.usable.toFixed(0)}`, `altitude ${e.score.altitude.toFixed(0)}`];
+  if (e.seasonMonths.length > 0) parts.push(`season ${e.score.season}`);
+  parts.push(`Moon ${e.score.moon.toFixed(0)}`, `fit ${e.score.fit}`);
   return {
-    // Only the curated targets carry a season; a catalog object has none, and the page says so instead of guessing.
-    season: e.isPlanet ? 'n/a' : e.seasonMonths.length === 0 ? 'Not listed' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`,
-    setup: fitLabel(e),
-    peak: `${e.peakAltitude.toFixed(0)}° ${compass(e.peakAzimuth)} at ${formatTime(e.peakTime)}`,
-    windows: e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`),
     moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
-    whyLabel: e.fit === 'too-large' ? 'Why it is listed' : 'Why recommended',
-    parts: `Score parts: usable ${e.score.usable.toFixed(0)}, altitude ${e.score.altitude.toFixed(0)}, season ${e.score.season}, Moon ${e.score.moon.toFixed(0)}, fit ${e.score.fit}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
+    windows: e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
+    parts: `Score parts: ${parts.join(', ')}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
   };
 }
 
-/** Usable windows as one unbreakable range each: a long list wraps between ranges, never inside one. */
-function Windows({ ranges }: { ranges: string[] }) {
-  if (ranges.length === 0) return <>none</>;
-  return (
-    <>
-      {ranges.map((r, i) => (
-        <Fragment key={i}>
-          <span className="whitespace-nowrap">{i < ranges.length - 1 ? `${r},` : r}</span>
-          {i < ranges.length - 1 ? ' ' : ''}
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
-/** The first sentence of a reason, cut at a word and ended with an ellipsis only if it runs past `max` characters. */
-export function shortWhy(why: string, max = 80): string {
-  const first = why.match(/^.*?\.(?=\s|$)/)?.[0] ?? why;
-  if (first.length <= max) return first;
-  let cut = first.slice(0, max).replace(/\s+\S*$/, '');
-  // Never end on a number: the unit that follows it travels with it ("-10 deg in the E").
-  while (/(^|\s)-?\d+(\.\d+)?$/.test(cut)) cut = cut.replace(/\s*\S+$/, '');
-  cut = cut.replace(/[,;:\s]+$/, '');
-  return `${cut}…`;
-}
-
-/** "Why recommended" toggle: closed shows one short line, open shows the full reason and the score parts. */
-function WhyToggle({ e, t, open, onToggle, idPrefix }: { e: RankedEntry; t: ReturnType<typeof targetText>; open: boolean; onToggle: () => void; idPrefix: string }) {
-  const id = `${idPrefix}-${e.id}`;
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={id}
-        className="inline-flex min-h-11 items-center gap-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
-      >
-        <span aria-hidden="true" className="inline-block w-3 text-white/70">{open ? '▾' : '▸'}</span>
-        <span className="underline decoration-dotted">{t.whyLabel}</span>
-      </button>
-      <div id={id} className="text-white/80 break-words">
-        {open ? (
-          <>
-            <p>{e.why}</p>
-            <p className="text-xs text-white/60 mt-1">{t.parts}</p>
-          </>
-        ) : (
-          <p>{shortWhy(e.why)}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const names = (list: readonly { name: string }[]): string => (list.length < 2 ? list.map((h) => h.name).join('') : `${list.slice(0, -1).map((h) => h.name).join(', ')} and ${list[list.length - 1].name}`);
-
 /**
- * What the size screen left out of the list, said with names instead of a silent disappearance. Too large can be shown
- * (the "show targets that do not fit" switch); too small is reported only.
+ * What the size screen left out of the list, said with names instead of a silent disappearance. The one control for them is
+ * the "Show targets that do not fit" box: off, this says what is left out; on, it says where they went.
  */
-function HiddenNote({ counts, hidden, showNoFit, onShow }: { counts: RankResult['counts']; hidden: RankResult['hidden']; showNoFit: boolean; onShow: () => void }) {
-  const large = showNoFit ? 0 : counts.tooLarge;
-  if (large === 0 && counts.tooSmall === 0) return null;
-  const more = (n: number, shown: number) => (n > shown ? ` and ${n - shown} more` : '');
+function NoFitNote({ counts, hidden, showNoFit, listed }: { counts: RankResult['counts']; hidden: RankResult['hidden']; showNoFit: boolean; listed: number }) {
+  const total = counts.tooLarge + counts.tooSmall;
+  if (total === 0) return null;
+  const sample = (list: RankResult['hidden']['tooLarge'], n: number) => nameList(list.map((h) => h.name), n > list.length ? n - list.length : 0);
   return (
     <div className="mb-3 space-y-1 text-white/80 font-normal text-sm" data-testid="hidden-note">
-      {large > 0 && (
+      {showNoFit ? (
         <p>
-          {names(hidden.tooLarge)}
-          {more(large, hidden.tooLarge.length)} {large === 1 ? 'is' : 'are'} larger than this frame ({large} hidden):{' '}
-          <button type="button" onClick={onShow} className="min-h-11 rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
-            show anyway
-          </button>
+          Showing {listed} targets that do not fit this frame in the group below the list
+          {listed < total ? ` (the best ${listed} of ${total})` : ''}.
         </p>
-      )}
-      {counts.tooSmall > 0 && (
-        <p>
-          {names(hidden.tooSmall)}
-          {more(counts.tooSmall, hidden.tooSmall.length)} {counts.tooSmall === 1 ? 'is' : 'are'} too small for this frame ({counts.tooSmall} hidden).
-        </p>
+      ) : (
+        <>
+          {counts.tooLarge > 0 && (
+            <p>
+              {sample(hidden.tooLarge, counts.tooLarge)} {counts.tooLarge === 1 ? 'does' : 'do'} not fit this frame: larger than it ({counts.tooLarge}).
+            </p>
+          )}
+          {counts.tooSmall > 0 && (
+            <p>
+              {sample(hidden.tooSmall, counts.tooSmall)} {counts.tooSmall === 1 ? 'does' : 'do'} not fit this frame: too small for it ({counts.tooSmall}).
+            </p>
+          )}
+          <p>Tick “Show targets that do not fit” to list them.</p>
+        </>
       )}
     </div>
   );
@@ -199,6 +147,8 @@ export interface PlannerAppProps {
 
 /** How long a toast stays up. */
 const TOAST_MS = 6000;
+/** How long "Added, #3 in My plan" stays next to the button. */
+const ADDED_MS = 4000;
 /** A pause this long with no keystroke ends a run of typing in Minimum altitude. */
 const MIN_ALT_PAUSE_MS = 600;
 
@@ -227,17 +177,17 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const minAltTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [captured, setCaptured] = useState<ReadonlySet<string>>(new Set());
-  // Targets whose "Why recommended" is open; every target starts closed and a reload resets it.
-  const [whyOpen, setWhyOpen] = useState<ReadonlySet<string>>(new Set());
-  const toggleWhy = (id: string) =>
-    setWhyOpen((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
   const [type, setType] = useState<TypeFilter>('all');
   const [showNoFit, setShowNoFit] = useState(false);
-  const [selectedId, setSelectedId] = useState<string>('');
+  // The row that is open (its detail shows in place); '' for none. The Exposure panel follows it.
+  const [openId, setOpenId] = useState<string>('');
+  // The two groups under the list: the user's own open or close, else the default for the situation.
+  const [planetsOpen, setPlanetsOpen] = useState<boolean | null>(null);
+  const [noFitOpen, setNoFitOpen] = useState(false);
+  // The target just added, for a few seconds: said next to its button, and to a screen reader in the status line.
+  const [added, setAdded] = useState<{ id: string; text: string; say: string } | null>(null);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
   // My plan: catalog ids in the user's priority order; remembered in this browser like the site and train choice.
   const [planIds, setPlanIds] = useState<readonly string[]>([]);
   const [zone, setZone] = useState<string>('');
@@ -461,7 +411,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   }, [siteLat, siteLon, siteElev, siteZone, date, horizon, minAltitude, planTrain, trainError, nightInfo.error]);
   const planError = planning.error;
   const rankQuery = useMemo<TonightQuery | null>(
-    () => (planning.base !== null && hasNight ? { ...planning.base, includeTooLarge: showNoFit, limit: LIST_LIMIT } : null),
+    () => (planning.base !== null && hasNight ? { ...planning.base, includeNoFit: showNoFit, limit: LIST_LIMIT } : null),
     [planning.base, hasNight, showNoFit],
   );
   const scorer = useMemo(() => (planning.base !== null && hasNight ? createNightScorer(planning.base) : null), [planning.base, hasNight]);
@@ -470,15 +420,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const catalogById = useMemo(() => (catalog.status === 'ready' ? new Map(catalog.index.targets.map((t) => [t.id, t])) : null), [catalog]);
 
   const ranked = useMemo(() => (tonight.status === 'ready' ? tonight.result : null), [tonight]);
-  const filtered = useMemo(() => {
-    if (!ranked) return [];
-    return ranked.entries.filter((e) => {
-      if (type === 'planets' && !e.isPlanet) return false;
-      if (type === 'deep-sky' && e.isPlanet) return false;
-      return true;
-    });
-  }, [ranked, type]);
-  const placeOf = useMemo(() => new Map((ranked?.entries ?? []).map((e, i) => [e.id, i + 1])), [ranked]);
+  // The planets that are up sit beside the best 100, so Type = Planets lists them and All shows them as a group of their own.
+  const mainList = useMemo((): readonly PlanEntry[] => (ranked === null ? [] : type === 'planets' ? ranked.planets : ranked.entries), [ranked, type]);
+  const planetGroup = useMemo((): readonly PlanEntry[] => (ranked !== null && type === 'all' ? ranked.planets : []), [ranked, type]);
+  const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && type !== 'planets' ? ranked.noFit : []), [ranked, showNoFit, type]);
+  // Everything the Type filter lets through, in reading order: what Export and Print carry.
+  const filtered = useMemo(() => [...mainList, ...planetGroup], [mainList, planetGroup]);
+  const openEntry = useMemo(() => [...mainList, ...planetGroup, ...noFitList].find((e) => e.id === openId), [mainList, planetGroup, noFitList, openId]);
+  // Where the page lists a target, said in the search result when it is there.
+  const listedAs = (id: string): string | undefined => {
+    const place = mainList.findIndex((e) => e.id === id);
+    if (place >= 0) return `#${place + 1} in the list below.`;
+    if (planetGroup.some((e) => e.id === id)) return 'Listed under Planets below.';
+    if (noFitList.some((e) => e.id === id)) return 'Listed under “Does not fit this frame” below.';
+    return undefined;
+  };
 
   const isTonight = date === '' || date === tonightDate;
   const nightWord = isTonight ? 'tonight' : `that night (${dateLabel(date)})`;
@@ -488,7 +444,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     () =>
       planIds.map((id) => {
         const target = catalogById?.get(id);
-        const body = PLANETS.find((b) => planetIdOf(b) === id);
+        const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
         const entry = body !== undefined ? (scorer?.planet(body) ?? null) : target !== undefined ? (scorer?.target(target) ?? null) : null;
         return { id, target, body, entry };
       }),
@@ -497,12 +453,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
   const planIdSet = useMemo(() => new Set(planIds), [planIds]);
 
-  const selected = filtered.find((e) => e.id === selectedId) ?? filtered[0];
+  // The Exposure panel follows the open row, else the best of the list.
+  const selected = openEntry ?? filtered[0];
+  // The altitude chart is drawn in the open row only.
   const track = useMemo(() => {
-    if (!stableNight || stableNight.kind !== 'normal' || !selected || !site) return null;
+    if (!stableNight || stableNight.kind !== 'normal' || !openEntry || !site) return null;
     const pad = 2 * 3600000;
     return altitudeTrack(
-      selected.source,
+      openEntry.source,
       { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM },
       horizon,
       minAltitude,
@@ -510,7 +468,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       new Date((stableNight.end as Date).getTime() + pad),
       10,
     );
-  }, [stableNight, selected, site, horizon, minAltitude]);
+  }, [stableNight, openEntry, site, horizon, minAltitude]);
 
   // What the Exposure panel needs from the train: optics numbers, the camera record and the chosen filter.
   const trainInfo = useMemo(() => {
@@ -532,6 +490,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     } catch (e) {
       setNotice(`Site and train choice not saved, so it is lost on reload: ${(e as Error).message}`);
     }
+  };
+
+  /** The one way the Train changes: the select and the planetary note's button both end here. */
+  const chooseTrain = (id: string) => {
+    if (!site) return;
+    setTrainId(id);
+    rememberSelection(site.id, id);
   };
 
   const chooseFilter = (filterId: string) => {
@@ -622,6 +587,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return;
     }
     commitPlan([...planIds, id]);
+    const place = planIds.length + 1;
+    const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
+    const target = catalogById?.get(id);
+    const name = body ?? target?.displayName ?? target?.name ?? [...mainList, ...planetGroup, ...noFitList].find((e) => e.id === id)?.name ?? id;
+    setAdded({ id, text: `Added, #${place} in My plan`, say: `${name} added, number ${place} in My plan.` });
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
   };
   const movePlan = (id: string, direction: 'up' | 'down') => {
     const i = planIds.indexOf(id);
@@ -676,7 +648,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       body !== undefined
         ? 'Planet'
         : target !== undefined
-          ? [designationOf(target.id), typeLabel(target.type), sizeText(target.sizeArcmin)].filter((x) => x !== '').join(' · ')
+          ? [designationOf(target.id) === name ? '' : designationOf(target.id), typeLabel(target.type), sizeText(target.sizeArcmin)].filter((x) => x !== '').join(' · ')
           : catalog.status === 'loading'
             ? 'Loading the catalog…'
             : 'Not in the bundled catalog.';
@@ -695,17 +667,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const btn =
     'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
   const panel = 'bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6';
-  const btn44 = `${btn} min-h-11`;
-  // The target is named by the description (its own name button), so the button's name stays "Add to my plan" and names are not repeated in a list of buttons.
-  const planButton = (e: RankedEntry, prefix: string) =>
-    planIds.includes(e.id) ? (
-      <span className="inline-flex min-h-11 items-center text-white/70 text-sm">In my plan</span>
-    ) : (
-      <button type="button" aria-describedby={`${prefix}-name-${e.id}`} onClick={() => addToPlan(e.id)} className={btn44}>
-        Add to my plan
-      </button>
-    );
-
   const importControl = (
     <div>
       <label htmlFor="profile-import" className="block text-white/90 font-normal text-sm mb-1">Import profile (JSON)</label>
@@ -758,6 +719,49 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         : night.kind === 'none'
           ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
           : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
+  const planetary = train.kind === 'optical' && train.tag === 'planetary';
+  // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
+  const deepTrain = planetary ? (profile.trains.find((t) => t.kind === 'optical' && t.tag !== 'planetary') ?? profile.trains.find((t) => t.kind === 'smart')) : undefined;
+  const frame = planTrain === null ? null : fieldOf(planTrain);
+  const noFitFit = (e: PlanEntry): string => (frame === null ? e.fit : fitReason(e, catalogById?.get(e.id)?.sizeArcmin, frame));
+  const describeRow = (e: PlanEntry): RowDescription => {
+    if (e.isPlanet) return { aka: '', meta: e.name === 'Moon' ? 'Moon' : 'Planet' };
+    const t = catalogById?.get(e.id);
+    if (t === undefined) return { aka: '', meta: typeLabel(e.type) };
+    const d = designationOf(t.id);
+    return { aka: d !== '' && d !== e.name ? d : '', meta: [typeLabel(t.type), sizeText(t.sizeArcmin), t.constellation].filter((x) => x !== undefined && x !== '').join(' · ') };
+  };
+  const renderDetail = (e: PlanEntry) => {
+    const t = detailText(e, formatTime);
+    return (
+      <div className="space-y-2 font-normal text-white/90">
+        <p>{e.why}</p>
+        <p className="text-xs text-white/70">{t.parts}</p>
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+          <dt className="text-white/70">Usable window</dt><dd>{t.windows === '' ? 'none' : t.windows}</dd>
+          <dt className="text-white/70">Peak</dt><dd>{peakText(e, formatTime)}</dd>
+          <dt className="text-white/70">Moon</dt><dd>{t.moon}</dd>
+        </dl>
+        <label className="flex min-h-11 w-fit items-center gap-2 pr-3">
+          <input type="checkbox" aria-label={`Captured: ${e.name}`} checked={captured.has(e.id)} onChange={() => toggleCaptured(e.id)} className="h-5 w-5 shrink-0 accent-sky-400" />
+          <span aria-hidden="true">Captured</span>
+        </label>
+        {track && stableNight && e.id === openId && (
+          <AltitudeChart entry={e} night={stableNight} track={track} horizonSet={horizon !== null} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
+        )}
+      </div>
+    );
+  };
+  const listProps = {
+    formatTime,
+    describe: describeRow,
+    planIds: planIdSet,
+    added,
+    onAdd: addToPlan,
+    openId,
+    onToggle: (id: string) => setOpenId(openId === id ? '' : id),
+    renderDetail,
+  };
   return (
     <>
     <div className="space-y-8 text-white print:hidden">
@@ -768,6 +772,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           Exposure and other worked-out values are estimates. Your profile and captured list stay in this browser and are never sent anywhere; export your profile to keep a copy.
         </p>
       </header>
+
+      <p aria-live="polite" className="sr-only">{added?.say ?? ''}</p>
 
       {/* Messages float at the bottom of the window, so showing one never pushes the page down. */}
       <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl flex-col gap-2">
@@ -814,7 +820,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </div>
           <div>
             <label htmlFor="plan-train" className="block text-white/90 font-normal text-sm mb-1">Train</label>
-            <WrapSelect id="plan-train" className="w-full" value={train.id} onChange={(e) => { setTrainId(e.target.value); rememberSelection(site.id, e.target.value); }}>
+            <WrapSelect id="plan-train" className="w-full" value={train.id} onChange={(e) => chooseTrain(e.target.value)}>
               {profile.trains.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}{t.kind === 'smart' ? ' (smart scope)' : ''}</option>
               ))}
@@ -873,6 +879,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </p>
       </section>
 
+      <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
+
       <TargetSearch
         catalog={catalog}
         onRetryCatalog={retryCatalog}
@@ -880,8 +888,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         nightWord={nightWord}
         formatTime={formatTime}
         planIds={planIdSet}
-        rankOf={(id) => placeOf.get(id)}
-        onAdd={(t: SearchTarget) => addToPlan(t.id)}
+        listedAs={listedAs}
+        added={added}
+        onAdd={addToPlan}
       />
 
       <section aria-labelledby="list-heading" className={panel}>
@@ -896,8 +905,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
                 ))}
               </WrapSelect>
             </div>
-            <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
-              <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="accent-sky-400" />
+            <label className="flex min-h-11 items-center gap-2 text-white/90 font-normal text-sm">
+              <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="h-5 w-5 accent-sky-400" />
               Show targets that do not fit
             </label>
             <button type="button" className={btn} onClick={exportCsv} disabled={ranked === null || filtered.length === 0}>
@@ -908,6 +917,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </button>
           </div>
         </div>
+
+        <p className="mb-3 text-white/70 font-normal text-sm" data-testid="score-note">
+          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights. Double stars are not ranked; search finds them.
+        </p>
+        {planetary && (
+          <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="planetary-note">
+            <span>This train is set up for planets, so most deep-sky targets are too large or too small for its frame.</span>
+            {deepTrain && (
+              <button type="button" className={`${btn} min-h-11`} onClick={() => chooseTrain(deepTrain.id)}>
+                Use {deepTrain.name}
+              </button>
+            )}
+          </p>
+        )}
 
         {stableNight && !hasNight ? (
           <p className="text-white/90 font-normal">No astronomical night, so there is nothing to rank.</p>
@@ -924,150 +947,28 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           )
         ) : (
           <>
-            <HiddenNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} onShow={() => setShowNoFit(true)} />
-            {filtered.length === 0 ? (
-          <p className="text-white/90 font-normal">No targets match these filters.</p>
-        ) : (
-          <>
-            <ul className="lg:hidden space-y-3" data-testid="target-cards" aria-label={`Targets ranked for ${nightWord}`}>
-              {filtered.map((e, i) => {
-                const t = targetText(e, formatTime);
-                const isSel = selected?.id === e.id;
-                return (
-                  <li key={e.id} className={`rounded border border-white/15 p-3 text-sm font-normal text-white/90 ${isSel ? 'bg-sky-400/10' : ''}`}>
-                    <div>
-                      <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-x-2">
-                          <span className="text-white/70">{i + 1}.</span>
-                          <button
-                            type="button"
-                            id={`card-name-${e.id}`}
-                            onClick={() => setSelectedId(e.id)}
-                            aria-pressed={isSel}
-                            className="min-h-11 py-2 underline decoration-dotted text-left text-white break-words focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
-                          >
-                            {e.name}
-                          </button>
-                          {e.isPlanet && <span className="rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
-                        </p>
-                        <label className="flex min-h-11 w-fit items-center gap-2 pr-3">
-                          <input
-                            type="checkbox"
-                            aria-label={`Captured: ${e.name}`}
-                            checked={captured.has(e.id)}
-                            onChange={() => toggleCaptured(e.id)}
-                            className="h-5 w-5 shrink-0 accent-sky-400"
-                          />
-                          <span aria-hidden="true">Captured</span>
-                        </label>
-                        {planButton(e, 'card')}
-                        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
-                          <dt className="text-white/70">Season</dt><dd>{t.season}</dd>
-                          <dt className="text-white/70">Setup</dt><dd>{t.setup}</dd>
-                          <dt className="text-white/70">Peak</dt><dd>{t.peak}</dd>
-                          <dt className="text-white/70">Usable window</dt><dd><Windows ranges={t.windows} /></dd>
-                          <dt className="text-white/70">Moon</dt><dd>{t.moon}</dd>
-                          <dt className="text-white/70">Score</dt><dd>{e.score.total}</dd>
-                        </dl>
-                        <div className="mt-1">
-                          <WhyToggle e={e} t={t} open={whyOpen.has(e.id)} onToggle={() => toggleWhy(e.id)} idPrefix="why-card" />
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="hidden lg:block">
-            <table className="w-full text-left text-sm font-normal text-white/90" data-testid="target-table">
-              <caption className="sr-only">Targets ranked for {nightWord}</caption>
-              <thead className="text-white">
-                <tr className="border-b border-white/20">
-                  <th scope="col" className="py-2 pr-3">Captured</th>
-                  <th scope="col" className="py-2 pr-3">#</th>
-                  <th scope="col" className="py-2 pr-3">Target</th>
-                  <th scope="col" className="py-2 pr-3">Season</th>
-                  <th scope="col" className="py-2 pr-3">Setup</th>
-                  <th scope="col" className="py-2 pr-3">Peak</th>
-                  <th scope="col" className="py-2 pr-3">Usable window</th>
-                  <th scope="col" className="py-2 pr-3">Moon</th>
-                  <th scope="col" className="py-2">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((e, i) => {
-                  const t = targetText(e, formatTime);
-                  return (
-                  <Fragment key={e.id}>
-                  <tr className={`align-top ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="checkbox"
-                        aria-label={`Captured: ${e.name}`}
-                        checked={captured.has(e.id)}
-                        onChange={() => toggleCaptured(e.id)}
-                        className="accent-sky-400"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">{i + 1}</td>
-                    <th scope="row" className="py-2 pr-3 font-normal">
-                      <button
-                        type="button"
-                        id={`row-name-${e.id}`}
-                        onClick={() => setSelectedId(e.id)}
-                        aria-pressed={selected?.id === e.id}
-                        className="underline decoration-dotted text-left text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
-                      >
-                        {e.name}
-                      </button>
-                      {e.isPlanet && <span className="ml-2 rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
-                      <div>{planButton(e, 'row')}</div>
-                    </th>
-                    <td className="py-2 pr-3">{t.season}</td>
-                    <td className="py-2 pr-3">{t.setup}</td>
-                    <td className="py-2 pr-3">{t.peak}</td>
-                    <td className="py-2 pr-3"><Windows ranges={t.windows} /></td>
-                    <td className="py-2 pr-3">{t.moon}</td>
-                    <td className="py-2">{e.score.total}</td>
-                  </tr>
-                  <tr className={`border-b border-white/10 ${selected?.id === e.id ? 'bg-sky-400/10' : ''}`}>
-                    <td colSpan={9} className="pb-3 pl-8 pr-3 text-white/80">
-                      <WhyToggle e={e} t={t} open={whyOpen.has(e.id)} onToggle={() => toggleWhy(e.id)} idPrefix="why-row" />
-                    </td>
-                  </tr>
-                  </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-            </div>
+            {type !== 'planets' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} />}
+            {planetGroup.length > 0 && (
+              <Group id="planets-group" title={`Planets up ${nightWord} (${planetGroup.length})`} open={planetsOpen ?? planetary} onToggle={() => setPlanetsOpen(!(planetsOpen ?? planetary))}>
+                <TargetList {...listProps} entries={planetGroup} label={`Planets up ${nightWord}`} idPrefix="planet" />
+              </Group>
+            )}
+            {mainList.length === 0 ? (
+              <p className="text-white/90 font-normal">{type === 'planets' ? `No planet is up ${nightWord} above your horizon and minimum altitude.` : 'No targets match these filters.'}</p>
+            ) : (
+              <>
+                {planetGroup.length > 0 && <h3 className="mt-4 text-base font-medium text-white">Best deep-sky targets</h3>}
+                <TargetList {...listProps} entries={mainList} label={`Targets ranked for ${nightWord}`} idPrefix="target" />
+              </>
+            )}
+            {noFitList.length > 0 && (
+              <Group id="nofit-group" title={`Does not fit this frame (${noFitList.length})`} open={noFitOpen} onToggle={() => setNoFitOpen(!noFitOpen)}>
+                <TargetList {...listProps} entries={noFitList} label="Targets that do not fit this frame" idPrefix="nofit" fitText={noFitFit} />
+              </Group>
+            )}
           </>
         )}
-          </>
-        )}
-        <p className="text-white/60 font-normal text-xs mt-3">
-          Score: usable hours up to 50, peak altitude up to 30, in season 10 (curated targets only; the catalog has no seasons), Moon up to -20, does not fit -25, plus brightness and framing. Double stars are not ranked (search finds them). Open Why recommended on a target to see its score parts and fit detail.
-        </p>
       </section>
-
-      <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
-
-      {selected && track && stableNight && (
-        <section aria-labelledby="chart-heading" className={panel}>
-          <h2 id="chart-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">
-            ALTITUDE: {selected.name.toUpperCase()}
-          </h2>
-          <AltitudeChart
-            entry={selected}
-            night={stableNight}
-            track={track}
-            horizonSet={horizon !== null}
-            minAltitude={minAltitude}
-            formatTime={formatTime}
-            nightWord={nightWord}
-          />
-        </section>
-      )}
 
       {selected && (
         <ExposurePanel

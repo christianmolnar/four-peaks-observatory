@@ -25,7 +25,7 @@ describe('planner page', () => {
     expect(html).toContain('Fountain Hills, AZ');
     expect(html).toContain('BEST TARGETS FOR');
     expect(html).toContain('Ranking the whole catalog');
-    expect(html).not.toContain('data-testid="target-table"');
+    expect(html).not.toContain('data-testid="target-list"');
     expect(html).toContain('Search the catalog by name or number');
     expect(html).toContain('MY PLAN');
     expect(html).toContain('Export CSV');

@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { createCatalogLoader } from '@/planner/catalog/loader';
 import type { CatalogObject } from '@/planner/catalog/openngc';
@@ -90,5 +90,29 @@ export const pageProps = {
 
 /** Waits for the ranked list to be on the page (the ranking runs off the render, so a page test awaits it). */
 export const ready = async (): Promise<void> => {
-  await screen.findByTestId('target-table', {}, { timeout: 20000 });
+  await screen.findByTestId('target-list', {}, { timeout: 20000 });
+};
+
+/** The rows of a ranked list on the page (the list shows the best ten first). */
+export const listRows = (testId = 'target-list'): HTMLElement[] => [...screen.getByTestId(testId).querySelectorAll<HTMLElement>(':scope > li')];
+
+/** A row's target name, without the open/closed arrow and the place number. */
+export const rowName = (li: HTMLElement): string =>
+  (li.querySelector('button[aria-expanded]')!.textContent as string).replace(/^[▸▾]\s*\d+\.\s*/, '').trim();
+
+/** The names of the rows on the page, best first. */
+export const rowNames = (testId = 'target-list'): string[] => listRows(testId).map(rowName);
+
+/** The button that opens a row's detail, for the row of this name. */
+export const nameButton = (name: string | RegExp): HTMLElement => {
+  showAll();
+  const hit = screen.getAllByRole('button').find((b) => b.hasAttribute('aria-expanded') && (typeof name === 'string' ? rowOf(b) === name : name.test(rowOf(b))));
+  if (!hit) throw new Error(`No row named ${String(name)} on the page`);
+  return hit;
+};
+const rowOf = (b: HTMLElement): string => (b.textContent as string).replace(/^[▸▾]\s*\d+\.\s*/, '').trim();
+
+/** Presses "Show N more" until every row of the lists on the page is there. */
+export const showAll = (): void => {
+  for (let b = screen.queryByRole('button', { name: /^Show \d+ more$/ }); b !== null; b = screen.queryByRole('button', { name: /^Show \d+ more$/ })) fireEvent.click(b);
 };

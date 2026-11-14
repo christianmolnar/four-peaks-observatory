@@ -8,7 +8,7 @@ import { ITINERARY_KEY } from '@/planner/itinerary';
 import { createTonightRanker } from '@/planner/tonight';
 import { MY_PLAN_KEY, SELECTION_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, ready } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, rowNames, showAll } from './testkit';
 
 // The page over the whole catalog: tonight's list from the worker, the search, my plan, the itinerary that reads it.
 // The catalog is the curated 25 plus the objects below; the worker is a fake that runs the real ranking and answers when told to.
@@ -37,9 +37,14 @@ function mount(opts: { hold?: boolean; trainId?: string; props?: Partial<React.C
   const view = render(<PlannerApp initialDate={DATE} initialProfile={profile(opts.trainId)} rank={worker.rank} loadCatalogIndex={catalog.load} {...opts.props} />);
   return { ...view, catalog, worker };
 }
-const table = () => screen.getByTestId('target-table');
-const listNames = () => [...table().querySelectorAll('th[scope="row"] button[aria-pressed]')].map((b) => (b.textContent ?? '').trim());
-const myPlan = () => screen.getByRole('region', { name: 'MY PLAN' });
+const table = () => screen.getByTestId('target-list');
+const listNames = () => (showAll(), rowNames());
+const myPlan = () => screen.getByRole('region', { name: /^MY PLAN/ });
+/** My plan opens by itself once it holds something; an empty one is a one-line header the user opens. */
+const openMyPlan = () => {
+  const header = within(myPlan()).getByRole('button', { name: /^MY PLAN/ });
+  if (header.getAttribute('aria-expanded') === 'false') fireEvent.click(header);
+};
 const planNames = () => within(myPlan()).queryAllByRole('listitem').map((li) => li.querySelector('p')?.textContent?.replace(/^\d+\.\s*/, '').trim());
 const stored = () => JSON.parse(window.localStorage.getItem(MY_PLAN_KEY) ?? 'null') as { version: number; ids: string[] } | null;
 const searchBox = () => screen.getByLabelText('Search the catalog by name or number') as HTMLInputElement;
@@ -56,7 +61,7 @@ describe('tonight\'s list over the whole catalog', () => {
   it('shows a loading state until the worker answers, then the ranked catalog objects; the double star is not in it', async () => {
     const { worker } = mount({ hold: true });
     expect(await screen.findByText(/Ranking the whole catalog for that night/)).toBeTruthy();
-    expect(screen.queryByTestId('target-table')).toBeNull();
+    expect(screen.queryByTestId('target-list')).toBeNull();
     expect(screen.getByRole('heading', { name: `BEST TARGETS FOR ${WORD.toUpperCase()}` })).toBeTruthy();
     await act(async () => { await worker.release(); });
     await ready();
@@ -66,7 +71,7 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(listNames()).not.toContain('Southern Test Galaxy');
     expect(listNames().length).toBeLessThanOrEqual(100);
     expect(worker.requests).toHaveLength(1);
-    expect(worker.requests[0].query).toMatchObject({ date: DATE, limit: 100, minAltitude: 20, includeTooLarge: false });
+    expect(worker.requests[0].query).toMatchObject({ date: DATE, limit: 100, minAltitude: 20, includeNoFit: false });
   });
 
   it('asks again when the night, the horizon or the minimum altitude changes, and shows the loading state while it waits', async () => {
@@ -75,7 +80,7 @@ describe('tonight\'s list over the whole catalog', () => {
     await ready();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2027-06-15' } });
     expect(await screen.findByText(/Ranking the whole catalog for that night \(6\/15\/2027\)/)).toBeTruthy();
-    expect(screen.queryByTestId('target-table')).toBeNull();
+    expect(screen.queryByTestId('target-list')).toBeNull();
     await act(async () => { await worker.release(); });
     await ready();
     expect(worker.requests.map((r) => r.query.date)).toEqual([DATE, '2027-06-15']);
@@ -93,7 +98,7 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(/Superseded/)).toBeNull();
     expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR THAT NIGHT (2/20/2027)' })).toBeTruthy();
-    expect(screen.getByRole('table', { name: 'Targets ranked for that night (2/20/2027)' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Targets ranked for that night (2/20/2027)' })).toBeTruthy();
   });
 
   it('a failure is shown plainly with Retry, and Retry asks again', async () => {
@@ -109,36 +114,41 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('names what the size screen left out, with a count, and "show anyway" is the do-not-fit switch', async () => {
+  it('names what the size screen left out, with a count; the one box lists them below the list, and no "show anyway" control exists', async () => {
     mount({ trainId: 'deep-c11-2600' });
     await ready();
     const note = screen.getByTestId('hidden-note');
-    expect(note.textContent).toMatch(/larger than this frame \(\d+ hidden\):\s*show anyway/);
+    expect(note.textContent).toMatch(/do not fit this frame: larger than it \(\d+\)/);
     expect(note.textContent).toMatch(/Andromeda Galaxy/);
+    expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
     expect(listNames()).not.toContain('Andromeda Galaxy');
-    await userEvent.setup().click(within(note).getByRole('button', { name: 'show anyway' }));
+    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
     await ready();
-    expect((screen.getByRole('checkbox', { name: 'Show targets that do not fit' }) as HTMLInputElement).checked).toBe(true);
-    expect(listNames()).toContain('Andromeda Galaxy');
-    expect(screen.queryByTestId('hidden-note')?.textContent ?? '').not.toMatch(/larger than this frame/);
+    expect(listNames()).not.toContain('Andromeda Galaxy'); // below the list, not in it
+    fireEvent.click(screen.getByRole('button', { name: /^Does not fit this frame/ }));
+    expect(listRows('nofit-list').map(rowName)).toContain('Andromeda Galaxy');
+    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing \d+ targets that do not fit this frame in the group below the list/);
   });
 
-  it('a catalog object has no season: the page says so, does not invent one, and its details open without a crash', async () => {
+  it('a catalog object shows no season column and no "Not listed"; its row opens in place with the chart and the exposure panel follows', async () => {
     mount();
     await ready();
-    const row = [...table().querySelectorAll('tbody tr')].find((r) => r.querySelector('th[scope="row"]')?.textContent?.includes('NGC 891')) as HTMLElement;
+    showAll();
+    const row = listRows().find((r) => rowName(r) === 'NGC 891') as HTMLElement;
     expect(row).toBeTruthy();
-    expect(within(row).getByText('Not listed')).toBeTruthy();
-    await userEvent.setup().click(within(row).getByRole('button', { name: 'NGC 891' }));
+    expect(table().textContent).not.toMatch(/Not listed|Season/);
+    await userEvent.setup().click(within(row).getByRole('button', { name: /^\d+\. NGC 891$/ }));
     expect(screen.getByRole('region', { name: /^EXPOSURE: NGC 891/ })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'ALTITUDE: NGC 891' })).toBeTruthy();
+    expect(within(row).getByRole('img', { name: /NGC 891/ })).toBeTruthy(); // the altitude chart, in the row
+    expect(screen.queryByRole('heading', { name: 'ALTITUDE: NGC 891' })).toBeNull();
   });
 
   it('the Type filter still narrows the list without asking the worker again', async () => {
     const { worker } = mount();
     await ready();
     await userEvent.setup().selectOptions(screen.getByLabelText('Type'), 'planets');
-    expect(listNames().every((n) => /^(Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune)$/.test(n))).toBe(true);
+    expect(rowNames().length).toBeGreaterThan(0);
+    expect(rowNames().every((n) => /^(Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune)$/.test(n))).toBe(true);
     expect(worker.requests).toHaveLength(1);
   });
 });
@@ -153,7 +163,7 @@ describe('search', () => {
     expect(hit.textContent).toContain('NGC 891');
     expect(hit.textContent).toContain('Galaxy');
     expect(hit.textContent).toContain('13′ × 3′');
-    expect(hit.textContent).toMatch(new RegExp(`Up ${WORD.replace(/[()]/g, '\\$&')}: clear [\\d.]+ h, peak \\d+° [NESW]+ at \\d\\d:\\d\\d\\. Score [\\d.]+\\.`));
+    expect(hit.textContent).toMatch(new RegExp(`Up ${WORD.replace(/[()]/g, '\\$&')}: clear [\\d.]+ h, peak \\d+° [NESW]+ at \\d\\d:\\d\\d\\. Score \\d+\\.`));
     expect(hit.textContent).toMatch(/#\d+ in the list below/);
     // By alias, too.
     await u.clear(searchBox());
@@ -168,8 +178,9 @@ describe('search', () => {
     await u.type(searchBox(), 'M40');
     const dbl = within(results()).getAllByRole('listitem')[0];
     expect(dbl.textContent).toContain('Double star');
-    expect(dbl.textContent).toMatch(/Up that night.*Score [\d.]+/);
+    expect(dbl.textContent).toMatch(/Up that night.*Score \d+/);
     expect(dbl.textContent).not.toMatch(/in the list below/);
+    expect(dbl.textContent).toContain('Double stars are not ranked, so it is not in the list.');
     await u.clear(searchBox());
     await u.type(searchBox(), 'Southern Test');
     const south = within(results()).getAllByRole('listitem')[0];
@@ -215,26 +226,30 @@ describe('search', () => {
     await u.click(within(results()).getByRole('button', { name: 'Add NGC 7331 to my plan' }));
     expect(planNames()).toEqual(['NGC 7331']);
     expect(stored()).toEqual({ version: 1, ids: ['ngc7331'] });
-    expect(within(results()).getByText('In my plan')).toBeTruthy();
+    expect(within(results()).getByRole('button', { name: 'NGC 7331 is in my plan' }).textContent).toBe('In my plan');
   });
 });
 
 describe('my plan', () => {
   const addFromList = async (u: ReturnType<typeof userEvent.setup>, name: string) => {
-    const card = within(screen.getByTestId('target-cards')).getAllByRole('listitem').find((li) => within(li).queryByRole('button', { name })) as HTMLElement;
-    await u.click(within(card).getByRole('button', { name: 'Add to my plan' }));
+    showAll();
+    const card = listRows().find((li) => rowName(li) === name) as HTMLElement;
+    await u.click(within(card).getByRole('button', { name: `Add ${name} to my plan` }));
   };
 
-  it('starts empty with an instruction; Add to my plan on a card adds it once and the card then says In my plan', async () => {
+  it('starts as a closed one-line header with the count, opens to an instruction; Add on a row adds it once and the row then says In my plan', async () => {
     mount();
     await ready();
     const u = userEvent.setup();
+    expect(within(myPlan()).getByRole('button', { name: 'MY PLAN (0)' }).getAttribute('aria-expanded')).toBe('false');
+    openMyPlan();
     expect(within(myPlan()).getByText(/Nothing in your plan yet/)).toBeTruthy();
     await addFromList(u, 'NGC 891');
     expect(planNames()).toEqual(['NGC 891']);
-    const card = within(screen.getByTestId('target-cards')).getAllByRole('listitem').find((li) => within(li).queryByRole('button', { name: 'NGC 891' })) as HTMLElement;
-    expect(within(card).queryByRole('button', { name: 'Add to my plan' })).toBeNull();
-    expect(within(card).getByText('In my plan')).toBeTruthy();
+    expect(within(myPlan()).getByRole('button', { name: 'MY PLAN (1)' }).getAttribute('aria-expanded')).toBe('true');
+    const card = listRows().find((li) => rowName(li) === 'NGC 891') as HTMLElement;
+    expect(within(card).queryByRole('button', { name: 'Add NGC 891 to my plan' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'NGC 891 is in my plan' }).textContent).toBe('In my plan');
     expect(within(myPlan()).getByText(/^Up that night/)).toBeTruthy();
   });
 
@@ -266,7 +281,7 @@ describe('my plan', () => {
     await u.click(within(myPlan()).getByRole('button', { name: 'Remove NGC 891 from my plan' }));
     expect(planNames()).toEqual([]);
     expect(stored()?.ids).toEqual([]);
-    expect(within(screen.getByTestId('target-cards')).getAllByRole('button', { name: 'Add to my plan' }).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('target-list')).getByRole('button', { name: 'Add NGC 891 to my plan' })).toBeTruthy();
   });
 
   it('is remembered: a reload (a new page over the same storage) opens on the same plan in the same order', async () => {
@@ -354,11 +369,11 @@ describe('the night itinerary reads my plan', () => {
 });
 
 describe('phone layout', () => {
-  it('stacks the list as cards below lg and the table from lg up; every control in the new sections is a 44 px target and wraps', async () => {
+  it('has one list (not a table and cards), and every control in the new sections is a 44 px target that wraps', async () => {
     mount();
     await ready();
-    expect(screen.getByTestId('target-cards').className).toContain('lg:hidden');
-    expect((table().parentElement as HTMLElement).className).toContain('hidden lg:block');
+    expect(screen.queryByRole('table', { name: /Targets ranked/ })).toBeNull();
+    expect(screen.getAllByRole('list', { name: /^Targets ranked for/ })).toHaveLength(1);
     const u = userEvent.setup();
     await u.type(searchBox(), 'm31');
     const hit = within(results()).getAllByRole('listitem')[0];
@@ -370,13 +385,14 @@ describe('phone layout', () => {
     const item = within(myPlan()).getAllByRole('listitem')[0];
     expect(item.className).toMatch(/flex-wrap/);
     for (const b of within(item).getAllByRole('button')) expect(b.className).toMatch(/min-h-11/);
-    for (const b of within(screen.getByTestId('target-cards')).getAllByRole('button', { name: /Add to my plan|Why/ })) expect(b.className).toContain('min-h-11');
+    for (const b of within(screen.getByTestId('target-list')).getAllByRole('button')) expect(b.className).toMatch(/min-h-11|min-w-0|inline-flex/); // the Add column is 44 px; a name is a wide text button
+    for (const b of within(screen.getByTestId('target-list')).getAllByRole('button', { name: /^Add / })) expect(b.className).toContain('min-h-11');
   });
 
   it('no wide element: the search, my plan and list panels use the page width only (no fixed widths, overflow handled by wrapping)', async () => {
     mount();
     await ready();
-    for (const el of [screen.getByRole('search'), myPlan(), screen.getByRole('region', { name: 'FIND A TARGET' })]) {
+    for (const el of [screen.getByRole('search'), myPlan(), screen.getByRole('region', { name: 'FIND A TARGET' }), screen.getByTestId('target-list')]) {
       expect(el.outerHTML).not.toMatch(/\bw-\[\d+px\]|\bmin-w-\[\d+px\]|\bw-(96|80|72|64)\b/);
     }
   });

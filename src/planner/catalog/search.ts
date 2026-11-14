@@ -357,9 +357,21 @@ function exactMatch(e: Entry, q: string, greek: NameWord[] | null): Match | null
   return best;
 }
 
-function fuzzyMatch(e: Entry, q: string): Match | null {
+/** True when every typed word is close to a word of the name (the last may be half typed), so "heart nebula" never reaches "Monkey Head Nebula" on the strength of "nebula" alone. */
+function everyWordClose(e: Entry, words: readonly string[]): boolean {
+  return e.names.some((n) =>
+    words.every((w, i) => {
+      const max = maxEdits(w.length);
+      const last = i === words.length - 1;
+      return n.words.some((nw) => editDistance(w, nw, max) <= max || (last && nw.startsWith(w)) || (last && editDistance(w, nw.slice(0, w.length), max) <= max));
+    }),
+  );
+}
+
+function fuzzyMatch(e: Entry, q: string, words: readonly string[]): Match | null {
   const max = maxEdits(q.length);
   if (max === 0 || /\d/.test(q)) return null;
+  if (words.length > 1 && !everyWordClose(e, words)) return null;
   let best = max + 1;
   for (const n of e.names) {
     for (const start of [0, ...n.wordStarts]) {
@@ -514,7 +526,7 @@ export function createCatalogIndex(
         const seen = new Set(found.map((x) => x.e));
         const fuzzy = entries.flatMap((e) => {
           if (seen.has(e)) return [];
-          const m = fuzzyMatch(e, q);
+          const m = fuzzyMatch(e, q, tokens.map((t) => t.word));
           return m === null ? [] : [{ e, m }];
         });
         matched = [...found, ...fuzzy];

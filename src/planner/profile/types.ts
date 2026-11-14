@@ -123,6 +123,8 @@ export interface OpticalTrainEntry {
   cameraId: string;
   /** Library filter in use; absent: no filter. */
   filterId?: string;
+  /** What the train is set up for, when it is for one thing: a planetary train frames a planet, so deep-sky objects are large in it. */
+  tag?: 'planetary';
 }
 
 export interface SmartTrainEntry {

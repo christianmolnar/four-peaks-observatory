@@ -19,10 +19,11 @@ export default function PlannerPage() {
       <div className="min-h-screen bg-black print:bg-white">
         <main className="relative z-10 pt-8 pb-16 print:pt-0 print:pb-0">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="mb-4">
+            <PlannerApp />
+            {/* Sign-in is for the owner: after the tool, so a guest's first screen is the planner and not a notice. */}
+            <div className="mt-8">
               <AuthControl />
             </div>
-            <PlannerApp />
             <CatalogCredits />
           </div>
         </main>

@@ -283,10 +283,15 @@ function smartScope(v: unknown, path: string): ProfileSmartScope {
   });
 }
 
+function trainTag(o: Record<string, unknown>, path: string): 'planetary' {
+  if (o.tag !== 'planetary') throw new ProfileError(`${path}.tag`, `expected "planetary", got ${JSON.stringify(o.tag)}`);
+  return 'planetary';
+}
+
 function train(v: unknown, path: string): TrainEntry {
   const o = obj(v, path);
   if (o.kind === 'optical') {
-    onlyKeys(o, path, ['kind', 'id', 'name', 'scopeId', 'accessoryIds', 'cameraId', 'filterId']);
+    onlyKeys(o, path, ['kind', 'id', 'name', 'scopeId', 'accessoryIds', 'cameraId', 'filterId', 'tag']);
     return withoutUndefined({
       kind: 'optical' as const,
       id: str(o, 'id', path),
@@ -295,6 +300,7 @@ function train(v: unknown, path: string): TrainEntry {
       accessoryIds: strings(o, 'accessoryIds', path),
       cameraId: str(o, 'cameraId', path),
       filterId: o.filterId === undefined ? undefined : str(o, 'filterId', path),
+      tag: o.tag === undefined ? undefined : trainTag(o, path),
     });
   }
   if (o.kind === 'smart') {

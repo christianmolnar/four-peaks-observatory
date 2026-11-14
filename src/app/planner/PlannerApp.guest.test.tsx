@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testi
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { listRows, pageProps, ready, rowName, showAll } from './testkit';
 
 // A fresh visitor: no stored data, no props. The page loads the sample, edits go to localStorage, reload keeps them.
 
@@ -51,7 +51,7 @@ async function open(u: ReturnType<typeof userEvent.setup>, name: RegExp) {
 describe('guest start', () => {
   it('opens with a full plan from the sample and the guest intro', async () => {
     await app();
-    await waitFor(() => expect(screen.getByTestId('target-table')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('target-list')).toBeTruthy());
     const intro = document.querySelector('header p')?.textContent ?? '';
     expect(intro).toMatch(/free guest tool/i);
     expect(intro).toMatch(/estimates/i);
@@ -210,7 +210,7 @@ describe('profile JSON', () => {
     expect(alert.textContent).toMatch(/nothing was changed/);
     expect(alert.textContent).not.toMatch(/undefined|\[object|    at /);
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull();
-    expect(screen.getByTestId('target-table')).toBeTruthy(); // still alive
+    expect(screen.getByTestId('target-list')).toBeTruthy(); // still alive
   });
 });
 
@@ -228,10 +228,12 @@ describe('print', () => {
     expect(screen.queryByTestId('print-sheet')).toBeNull();
   });
 
-  it('the print sheet lists exactly the rows of the Targets table, in order', async () => {
+  it('the print sheet lists exactly the rows of the list, in order (the planets group after the deep-sky list)', async () => {
     await app();
+    fireEvent.click(screen.getByRole('button', { name: /^Planets up/ }));
+    showAll();
+    const screenNames = [...listRows(), ...listRows('planet-list')].map(rowName);
     const names = (root: HTMLElement) => within(root).getAllByRole('row').map((r) => r.querySelector('th[scope="row"] strong, th[scope="row"] button')?.textContent).filter(Boolean);
-    const screenNames = names(screen.getByTestId('target-table'));
     act(() => void window.dispatchEvent(new Event('beforeprint')));
     expect(names(screen.getByTestId('print-sheet'))).toEqual(screenNames);
   });
@@ -251,7 +253,9 @@ describe('CSV', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Export CSV' }));
     const text = (await blobs[blobs.length - 1].text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');
-    const rowCount = within(screen.getByTestId('target-table')).getAllByRole('row').filter((r) => r.querySelector('th[scope="row"]')).length;
+    fireEvent.click(screen.getByRole('button', { name: /^Planets up/ }));
+    showAll();
+    const rowCount = listRows().length + listRows('planet-list').length;
     expect(lines).toHaveLength(rowCount + 1);
     expect(text).toMatch(/2026-12-1[45] \d\d:\d\d MST/);
   });

@@ -7,7 +7,7 @@ import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { pageProps } from './testkit';
 
-// The Planets section, driven with real key events on the whole page. The planetary train (C11 + ASI676MC) is the sample's first train.
+// The Planets section, driven with real key events on the whole page. The planetary train (C11 + ASI676MC) is picked by id where a test needs its numbers; the sample opens on a deep-sky train.
 
 const withTrain = (id: string) => {
   const p = sampleProfile();
@@ -76,7 +76,7 @@ describe('Planets section', () => {
 
   it('every figure of the selected planet is labelled computed (or names its basis), and the chart has a text description', async () => {
     const user = userEvent.setup();
-    app();
+    app(withTrain('planet-c11-676'));
     await user.click(within(section()).getByText('Jupiter'));
     const labels = [...panel('Jupiter').querySelectorAll('dt')].map((d) => d.textContent ?? '');
     expect(labels).toHaveLength(8);

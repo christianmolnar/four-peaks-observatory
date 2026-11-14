@@ -154,15 +154,15 @@ describe('"tonight" only when the date is tonight', () => {
     await app(base(), tonight());
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TONIGHT' })).toBeTruthy();
-    expect(screen.getByTestId('target-cards').getAttribute('aria-label')).toBe('Targets ranked for tonight');
+    expect(screen.getByTestId('target-list').getAttribute('aria-label')).toBe('Targets ranked for tonight');
   });
 
   it('says that night, with the date, on any other date, and follows the date picker both ways', async () => {
     await app(base(), '2026-12-15');
     expect(screen.getByRole('heading', { name: 'THAT NIGHT (12/15/2026)' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR THAT NIGHT (12/15/2026)' })).toBeTruthy();
-    expect(screen.getByTestId('target-cards').getAttribute('aria-label')).toBe('Targets ranked for that night (12/15/2026)');
-    expect(screen.getByRole('table', { name: 'Targets ranked for that night (12/15/2026)' })).toBeTruthy();
+    expect(screen.getByTestId('target-list').getAttribute('aria-label')).toBe('Targets ranked for that night (12/15/2026)');
+    expect(screen.getByRole('list', { name: 'Targets ranked for that night (12/15/2026)' })).toBeTruthy();
     expect(screen.queryByText(/usable tonight/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: tonight() } });
     await ready();

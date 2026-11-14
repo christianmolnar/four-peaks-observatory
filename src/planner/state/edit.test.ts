@@ -148,6 +148,13 @@ describe('trains', () => {
     const n = next.trains.find((x) => x.id === t.id);
     expect(n).toEqual({ kind: 'optical', id: t.id, name: 'Renamed', scopeId: t.scopeId, accessoryIds: [], cameraId: t.cameraId });
   });
+  it('keeps the planetary tag when a train is edited', () => {
+    const p = sample();
+    const t = p.trains.find((x) => x.id === 'planet-c11-676');
+    if (!t || t.kind !== 'optical') throw new Error('x');
+    const next = replaceTrain(p, t.id, { name: 'Renamed', scopeId: t.scopeId, accessoryIds: [], cameraId: t.cameraId, filterId: '' });
+    expect(next.trains.find((x) => x.id === t.id)).toMatchObject({ tag: 'planetary', name: 'Renamed' });
+  });
   it('refuses two accessories that each replace the optics', () => {
     const p = sample();
     const t = p.trains.find((x) => x.kind === 'optical');

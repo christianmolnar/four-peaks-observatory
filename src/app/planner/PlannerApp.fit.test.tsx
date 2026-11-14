@@ -1,14 +1,13 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { listRows, pageProps, ready, rowName, showAll } from './testkit';
 
-// Targets that do not fit the chosen train: below everything that fits, hidden until asked for,
-// and never described as "recommended".
+// Targets that do not fit the chosen train: left out of the list, counted in a note, and listed in a closed group of their
+// own below it (with how they miss, in numbers) when "Show targets that do not fit" is ticked. One control for that state.
 
 const withTrain = (id: string) => {
   const p = sampleProfile();
@@ -21,54 +20,85 @@ const app = async (profile = narrow()) => {
   return r;
 };
 
-/** The "Setup" column of each ranked row, top to bottom. */
-const fits = (): string[] => {
-  const table = screen.queryByTestId('target-table');
-  if (!table) return [];
-  return within(table).getAllByRole('row').filter((r) => r.querySelector('th[scope="row"]')).map((r) => r.querySelectorAll('td')[3].textContent as string);
-};
+const toggle = () => screen.getByRole('checkbox', { name: 'Show targets that do not fit' }) as HTMLInputElement;
+const group = () => screen.getByRole('button', { name: /^Does not fit this frame \(\d+\)/ });
 
 afterEach(cleanup);
 
 describe('targets that do not fit the chosen train', () => {
-  it('are hidden by default behind "Show targets that do not fit"', async () => {
+  it('are left out by default, and the note says how many and which, without a second control', async () => {
     await app();
-    const toggle = screen.getByRole('checkbox', { name: 'Show targets that do not fit' }) as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
-    expect(fits().length).toBeGreaterThan(0);
-    expect(fits()).not.toContain('Too large');
-    expect(screen.queryByText(/Does not fit this setup/)).toBeNull();
+    expect(toggle().checked).toBe(false);
+    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
+    const note = screen.getByTestId('hidden-note').textContent as string;
+    expect(note).toMatch(/do not fit this frame: larger than it \(\d+\)/);
+    expect(note).toContain('Tick “Show targets that do not fit” to list them.');
+    expect(note).not.toMatch(/show anyway/i);
+    expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
+    // The list names are joined once: "A, B, C and 12 more", never "A and B and 12 more"; no name twice.
+    expect(note).not.toMatch(/ and [^,]+ and \d+ more/);
   });
 
-  it('with the toggle on they appear, all below every row that fits', async () => {
+  it('ticking the box adds a closed group below the list, with the count, and the note says where they went', async () => {
     await app();
-    const hidden = fits().length;
-    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
+    const before = screen.getByTestId('hidden-note').textContent as string;
+    const tooLarge = Number(/larger than it \((\d+)\)/.exec(before)![1]);
+    const tooSmall = Number(/too small for it \((\d+)\)/.exec(before)?.[1] ?? 0);
+    fireEvent.click(toggle());
     await ready();
-    const col = fits();
-    expect(col.length).toBeGreaterThan(hidden);
-    const firstMiss = col.indexOf('Too large');
-    expect(firstMiss).toBeGreaterThan(-1);
-    expect(col.slice(firstMiss).every((c) => c === 'Too large')).toBe(true);
-    expect(col.slice(0, firstMiss).every((c) => c !== 'Too large')).toBe(true);
+    const header = group();
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    const count = Number(/\((\d+)\)/.exec(header.textContent as string)![1]);
+    expect(count).toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(tooLarge + tooSmall);
+    expect(screen.getByTestId('hidden-note').textContent).toMatch(new RegExp(`Showing ${count} targets that do not fit this frame in the group below the list`));
+    // The group follows the list in the page, and the list itself did not change.
+    expect(screen.getByTestId('target-list').compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('the why for such a row says it does not fit instead of recommending it', async () => {
+  it('opened, each row says how it misses: its size against your frame', async () => {
     await app();
-    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
+    fireEvent.click(toggle());
     await ready();
-    const why = screen.getAllByText(/^Does not fit this setup/);
-    expect(why.length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Why it is listed').length).toBe(why.length);
-    for (const w of why) expect(w.textContent).not.toMatch(/too large for the frame/);
+    const mainNames = (showAll(), listRows().map(rowName));
+    fireEvent.click(group());
+    const rows = listRows('nofit-list');
+    expect(rows.length).toBeGreaterThan(0);
+    const large = rows.filter((r) => /Larger than this frame/.test(r.textContent as string));
+    expect(large.length).toBeGreaterThan(0);
+    for (const r of large) expect(r.textContent).toMatch(/Larger than this frame: \d[\d.]*′( × \d[\d.]*′)? vs your \d+′ × \d+′/);
+    for (const r of rows) expect(mainNames).not.toContain(rowName(r)); // never in both
+    expect(screen.getByTestId('target-list').textContent).not.toContain('Too large');
   });
 
-  it('a train where everything fits shows no such rows and the toggle changes nothing', async () => {
+  it('the group is paged, ten at a time', async () => {
+    await app();
+    fireEvent.click(toggle());
+    await ready();
+    fireEvent.click(group());
+    const total = Number(/\((\d+)\)/.exec(group().textContent as string)![1]);
+    expect(listRows('nofit-list')).toHaveLength(Math.min(10, total));
+    if (total > 10) {
+      const more = within(document.getElementById('nofit-group') as HTMLElement).getByRole('button', { name: /^Show \d+ more$/ });
+      fireEvent.click(more);
+      expect(listRows('nofit-list')).toHaveLength(Math.min(20, total));
+    }
+  });
+
+  it('a train where everything fits shows no such group and no note', async () => {
     await app(withTrain('smart-seestar-s50'));
-    const before = fits();
-    expect(before.length).toBeGreaterThan(0);
-    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
+    expect(screen.queryByTestId('hidden-note')).toBeNull();
+    fireEvent.click(toggle());
     await ready();
-    expect(fits()).toEqual(before);
+    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
+  });
+
+  it('under Type = Planets the note and the group are not shown (nothing deep-sky listed there)', async () => {
+    await app();
+    fireEvent.click(toggle());
+    await ready();
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'planets' } });
+    expect(screen.queryByTestId('hidden-note')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
   });
 });

@@ -113,6 +113,11 @@ export interface RankInput extends Omit<TonightInput, 'targets'> {
   includeTooLarge?: boolean;
   /** Rank the types in `NON_IMAGING_TYPES` too. Default false. */
   includeNonImaging?: boolean;
+  /**
+   * Also score the targets the size band hid (too large, too small) and return the best `NO_FIT_LIMIT` of them in
+   * `RankResult.noFit`, beside the list and never inside it. Default false: they are only counted.
+   */
+  includeNoFit?: boolean;
   /** Drop targets under this percent of the frame; 0 keeps all. Default 3. */
   minFramePercent?: number;
 }
@@ -121,8 +126,15 @@ export interface RankResult {
   night: AstronomicalNight;
   horizonSet: boolean;
   minAltitude: number;
-  /** Only targets with usable time, at most `limit`: best first within each class and mixed across them (see `capClassShare`). */
+  /** Only deep-sky targets with usable time, at most `limit`: best first within each class and mixed across them (see `capClassShare`). Planets are in `planets`, not here. */
   entries: PlanEntry[];
+  /**
+   * Every planet that has usable time (the Moon is not ranked), best first. They are kept beside `entries`, not inside the cut:
+   * a planet has no brightness or framing terms, so it scores below a hundred catalog objects and would never reach the list.
+   */
+  planets: PlanEntry[];
+  /** With `includeNoFit`: the best `NO_FIT_LIMIT` targets with usable time that the size band hid, best first; else empty. */
+  noFit: PlanEntry[];
   /**
    * How many targets went in and how many were scored, so the screen is visible; and how many that could be up tonight
    * the size band hid: `tooLarge` (does not fit the frame, only while `includeTooLarge` is off) and `tooSmall`
@@ -140,6 +152,8 @@ export interface HiddenTarget {
 
 /** How many names `RankResult.hidden` lists per kind. */
 export const HIDDEN_LEADING = 5;
+/** How many of the targets that do not fit `RankResult.noFit` holds. */
+export const NO_FIT_LIMIT = 300;
 
 /** The screen's verdict on one target, without any trigonometry: false when it cannot reach the minimum altitude at this latitude. */
 export function canReachAltitude(latitude: number, decDeg: number, minAltitude: number, marginDeg: number): boolean {
@@ -222,13 +236,20 @@ export function screenTargets(
   return screenTargetsDetailed(ctx, targets, options).kept;
 }
 
-/** The brightest few of a hidden list (by magnitude, then the larger, then name), as `HiddenTarget`s. */
+/** The brightest few of a hidden list (by magnitude, then the larger, then name), as `HiddenTarget`s; two objects with one display name ("Eastern Veil") count once. */
 function leading(hidden: readonly PlanTarget[]): HiddenTarget[] {
   const mag = (t: PlanTarget): number => t.mag ?? Infinity;
-  return [...hidden]
-    .sort((a, b) => mag(a) - mag(b) || (b.sizeArcmin?.major ?? 0) - (a.sizeArcmin?.major ?? 0) || (a.id < b.id ? -1 : 1))
-    .slice(0, HIDDEN_LEADING)
-    .map((t) => ({ id: t.id, name: t.displayName ?? t.name }));
+  const out: HiddenTarget[] = [];
+  const seen = new Set<string>();
+  const sorted = [...hidden].sort((a, b) => mag(a) - mag(b) || (b.sizeArcmin?.major ?? 0) - (a.sizeArcmin?.major ?? 0) || (a.id < b.id ? -1 : 1));
+  for (const t of sorted) {
+    const name = t.displayName ?? t.name;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    out.push({ id: t.id, name });
+    if (out.length === HIDDEN_LEADING) break;
+  }
+  return out;
 }
 
 /**
@@ -259,6 +280,8 @@ export function prepareRanking(input: RankInput): Ranker {
         horizonSet: ctx.horizonSet,
         minAltitude: input.minAltitude,
         entries: [],
+        planets: [],
+        noFit: [],
         counts: { input: input.targets.length, scored: 0, usable: 0, tooLarge: 0, tooSmall: 0 },
         hidden: { tooLarge: [], tooSmall: [] },
       }),
@@ -266,18 +289,29 @@ export function prepareRanking(input: RankInput): Ranker {
   }
   const imageable = input.includeNonImaging === true ? input.targets : input.targets.filter((t) => !NON_IMAGING_TYPES.includes(t.type));
   const screened = screenTargetsDetailed(ctx, imageable, { includeTooLarge: input.includeTooLarge ?? false, minFramePercent });
-  const candidates = screened.kept;
+  const noFitIds = new Set<string>();
+  const candidates = [...screened.kept];
+  if (input.includeNoFit === true) {
+    for (const t of [...screened.tooLarge, ...screened.tooSmall]) {
+      candidates.push(t);
+      noFitIds.add(t.id);
+    }
+  }
   return {
     candidates,
     evaluate: (t) => evaluateTarget(ctx, t),
     planets: input.includePlanets === false ? [] : PLANETS.map((b) => () => evaluatePlanet(ctx, b)),
     finish(entries) {
       const usable = entries.filter((e) => e.usableMinutes > 0).sort(compareEntries);
+      const noFit = usable.filter((e) => noFitIds.has(e.id));
+      const listed = usable.filter((e) => !noFitIds.has(e.id) && !e.isPlanet);
       return {
         night: ctx.night,
         horizonSet: ctx.horizonSet,
         minAltitude: input.minAltitude,
-        entries: capClassShare(usable, limit),
+        entries: capClassShare(listed, limit),
+        planets: usable.filter((e) => e.isPlanet),
+        noFit: [...noFit].sort((a, b) => b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || compareEntries(a, b)).slice(0, NO_FIT_LIMIT),
         counts: { input: input.targets.length, scored: entries.length, usable: usable.length, tooLarge: screened.tooLarge.length, tooSmall: screened.tooSmall.length },
         hidden: { tooLarge: leading(screened.tooLarge), tooSmall: leading(screened.tooSmall) },
       };

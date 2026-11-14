@@ -1,0 +1,174 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { fitLabel } from '@/planner/plan';
+import type { PlanEntry } from '@/planner/plan';
+import { peakText, rowWhy, upRange } from './catalogText';
+
+/** Rows shown at first, and how many each "Show more" adds. */
+export const FIRST_ROWS = 10;
+export const MORE_ROWS = 10;
+
+/** One shared grid, so the column titles and every row line up: one column on a phone, five from md. */
+const GRID = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_6rem_minmax(0,1.7fr)_6.5rem]';
+
+export interface RowDescription {
+  /** A second name for the same object, shown after the name ("M31" for "Andromeda Galaxy"); "" for none. */
+  aka: string;
+  /** Type, size and constellation. */
+  meta: string;
+}
+
+export interface TargetListProps {
+  entries: readonly PlanEntry[];
+  /** Names the list for assistive technology. */
+  label: string;
+  /** Keeps the ids of two lists on one page apart. */
+  idPrefix: string;
+  formatTime: (d: Date) => string;
+  describe: (e: PlanEntry) => RowDescription;
+  /** What the "Fits" cell says; defaults to the fit label. The group of targets that do not fit says how, in numbers. */
+  fitText?: (e: PlanEntry) => string;
+  planIds: ReadonlySet<string>;
+  /** The target just added and what to say next to its button for a few seconds. */
+  added: { id: string; text: string } | null;
+  onAdd: (id: string) => void;
+  /** Id of the row that is open, or ''. */
+  openId: string;
+  onToggle: (id: string) => void;
+  renderDetail: (e: PlanEntry) => ReactNode;
+  /** The most rows it will ever show (the list is the best 100, not a census). */
+  max?: number;
+}
+
+/**
+ * Compact rows for a ranked list: name, type, size, constellation, up window and peak, fit, score with a short reason and an
+ * Add button in its own column. The best ten show first and "Show more" adds ten at a time. A row opens its detail in
+ * place. One layout for every width (a grid that folds to a column), so the page holds each row once.
+ */
+export default function TargetList({ entries, label, idPrefix, formatTime, describe, fitText, planIds, added, onAdd, openId, onToggle, renderDetail, max = 100 }: TargetListProps) {
+  const [shown, setShown] = useState(FIRST_ROWS);
+  const total = Math.min(entries.length, max);
+  const visible = entries.slice(0, Math.min(shown, total));
+  // A new list (another night, train or filter) starts again from the best ten.
+  useEffect(() => setShown(FIRST_ROWS), [entries]);
+  // "Show more" can remove its own button when the last rows arrive: the keyboard moves to the first new row.
+  const focusRow = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusRow.current === null) return;
+    const e = entries[focusRow.current];
+    focusRow.current = null;
+    if (e) document.getElementById(`${idPrefix}-name-${e.id}`)?.focus();
+  }, [shown, entries, idPrefix]);
+
+  return (
+    <div>
+      <div className={`${GRID} hidden gap-x-3 border-b border-white/20 px-1 pb-1 text-xs text-white/70 md:grid`} aria-hidden="true">
+        <span>Target</span>
+        <span>Up and peak</span>
+        <span>Fit and score</span>
+        <span>Why</span>
+        <span />
+      </div>
+      <ul aria-label={label} className="text-[13px] leading-[18px] font-normal text-white/90" data-testid={`${idPrefix}-list`}>
+        {visible.map((e, i) => {
+          const d = describe(e);
+          const isOpen = openId === e.id;
+          const inPlan = planIds.has(e.id);
+          const nameId = `${idPrefix}-name-${e.id}`;
+          const detailId = `${idPrefix}-detail-${e.id}`;
+          return (
+            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-white/10 px-1 py-1.5 ${isOpen ? 'bg-sky-400/10' : ''}`}>
+              <div className="col-start-1 min-w-0 md:col-auto">
+                <button
+                  type="button"
+                  id={nameId}
+                  aria-expanded={isOpen}
+                  aria-controls={detailId}
+                  onClick={() => onToggle(e.id)}
+                  className="-my-0.5 inline-flex max-w-full items-baseline gap-1.5 rounded py-0.5 text-left text-[15px] font-medium text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+                >
+                  <span aria-hidden="true" className="w-4 shrink-0 text-xs text-white/70">{isOpen ? '▾' : '▸'}</span>
+                  <span className="break-words"><span className="text-white/70">{i + 1}.</span> {e.name}</span>
+                </button>
+                {d.aka !== '' && <span className="ml-1.5 text-white/70">{d.aka}</span>}
+                <p className="pl-[1.375rem] text-white/70">{d.meta}</p>
+              </div>
+              <div className="col-start-1 pl-[1.375rem] md:col-auto md:pl-0">
+                <span>Up {upRange(e, formatTime)}</span>
+                <span className="md:hidden"> · </span>
+                <span className="md:block">peak {peakText(e, formatTime)}</span>
+              </div>
+              <div className="col-start-1 pl-[1.375rem] md:col-auto md:pl-0">
+                <span>{fitText ? fitText(e) : fitLabel(e)}</span>
+                <span className="md:hidden"> · </span>
+                <span className="md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
+              </div>
+              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:pl-0">{rowWhy(e)}</p>
+              <div className="col-start-2 row-span-4 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
+                <button
+                  type="button"
+                  aria-label={inPlan ? `${e.name} is in my plan` : `Add ${e.name} to my plan`}
+                  aria-disabled={inPlan}
+                  onClick={() => {
+                    if (!inPlan) onAdd(e.id);
+                  }}
+                  className={`min-h-11 min-w-11 whitespace-nowrap rounded border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 ${inPlan ? 'border-white/15 text-white/70' : 'border-white/30 text-white hover:bg-white/10'}`}
+                >
+                  {inPlan ? 'In my plan' : 'Add'}
+                </button>
+                {added?.id === e.id && <span aria-hidden="true" className="mt-0.5 max-w-[6.5rem] text-right text-xs text-emerald-300">{added.text}</span>}
+              </div>
+              {isOpen && (
+                <div id={detailId} className="col-span-full mt-2 rounded border border-white/15 bg-black/40 p-3 text-sm">
+                  {renderDetail(e)}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {total > FIRST_ROWS && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-normal text-white/80">
+          <span aria-live="polite">Showing {visible.length} of {total}</span>
+          {visible.length < total && (
+            <button
+              type="button"
+              onClick={() => {
+                focusRow.current = visible.length;
+                setShown(visible.length + MORE_ROWS);
+              }}
+              className="min-h-11 rounded border border-white/30 px-3 text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400"
+            >
+              Show {Math.min(MORE_ROWS, total - visible.length)} more
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A heading-and-button that opens or closes a group of rows (the planets, the targets that do not fit). */
+export function Group({ id, title, open, onToggle, children }: { id: string; title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div className="mt-4 border-t border-white/15 pt-1">
+      <h3>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={onToggle}
+          className="flex min-h-11 w-full items-center gap-2 rounded text-left text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+        >
+          <span aria-hidden="true" className="w-4 text-white/70">{open ? '▾' : '▸'}</span>
+          {title}
+        </button>
+      </h3>
+      <div id={id} hidden={!open}>
+        {open && children}
+      </div>
+    </div>
+  );
+}
