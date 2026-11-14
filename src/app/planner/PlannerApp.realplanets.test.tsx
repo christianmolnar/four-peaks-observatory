@@ -110,7 +110,7 @@ describe('search finds the planets and the Moon', () => {
     const hits = within(results()).getAllByRole('listitem');
     expect(hits[0].textContent).toContain('Jupiter');
     expect(hits[0].textContent).toContain('Planet');
-    expect(hits[0].textContent).toMatch(/Up (tonight|that night).*Score \d+/);
+    expect(hits[0].textContent).toMatch(/Up (tonight|[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}).*Score \d+/);
     expect(hits[1].textContent).toContain('Ghost of Jupiter Nebula');
     await u.click(within(hits[0]).getByRole('button', { name: 'Add Jupiter to my plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);

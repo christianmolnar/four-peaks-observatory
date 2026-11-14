@@ -28,7 +28,7 @@ describe('planner page', () => {
     expect(html).not.toContain('data-testid="target-list"');
     expect(html).toContain('Search the catalog by name or number');
     expect(html).toContain('MY PLAN');
-    expect(html).toContain('Export CSV');
+    expect(html).toContain('More');
     expect(html).toContain('Replace profile with sample');
   });
 

@@ -43,11 +43,11 @@ describe('"tonight" in every section follows the date', () => {
   it('on 2026-12-15 no text says tonight, and the date is shown the way the date picker shows it', async () => {
     await app('2026-12-15');
     expect(pageText()).not.toMatch(/tonight/i);
-    expect(pageText()).toMatch(/that night \(12\/15\/2026\)/i);
-    expect(screen.getByRole('heading', { name: 'THAT NIGHT (12/15/2026)' })).toBeTruthy();
-    expect(screen.getAllByText('Jupiter: that night (12/15/2026)').length).toBeGreaterThan(0);
-    expect(pageText()).toMatch(/Estimates for that night \(12\/15\/2026\), not predictions/);
-    expect(pageText()).toMatch(/estimates for that night \(12\/15\/2026\), not predictions/);
+    expect(pageText()).toMatch(/Tue 15 Dec/i);
+    expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
+    expect(screen.getAllByText('Jupiter: Tue 15 Dec').length).toBeGreaterThan(0);
+    expect(pageText()).toMatch(/Estimates for Tue 15 Dec, not predictions/);
+    expect(pageText()).toMatch(/estimates for Tue 15 Dec, not predictions/);
   });
 
   it('on the real tonight the sections say tonight', async () => {
@@ -57,7 +57,6 @@ describe('"tonight" in every section follows the date', () => {
     expect(screen.getAllByText('Jupiter: tonight').length).toBeGreaterThan(0);
     expect(pageText()).toMatch(/Estimates for tonight, not predictions/);
     expect(pageText()).toMatch(/estimates for tonight, not predictions/);
-    expect(pageText()).not.toMatch(/that night/i);
   });
 });
 
@@ -69,7 +68,7 @@ describe('the date follows the clock on a page left open', () => {
     jest.setSystemTime(new Date(iso));
   };
 
-  it('"tonight" becomes "that night (date)" when the site clock passes 06:00, with no reload', async () => {
+  it('"tonight" becomes "Sat 21 Nov" when the site clock passes 06:00, with no reload', async () => {
     at('2026-11-14T12:58:00Z'); // 05:58 MST on Nov 14: still the Nov 13 evening
     expect(defaultTonightDate(new Date(), PHX.longitude, PHX.timeZone)).toBe('2026-11-13');
     await app('2026-11-13');
@@ -77,7 +76,7 @@ describe('the date follows the clock on a page left open', () => {
     act(() => { jest.advanceTimersByTime(30000); }); // 05:58:30, same night
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
     act(() => { jest.advanceTimersByTime(90000); }); // 06:00 and a bit
-    expect(screen.getByRole('heading', { name: 'THAT NIGHT (11/13/2026)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'FRI 13 NOV' })).toBeTruthy();
     expect(pageText()).not.toMatch(/tonight/i);
   });
 
@@ -93,7 +92,7 @@ describe('the date follows the clock on a page left open', () => {
     await app('2026-11-13');
     jest.setSystemTime(new Date('2026-11-14T13:30:00Z')); // the tab slept past dawn: no timer has fired
     act(() => { fireEvent(document, new Event('visibilitychange')); });
-    expect(screen.getByRole('heading', { name: 'THAT NIGHT (11/13/2026)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'FRI 13 NOV' })).toBeTruthy();
   });
 });
 

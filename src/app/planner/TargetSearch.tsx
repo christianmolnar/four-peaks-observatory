@@ -63,7 +63,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
   // What the Search button or Enter committed; typing updates `text` and the results follow it either way.
   const [, setSubmitted] = useState('');
   const uid = useId();
-  const inputId = `${uid}-find`;
+  const inputId = 'target-search'; // one search box on the page; the sticky strip jumps to it
   const hintId = `${uid}-find-hint`;
   const typed = text.trim();
   const result = useMemo(() => (catalog.status === 'ready' && typed !== '' ? catalog.index.search({ text: typed, limit: MAX_RESULTS }) : null), [catalog, typed]);

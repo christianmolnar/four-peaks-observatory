@@ -36,7 +36,7 @@ describe('compact target rows', () => {
     expect(text).toMatch(/Up \d\d:\d\d–\d\d:\d\d/);
     expect(text).toMatch(/peak \d+° [NESW]+ at \d\d:\d\d/);
     expect(text).toMatch(/Fits|Too large|Fit unknown|Smart scope/);
-    const score = row.querySelectorAll(':scope > div')[2].textContent as string;
+    const score = row.querySelector('[data-testid="row-fit-score"]')!.textContent as string;
     expect(score).toMatch(/Score \d+$/);
     expect(text).toMatch(/[\d.]+ h clear/);
     const add = within(row).getByRole('button', { name: 'Add NGC 891 to my plan' });

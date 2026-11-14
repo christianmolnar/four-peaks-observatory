@@ -66,7 +66,7 @@ describe('targets that do not fit the chosen train', () => {
     expect(rows.length).toBeGreaterThan(0);
     const large = rows.filter((r) => /Larger than this frame/.test(r.textContent as string));
     expect(large.length).toBeGreaterThan(0);
-    for (const r of large) expect(r.textContent).toMatch(/Larger than this frame: \d[\d.]*′( × \d[\d.]*′)? vs your \d+′ × \d+′/);
+    for (const r of large) expect(r.textContent).toMatch(/Larger than this frame(: \d[\d.]*′( × \d[\d.]*′)? vs your \d+′ × \d+′|'s short side: \d[\d.]*′ vs \d+′ \(your frame \d+′ × \d+′\))/);
     for (const r of rows) expect(mainNames).not.toContain(rowName(r)); // never in both
     expect(screen.getByTestId('target-list').textContent).not.toContain('Too large');
   });

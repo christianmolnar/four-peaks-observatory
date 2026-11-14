@@ -41,10 +41,10 @@ describe('Planets section', () => {
     app();
     for (const r of radios()) {
       const text = r.closest('label')!.textContent ?? '';
-      if (/Not clear of your horizon that night \(12\/15\/2026\)/.test(text)) expect(text).not.toMatch(/Peak -\d/);
+      if (/Not clear of your horizon Tue 15 Dec/.test(text)) expect(text).not.toMatch(/Peak -\d/);
     }
     // 2026-12-15: Mercury is below the horizon all night.
-    expect(radio('Mercury').closest('label')!.textContent).toMatch(/Not clear of your horizon that night \(12\/15\/2026\).*Below the horizon all night/);
+    expect(radio('Mercury').closest('label')!.textContent).toMatch(/Not clear of your horizon Tue 15 Dec.*Below the horizon all night/);
   });
 
   it('opens on the first planet that is clear of the horizon on the chosen night', () => {
@@ -61,7 +61,7 @@ describe('Planets section', () => {
     expect(radio('Saturn').checked).toBe(true);
     expect(panel('Saturn').getAttribute('aria-hidden')).toBeNull();
     expect(panel('Jupiter').getAttribute('aria-hidden')).toBe('true');
-    expect(within(panel('Saturn')).getByText('Saturn: that night (12/15/2026)')).toBeTruthy();
+    expect(within(panel('Saturn')).getByText('Saturn: Tue 15 Dec')).toBeTruthy();
     // The hidden panels cannot be reached by role: only Saturn's chart is in the accessibility tree.
     const charts = screen.getAllByRole('img', { name: /Altitude of Saturn|Altitude of Jupiter/ });
     expect(charts.map((c) => c.querySelector('title')!.textContent)).toEqual(['Altitude of Saturn through the night']);

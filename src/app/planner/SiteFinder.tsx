@@ -20,6 +20,8 @@ export interface SiteFinderProps {
   overwritable: ReadonlySet<string>;
   /** Puts the new box texts in place; `changed` lists the boxes a lookup wrote. */
   onApply: (texts: Record<string, string>, changed: SiteFieldKey[]) => void;
+  /** The id of the text box, when something outside needs to focus it; defaults to one unique to this instance. */
+  inputId?: string;
   /** For tests. */
   fetchImpl?: ClientFetch;
 }
@@ -36,10 +38,10 @@ const wouldChange = (changes: FieldChange[]) => `Would change: ${changes.map(sho
  * only a button press sends a request. A lookup never silently replaces a value already in a box: "Use" fills empty boxes (and
  * boxes an earlier lookup filled), lists what it kept, and "Replace" is the explicit way to overwrite the rest.
  */
-export default function SiteFinder({ texts, getTexts, overwritable, onApply, fetchImpl }: SiteFinderProps) {
+export default function SiteFinder({ texts, getTexts, overwritable, onApply, inputId, fetchImpl }: SiteFinderProps) {
   // One finder per site form, and several forms can be on the page: the ids are per instance, so each box keeps its own name and hint.
   const uid = useId();
-  const queryId = `${uid}-site-find-query`;
+  const queryId = inputId ?? `${uid}-site-find-query`;
   const hintId = `${uid}-site-find-hint`;
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);

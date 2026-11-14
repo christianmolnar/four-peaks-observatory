@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testi
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { listRows, pageProps, ready, rowName, showAll } from './testkit';
+import { chooseMore, listRows, pageProps, ready, rowName, showAll } from './testkit';
 
 // A fresh visitor: no stored data, no props. The page loads the sample, edits go to localStorage, reload keeps them.
 
@@ -242,7 +242,7 @@ describe('print', () => {
     const print = jest.fn();
     window.print = print;
     await app();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Print or save as PDF' }));
+    chooseMore('Print or save as PDF');
     expect(print).toHaveBeenCalledTimes(1);
   });
 });
@@ -250,7 +250,7 @@ describe('print', () => {
 describe('CSV', () => {
   it('writes the rows on screen, with the site zone, one line per row plus the header', async () => {
     await app();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Export CSV' }));
+    chooseMore('Export CSV');
     const text = (await blobs[blobs.length - 1].text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');
     fireEvent.click(screen.getByRole('button', { name: /^Planets up/ }));

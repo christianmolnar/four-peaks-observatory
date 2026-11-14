@@ -23,7 +23,7 @@ const OBJECTS: CatalogObject[] = [
   { id: 'm40', name: 'M40', type: 'double-star', raHours: 12.37, decDeg: 58.08, mag: 8, m: 40, constellation: 'UMa', aliases: ['M 40'] },
 ];
 const DATE = '2026-12-15';
-const WORD = 'that night (12/15/2026)';
+const WORD = 'Tue 15 Dec';
 
 const profile = (trainId = 'deep-c11-reducer-533') => {
   const p = sampleProfile();
@@ -60,7 +60,7 @@ afterEach(cleanup);
 describe('tonight\'s list over the whole catalog', () => {
   it('shows a loading state until the worker answers, then the ranked catalog objects; the double star is not in it', async () => {
     const { worker } = mount({ hold: true });
-    expect(await screen.findByText(/Ranking the whole catalog for that night/)).toBeTruthy();
+    expect(await screen.findByText(/Ranking the whole catalog for [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}/)).toBeTruthy();
     expect(screen.queryByTestId('target-list')).toBeNull();
     expect(screen.getByRole('heading', { name: `BEST TARGETS FOR ${WORD.toUpperCase()}` })).toBeTruthy();
     await act(async () => { await worker.release(); });
@@ -79,7 +79,7 @@ describe('tonight\'s list over the whole catalog', () => {
     await act(async () => { await worker.release(); });
     await ready();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2027-06-15' } });
-    expect(await screen.findByText(/Ranking the whole catalog for that night \(6\/15\/2027\)/)).toBeTruthy();
+    expect(await screen.findByText(/Ranking the whole catalog for Tue 15 Jun/)).toBeTruthy();
     expect(screen.queryByTestId('target-list')).toBeNull();
     await act(async () => { await worker.release(); });
     await ready();
@@ -97,8 +97,8 @@ describe('tonight\'s list over the whole catalog', () => {
     await ready();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(/Superseded/)).toBeNull();
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR THAT NIGHT (2/20/2027)' })).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Targets ranked for that night (2/20/2027)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR SAT 20 FEB' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Targets ranked for Sat 20 Feb' })).toBeTruthy();
   });
 
   it('a failure is shown plainly with Retry, and Retry asks again', async () => {
@@ -178,13 +178,13 @@ describe('search', () => {
     await u.type(searchBox(), 'M40');
     const dbl = within(results()).getAllByRole('listitem')[0];
     expect(dbl.textContent).toContain('Double star');
-    expect(dbl.textContent).toMatch(/Up that night.*Score \d+/);
+    expect(dbl.textContent).toMatch(/Up [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}.*Score \d+/);
     expect(dbl.textContent).not.toMatch(/in the list below/);
     expect(dbl.textContent).toContain('Double stars are not ranked, so it is not in the list.');
     await u.clear(searchBox());
     await u.type(searchBox(), 'Southern Test');
     const south = within(results()).getAllByRole('listitem')[0];
-    expect(south.textContent).toMatch(/Not up that night \(12\/15\/2026\): it peaks at -?\d+° [NESW]+, never clear of your horizon/);
+    expect(south.textContent).toMatch(/Not up Tue 15 Dec: it peaks at -?\d+° [NESW]+, never clear of your horizon/);
   });
 
   it('an unknown name says it is not in the bundled catalog (and nothing is sent anywhere)', async () => {
@@ -250,7 +250,7 @@ describe('my plan', () => {
     const card = listRows().find((li) => rowName(li) === 'NGC 891') as HTMLElement;
     expect(within(card).queryByRole('button', { name: 'Add NGC 891 to my plan' })).toBeNull();
     expect(within(card).getByRole('button', { name: 'NGC 891 is in my plan' }).textContent).toBe('In my plan');
-    expect(within(myPlan()).getByText(/^Up that night/)).toBeTruthy();
+    expect(within(myPlan()).getByText(/^Up [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}/)).toBeTruthy();
   });
 
   it('keeps the user\'s order: Up and Down move one place, the ends are disabled, the order is saved', async () => {

@@ -159,10 +159,10 @@ describe('"tonight" only when the date is tonight', () => {
 
   it('says that night, with the date, on any other date, and follows the date picker both ways', async () => {
     await app(base(), '2026-12-15');
-    expect(screen.getByRole('heading', { name: 'THAT NIGHT (12/15/2026)' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR THAT NIGHT (12/15/2026)' })).toBeTruthy();
-    expect(screen.getByTestId('target-list').getAttribute('aria-label')).toBe('Targets ranked for that night (12/15/2026)');
-    expect(screen.getByRole('list', { name: 'Targets ranked for that night (12/15/2026)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TUE 15 DEC' })).toBeTruthy();
+    expect(screen.getByTestId('target-list').getAttribute('aria-label')).toBe('Targets ranked for Tue 15 Dec');
+    expect(screen.getByRole('list', { name: 'Targets ranked for Tue 15 Dec' })).toBeTruthy();
     expect(screen.queryByText(/usable tonight/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: tonight() } });
     await ready();

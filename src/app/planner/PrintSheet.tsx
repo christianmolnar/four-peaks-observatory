@@ -1,7 +1,8 @@
-import { compass, fitLabel, seasonLabel } from '@/planner/plan';
+import { fitLabel } from '@/planner/plan';
 import type { PlanEntry } from '@/planner/plan';
 import { TREND_TEXT } from '@/planner/itinerary';
 import type { ItineraryReport } from './ItinerarySection';
+import { peakText } from './catalogText';
 
 export interface PrintSheetProps {
   date: string;
@@ -51,7 +52,6 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
             <tr>
               <th scope="col">#</th>
               <th scope="col">Target</th>
-              <th scope="col">Season</th>
               <th scope="col">Fit</th>
               <th scope="col">Peak</th>
               <th scope="col">Usable window</th>
@@ -70,9 +70,8 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
                   <br />
                   <span>{e.why}</span>
                 </th>
-                <td>{e.isPlanet ? 'n/a' : e.seasonMonths.length === 0 ? 'Not listed' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`}</td>
                 <td>{fitLabel(e)}</td>
-                <td>{e.peakAltitude.toFixed(0)}° {compass(e.peakAzimuth)} at {formatTime(e.peakTime)}</td>
+                <td>{peakText(e, formatTime)}</td>
                 <td>{e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', ')}</td>
                 <td>{(e.moonIllumination * 100).toFixed(0)}% lit, {e.moonSeparation.toFixed(0)}° away</td>
                 <td>{e.score.total}</td>

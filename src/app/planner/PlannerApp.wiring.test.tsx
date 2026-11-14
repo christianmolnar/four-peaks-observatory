@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { defaultDateForProfile, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { chooseMore, pageProps, ready } from './testkit';
 
 // 2026-12-20 05:00 UTC = 22:00 on Dec 19 in Phoenix, already 15:00 on Dec 20 in Sydney.
 const NOW = Date.UTC(2026, 11, 20, 5, 0);
@@ -147,7 +147,7 @@ describe('CSV export', () => {
     jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     await ready();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Export CSV' }));
+    chooseMore('Export CSV');
     expect(blob).toBeDefined();
     const text = await (blob as Blob).text();
     expect(text).toMatch(/\d{4}-\d\d-\d\d \d\d:\d\d \S+/);

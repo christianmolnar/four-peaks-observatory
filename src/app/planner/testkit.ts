@@ -88,9 +88,25 @@ export const pageProps = {
   loadCatalogIndex: defaultCatalog.load,
 };
 
-/** Waits for the ranked list to be on the page (the ranking runs off the render, so a page test awaits it). */
+/** Opens the sticky strip's controls (Evening of, Site, Train, Filter, Minimum altitude), which start closed; does nothing when they are open. */
+export const openControls = (): void => {
+  const strip = document.querySelector<HTMLElement>('[aria-controls="controls-panel"]');
+  if (strip !== null && strip.getAttribute('aria-expanded') === 'false') fireEvent.click(strip);
+};
+
+/**
+ * Waits for the ranked list to be on the page (the ranking runs off the render, so a page test awaits it), and opens the
+ * controls so the test can reach them.
+ */
 export const ready = async (): Promise<void> => {
   await screen.findByTestId('target-list', {}, { timeout: 20000 });
+  openControls();
+};
+
+/** Chooses an item of the list's "More" menu ("Export CSV", "Print or save as PDF"). */
+export const chooseMore = (item: string): void => {
+  fireEvent.click(screen.getByRole('button', { name: /^More/ }));
+  fireEvent.click(screen.getByRole('menuitem', { name: item }));
 };
 
 /** The rows of a ranked list on the page (the list shows the best ten first). */

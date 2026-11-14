@@ -84,3 +84,23 @@ describe('TargetList paging', () => {
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('TargetList rows on a phone and at md', () => {
+  it('keeps one line for up, peak, fit and score, and a one-line Why that is not hidden on a phone', () => {
+    mount(many(2));
+    const row = screen.getAllByRole('listitem')[0];
+    const stats = row.querySelector('[data-testid="row-fit-score"]')!.parentElement!;
+    expect(stats.className).toContain('md:contents');
+    expect(stats.textContent).toMatch(/Up .*peak .*Score \d+/);
+    const why = [...row.querySelectorAll('p')].find((p) => /h clear/.test(p.textContent ?? ''))!;
+    expect(why.className).toContain('line-clamp-1');
+    expect(why.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+  });
+
+  it('the column titles stick below the page header and the control strip', () => {
+    const { container } = mount(many(1));
+    const head = container.querySelector('[aria-hidden="true"]')!;
+    expect(head.className).toContain('sticky');
+    expect(head.className).toContain('top-[var(--planner-top,0px)]');
+  });
+});

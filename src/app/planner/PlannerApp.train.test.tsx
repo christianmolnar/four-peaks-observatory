@@ -86,7 +86,7 @@ describe('what the list says about itself', () => {
     expect(note).toMatch(/100 is the best a target can do/);
     const rows = [...screen.getByTestId('target-list').querySelectorAll(':scope > li')];
     expect(rows.length).toBeGreaterThan(0);
-    for (const r of rows) expect(r.querySelectorAll(':scope > div')[2].textContent).toMatch(/Score \d+$/);
+    for (const r of rows) expect(r.querySelector('[data-testid="row-fit-score"]')!.textContent).toMatch(/Score \d+$/);
   });
 
   it('shows no season anywhere in the list or its note', async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
@@ -19,18 +19,32 @@ export interface ProfileEditorProps {
   profile: Profile;
   /** Receives a validated profile; the parent stores it. */
   onChange: (next: Profile) => void;
+  /** Each change of `tick` opens the Site list on `siteId` with its Find box focused (the page's "Change or find a site"). */
+  findSite?: { siteId: string; tick: number };
 }
 
-/** A native disclosure that builds its content only while open, so a closed panel costs the page nothing. */
-function Disclosure({ summary, children }: { summary: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+/** The Find box of a site's form. */
+export const findBoxId = (siteId: string) => `site-find-${siteId}`;
+
+/**
+ * A native disclosure that builds its content only while open, so a closed panel costs the page nothing. The chevron shows
+ * that it opens. `open` and `onOpenChange` make it controlled when the page needs to open it.
+ */
+function Disclosure({ summary, children, open: controlled, onOpenChange }: { summary: string; children: React.ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void }) {
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
   return (
     <details
       className="mb-3 border-b border-white/10 pb-3"
       open={open}
-      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+      onToggle={(e) => {
+        const next = (e.currentTarget as HTMLDetailsElement).open;
+        setOwn(next);
+        onOpenChange?.(next);
+      }}
     >
-      <summary className="min-h-11 flex items-center cursor-pointer text-white font-normal text-base rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+      <summary className="min-h-11 flex list-none cursor-pointer items-center gap-2 rounded text-base font-normal text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="w-4 text-white/70">{open ? '▾' : '▸'}</span>
         {summary}
       </summary>
       {open && <div className="mt-3">{children}</div>}
@@ -141,7 +155,7 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
       onRemove={() => run(() => removeItem(profile, list, item.id), `Removed ${item.name}.`)}
     >
-      {list === 'sites' && <SiteFinder texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
+      {list === 'sites' && <SiteFinder inputId={findBoxId(item.id)} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
       {spec.fields.map((f) => (
         <Box
           key={f.key}
@@ -238,8 +252,26 @@ function TrainForm({ profile, train, onChange }: { profile: Profile; train: Trai
  * Site, equipment and train editor. Every Save goes through the profile validator; a refused edit leaves the
  * profile as it was and shows the reason under the form. The horizon has its own editor.
  */
-function ProfileEditor({ profile, onChange }: ProfileEditorProps) {
+function ProfileEditor({ profile, onChange, findSite }: ProfileEditorProps) {
   const [status, setStatus] = useState('');
+  const [sitesOpen, setSitesOpen] = useState(false);
+  const [wantFind, setWantFind] = useState(0);
+  const lastTick = useRef(findSite?.tick ?? 0);
+  // A new request opens the Site list; once its form is built the Find box takes focus and the editor scrolls into view.
+  useEffect(() => {
+    if (findSite === undefined || findSite.tick === lastTick.current) return;
+    lastTick.current = findSite.tick;
+    setSitesOpen(true);
+    setWantFind(findSite.tick);
+  }, [findSite]);
+  useEffect(() => {
+    if (wantFind === 0 || findSite === undefined) return;
+    const box = document.getElementById(findBoxId(findSite.siteId));
+    if (!box) return;
+    box.scrollIntoView({ block: 'center' });
+    box.focus({ preventScroll: true });
+    setWantFind(0);
+  }, [wantFind, sitesOpen, findSite]);
   const [addError, setAddError] = useState<string | null>(null);
   const commit = (next: Profile, what: string) => {
     setStatus(what);
@@ -270,7 +302,11 @@ function ProfileEditor({ profile, onChange }: ProfileEditorProps) {
         const items = itemsOf(profile, list);
         const spec = LIST_SPECS[list];
         return (
-          <Disclosure key={list} summary={`${spec.title} (${items.length})`}>
+          <Disclosure
+            key={list}
+            summary={`${spec.title} (${items.length})`}
+            {...(list === 'sites' ? { open: sitesOpen, onOpenChange: setSitesOpen } : {})}
+          >
             {items.map((it) => (
               <ItemForm key={`${list}:${JSON.stringify(it)}`} profile={profile} list={list} item={it} onChange={commit} />
             ))}

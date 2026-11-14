@@ -50,6 +50,7 @@ import ExposurePanel from './ExposurePanel';
 import HorizonEditor from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
+import OverflowMenu from './OverflowMenu';
 import PlanetsSection from './PlanetsSection';
 import PrintSheet from './PrintSheet';
 import { download } from './download';
@@ -62,7 +63,7 @@ import TargetList, { Group } from './TargetList';
 import type { RowDescription } from './TargetList';
 import TargetSearch from './TargetSearch';
 import { createNightScorer } from './nightScorer';
-import { designationOf, fitReason, nameList, nightStatus, peakText, sizeText, typeLabel } from './catalogText';
+import { addDays, designationOf, fitReason, nameList, nightDateText, nightStatus, peakText, scorePartsText, sizeText, typeLabel } from './catalogText';
 import { useCatalog } from './useCatalog';
 import { useTonightList } from './useTonightList';
 
@@ -80,23 +81,20 @@ const TYPE_LABELS: Record<TypeFilter, string> = {
   planets: 'Planets',
 };
 
-/** The picked day as the date input shows it: the browser's own locale. */
-const dateLabel = (iso: string) => new Intl.DateTimeFormat(undefined, { timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
-
 type RankedEntry = PlanEntry;
+
+/** Above this share of the Moon lit at mid-night, the list says so in words. */
+const BRIGHT_MOON = 0.8;
 
 /** Tonight's list holds at most this many targets. */
 const LIST_LIMIT = 100;
 
 /** Moon, windows and the full reason of one target: what the compact row leaves out. */
 function detailText(e: RankedEntry, formatTime: (d: Date) => string) {
-  const parts = [`usable ${e.score.usable.toFixed(0)}`, `altitude ${e.score.altitude.toFixed(0)}`];
-  if (e.seasonMonths.length > 0) parts.push(`season ${e.score.season}`);
-  parts.push(`Moon ${e.score.moon.toFixed(0)}`, `fit ${e.score.fit}`);
   return {
     moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
     windows: e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
-    parts: `Score parts: ${parts.join(', ')}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
+    parts: `Score parts: ${scorePartsText(e.score)}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
   };
 }
 
@@ -104,7 +102,7 @@ function detailText(e: RankedEntry, formatTime: (d: Date) => string) {
  * What the size screen left out of the list, said with names instead of a silent disappearance. The one control for them is
  * the "Show targets that do not fit" box: off, this says what is left out; on, it says where they went.
  */
-function NoFitNote({ counts, hidden, showNoFit, listed }: { counts: RankResult['counts']; hidden: RankResult['hidden']; showNoFit: boolean; listed: number }) {
+function NoFitNote({ counts, hidden, showNoFit, listed, nightWord }: { counts: RankResult['counts']; hidden: RankResult['hidden']; showNoFit: boolean; listed: number; nightWord: string }) {
   const total = counts.tooLarge + counts.tooSmall;
   if (total === 0) return null;
   const sample = (list: RankResult['hidden']['tooLarge'], n: number) => nameList(list.map((h) => h.name), n > list.length ? n - list.length : 0);
@@ -113,7 +111,7 @@ function NoFitNote({ counts, hidden, showNoFit, listed }: { counts: RankResult['
       {showNoFit ? (
         <p>
           Showing {listed} targets that do not fit this frame in the group below the list
-          {listed < total ? ` (the best ${listed} of ${total})` : ''}.
+          {listed < total ? ` (${listed} of ${total}: only targets that are up ${nightWord} are listed)` : ''}.
         </p>
       ) : (
         <>
@@ -191,6 +189,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // My plan: catalog ids in the user's priority order; remembered in this browser like the site and train choice.
   const [planIds, setPlanIds] = useState<readonly string[]>([]);
   const [zone, setZone] = useState<string>('');
+  // The sticky strip: closed it is one line (date, site, train); open it holds the controls. The page's fixed header and the strip
+  // are measured so the column titles and anchors stop below them.
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [stickyTop, setStickyTop] = useState({ nav: 0, strip: 0 });
+  // "Change or find a site": a count that the site editor answers by opening its Site list with the Find box focused.
+  const [findSiteTick, setFindSiteTick] = useState(0);
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
   // The itinerary section leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
@@ -288,6 +293,24 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
   const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
   const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];
+  const hasControls = site !== undefined && train !== undefined;
+  useEffect(() => {
+    if (!hasControls) return undefined;
+    const nav = document.querySelector('nav.fixed');
+    const measure = () => {
+      const next = { nav: Math.round(nav?.getBoundingClientRect().height ?? 0), strip: Math.round(stripRef.current?.getBoundingClientRect().height ?? 0) };
+      setStickyTop((prev) => (prev.nav === next.nav && prev.strip === next.strip ? prev : next));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    if (nav) observer?.observe(nav);
+    if (stripRef.current) observer?.observe(stripRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, [hasControls]);
   // The site as the astro functions take it, stable between renders so the sections below can memoise on it.
   const siteLat = site?.latitude;
   const siteLon = site?.longitude;
@@ -437,7 +460,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
 
   const isTonight = date === '' || date === tonightDate;
-  const nightWord = isTonight ? 'tonight' : `that night (${dateLabel(date)})`;
+  const nightWord = isTonight ? 'tonight' : nightDateText(date);
 
   // My plan resolved for the night: a catalog target or a planet, scored by the same single-target path as the search.
   const planItems = useMemo(
@@ -646,7 +669,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const name = body ?? target?.displayName ?? target?.name ?? id;
     const detail =
       body !== undefined
-        ? 'Planet'
+        ? (body === 'Moon' ? 'Moon' : 'Planet')
         : target !== undefined
           ? [designationOf(target.id) === name ? '' : designationOf(target.id), typeLabel(target.type), sizeText(target.sizeArcmin)].filter((x) => x !== '').join(' · ')
           : catalog.status === 'loading'
@@ -711,11 +734,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     savedArcs.length === 0
       ? 'Horizon not set: only the flat minimum altitude applies.'
       : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.`;
+  const midMoon = night?.kind === 'normal' ? moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) : null;
   const nightText =
     night === undefined
       ? 'Loading the date…'
       : night.kind === 'normal'
-        ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${(((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1)} h), Moon ${(moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) * 100).toFixed(0)}% lit at mid-night. `
+        ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${(((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1)} h), Moon ${((midMoon ?? 0) * 100).toFixed(0)}% lit at mid-night. `
         : night.kind === 'none'
           ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
           : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
@@ -752,6 +776,17 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       </div>
     );
   };
+  const quickDates = [
+    { label: 'Today', date: tonightDate },
+    { label: 'Tomorrow', date: addDays(tonightDate, 1) },
+    { label: '+1 week', date: addDays(tonightDate, 7) },
+  ];
+  const focusSearch = () => {
+    const input = document.getElementById('target-search');
+    if (!input) return;
+    input.scrollIntoView({ block: 'center' });
+    input.focus({ preventScroll: true });
+  };
   const listProps = {
     formatTime,
     describe: describeRow,
@@ -764,7 +799,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   return (
     <>
-    <div className="space-y-8 text-white print:hidden">
+    <div
+      className="space-y-8 text-white print:hidden [&_h2]:scroll-mt-[calc(var(--planner-top,0px)+1rem)] [&_section[id]]:scroll-mt-[calc(var(--planner-top,0px)+1rem)]"
+      style={{ '--planner-nav': `${stickyTop.nav}px`, '--planner-top': `${stickyTop.nav + stickyTop.strip}px` } as React.CSSProperties}
+    >
       <header>
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/90 font-normal text-sm mt-2 max-w-3xl">
@@ -794,12 +832,36 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
       </div>
 
-      <section aria-labelledby="controls-heading" className={panel}>
-        <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">{nightWord.toUpperCase()}</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr] items-start">
+      <section aria-labelledby="controls-heading" className="sticky top-[var(--planner-nav,0px)] z-30 rounded-lg border border-white/10 bg-black/95 backdrop-blur">
+        <h2 id="controls-heading" className="sr-only">{nightWord.toUpperCase()}</h2>
+        <div ref={stripRef} className="flex items-center gap-2 px-2 sm:px-4">
+          <button
+            type="button"
+            aria-expanded={controlsOpen}
+            aria-controls="controls-panel"
+            onClick={() => setControlsOpen(!controlsOpen)}
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left text-xs font-normal leading-4 text-white focus:outline-none focus:ring-2 focus:ring-sky-400 sm:text-sm"
+          >
+            <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{controlsOpen ? '▾' : '▸'}</span>
+            <span className="min-w-0 line-clamp-2">{[date === '' ? '' : nightDateText(date), site.name, train.name].filter((x) => x !== '').join(' · ')}</span>
+            <span className="shrink-0 text-sky-300 underline underline-offset-2">{controlsOpen ? 'close' : 'edit'}</span>
+          </button>
+          <button type="button" aria-label="Find a target" onClick={focusSearch} className="min-h-11 shrink-0 rounded px-2 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            Search
+          </button>
+        </div>
+        <div id="controls-panel" hidden={!controlsOpen} className="max-h-[60vh] overflow-y-auto border-t border-white/10 p-4">
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr]">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
             <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+            <div className="mt-1 flex flex-wrap gap-2" role="group" aria-label="Quick dates">
+              {quickDates.map((q) => (
+                <button key={q.label} type="button" aria-pressed={date === q.date} onClick={() => setDate(q.date)} className={`${btn} min-h-11 ${date === q.date ? 'bg-white/15' : ''}`}>
+                  {q.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <label htmlFor="plan-site" className="block text-white/90 font-normal text-sm mb-1">Site</label>
@@ -817,6 +879,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </WrapSelect>
+            <button
+              type="button"
+              onClick={() => {
+                setControlsOpen(false);
+                setFindSiteTick((n) => n + 1);
+              }}
+              className="mt-1 inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
+            >
+              Change or find a site
+            </button>
           </div>
           <div>
             <label htmlFor="plan-train" className="block text-white/90 font-normal text-sm mb-1">Train</label>
@@ -866,18 +938,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             error={minAltError}
             lines={2}
           />
+          </div>
         </div>
-        <p className="text-white/80 font-normal text-sm mt-2" data-testid="night-summary">
+      </section>
+      <div className="-mt-4 space-y-1 px-1">
+        <p className="text-white/80 font-normal text-sm" data-testid="night-summary">
           {nightText}
           {zoneText}
         </p>
-        <p className="text-white/80 font-normal text-sm mt-1" data-testid="horizon-summary">
+        <p className="text-white/80 font-normal text-sm" data-testid="horizon-summary">
           {horizonText}{' '}
           <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
             Edit horizon
           </a>
         </p>
-      </section>
+      </div>
 
       <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
 
@@ -909,18 +984,24 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="h-5 w-5 accent-sky-400" />
               Show targets that do not fit
             </label>
-            <button type="button" className={btn} onClick={exportCsv} disabled={ranked === null || filtered.length === 0}>
-              Export CSV
-            </button>
-            <button type="button" className={btn} onClick={() => window.print()} disabled={ranked === null || filtered.length === 0}>
-              Print or save as PDF
-            </button>
+            <OverflowMenu
+              label="More"
+              items={[
+                { label: 'Export CSV', onSelect: exportCsv, disabled: ranked === null || filtered.length === 0 },
+                { label: 'Print or save as PDF', onSelect: () => window.print(), disabled: ranked === null || filtered.length === 0 },
+              ]}
+            />
           </div>
         </div>
 
         <p className="mb-3 text-white/70 font-normal text-sm" data-testid="score-note">
-          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights. Double stars are not ranked; search finds them.
+          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights. The list mixes types, so it is not strictly in score order. Double stars are not ranked; search finds them.
         </p>
+        {hasNight && midMoon !== null && midMoon > BRIGHT_MOON && (
+          <p className="mb-3 text-white/90 font-normal text-sm" data-testid="bright-moon-note">
+            Bright Moon ({(midMoon * 100).toFixed(0)}% lit at mid-night): faint nebulae and galaxies will wash out; clusters and bright objects hold up best. This is an estimate from the Moon&apos;s phase, not a sky reading.
+          </p>
+        )}
         {planetary && (
           <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="planetary-note">
             <span>This train is set up for planets, so most deep-sky targets are too large or too small for its frame.</span>
@@ -947,7 +1028,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           )
         ) : (
           <>
-            {type !== 'planets' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} />}
+            {type !== 'planets' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
             {planetGroup.length > 0 && (
               <Group id="planets-group" title={`Planets up ${nightWord} (${planetGroup.length})`} open={planetsOpen ?? planetary} onToggle={() => setPlanetsOpen(!(planetsOpen ?? planetary))}>
                 <TargetList {...listProps} entries={planetGroup} label={`Planets up ${nightWord}`} idPrefix="planet" />
@@ -1047,7 +1128,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         }}
       />
 
-      <ProfileEditor profile={profile} onChange={applyProfile} />
+      <ProfileEditor profile={profile} onChange={applyProfile} findSite={{ siteId: site.id, tick: findSiteTick }} />
 
       <section aria-labelledby="profile-heading" className={panel}>
         <h2 id="profile-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">PROFILE</h2>

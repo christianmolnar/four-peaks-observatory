@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { fitLabel } from '@/planner/plan';
+import { compass, fitLabel } from '@/planner/plan';
 import type { PlanEntry } from '@/planner/plan';
 import { peakText, rowWhy, upRange } from './catalogText';
+
+/** "86° N": the peak without its time, for the one-line phone row. */
+const peakShort = (e: PlanEntry): string => `${Math.round(e.peakAltitude) + 0}° ${compass(e.peakAzimuth)}`;
 
 /** Rows shown at first, and how many each "Show more" adds. */
 export const FIRST_ROWS = 10;
@@ -64,14 +67,14 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
 
   return (
     <div>
-      <div className={`${GRID} hidden gap-x-3 border-b border-white/20 px-1 pb-1 text-xs text-white/70 md:grid`} aria-hidden="true">
+      <div className={`${GRID} sticky top-[var(--planner-top,0px)] z-20 hidden gap-x-3 border-b border-white/20 bg-black px-1 pb-1 pt-1 text-xs text-white/70 md:grid`} aria-hidden="true">
         <span>Target</span>
         <span>Up and peak</span>
         <span>Fit and score</span>
         <span>Why</span>
         <span />
       </div>
-      <ul aria-label={label} className="text-[13px] leading-[18px] font-normal text-white/90" data-testid={`${idPrefix}-list`}>
+      <ul aria-label={label} className="text-xs leading-[15px] font-normal text-white/90 md:text-[13px] md:leading-[18px]" data-testid={`${idPrefix}-list`}>
         {visible.map((e, i) => {
           const d = describe(e);
           const isOpen = openId === e.id;
@@ -79,7 +82,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
           const nameId = `${idPrefix}-name-${e.id}`;
           const detailId = `${idPrefix}-detail-${e.id}`;
           return (
-            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-white/10 px-1 py-1.5 ${isOpen ? 'bg-sky-400/10' : ''}`}>
+            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-white/10 px-1 py-0.5 md:py-1.5 ${isOpen ? 'bg-sky-400/10' : ''}`}>
               <div className="col-start-1 min-w-0 md:col-auto">
                 <button
                   type="button"
@@ -87,7 +90,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                   aria-expanded={isOpen}
                   aria-controls={detailId}
                   onClick={() => onToggle(e.id)}
-                  className="-my-0.5 inline-flex max-w-full items-baseline gap-1.5 rounded py-0.5 text-left text-[15px] font-medium text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className="-my-0.5 inline-flex max-w-full items-baseline gap-1.5 rounded py-0.5 text-left text-[15px] font-medium leading-[18px] text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
                 >
                   <span aria-hidden="true" className="w-4 shrink-0 text-xs text-white/70">{isOpen ? '▾' : '▸'}</span>
                   <span className="break-words"><span className="text-white/70">{i + 1}.</span> {e.name}</span>
@@ -95,18 +98,23 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                 {d.aka !== '' && <span className="ml-1.5 text-white/70">{d.aka}</span>}
                 <p className="pl-[1.375rem] text-white/70">{d.meta}</p>
               </div>
-              <div className="col-start-1 pl-[1.375rem] md:col-auto md:pl-0">
-                <span>Up {upRange(e, formatTime)}</span>
-                <span className="md:hidden"> · </span>
-                <span className="md:block">peak {peakText(e, formatTime)}</span>
+              {/* On a phone the up window, peak, fit and score are one line; from md they are two columns. */}
+              <div className="col-start-1 pl-[1.375rem] md:contents">
+                <span className="md:col-auto md:block">
+                  Up {upRange(e, formatTime)}
+                  <span className="md:hidden"> · peak {peakShort(e)}</span>
+                  <span className="hidden md:block">peak {peakText(e, formatTime)}</span>
+                </span>
+                <span data-testid="row-fit-score" className="md:col-auto md:block">
+                  <span className="md:hidden"> · </span>
+                  <span>{fitText ? fitText(e) : fitLabel(e)}</span>
+                  <span className="hidden md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
+                </span>
               </div>
-              <div className="col-start-1 pl-[1.375rem] md:col-auto md:pl-0">
-                <span>{fitText ? fitText(e) : fitLabel(e)}</span>
-                <span className="md:hidden"> · </span>
-                <span className="md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
-              </div>
-              <p className="col-start-1 hidden pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:block md:pl-0">{rowWhy(e)}</p>
+              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:pl-0">{rowWhy(e)}</p>
               <div className="col-start-2 row-span-3 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
+                {/* On a phone the score sits above the button, so the stats line keeps to one line. */}
+                <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
                 <button
                   type="button"
                   aria-label={inPlan ? `${e.name} is in my plan` : `Add ${e.name} to my plan`}
