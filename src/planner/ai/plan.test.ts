@@ -1,11 +1,12 @@
 import { createAnthropicCaller, DEFAULT_MODEL, MAX_TOKENS, MissingKeyError, redactKey } from './anthropic';
 import { planNightWithAi, ModelReplyError } from './plan';
 import type { CallModel, ModelMessage } from './plan';
+import type { ModelPlan } from './schema';
 import { checkPlan } from './check';
 import { buildFacts, nightOf } from './facts';
 import { parsePlanReply } from './schema';
-import { buildRetryPrompt, buildUserPrompt, SYSTEM_PROMPT } from './prompt';
-import { INPUT, clock, lowMinute, MIN, planOf, transitOf, validSlots } from './testkit';
+import { buildRepairPrompt, buildRetryPrompt, buildUserPrompt, planAsReply, SYSTEM_PROMPT } from './prompt';
+import { INPUT, clock, lowMinute, MIN, planOf, transitOf, TZ, validSlots } from './testkit';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -243,21 +244,56 @@ describe('facts for the model', () => {
     expect(plain.rig).toBeUndefined();
     expect(plain.bortle).toBeUndefined();
   });
-  it('token budget: no call sends more than 40,000 characters, resent malformed reply (capped by MAX_TOKENS) included; six calls stay under 240,000', () => {
-    const worst = { ...rich, site: { ...rich.site, latitude: 60 }, date: '2026-12-21', targets: Array.from({ length: 12 }, (_, i) => ({ id: `x${i}`, name: 'N'.repeat(120), raHours: i * 2, decDeg: 20, info: { type: 'nebula', sizeArcmin: { major: 60, minor: 40 } } })) };
-    const { facts } = buildFacts(worst);
-    const first = SYSTEM_PROMPT.length + buildUserPrompt(facts).length;
+  const CHARS_PER_TOKEN = 4; // a generous upper bound for JSON text: a reply at the cap is at most this many characters per token
+  const CAP_CHARS = MAX_TOKENS * CHARS_PER_TOKEN;
+  const worstInput = { ...rich, site: { ...rich.site, latitude: 60 }, date: '2026-12-21', targets: Array.from({ length: 12 }, (_, i) => ({ id: `x${i}`, name: 'N'.repeat(120), raHours: i * 2, decDeg: 20, info: { type: 'nebula', sizeArcmin: { major: 60, minor: 40 } } })) };
+  /** A valid plan reply for `worstInput` padded (through notes) to exactly `chars` characters. */
+  const paddedPlan = (chars: number): ModelPlan => {
+    const p: ModelPlan = { exposures: worstInput.targets.map((t) => ({ id: t.id, minutes: 60, subSeconds: 120 })), plan: [], cut: worstInput.targets.map((t) => t.id), fitsAll: false, notes: '' };
+    p.notes = 'n'.repeat(chars - JSON.stringify(p).length);
+    return p;
+  };
+  it('token budget: the worst message list of one call (base + plan reply + repair + resent reply + retry) stays under 55,000 characters; six calls under 330,000', () => {
+    const { facts, night } = buildFacts(worstInput);
+    const base: ModelMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: buildUserPrompt(facts) }];
+    const first = base.reduce((n, m) => n + m.content.length, 0);
     expect(first).toBeLessThan(28_000);
-    // A reply cut at the cap is at most MAX_TOKENS tokens, taken at 4 characters each; it is resent with the retry message.
-    const perCall = first + MAX_TOKENS * 4 + buildRetryPrompt('x'.repeat(300)).length;
-    expect(perCall).toBeLessThan(40_000);
-    expect(perCall * 6).toBeLessThan(240_000);
+    // The previous plan, as large as one reply may be (capped by MAX_TOKENS).
+    const planReply = planAsReply(paddedPlan(CAP_CHARS));
+    expect(planReply.length).toBe(CAP_CHARS);
+    // The longest realistic repair message: all 12 targets in one slot at the same time (altitude, horizon, overlap, slew, verdict).
+    const start = night.start.getTime();
+    const crowded = { ...paddedPlan(2000), plan: worstInput.targets.map((t) => ({ id: t.id, start: clock(start, TZ), end: clock(start + 120 * MIN, TZ) })), cut: [] as string[], fitsAll: true };
+    const violations = checkPlan(worstInput, night, crowded);
+    expect(violations.length).toBeGreaterThan(12);
+    const repair = buildRepairPrompt(violations);
+    // That repair reply is malformed and capped by MAX_TOKENS; it is resent with the retry message.
+    const resent = 'x'.repeat(CAP_CHARS);
+    const retry = buildRetryPrompt('y'.repeat(300));
+    const worst: ModelMessage[] = [...base, { role: 'assistant', content: planReply }, { role: 'user', content: repair }, { role: 'assistant', content: resent }, { role: 'user', content: retry }];
+    const perCall = worst.reduce((n, m) => n + m.content.length, 0);
+    expect(perCall).toBeLessThan(55_000);
+    expect(perCall * 6).toBeLessThan(330_000);
   });
-  it('R3: MAX_TOKENS is near 3000, above a full 12-target plan, and a reply cut by it is malformed JSON that gets the retry', async () => {
+  it('R3: a runaway reply cut at the MAX_TOKENS cap is malformed JSON and gets the retry; a full 12-target plan with long notes is far under the cap', async () => {
     expect(MAX_TOKENS).toBe(3000);
-    const full = JSON.stringify(planOf(INPUT, validSlots()));
-    expect(full.length / 3).toBeLessThan(MAX_TOKENS / 3);
-    const cut = full.slice(0, Math.floor(full.length * 0.8));
+    // A full plan: 12 targets, 12 slots, a 600-character notes field, and a verdict. 3 characters per token is below any JSON tokenizer's real ratio.
+    const t0 = Date.parse('2026-12-10T20:00-07:00');
+    const full: ModelPlan = {
+      exposures: worstInput.targets.map((t) => ({ id: t.id, minutes: 90, subSeconds: 180 })),
+      plan: worstInput.targets.map((t, i) => ({ id: t.id, start: clock(t0 + i * 40 * MIN, TZ), end: clock(t0 + (i * 40 + 35) * MIN, TZ), exposureMinutes: 35 })),
+      cut: [],
+      fitsAll: true,
+      lastTarget: { id: 'x11', leftoverMinutes: 35, subSeconds: 180, frames: 11, usefulness: 'marginal', reason: 'R'.repeat(150) },
+      notes: 'n'.repeat(600),
+    };
+    const fullText = JSON.stringify(full, null, 2);
+    expect(fullText.length / 3).toBeLessThan(MAX_TOKENS / 2);
+    expect(parsePlanReply(fullText).ok).toBe(true);
+    // A reply that reaches the cap is cut mid-text; no cut of a valid reply parses.
+    const runaway = JSON.stringify({ ...full, notes: 'n'.repeat(CAP_CHARS * 2) });
+    const cut = runaway.slice(0, CAP_CHARS);
+    expect(parsePlanReply(cut).ok).toBe(false);
     const m = fake([cut, good()]);
     const r = await planNightWithAi(INPUT, { callModel: m.call });
     expect(r.modelCalls).toBe(2);
@@ -293,6 +329,18 @@ describe('prompt', () => {
   it('tells the model to use only the facts table and not compute positions', () => {
     expect(SYSTEM_PROMPT).toContain('Use only the FACTS table');
     expect(SYSTEM_PROMPT).toContain('Do not compute positions yourself');
+  });
+  it('polish: flip advice never reads as a second slot for one target; flips-off wording; one term per number', () => {
+    expect(SYSTEM_PROMPT).toContain('a slot for another target');
+    expect(SYSTEM_PROMPT).toContain('Never give the same target a second slot');
+    expect(SYSTEM_PROMPT).not.toContain('fresh slot');
+    expect(SYSTEM_PROMPT).toContain('When "meridianFlips.allowed" is false a slot cannot span the transit');
+    expect(SYSTEM_PROMPT).toContain('to use the time after the transit');
+    expect(SYSTEM_PROMPT).not.toMatch(/Without flips|time after the flip/);
+    // exposureMinutes: the slot length minus the flip. frames: leftoverMinutes minus the flip, not exposureMinutes.
+    expect(SYSTEM_PROMPT).toContain('"exposureMinutes", the minutes you plan to expose in it. It may not exceed the slot length (end minus start), minus "meridianFlips.minutes" when the slot spans its target\'s transit');
+    expect(SYSTEM_PROMPT).toContain('where M is leftoverMinutes, minus "meridianFlips.minutes" when that slot spans its transit; frames do not use exposureMinutes');
+    expect(SYSTEM_PROMPT).not.toMatch(/imaging (time|minutes)/);
   });
   it('PROMPT.md holds the exact system prompt', () => {
     expect(readFileSync(join(__dirname, 'PROMPT.md'), 'utf8')).toContain(SYSTEM_PROMPT);
