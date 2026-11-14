@@ -29,21 +29,6 @@ export class ProfileError extends Error {
 /** Smallest arc, and smallest gap between the arc's ends, in degrees. */
 export const MIN_ARC_DEG = 0.1;
 
-/**
- * True when two zones overlap, or leave less than MIN_ARC_DEG of open horizon between them
- * at either end. Touching zones are refused too: at a shared azimuth the horizon would have two
- * heights, so `horizonAltitudeAt` would not be a function of azimuth. A gap of MIN_ARC_DEG is
- * wider than the two edge steps `arcToHorizonPoints` places, so the points stay distinct.
- */
-export function arcsConflict(a: BlockedArc, b: BlockedArc): boolean {
-  const spanA = (a.endAz - a.startAz + 360) % 360;
-  const spanB = (b.endAz - b.startAz + 360) % 360;
-  const d = (b.startAz - a.startAz + 360) % 360;
-  // The tolerance absorbs float error in the subtractions, so an exact gap of MIN_ARC_DEG is accepted in either order.
-  const least = MIN_ARC_DEG - 1e-9;
-  return d - spanA < least || 360 - d - spanB < least;
-}
-
 type Obj = Record<string, unknown>;
 
 function obj(v: unknown, path: string): Obj {
@@ -145,17 +130,8 @@ function blockedArcs(v: unknown, path: string): BlockedArc[] {
   if (list.length > MAX_ZONES) {
     throw new ProfileError(path, `at most ${MAX_ZONES} blocked zones, got ${list.length}`);
   }
+  // Zones may overlap or touch: the blocked region is their union (arcToHorizonPoints).
   const zones = list.map((z, i) => blockedArc(z, `${path}[${i}]`));
-  for (let i = 0; i < zones.length; i++) {
-    for (let j = i + 1; j < zones.length; j++) {
-      if (arcsConflict(zones[i], zones[j])) {
-        throw new ProfileError(
-          `${path}[${j}]`,
-          `zone ${j + 1} overlaps or touches zone ${i + 1}; zones need at least ${MIN_ARC_DEG} degrees of open horizon between them`,
-        );
-      }
-    }
-  }
   return zones;
 }
 

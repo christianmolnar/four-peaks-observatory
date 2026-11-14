@@ -1,5 +1,5 @@
 import sample from '../data/sample-profile.json';
-import { ProfileError, arcsConflict, parseProfile, validateProfile } from '../profile';
+import { ProfileError, parseProfile, validateProfile } from '../profile';
 import type { BlockedArc, Profile } from '../profile';
 import { zoneOffsetMs } from '../plan';
 
@@ -224,20 +224,24 @@ export interface HorizonFields {
 }
 export type HorizonField = keyof HorizonFields;
 
-/** Limits of each box, in whole degrees. */
+/** Limits of each box, in whole degrees. An azimuth runs 0 to 360 whatever the other zones hold; 360 is the same direction as 0 and is stored as 0. */
 export const HORIZON_RANGE: Record<HorizonField, { min: number; max: number }> = {
-  start: { min: 0, max: 359 },
-  end: { min: 0, max: 359 },
+  start: { min: 0, max: 360 },
+  end: { min: 0, max: 360 },
   height: { min: 0, max: 90 },
 };
 export const MIN_ALTITUDE_RANGE = { min: 0, max: 89 } as const;
 export const DEFAULT_MIN_ALTITUDE = 20;
-/** What the first blocked zone starts as. */
+/** How wide an added zone starts, in degrees. */
+export const NEW_ZONE_WIDTH = 30;
 export const DEFAULT_ARC: BlockedArc = { startAz: 90, endAz: 180, heightDeg: 30 };
 
 export function fieldsFromArc(arc: BlockedArc): HorizonFields {
   return { start: String(arc.startAz), end: String(arc.endAz), height: String(arc.heightDeg) };
 }
+
+/** An azimuth box's number as stored: 360 is north, 0. Heights are unchanged. */
+const direction = (k: HorizonField, n: number): number => (k === 'height' ? n : n % 360);
 
 const NUMBER_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)$/;
 
@@ -265,7 +269,7 @@ const sameZone = (a: HorizonFields, b: HorizonFields): boolean =>
   (['start', 'end', 'height'] as const).every((k) => {
     const x = checkWholeDegrees(a[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
     const y = checkWholeDegrees(b[k], HORIZON_RANGE[k].min, HORIZON_RANGE[k].max);
-    return x.ok && y.ok ? x.value === y.value : a[k] === b[k];
+    return x.ok && y.ok ? direction(k, x.value) === direction(k, y.value) : a[k] === b[k];
   });
 
 /** True when two zone lists mean the same zones in the same order. */
@@ -276,7 +280,7 @@ export interface HorizonErrors {
   start?: string;
   end?: string;
   height?: string;
-  /** The three numbers are fine but the zone is refused (start equals end, too wide, overlaps another). */
+  /** The three numbers are fine but the zone is refused (start equals end, too wide). */
   arc?: string;
 }
 
@@ -285,13 +289,13 @@ function numbersOf(fields: HorizonFields): BlockedArc | null {
   const s = checkWholeDegrees(fields.start, HORIZON_RANGE.start.min, HORIZON_RANGE.start.max);
   const e = checkWholeDegrees(fields.end, HORIZON_RANGE.end.min, HORIZON_RANGE.end.max);
   const h = checkWholeDegrees(fields.height, HORIZON_RANGE.height.min, HORIZON_RANGE.height.max);
-  return s.ok && e.ok && h.ok ? { startAz: s.value, endAz: e.value, heightDeg: h.value } : null;
+  return s.ok && e.ok && h.ok ? { startAz: s.value % 360, endAz: e.value % 360, heightDeg: h.value } : null;
 }
 
 /**
  * Every message for the current text of every zone, computed from scratch on each call. Nothing is
  * stored, so a message cannot outlive the text it was about. `arcCheck` is the profile validator's
- * verdict on one zone alone; a zone that overlaps or touches another is refused here with the other's number.
+ * verdict on one zone alone. Zones may overlap, so no zone is refused for another's numbers.
  */
 export function checkZoneFields(zones: readonly HorizonFields[], arcCheck: (arc: BlockedArc) => string | null): HorizonErrors[] {
   const arcs = zones.map(numbersOf);
@@ -305,10 +309,6 @@ export function checkZoneFields(zones: readonly HorizonFields[], arcCheck: (arc:
     if (arc) {
       const message = arcCheck(arc);
       if (message !== null) errors.arc = message;
-      else {
-        const clash = arcs.findIndex((other, j) => j !== i && other !== null && arcsConflict(arc, other));
-        if (clash >= 0) errors.arc = `Overlaps or touches zone ${clash + 1}.`;
-      }
     }
     return errors;
   });
@@ -327,27 +327,20 @@ export function effectiveArc(
   arcCheck: (arc: BlockedArc) => string | null,
 ): BlockedArc | null {
   if (base === null) return Object.keys(errors).length > 0 ? null : numbersOf(fields);
-  const pick = (k: HorizonField, fallback: number): number => (errors[k] === undefined ? Number(fields[k]) : fallback);
+  const pick = (k: HorizonField, fallback: number): number => (errors[k] === undefined ? direction(k, Number(fields[k])) : fallback);
   const arc = { startAz: pick('start', base.startAz), endAz: pick('end', base.endAz), heightDeg: pick('height', base.heightDeg) };
   return errors.arc !== undefined || arcCheck(arc) !== null ? { ...arc, startAz: base.startAz, endAz: base.endAz } : arc;
 }
 
 /**
- * Where a new zone starts: the default for the first, else the middle of the widest open gap, up to 30 degrees wide, at
- * the default height. Whole degrees. If no gap is wide enough the zone still comes up and says "Overlaps".
+ * A new zone: the default for the first. Otherwise it starts where the last zone in the list ends (the last one whose
+ * boxes hold numbers), is NEW_ZONE_WIDTH degrees wide (wrapping past 360) and has that zone's height. Its sliders
+ * run the full range; the user moves it from there. Overlap is allowed, so it is never moved to fit.
  */
 export function newZoneFields(zones: readonly HorizonFields[]): HorizonFields {
-  const arcs = zones.map(numbersOf).filter((a): a is BlockedArc => a !== null).sort((a, b) => a.startAz - b.startAz);
-  if (arcs.length === 0) return fieldsFromArc(DEFAULT_ARC);
-  let best = { from: 0, gap: -1 };
-  arcs.forEach((a, i) => {
-    const next = arcs[(i + 1) % arcs.length];
-    const gap = (next.startAz - a.endAz + 360) % 360 || 360;
-    if (gap > best.gap) best = { from: a.endAz, gap };
-  });
-  const width = Math.max(1, Math.min(30, Math.floor(best.gap) - 2));
-  const start = Math.round(best.from + (best.gap - width) / 2) % 360;
-  return fieldsFromArc({ startAz: start, endAz: (start + width) % 360, heightDeg: DEFAULT_ARC.heightDeg });
+  const last = zones.map(numbersOf).filter((a): a is BlockedArc => a !== null).at(-1);
+  if (last === undefined) return fieldsFromArc(DEFAULT_ARC);
+  return fieldsFromArc({ startAz: last.endAz, endAz: (last.endAz + NEW_ZONE_WIDTH) % 360, heightDeg: last.heightDeg });
 }
 
 /**

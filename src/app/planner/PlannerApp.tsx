@@ -10,7 +10,7 @@ import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { makeCsvTime, planToCsv } from '@/planner/export';
-import { arcsConflict, arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
+import { arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
@@ -55,7 +55,7 @@ import AltitudeChart from './AltitudeChart';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
 import ExposurePanel from './ExposurePanel';
-import HorizonEditor from './HorizonEditor';
+import HorizonEditor, { describeOverlaps } from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
 import OverflowMenu from './OverflowMenu';
@@ -374,7 +374,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const checkArc = (next: BlockedArc): string | null => {
     if (!site) return 'No site.';
     try {
-      withSiteArcs(profile, site.id, [next]); // this zone alone; overlaps between rows are checked by checkZoneFields
+      withSiteArcs(profile, site.id, [next]); // this zone alone; zones may overlap
     } catch (e) {
       if (e instanceof ProfileError) return friendlyArcError(e);
       throw e;
@@ -386,14 +386,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const { errors, arcs } = useMemo(() => {
     if (!site) return { errors: [] as HorizonErrors[], arcs: [] as (BlockedArc | null)[] };
     const errs = checkZoneFields(fields, checkArc);
-    // A row that falls back to its saved zone can clash with a row typed over it; the clash is not drawn.
-    const shown: BlockedArc[] = [];
-    const arcs = fields.map((f, i) => {
-      const a = effectiveArc(f, errs[i], bases[i] ?? null, checkArc);
-      if (a === null || shown.some((o) => arcsConflict(a, o))) return null;
-      shown.push(a);
-      return a;
-    });
+    const arcs = fields.map((f, i) => effectiveArc(f, errs[i], bases[i] ?? null, checkArc));
     return { errors: errs, arcs };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- checkArc is a function of site and profile
   }, [fields, bases, site, profile]);
@@ -576,7 +569,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const saveArc = () => {
     if (!site) return;
     try {
-      const arcs = fields.map((z) => ({ startAz: Number(z.start), endAz: Number(z.end), heightDeg: Number(z.height) }));
+      const arcs = fields.map((z) => ({ startAz: Number(z.start) % 360, endAz: Number(z.end) % 360, heightDeg: Number(z.height) }));
       const next = withSiteArcs(profile, site.id, arcs);
       saveProfile(window.localStorage, next);
       setProfile(next);
@@ -821,7 +814,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const horizonText =
     savedArcs.length === 0
       ? 'Horizon not set: only the flat minimum altitude applies.'
-      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.`;
+      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.${describeOverlaps(savedArcs) && ` ${describeOverlaps(savedArcs)}`}`;
   const midMoon = night?.kind === 'normal' ? moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) : null;
   const nightText =
     night === undefined

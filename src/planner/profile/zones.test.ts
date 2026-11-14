@@ -4,11 +4,10 @@ import type { HorizonPoint } from '../horizon';
 import { tonightsNight } from '../plan';
 import { sampleProfile } from '../state';
 import {
-  EDGE_STEP_DEG,
   MAX_ZONES,
   ProfileError,
   arcToHorizonPoints,
-  arcsConflict,
+  zoneSpans,
   migrateProfile,
   parseProfile,
   validateProfile,
@@ -96,28 +95,36 @@ describe('validator: zone count and overlap', () => {
     expect(msgOf(withZones([A, B, C, D, E]))).toBe('$.sites[0].blockedArcs: at most 4 blocked zones, got 5');
   });
 
-  it('refuses overlapping zones, naming both and the path of the later one', () => {
-    expect(msgOf(withZones([A, { startAz: 150, endAz: 200, heightDeg: 30 }]))).toMatch(
-      /^\$\.sites\[0\]\.blockedArcs\[1\]: zone 2 overlaps or touches zone 1/,
-    );
+  it('accepts overlapping zones, saved unchanged', () => {
+    const zones = [A, { startAz: 150, endAz: 200, heightDeg: 30 }];
+    expect(validateProfile(withZones(zones)).sites[0].blockedArcs).toEqual(zones);
   });
 
-  it('refuses a zone inside another, and one that wraps over another across north', () => {
-    expect(msgOf(withZones([A, { startAz: 110, endAz: 120, heightDeg: 5 }]))).toMatch(/overlaps or touches/);
-    expect(msgOf(withZones([{ startAz: 300, endAz: 60, heightDeg: 5 }, { startAz: 10, endAz: 20, heightDeg: 5 }]))).toMatch(/overlaps or touches/);
-    expect(msgOf(withZones([{ startAz: 300, endAz: 60, heightDeg: 5 }, { startAz: 350, endAz: 100, heightDeg: 5 }]))).toMatch(/overlaps or touches/);
+  it('accepts a zone inside another, one that wraps over another across north, and a repeat of the same zone', () => {
+    for (const zones of [
+      [A, { startAz: 110, endAz: 120, heightDeg: 5 }],
+      [{ startAz: 300, endAz: 60, heightDeg: 5 }, { startAz: 10, endAz: 20, heightDeg: 5 }],
+      [{ startAz: 300, endAz: 60, heightDeg: 5 }, { startAz: 350, endAz: 100, heightDeg: 5 }],
+      [A, A],
+    ]) {
+      expect(validateProfile(withZones(zones)).sites[0].blockedArcs).toEqual(zones);
+    }
   });
 
-  it('refuses touching zones: at a shared azimuth the horizon would have two heights', () => {
-    expect(msgOf(withZones([A, { startAz: 160, endAz: 200, heightDeg: 30 }]))).toMatch(/overlaps or touches/);
-    expect(msgOf(withZones([{ startAz: 300, endAz: 0, heightDeg: 5 }, { startAz: 0, endAz: 50, heightDeg: 9 }]))).toMatch(/overlaps or touches/);
-    // Touching is what breaks the horizon function: the two edges land on one azimuth.
-    expect(() => normalizeHorizon([{ az: 160, alt: 60 }, { az: 160, alt: 30 }])).toThrow(/Duplicate/);
+  it('accepts touching zones and zones with a gap of any size, so old profiles stay valid', () => {
+    for (const zones of [
+      [A, { startAz: 160, endAz: 200, heightDeg: 30 }],
+      [{ startAz: 300, endAz: 0, heightDeg: 5 }, { startAz: 0, endAz: 50, heightDeg: 9 }],
+      [A, { startAz: 160.01, endAz: 200, heightDeg: 30 }],
+      [A, { startAz: 161, endAz: 200, heightDeg: 30 }],
+      [{ startAz: 0, endAz: 179, heightDeg: 5 }, { startAz: 180, endAz: 359, heightDeg: 9 }],
+    ]) {
+      expect(validateProfile(withZones(zones)).sites[0].blockedArcs).toEqual(zones);
+    }
   });
 
-  it('allows zones with a gap of 1 degree and wide zones that leave room for each other', () => {
-    expect(() => validateProfile(withZones([A, { startAz: 161, endAz: 200, heightDeg: 30 }]))).not.toThrow();
-    expect(() => validateProfile(withZones([{ startAz: 0, endAz: 179, heightDeg: 5 }, { startAz: 180, endAz: 359, heightDeg: 9 }]))).not.toThrow();
+  it('the profile version is unchanged: the stored shape is the same list of zones', () => {
+    expect(validateProfile(withZones([A, A])).version).toBe(3);
   });
 
   it('each zone still obeys the single-arc rules, with its own index in the path', () => {
@@ -125,21 +132,6 @@ describe('validator: zone count and overlap', () => {
     expect(msgOf(withZones([A, { startAz: 200, endAz: 250, heightDeg: 95 }]))).toMatch(/^\$\.sites\[0\]\.blockedArcs\[1\]\.heightDeg/);
     expect(msgOf(withZones([{ startAz: 0, endAz: 359.95, heightDeg: 5 }]))).toMatch(/blockedArcs\[0\]: arc must leave/);
     expect(msgOf(withZones(null))).toMatch(/^\$\.sites\[0\]\.blockedArcs: expected an array/);
-  });
-
-  it('a gap of exactly MIN_ARC_DEG is accepted in either order', () => {
-    const x = { startAz: 300, endAz: 60, heightDeg: 5 };
-    const y = { startAz: 60.1, endAz: 90, heightDeg: 5 };
-    expect(arcsConflict(x, y)).toBe(false);
-    expect(arcsConflict(y, x)).toBe(false);
-    expect(arcsConflict(x, { ...y, startAz: 60.09 })).toBe(true);
-    expect(arcsConflict({ ...y, startAz: 60.09 }, x)).toBe(true);
-  });
-
-  it('arcsConflict is symmetric', () => {
-    const arcs = [A, B, C, D, { startAz: 150, endAz: 230, heightDeg: 1 }, { startAz: 350, endAz: 30, heightDeg: 1 }];
-    for (const x of arcs) for (const y of arcs) expect(arcsConflict(x, y)).toBe(arcsConflict(y, x));
-    expect(arcsConflict(A, A)).toBe(true);
   });
 });
 
@@ -166,19 +158,176 @@ describe('arcToHorizonPoints with zones', () => {
     expect(horizonAltitudeAt(pts, 300)).toBe(20);
   });
 
-  it('refuses zones that overlap, loudly', () => {
-    expect(() => arcToHorizonPoints([A, { startAz: 150, endAz: 200, heightDeg: 30 }])).toThrow(/Zones 1 and 2 overlap/);
-    expect(() => arcToHorizonPoints([A, { startAz: 160, endAz: 200, heightDeg: 30 }])).toThrow(RangeError);
-  });
-
-  it('the narrowest allowed gap keeps both edges apart', () => {
-    const pts = arcToHorizonPoints([A, { startAz: 160.1, endAz: 200, heightDeg: 30 }]);
-    expect(new Set(pts.map((p) => p.az)).size).toBe(8);
-    expect(EDGE_STEP_DEG * 2).toBeLessThan(0.1);
+  it('a zone too narrow to place its edges is still refused loudly', () => {
+    expect(() => arcToHorizonPoints([A, { startAz: 200, endAz: 200.01, heightDeg: 30 }])).toThrow(RangeError);
   });
 
   it('no zones is a set, clear horizon', () => {
     expect(arcToHorizonPoints([])).toEqual([{ az: 0, alt: 0 }]);
+  });
+});
+
+const sortedDistinct = (pts: HorizonPoint[]) => {
+  const azs = pts.map((p) => p.az);
+  expect(azs).toEqual([...azs].sort((a, b) => a - b));
+  expect(new Set(azs).size).toBe(azs.length);
+};
+
+describe('overlapping zones: one height per azimuth, the highest', () => {
+  const z = (startAz: number, endAz: number, heightDeg: number): BlockedArc => ({ startAz, endAz, heightDeg });
+
+  it('overlap: the shared stretch takes the higher height, either order, each side keeps its own', () => {
+    for (const zones of [[z(100, 200, 30), z(150, 250, 50)], [z(150, 250, 50), z(100, 200, 30)]]) {
+      const pts = arcToHorizonPoints(zones);
+      sortedDistinct(pts);
+      expect(horizonAltitudeAt(pts, 120)).toBe(30);
+      expect(horizonAltitudeAt(pts, 150)).toBe(50);
+      expect(horizonAltitudeAt(pts, 175)).toBe(50);
+      expect(horizonAltitudeAt(pts, 200)).toBe(50);
+      expect(horizonAltitudeAt(pts, 230)).toBe(50);
+      expect(horizonAltitudeAt(pts, 99)).toBe(0);
+      expect(horizonAltitudeAt(pts, 251)).toBe(0);
+    }
+  });
+
+  it('overlap where the lower zone sticks out the far side: its own height shows there', () => {
+    const pts = arcToHorizonPoints([z(100, 200, 50), z(150, 250, 30)]);
+    sortedDistinct(pts);
+    expect(horizonAltitudeAt(pts, 125)).toBe(50);
+    expect(horizonAltitudeAt(pts, 175)).toBe(50);
+    expect(horizonAltitudeAt(pts, 200)).toBe(50);
+    expect(horizonAltitudeAt(pts, 225)).toBe(30);
+    expect(horizonAltitudeAt(pts, 250)).toBe(30);
+  });
+
+  it('touching zones: the shared azimuth is the higher one, no duplicate points', () => {
+    const pts = arcToHorizonPoints([z(100, 160, 60), z(160, 200, 30)]);
+    sortedDistinct(pts);
+    expect(horizonAltitudeAt(pts, 160)).toBe(60);
+    expect(horizonAltitudeAt(pts, 130)).toBe(60);
+    expect(horizonAltitudeAt(pts, 180)).toBe(30);
+    const flipped = arcToHorizonPoints([z(100, 160, 30), z(160, 200, 60)]);
+    sortedDistinct(flipped);
+    expect(horizonAltitudeAt(flipped, 160)).toBe(60);
+    expect(horizonAltitudeAt(flipped, 130)).toBe(30);
+    expect(horizonAltitudeAt(flipped, 180)).toBe(60);
+  });
+
+  it('touching zones of equal height join into one stretch', () => {
+    const pts = arcToHorizonPoints([z(100, 160, 40), z(160, 200, 40)]);
+    sortedDistinct(pts);
+    expect(pts).toEqual(arcToHorizonPoints([z(100, 200, 40)]));
+  });
+
+  it('nested: the inner zone raises its stretch only when it is higher', () => {
+    const higher = arcToHorizonPoints([z(100, 200, 20), z(140, 160, 70)]);
+    sortedDistinct(higher);
+    expect(horizonAltitudeAt(higher, 120)).toBe(20);
+    expect(horizonAltitudeAt(higher, 150)).toBe(70);
+    expect(horizonAltitudeAt(higher, 180)).toBe(20);
+    const lower = arcToHorizonPoints([z(100, 200, 70), z(140, 160, 20)]);
+    sortedDistinct(lower);
+    expect(lower).toEqual(arcToHorizonPoints([z(100, 200, 70)]));
+  });
+
+  it('the same zone twice, and the same start or end shared, give no duplicates', () => {
+    expect(arcToHorizonPoints([A, A])).toEqual(arcToHorizonPoints([A]));
+    const sharedStart = arcToHorizonPoints([z(100, 150, 30), z(100, 200, 50)]);
+    sortedDistinct(sharedStart);
+    expect(horizonAltitudeAt(sharedStart, 100)).toBe(50);
+    expect(horizonAltitudeAt(sharedStart, 125)).toBe(50);
+    expect(horizonAltitudeAt(sharedStart, 175)).toBe(50);
+    const sharedEnd = arcToHorizonPoints([z(100, 200, 30), z(150, 200, 50)]);
+    sortedDistinct(sharedEnd);
+    expect(horizonAltitudeAt(sharedEnd, 125)).toBe(30);
+    expect(horizonAltitudeAt(sharedEnd, 200)).toBe(50);
+    expect(horizonAltitudeAt(sharedEnd, 201)).toBe(0);
+  });
+
+  it('wrap past 360: overlap across north, from both sides', () => {
+    const pts = arcToHorizonPoints([z(300, 60, 25), z(340, 120, 45)]);
+    sortedDistinct(pts);
+    expect(horizonAltitudeAt(pts, 310)).toBe(25);
+    expect(horizonAltitudeAt(pts, 350)).toBe(45);
+    expect(horizonAltitudeAt(pts, 0)).toBe(45);
+    expect(horizonAltitudeAt(pts, 50)).toBe(45);
+    expect(horizonAltitudeAt(pts, 100)).toBe(45);
+    expect(horizonAltitudeAt(pts, 130)).toBe(0);
+    expect(horizonAltitudeAt(pts, 290)).toBe(0);
+    // A zone ending at north overlapping one starting before it.
+    const edge = arcToHorizonPoints([z(300, 0, 25), z(350, 30, 45)]);
+    sortedDistinct(edge);
+    expect(horizonAltitudeAt(edge, 320)).toBe(25);
+    expect(horizonAltitudeAt(edge, 355)).toBe(45);
+    expect(horizonAltitudeAt(edge, 0)).toBe(45);
+    expect(horizonAltitudeAt(edge, 20)).toBe(45);
+  });
+
+  it('four overlapping zones at different heights: the highest of those present at every azimuth', () => {
+    const zones = [z(100, 220, 15), z(150, 260, 40), z(200, 300, 25), z(330, 170, 60)];
+    const pts = arcToHorizonPoints(zones);
+    sortedDistinct(pts);
+    const expected = (az: number) =>
+      Math.max(0, ...zones.filter((a) => (az - a.startAz + 360) % 360 <= (a.endAz - a.startAz + 360) % 360).map((a) => a.heightDeg));
+    for (let az = 0; az < 360; az += 5) expect(horizonAltitudeAt(pts, az)).toBeCloseTo(expected(az), 6);
+    // Every order of the same zones is the same horizon.
+    expect(arcToHorizonPoints([...zones].reverse())).toEqual(pts);
+    expect(arcToHorizonPoints([zones[2], zones[0], zones[3], zones[1]])).toEqual(pts);
+  });
+
+  it('zones that cover the whole circle between them leave no open horizon and no zero point', () => {
+    const pts = arcToHorizonPoints([z(0, 200, 30), z(180, 359, 50)]);
+    sortedDistinct(pts);
+    expect(horizonAltitudeAt(pts, 90)).toBe(30);
+    expect(horizonAltitudeAt(pts, 190)).toBe(50);
+    expect(horizonAltitudeAt(pts, 270)).toBe(50);
+  });
+
+  it('edges closer together than the edge step still give distinct, ordered points', () => {
+    const pts = arcToHorizonPoints([z(100, 200, 30), z(200.005, 250, 50)]);
+    sortedDistinct(pts);
+    expect(horizonAltitudeAt(pts, 150)).toBe(30);
+    expect(horizonAltitudeAt(pts, 225)).toBe(50);
+  });
+
+  it('a target on an overlap azimuth is blocked by the highest zone, not the lower', () => {
+    const site = { latitude: 33.6115, longitude: -111.719 };
+    const night = tonightsNight(site, '2026-12-15', 'America/Phoenix');
+    const at = (horizon: HorizonPoint[]) =>
+      usableWindowsOnTrack({ horizon, minAltitude: 10, start: night.start as Date, end: night.end as Date, altAzAt: () => ({ altitude: 40, azimuth: 175 }) });
+    // 40 deg up at azimuth 175: clear of the 30 deg zone, behind the 60 deg one, and so behind both where they overlap.
+    expect(at(arcToHorizonPoints([z(100, 200, 30)])).windows).toHaveLength(1);
+    expect(at(arcToHorizonPoints([z(100, 200, 30), z(150, 250, 60)])).windows).toHaveLength(0);
+    expect(at(arcToHorizonPoints([z(150, 250, 60), z(100, 200, 30)])).windows).toHaveLength(0);
+  });
+});
+
+describe('zoneSpans: where the blocked region comes from', () => {
+  const z = (startAz: number, endAz: number, heightDeg: number): BlockedArc => ({ startAz, endAz, heightDeg });
+
+  it('separate zones are one span each; open horizon is not listed', () => {
+    expect(zoneSpans([A, B])).toEqual([
+      { from: 100, to: 160, zones: [0], heightDeg: 60 },
+      { from: 220, to: 300, zones: [1], heightDeg: 20 },
+    ]);
+    expect(zoneSpans([])).toEqual([]);
+  });
+
+  it('an overlap is its own span with both zones and the higher height', () => {
+    expect(zoneSpans([z(100, 200, 30), z(150, 250, 50)])).toEqual([
+      { from: 100, to: 150, zones: [0], heightDeg: 30 },
+      { from: 150, to: 200, zones: [0, 1], heightDeg: 50 },
+      { from: 200, to: 250, zones: [1], heightDeg: 50 },
+    ]);
+  });
+
+  it('a span may cross north', () => {
+    expect(zoneSpans([z(300, 60, 25), z(340, 20, 45)])).toEqual([
+      { from: 20, to: 60, zones: [0], heightDeg: 25 },
+      { from: 300, to: 340, zones: [0], heightDeg: 25 },
+      { from: 340, to: 20, zones: [0, 1], heightDeg: 45 },
+    ]);
+    expect(zoneSpans([z(300, 60, 25)])).toEqual([{ from: 300, to: 60, zones: [0], heightDeg: 25 }]);
   });
 });
 
