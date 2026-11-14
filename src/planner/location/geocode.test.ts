@@ -208,6 +208,22 @@ describe('timeouts: every outbound fetch is bounded', () => {
     expect(elapsed + 5000).toBeLessThanOrEqual(CLIENT_TIMEOUT_MS)
   })
 
+  it('when the place-search elevation budget ends, the backup elevation request is aborted, not left running', async () => {
+    let topoSignal: AbortSignal | undefined
+    const hang: Handler = (_u, init) => {
+      topoSignal = init?.signal ?? undefined
+      return never()
+    }
+    const r = rig({ meteo: () => json({}), nominatim: () => json([NOM_PHOENIX]), elevation: () => json({}, 500), topo: hang })
+    const p = r.service.searchPlaces(q('Phoenix Arizona'))
+    let out: Awaited<typeof p> | undefined
+    void p.then((v) => { out = v })
+    for (let i = 0; i < 200 && out === undefined; i++) await jest.advanceTimersByTimeAsync(50)
+    expect(out?.[0].source).toBe('nominatim')
+    expect(topoSignal).toBeDefined()
+    expect(topoSignal?.aborted).toBe(true)
+  })
+
   it('a hanging elevation call ends in an error for the elevation route', async () => {
     const r = rig({ elevation: never })
     const p = r.service.elevationAt(33.4, -112)

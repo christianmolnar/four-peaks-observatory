@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { creditsFor, describeCoordinates, detailValues, fillSiteFields, lookupPlace, placeValues } from '@/planner/location/client';
 import type { ClientFetch, FieldChange, SiteFieldKey } from '@/planner/location/client';
 import type { PlaceCandidate } from '@/planner/location/types';
@@ -37,6 +37,10 @@ const wouldChange = (changes: FieldChange[]) => `Would change: ${changes.map(sho
  * boxes an earlier lookup filled), lists what it kept, and "Replace" is the explicit way to overwrite the rest.
  */
 export default function SiteFinder({ texts, getTexts, overwritable, onApply, fetchImpl }: SiteFinderProps) {
+  // One finder per site form, and several forms can be on the page: the ids are per instance, so each box keeps its own name and hint.
+  const uid = useId();
+  const queryId = `${uid}-site-find-query`;
+  const hintId = `${uid}-site-find-hint`;
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [found, setFound] = useState<PlaceCandidate[] | null>(null);
@@ -130,14 +134,14 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, fet
 
   return (
     <div className="sm:col-span-2 xl:col-span-3 rounded border border-white/15 p-3">
-      <label htmlFor="site-find-query" className="block text-white/90 font-normal text-sm mb-1">Find my site: city and state, or postal code</label>
-      <p id="site-find-hint" className="text-white/60 font-normal text-xs mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
+      <label htmlFor={queryId} className="block text-white/90 font-normal text-sm mb-1">Find my site: city and state, or postal code</label>
+      <p id={hintId} className="text-white/60 font-normal text-xs mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-56">
           <WrapText
-            id="site-find-query"
+            id={queryId}
             autoComplete="off"
-            aria-describedby="site-find-hint"
+            aria-describedby={hintId}
             maxLength={100}
             placeholder="Phoenix, AZ or 85001"
             className={field}

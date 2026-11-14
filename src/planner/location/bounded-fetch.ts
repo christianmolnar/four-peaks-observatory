@@ -39,8 +39,12 @@ async function readBounded(res: Response, label: string): Promise<string> {
  * GET `url` and parse the JSON body. The whole exchange (connect, headers, body) is bounded by `timeoutMs`, whether or not the fetch honours the abort signal.
  * Any failure (network, timeout, non-200, oversize, unreadable body) throws UpstreamError with fixed text: the URL and any header are never echoed.
  */
-export async function getJson(fetchImpl: FetchLike, url: string, headers: Record<string, string>, timeoutMs: number, label: string): Promise<unknown> {
+export async function getJson(fetchImpl: FetchLike, url: string, headers: Record<string, string>, timeoutMs: number, label: string, outer?: AbortSignal): Promise<unknown> {
   const controller = new AbortController()
+  // The caller's own deadline (a shared budget over several calls) cancels this request too.
+  const onOuter = (): void => controller.abort()
+  if (outer?.aborted) throw new UpstreamError(`${label} cancelled`)
+  outer?.addEventListener('abort', onOuter)
   let timer: ReturnType<typeof setTimeout> | undefined
   const timedOut = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
@@ -53,7 +57,7 @@ export async function getJson(fetchImpl: FetchLike, url: string, headers: Record
     try {
       res = await fetchImpl(url, { method: 'GET', headers, cache: 'no-store', signal: controller.signal })
     } catch {
-      throw new UpstreamError(`${label} unreachable`)
+      throw new UpstreamError(outer?.aborted ? `${label} cancelled` : `${label} unreachable`)
     }
     if (!res.ok) throw new UpstreamError(`${label} answered ${res.status}`)
     const declared = Number(res.headers?.get('content-length'))
@@ -72,5 +76,6 @@ export async function getJson(fetchImpl: FetchLike, url: string, headers: Record
     return await Promise.race([exchange(), timedOut])
   } finally {
     clearTimeout(timer)
+    outer?.removeEventListener('abort', onOuter)
   }
 }

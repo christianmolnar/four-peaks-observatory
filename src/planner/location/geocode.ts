@@ -177,7 +177,7 @@ export class LocationService {
     // Nominatim has no heights. One batched call fills them in; if that fails the field is simply left out (editable).
     if (out.length > 0) {
       try {
-        const heights = await this.within(PLACE_ELEVATION_BUDGET_MS, this.elevations(out), 'Elevation lookup for the place results')
+        const heights = await this.within(PLACE_ELEVATION_BUDGET_MS, (signal) => this.elevations(out, signal), 'Elevation lookup for the place results')
         out.forEach((c, i) => {
           const h = heights[i]
           if (h !== undefined) c.elevationM = h
@@ -214,10 +214,10 @@ export class LocationService {
   }
 
   /** Open-Meteo's elevation call. */
-  private async elevationsOpenMeteo(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
+  private async elevationsOpenMeteo(points: { latitude: number; longitude: number }[], signal?: AbortSignal): Promise<(number | undefined)[]> {
     const lat = points.map((p) => coordText(p.latitude)).join(',')
     const lon = points.map((p) => coordText(p.longitude)).join(',')
-    const body = await getJson(this.deps.fetch, `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, ELEVATION_TIMEOUT_MS, 'Open-Meteo elevation')
+    const body = await getJson(this.deps.fetch, `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, ELEVATION_TIMEOUT_MS, 'Open-Meteo elevation', signal)
     const list = typeof body === 'object' && body !== null ? (body as { elevation?: unknown }).elevation : undefined
     if (!Array.isArray(list) || list.length !== points.length) throw new UpstreamError('Open-Meteo elevation answered with an unexpected shape')
     return list.map(plausibleElevation)
@@ -227,23 +227,30 @@ export class LocationService {
    * Open Topo Data's public API: USGS NED 10 m inside the United States, SRTM 30 m elsewhere (both public-domain data), one request.
    * Held to its published limits: one call a second (the turn) and a daily cap kept below its 1,000.
    */
-  private async elevationsTopo(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
+  private async elevationsTopo(points: { latitude: number; longitude: number }[], signal?: AbortSignal): Promise<(number | undefined)[]> {
+    if (signal?.aborted) throw new UpstreamError('Open Topo Data elevation cancelled')
     const day = new Date(this.now()).toISOString().slice(0, 10)
     if ((await this.deps.store.incr(`planner:loc:topo:day:${day}`, 2 * 24 * 3600)) > TOPO_DAILY_CAP) throw new UpstreamError('Open Topo Data daily budget used')
     await this.turn('topo', 'Open Topo Data is busy')
+    if (signal?.aborted) throw new UpstreamError('Open Topo Data elevation cancelled') // the budget ended while waiting for the slot
     const locations = points.map((p) => `${coordText(p.latitude)},${coordText(p.longitude)}`).join('%7C')
-    const body = await getJson(this.deps.fetch, `https://api.opentopodata.org/v1/ned10m,srtm30m?locations=${locations}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, TOPO_TIMEOUT_MS, 'Open Topo Data elevation')
+    const body = await getJson(this.deps.fetch, `https://api.opentopodata.org/v1/ned10m,srtm30m?locations=${locations}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, TOPO_TIMEOUT_MS, 'Open Topo Data elevation', signal)
     const list = typeof body === 'object' && body !== null ? (body as { results?: unknown }).results : undefined
     if (!Array.isArray(list) || list.length !== points.length) throw new UpstreamError('Open Topo Data elevation answered with an unexpected shape')
     return list.map((r) => plausibleElevation(typeof r === 'object' && r !== null ? (r as { elevation?: unknown }).elevation : undefined))
   }
 
-  /** The promise's result, or UpstreamError once `ms` have passed (the late result is dropped, its failure swallowed). */
-  private within<T>(ms: number, work: Promise<T>, label: string): Promise<T> {
+  /** The work's result, or UpstreamError once `ms` have passed; then the work's signal is aborted, so its requests stop and the late result is dropped (its failure swallowed). */
+  private within<T>(ms: number, run: (signal: AbortSignal) => Promise<T>, label: string): Promise<T> {
+    const controller = new AbortController()
+    const work = run(controller.signal)
     work.catch(() => undefined)
     let timer: ReturnType<typeof setTimeout> | undefined
     const late = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new UpstreamError(`${label} timed out`)), ms)
+      timer = setTimeout(() => {
+        controller.abort()
+        reject(new UpstreamError(`${label} timed out`))
+      }, ms)
     })
     return Promise.race([work, late]).finally(() => clearTimeout(timer))
   }
@@ -252,13 +259,13 @@ export class LocationService {
    * Heights for points, in order; undefined where no service has one. One request to the first service that answers: Open-Meteo, then Open Topo Data.
    * Throws UpstreamError (naming both failures) when neither can be reached.
    */
-  private async elevations(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
+  private async elevations(points: { latitude: number; longitude: number }[], signal?: AbortSignal): Promise<(number | undefined)[]> {
     try {
-      return await this.elevationsOpenMeteo(points)
+      return await this.elevationsOpenMeteo(points, signal)
     } catch (first) {
       if (!(first instanceof UpstreamError)) throw first
       try {
-        return await this.elevationsTopo(points)
+        return await this.elevationsTopo(points, signal)
       } catch (second) {
         if (!(second instanceof UpstreamError)) throw second
         throw new UpstreamError(`${first.message}; ${second.message}`)

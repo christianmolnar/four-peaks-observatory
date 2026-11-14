@@ -245,7 +245,6 @@ describe('tonight\'s best: a mixed list that never trades a strong entry for a w
     expect(rankOf(by('Toronto 2027-07-05, 800/130 mm').slice(0, 20), 'm40')).toBe(-1);
     expect(rankOf(by('PHX 2026-11-14, 540 mm').slice(0, 10), 'uranus')).toBe(-1);
     expect(rankOf(by('PHX 2027-04-10, 3900/356 mm, min 50').slice(0, 20), 'ngc6823')).toBe(-1);
-    const huge = by('PHX 2027-04-10, 3900/356 mm, min 50').slice(0, 20);
     // The evaluator's bound, stated in points and not through the constant: no top-20 entry far below the best of the night.
     for (const name of ['PHX 2027-04-10, 3900/356 mm, min 50', 'PHX 2027-04-15, 2000 mm']) {
       const t20 = by(name).slice(0, 20);

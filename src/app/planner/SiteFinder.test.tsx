@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import { sampleProfile } from '@/planner/state';
 import ProfileEditor from './ProfileEditor';
+import SiteFinder from './SiteFinder';
 
 const PHOENIX = { name: 'Phoenix', admin: 'Arizona', country: 'United States', latitude: 33.44838, longitude: -112.07404, elevationM: 331, timeZone: 'America/Phoenix', source: 'open-meteo' };
 const reply = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body }) as unknown as Response;
@@ -50,7 +51,25 @@ describe('Find my site', () => {
   it('the box says a city or ZIP is enough and not to enter a street address', () => {
     open();
     expect(screen.getByText(/A city or ZIP is enough; don't enter a street address\./)).toBeTruthy();
-    expect(box(/Find my site/).getAttribute('aria-describedby')).toBe('site-find-hint');
+    const hint = box(/Find my site/).getAttribute('aria-describedby') as string;
+    expect(document.getElementById(hint)?.textContent).toMatch(/A city or ZIP is enough/);
+  });
+
+  it('a second site form has its own named box and hint: ids are unique per finder', () => {
+    const props = { texts: {}, getTexts: () => ({}), overwritable: new Set<string>(), onApply: jest.fn() };
+    render(
+      <>
+        <SiteFinder {...props} />
+        <SiteFinder {...props} />
+      </>,
+    );
+    const boxes = screen.getAllByRole('textbox', { name: /Find my site/ });
+    expect(boxes).toHaveLength(2);
+    const ids = boxes.map((b) => b.id);
+    const hints = boxes.map((b) => b.getAttribute('aria-describedby'));
+    expect(new Set(ids).size).toBe(2);
+    expect(new Set(hints).size).toBe(2);
+    for (const h of hints) expect(document.querySelectorAll(`[id="${h}"]`)).toHaveLength(1);
   });
 
   it('after Use, focus is on the status message, not lost to the page body', async () => {
