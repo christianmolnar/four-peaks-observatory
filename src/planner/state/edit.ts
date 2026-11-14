@@ -1,6 +1,7 @@
 import { PROFILE_VERSION, ProfileError, migrateProfile, validateProfile } from '../profile';
 import type { Profile, TrainEntry } from '../profile';
 import { resolveTrain } from '../profile';
+import { DEFAULT_BORTLE } from '../exposure';
 
 /** The lists a guest can edit item by item. */
 export type ListKey = 'sites' | 'scopes' | 'accessories' | 'cameras' | 'smartScopes' | 'filters';
@@ -11,6 +12,10 @@ export interface FieldSpec {
   /** text: free text. number: a number or empty (unknown). choice: one of `options`, or empty (unknown). tristate: yes, no or empty (unknown). */
   kind: 'text' | 'number' | 'choice' | 'tristate';
   options?: readonly string[];
+  /** A choice whose options are numbers: the chosen text is stored as a number. */
+  numeric?: boolean;
+  /** Text of the empty choice of an optional `choice`; default "Unknown". */
+  emptyText?: string;
   unit?: string;
   /** Empty is refused. */
   required?: boolean;
@@ -34,6 +39,7 @@ export const LIST_SPECS: Record<ListKey, ListSpec> = {
       { key: 'longitude', label: 'Longitude', kind: 'number', unit: 'deg, east is positive', required: true },
       { key: 'elevationM', label: 'Elevation', kind: 'number', unit: 'm' },
       { key: 'timeZone', label: 'Time zone', kind: 'text', unit: 'e.g. America/Phoenix; empty uses your browser' },
+      { key: 'bortle', label: 'Sky darkness (Bortle class)', kind: 'choice', numeric: true, emptyText: `Not set (${DEFAULT_BORTLE} assumed)`, options: ['1', '2', '3', '4', '5', '6', '7', '8', '9'], unit: '1 to 9, 1 is darkest' },
     ],
   },
   scopes: {
@@ -145,7 +151,7 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>)
       out[f.key] = t === 'yes';
     } else if (f.kind === 'choice') {
       if (!f.options?.includes(t)) throw new Error(`${f.label}: choose one of ${f.options?.join(', ')}.`);
-      out[f.key] = t;
+      out[f.key] = f.numeric ? Number(t) : t;
     } else {
       out[f.key] = t;
     }

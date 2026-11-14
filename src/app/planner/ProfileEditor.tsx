@@ -48,7 +48,7 @@ function Box({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value
     spec.kind === 'tristate'
       ? [{ value: '', text: 'Unknown' }, { value: 'yes', text: 'Yes' }, { value: 'no', text: 'No' }]
       : spec.kind === 'choice'
-        ? [...(spec.required ? [] : [{ value: '', text: 'Unknown' }]), ...(spec.options ?? []).map((o) => ({ value: o, text: o }))]
+        ? [...(spec.required ? [] : [{ value: '', text: spec.emptyText ?? 'Unknown' }]), ...(spec.options ?? []).map((o) => ({ value: o, text: o }))]
         : null;
   return (
     <div>

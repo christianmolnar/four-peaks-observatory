@@ -27,6 +27,20 @@ describe('site time zone', () => {
   });
 });
 
+describe('site Bortle class', () => {
+  const texts = (extra: Record<string, string>) => ({ ...textsOf('sites', sample().sites[0]), ...extra });
+  it('is stored as a number from the editor box, and an empty box clears it', () => {
+    const set = replaceItem(sample(), 'sites', sample().sites[0].id, texts({ bortle: '7' }));
+    expect(set.sites[0].bortle).toBe(7);
+    expect(textsOf('sites', set.sites[0]).bortle).toBe('7');
+    const cleared = replaceItem(set, 'sites', set.sites[0].id, texts({ bortle: '' }));
+    expect('bortle' in cleared.sites[0]).toBe(false);
+  });
+  it('refuses a class that is not 1 to 9, naming the box', () => {
+    expect(() => replaceItem(sample(), 'sites', sample().sites[0].id, texts({ bortle: '12' }))).toThrow(/Sky darkness \(Bortle class\): choose one of 1, 2/);
+  });
+});
+
 describe('replaceItem', () => {
   it('changes a scope from typed text and keeps everything else', () => {
     const p = sample();

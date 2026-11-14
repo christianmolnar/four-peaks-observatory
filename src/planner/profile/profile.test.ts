@@ -284,3 +284,28 @@ describe('filters and the v1 -> v2 migration', () => {
     expect(p.equipment.cameras[0]).toMatchObject({ colour: true, hasUvIrCut: false, readNoiseClass: 'low' });
   });
 });
+
+describe('site bortle', () => {
+  const withBortle = (bortle: unknown): Profile => {
+    const p = clone(full());
+    (p.sites[0] as { bortle?: unknown }).bortle = bortle;
+    return p;
+  };
+  it('is optional: a profile without it loads as before, and it round-trips when set', () => {
+    expect(validateProfile(full()).sites[0].bortle).toBeUndefined();
+    expect(validateProfile(withBortle(4)).sites[0].bortle).toBe(4);
+    expect(parseProfile(JSON.stringify(withBortle(9))).sites[0].bortle).toBe(9);
+  });
+  it('an older saved profile (v2, v1) still loads, with no bortle set', () => {
+    const v2 = clone(full()) as unknown as Record<string, unknown>;
+    v2.version = 2;
+    (v2.sites as Record<string, unknown>[]).forEach((s) => {
+      s.blockedArc = (s.blockedArcs as unknown[])[0] ?? null;
+      delete s.blockedArcs;
+    });
+    expect(validateProfile(v2).sites.every((s) => s.bortle === undefined)).toBe(true);
+  });
+  it.each([0, 10, 5.5, '6', null, NaN])('rejects %p at the field', (bad) => {
+    failsAt((p) => { p.sites[0].bortle = bad; }, '$.sites[0].bortle');
+  });
+});
