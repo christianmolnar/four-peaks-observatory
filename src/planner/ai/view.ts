@@ -1,5 +1,7 @@
 import type { AstronomicalNight, Site } from '../astro'
 import type { HorizonPoint } from '../horizon'
+import { MODES, MODE_ORDER } from '../exposure/constants'
+import type { ExposureMode } from '../exposure/constants'
 import { MAX_NOTE_CHARS, slotAltitudes } from '../itinerary'
 import type { ItineraryItem, ItineraryPlan, Slot, SlotInput } from '../itinerary'
 import type { AiPlanResult } from './plan'
@@ -65,7 +67,7 @@ export function problemFor(status: number, retryAfter: string | null, serverMess
         : { text: 'There is no usable night to plan: at this site on this date the sky is never dark enough, or nothing in My plan is up. Pick another night or site.', retry: false }
     case 413:
     case 400:
-      return { text: 'The AI planner could not accept this request. Nothing was changed. Try again; if it keeps happening, tell the site owner.', retry: false }
+      return { text: 'The AI planner could not accept this request. Nothing was changed. If it keeps happening, tell the site owner.', retry: false }
     default:
       return { text: `The AI planner could not be reached (error ${status}). Try again.`, retry: true }
   }
@@ -84,10 +86,23 @@ const noteFor = (index: number, count: number): string => {
   return text.length <= MAX_NOTE_CHARS ? text : text.slice(0, MAX_NOTE_CHARS)
 }
 
+/** The minutes the AI gives a slot: its exposureMinutes when it set them, else the slot's length. The night graph draws the same. */
+export const aiSlotMinutes = (s: { start: string; end: string; exposureMinutes?: number }): number => s.exposureMinutes ?? minutesBetween(s.start, s.end)
+
+/** The itinerary's own exposure mode whose range holds `minutes`; when none does, the mode with the nearest range (a tie goes to the shorter mode). */
+export function modeForMinutes(minutes: number): ExposureMode {
+  const gap = (m: ExposureMode): number => {
+    const [lo, hi] = MODES[m].rangeMin
+    return minutes < lo ? lo - minutes : minutes > hi ? minutes - hi : 0
+  }
+  return MODE_ORDER.reduce((best, m) => (gap(m) < gap(best) ? m : best))
+}
+
 /**
  * The AI plan as the manual itinerary holds it: one item per slot in time order, on the chosen train and its filter, with the
- * plan's first start as the itinerary's start. An item holds only a mode, not minutes, so the AI's slot times and lengths are not kept:
- * the itinerary times the slots itself (its own estimates) and the page says so.
+ * plan's first start as the itinerary's start. An item holds only a mode, not minutes: each takes the mode whose range holds the AI slot's
+ * minutes (the nearest range when none does), so lengths follow the AI's by mode. The AI's own times are not kept: the itinerary times
+ * the slots itself (its own estimates) and the page says so.
  */
 export function itineraryFromAiPlan(result: AiPlanResult, trainId: string, filterId: string | null): { items: ItineraryItem[]; startTime: string | null } {
   const slots = [...result.plan.plan].sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
@@ -96,7 +111,7 @@ export function itineraryFromAiPlan(result: AiPlanResult, trainId: string, filte
     targetId: s.id,
     trainId,
     filterId,
-    mode: 'balanced',
+    mode: modeForMinutes(aiSlotMinutes(s)),
     note: noteFor(i, slots.length),
   }))
   return { items, startTime: slots.length > 0 ? clockOfIso(slots[0].start) : null }
@@ -132,7 +147,7 @@ export function timelinePlanOf({ items, inputs, result, site, horizon, minAltitu
       changeover: { minutes: 0, parts: [] },
       subSeconds: null,
       subCount: null,
-      integrationMin: s.exposureMinutes ?? (end.getTime() - start.getTime()) / 60000,
+      integrationMin: aiSlotMinutes(s),
       window: null,
       altitudes: input.problem ? null : slotAltitudes(input.source, site, start, end, horizon, minAltitude),
       warnings: [],

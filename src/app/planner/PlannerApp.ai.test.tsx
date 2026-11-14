@@ -555,7 +555,7 @@ describe('Use this plan as my itinerary', () => {
     expect(saved.items[0].trainId).toBe('deep-c11-2600');
     expect(saved.items[0].note).toBe('From the AI plan, slot 1 of 2. The itinerary times it again with its own estimate.');
     expect(saved.startTime).toMatch(/^\d\d:\d\d$/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: your itinerary below now holds this plan.s order and first start time only/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: your itinerary below now holds this plan.s order, first start time and, for each slot, the closest exposure mode to its length/);
     // The page's own itinerary start box shows the AI plan's first start.
     expect((within(itinerary()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(saved.startTime);
   });
@@ -592,6 +592,7 @@ describe('Use this plan as my itinerary', () => {
     expect(aiSlots).toHaveLength(plan.length);
     const aiTimes = aiSlots.map((t) => t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3));
     expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/times will not match the plan above/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check above covers the AI.s times, not the itinerary.s: the itinerary shows its own flip and window notes/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(plan.length));
     // The order and the first start are the AI's.
@@ -602,7 +603,8 @@ describe('Use this plan as my itinerary', () => {
     const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
     expect(shown.every((t) => /\(estimate\)/.test(t))).toBe(true);
     for (const item of saved.items as { note: string }[]) expect(item.note).not.toMatch(/\d\d:\d\d|\d min/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/does not keep the AI.s slot times or lengths/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/does not keep the AI.s slot times or exact lengths/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check above covers the AI.s times, not the itinerary.s/);
     // The print sheet prints what the itinerary shows.
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));

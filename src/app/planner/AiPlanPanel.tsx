@@ -449,10 +449,10 @@ function Result({
         <p id="ai-apply-note" className="mt-1 text-white/70 font-normal text-xs" data-testid="ai-apply-note">
           {applyBlock ??
             (applyNote === 'applied'
-              ? 'Done: your itinerary below now holds this plan\u2019s order and first start time only. It does not keep the AI\u2019s slot times or lengths: the itinerary times each slot again with its own estimate, so its times will not match the plan above.'
+              ? 'Done: your itinerary below now holds this plan\u2019s order, first start time and, for each slot, the closest exposure mode to its length. It does not keep the AI\u2019s slot times or exact lengths: the itinerary times each slot again with its own estimate, so its times will not match the plan above. The code check above covers the AI\u2019s times, not the itinerary\u2019s: the itinerary shows its own flip and window notes.'
               : applyNote === 'kept'
                 ? 'Your itinerary was left as it was.'
-                : 'This replaces your night itinerary below with this plan\u2019s order and first start time only. The AI\u2019s slot times and lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the plan above.')}
+                : 'This replaces your night itinerary below with this plan\u2019s order, first start time and, for each slot, the closest exposure mode to its length. The AI\u2019s slot times and exact lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the plan above. The code check above covers the AI\u2019s times, not the itinerary\u2019s: the itinerary shows its own flip and window notes.')}
         </p>
       </div>
     </div>

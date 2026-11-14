@@ -1,3 +1,4 @@
+import { MODES, MODE_ORDER } from '../exposure/constants'
 import { parseBody } from './request'
 import { planNightWithAi } from './plan'
 import type { AiPlanResult } from './plan'
@@ -5,6 +6,7 @@ import { INPUT, TZ, clock, earliestSlot, night, planOf, validSlots } from './tes
 import {
   clockOfIso,
   itineraryFromAiPlan,
+  modeForMinutes,
   minutesBetween,
   plainText,
   problemFor,
@@ -35,12 +37,53 @@ describe('itineraryFromAiPlan', () => {
     const r = await run(planOf(INPUT, [slots[2], slots[0], slots[1]]))
     const { items, startTime } = itineraryFromAiPlan(r, 'train-a', 'filter-b')
     expect(items.map((i) => i.targetId)).toEqual(['t1', 't2', 't3'])
-    expect(items.every((i) => i.trainId === 'train-a' && i.filterId === 'filter-b' && i.mode === 'balanced')).toBe(true)
+    expect(items.every((i) => i.trainId === 'train-a' && i.filterId === 'filter-b')).toBe(true)
     expect(new Set(items.map((i) => i.id)).size).toBe(3)
     expect(startTime).toBe(clockOfIso(slots[0][1]))
     // The item holds no AI time or minutes: the itinerary shows its own times for the slot, and the two would disagree.
     expect(items.map((i) => i.note)).toEqual([1, 2, 3].map((n) => `From the AI plan, slot ${n} of 3. The itinerary times it again with its own estimate.`))
     expect(items.every((i) => !/\d\d:\d\d|\d min/.test(i.note))).toBe(true)
+  })
+})
+
+describe('modeForMinutes', () => {
+  it.each([
+    [30, 'quick'], [45, 'quick'], [60, 'quick'], [61, 'balanced'], [90, 'balanced'], [120, 'balanced'], [121, 'deep'], [300, 'deep'],
+  ])('%i min holds in the %s range', (min, mode) => expect(modeForMinutes(min)).toBe(mode))
+  it.each([
+    [5, 'quick'], [29, 'quick'], [400, 'deep'], [1000, 'deep'],
+  ])('%i min is in no range: the nearest range, %s', (min, mode) => expect(modeForMinutes(min)).toBe(mode))
+})
+
+describe('applied modes follow the AI slot minutes', () => {
+  const slotsOf = (mins: number[], withExposure = false) => {
+    let t = Date.parse('2026-12-10T20:00:00-07:00')
+    const plan = mins.map((m, i) => {
+      const start = clock(t), end = clock(t + m * 60000)
+      t += (m + 5) * 60000
+      return { id: `t${(i % 3) + 1}`, start, end, ...(withExposure ? { exposureMinutes: m } : {}) }
+    })
+    return { status: 'verified', plan: { plan, cut: [], exposures: [] }, violations: [], warnings: [] } as unknown as AiPlanResult
+  }
+  it('a 2-target plan: 50 min is quick, 150 min is deep', () => {
+    const { items } = itineraryFromAiPlan(slotsOf([50, 150]), 'train-a', null)
+    expect(items.map((i) => i.mode)).toEqual(['quick', 'deep'])
+  })
+  it('a 6-target plan: each slot takes the mode whose range holds its minutes, or the nearest', () => {
+    const mins = [20, 45, 75, 120, 200, 400]
+    const { items } = itineraryFromAiPlan(slotsOf(mins), 'train-a', null)
+    expect(items.map((i) => i.mode)).toEqual(['quick', 'quick', 'balanced', 'balanced', 'deep', 'deep'])
+    items.forEach((it, k) => {
+      const [lo, hi] = MODES[it.mode].rangeMin
+      const inRange = mins[k] >= lo && mins[k] <= hi
+      const anyHolds = MODE_ORDER.some((m) => mins[k] >= MODES[m].rangeMin[0] && mins[k] <= MODES[m].rangeMin[1])
+      expect(inRange || !anyHolds).toBe(true)
+    })
+  })
+  it('uses exposureMinutes when the AI set them', () => {
+    const r = slotsOf([150])
+    r.plan.plan[0].exposureMinutes = 45
+    expect(itineraryFromAiPlan(r, 'train-a', null).items[0].mode).toBe('quick')
   })
 })
 
@@ -96,6 +139,13 @@ describe('errors in plain language', () => {
   it('a 400 or 413 is a plain request problem', () => {
     expect(problemFor(400, null, 'targets must be a non-empty array').text).not.toMatch(/targets must/)
     expect(problemFor(413, null, '').text).toMatch(/could not accept/)
+    // An identical request is refused again, so no "Try again".
+    for (const status of [400, 413]) {
+      const p = problemFor(status, null, '')
+      expect(p.text).toMatch(/If it keeps happening, tell the site owner\./)
+      expect(p.text).not.toMatch(/Try again/)
+      expect(p.retry).toBe(false)
+    }
   })
   it('retryWhen rounds up to a whole minute', () => {
     expect(retryWhen(61)).toBe('Try again in about 2 minutes.')
