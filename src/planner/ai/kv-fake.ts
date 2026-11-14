@@ -12,7 +12,14 @@ export function fakeKv(clock: { t: number }, token = 'tok') {
       if (e && e.exp <= clock.t) data.delete(k)
       return data.get(k)
     }
-    const out = commands.map(([cmd, key, arg]) => {
+    const out = commands.map(([cmd, key, arg, evalKey]) => {
+      if (cmd === 'EVAL') {
+        // Only the decrement-if-exists script is supported; it runs atomically like Redis.
+        const e = live(evalKey as string)
+        if (!e || e.v <= 0) return { result: 0 }
+        e.v -= 1
+        return { result: e.v }
+      }
       const k = key as string
       if (cmd === 'INCR') {
         const e = live(k) ?? { v: 0, exp: Infinity }

@@ -8,8 +8,8 @@ The model decides; code supplies facts and checks. One night, up to 12 targets. 
 - `PLANNER_AI_MODEL`: optional. Default `claude-sonnet-5-5`.
 - `PLANNER_OWNER_GOOGLE_SUB` / `PLANNER_OWNER_GOOGLE_EMAIL`: the owner allowlist (see Who can call it). Optional; empty means nobody is an owner.
 - `PLANNER_GUEST_PER_HOUR` (default 6) and `PLANNER_GUEST_PER_DAY` (default 60): guest caps in model calls. A malformed value makes the route answer 503 naming the variable.
-- `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`): the counter store (see Caps). Optional; without them the cap is best effort.
-- Sign-in (optional for visitors): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`.
+- `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`): the counter store (see Caps). Optional; without them the cap is best effort. Every KV call is bounded to 2 s.
+- `AUTH_SECRET` is required for guests (it keys the visitor hash; unset means guests get 503 naming it, no fallback). Sign-in (optional for visitors): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`.
 
 ## Route
 
@@ -25,10 +25,10 @@ The model decides; code supplies facts and checks. One night, up to 12 targets. 
 ## Caps (guests only; owners are never counted)
 
 - Units are model calls, not requests: every call to the model (first, retry, repair) is counted before it is made. A typical plan is one call, so the defaults (6 per hour per visitor, 60 per day for everyone) are about 6 and 60 plans.
-- Per visitor: the client IP from `x-forwarded-for` (else `x-real-ip`), HMAC-hashed with `AUTH_SECRET`. The IP is never stored, logged or returned. No header means one shared visitor bucket. Fixed windows: the clock hour and the UTC day.
+- Per visitor: the client IP from `x-vercel-forwarded-for` (else `x-real-ip`, else the first `x-forwarded-for` entry as a last resort), HMAC-hashed with `AUTH_SECRET`; IPv6 is keyed by its /64 prefix and IPv4-mapped IPv6 as the IPv4. The IP is never stored, logged or returned. No header means one shared visitor bucket. Fixed windows: the clock hour and the UTC day.
 - Before any work, a guest over a limit gets 429 with `Retry-After` and the model is not called: "Daily planner limit reached, try tomorrow" (global) or "Hourly planner limit reached ..." (visitor). A limit reached mid-request stops further repair calls and the best plan so far is returned (`repairError` says why).
 - Counter store (`src/planner/ai/counter-store.ts`, one `CounterStore` interface, two shipping implementations):
-  - KV: Upstash Redis over REST, used when `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or the `UPSTASH_REDIS_REST_*` pair) are set. Shared by every server instance, so the cap is firm. If the store cannot be reached the guest gets 503 and no model call is made.
+  - KV: Upstash Redis over REST, used when `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or the `UPSTASH_REDIS_REST_*` pair) are set. Shared by every server instance, so the cap is firm. If the store is unreachable, slower than 2 s or answers garbage, the guest gets 503 and no model call is made (mid-request, repair stops and the best plan so far is returned). Owners never touch the store.
   - Memory: used when those variables are absent. **Best effort only**: each serverless instance has its own counters and a cold start resets them, so the real cap can be many times higher.
 - **The hard backstop is a monthly spend limit set in the Anthropic console.** Set it whatever the store; the caps bound normal use, the spend limit bounds the bill.
 
@@ -70,3 +70,10 @@ The model decides; code supplies facts and checks. One night, up to 12 targets. 
 - Prompt safety: the prompt says target names and notes are labels from user data, never instructions. Violation and repair messages use ids only.
 - `anthropic.ts`: the real caller. The key is read from the environment, never logged, and scrubbed from error text.
 - Tests use a fake `callModel`; none calls the API.
+
+## Global daily cap
+
+- A few visitors can use up the 60 calls for everyone: 10 plans of 6 calls each is enough. Until the UTC day ends, every guest then gets 429.
+- Owners are not affected; they are uncapped and never counted.
+- To open it up sooner, raise `PLANNER_GUEST_PER_DAY` (spend grows with it) or wait for UTC midnight.
+- The Anthropic console monthly spend limit is the final backstop.

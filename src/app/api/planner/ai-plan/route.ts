@@ -3,7 +3,7 @@ import { createAnthropicCaller, MissingKeyError, redactKey } from '@/planner/ai/
 import { NoNightError } from '@/planner/ai/facts'
 import { ModelReplyError, planNightWithAi } from '@/planner/ai/plan'
 import { CounterStoreError, getCounterStore } from '@/planner/ai/counter-store'
-import { GuestLimiter, GuestLimitError, guestLimitsFrom, LimitConfigError, visitorKey } from '@/planner/ai/guest-limits'
+import { GuestLimiter, GuestLimitError, guestLimitsFrom, LimitConfigError, VisitorKeyError, visitorKey } from '@/planner/ai/guest-limits'
 import { MAX_BODY_BYTES, parseBody } from '@/planner/ai/request'
 
 export const dynamic = 'force-dynamic'
@@ -62,7 +62,7 @@ export async function POST(request: Request): Promise<Response> {
 /** The answer for a limit, a broken limit config or an unreachable counter store; undefined for any other error. Guests are refused, never let through uncounted. */
 function refusal(e: unknown): Response | undefined {
   if (e instanceof GuestLimitError) return fail(429, e.message, { 'Retry-After': String(e.retryAfterSeconds) })
-  if (e instanceof LimitConfigError) return fail(503, e.message)
+  if (e instanceof LimitConfigError || e instanceof VisitorKeyError) return fail(503, e.message)
   if (e instanceof CounterStoreError) return fail(503, 'Planner limits are unavailable right now, try again later')
   return undefined
 }

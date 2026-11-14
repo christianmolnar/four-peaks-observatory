@@ -21,6 +21,7 @@ import { MAX_BODY_BYTES } from '@/planner/ai/request'
 import { INPUT, planOf, validSlots } from '@/planner/ai/testkit'
 import { POST } from './route'
 
+process.env.AUTH_SECRET = 'route-test-secret' // the visitor key needs one; a test below unsets it
 const CATALOG_ID = 'ic405'
 const KEY = 'sk-ant-test-secret-0123456789abcdef'
 const OWNER = { login: 'owner', googleSub: '1001' }
@@ -31,6 +32,7 @@ const body = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
 })
 const post = (b: unknown, raw?: string, ip = IP): Promise<Response> =>
   POST(new Request('http://x/api/planner/ai-plan', { method: 'POST', body: raw ?? JSON.stringify(b), headers: { 'x-forwarded-for': `${ip}, 10.0.0.1` } }))
+const neverResolves = (): Promise<Response> => new Promise<Response>(() => undefined)
 
 describe('POST /api/planner/ai-plan', () => {
   const prevOwner = process.env.PLANNER_OWNER_GOOGLE_SUB
@@ -236,6 +238,54 @@ describe('guest limits on POST /api/planner/ai-plan', () => {
     for (let i = 0; i < GUEST_PER_HOUR + GUEST_PER_DAY / 6; i++) expect((await post(body())).status).toBe(200)
     mockSession.mockResolvedValue(null)
     expect((await post(body())).status).toBe(429)
+  })
+  it('a KV that never answers gives a guest 503 within the timeout, no model call; an owner is unaffected', async () => {
+    mockStore = new KvRestCounterStore('https://kv.example', 't', neverResolves, 30)
+    const started = Date.now()
+    const res = await post(body())
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(res.status).toBe(503)
+    expect((await res.json()).error).toMatch(/limits are unavailable/i)
+    expect(model).not.toHaveBeenCalled()
+    mockSession.mockResolvedValue({ user: OWNER })
+    expect((await post(body())).status).toBe(200)
+  })
+  it('a KV that fails or answers garbage gives a guest 503, never a 500', async () => {
+    for (const f of [
+      async () => { throw new Error('connect ECONNREFUSED') },
+      async () => new Response('<html>oops</html>', { status: 200 }),
+      async () => new Response('[null]', { status: 200 }),
+      async () => new Response('{"a":1}', { status: 200 }),
+    ]) {
+      mockStore = new KvRestCounterStore('https://kv.example', 't', f, 50)
+      expect((await post(body())).status).toBe(503)
+    }
+    expect(model).not.toHaveBeenCalled()
+  })
+  it('a KV that hangs mid-request ends the repair at the timeout and keeps the plan so far', async () => {
+    const kv = fakeKv({ t: 0 })
+    let n = 0
+    mockStore = new KvRestCounterStore('https://kv.example', 'tok', (u, i) => (++n > 4 ? neverResolves() : kv.fetchImpl(u, i)), 30)
+    model.mockResolvedValue(JSON.stringify(planOf(INPUT, validSlots(), { fitsAll: true, cut: ['t1'] })))
+    const started = Date.now()
+    const res = await post(body())
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(res.status).toBe(200)
+    expect((await res.json()).repairError).toMatch(/timed out/i)
+  })
+  it('no AUTH_SECRET refuses a guest with 503 naming it, without a model call; an owner still works', async () => {
+    const prev = process.env.AUTH_SECRET
+    delete process.env.AUTH_SECRET
+    try {
+      const res = await post(body())
+      expect(res.status).toBe(503)
+      expect((await res.json()).error).toMatch(/AUTH_SECRET/)
+      expect(model).not.toHaveBeenCalled()
+      mockSession.mockResolvedValue({ user: OWNER })
+      expect((await post(body())).status).toBe(200)
+    } finally {
+      process.env.AUTH_SECRET = prev
+    }
   })
   it('an owner never touches the counter store', async () => {
     mockStore = { incr: jest.fn(), get: jest.fn(), decr: jest.fn() }

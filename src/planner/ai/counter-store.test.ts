@@ -65,6 +65,59 @@ describe('KvRestCounterStore wire and errors', () => {
   })
 })
 
+describe('KvRestCounterStore fails closed', () => {
+  const never = () => new Promise<Response>(() => undefined)
+  const wire = (f: () => Promise<Response>, ms = 20) => new KvRestCounterStore('https://x', 't', f, ms)
+  it('a fetch that never resolves rejects with CounterStoreError at the timeout, whether or not it honours the signal', async () => {
+    jest.useFakeTimers()
+    try {
+      const p = wire(never, 2000).get('k')
+      const settled = p.then(() => 'ok', (e: Error) => e)
+      await jest.advanceTimersByTimeAsync(1999)
+      let done = false
+      void settled.then(() => { done = true })
+      await Promise.resolve()
+      expect(done).toBe(false)
+      await jest.advanceTimersByTimeAsync(2)
+      expect(await settled).toBeInstanceOf(CounterStoreError)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+  it('passes an abort signal, aborted at the timeout', async () => {
+    let signal: AbortSignal | undefined
+    const store = new KvRestCounterStore('https://x', 't', (_u, init) => { signal = init.signal as AbortSignal; return never() }, 10)
+    await expect(store.get('k')).rejects.toThrow(/timed out/)
+    expect(signal?.aborted).toBe(true)
+  })
+  it('a body that hangs after the headers also times out', async () => {
+    const res = { ok: true, json: () => never() } as unknown as Response
+    await expect(wire(async () => res).get('k')).rejects.toThrow(CounterStoreError)
+  })
+  it.each([
+    ['an HTML body', '<html>502</html>'],
+    ['[null]', '[null]'],
+    ['a non-array', '{"result":1}'],
+    ['the wrong length', '[{"result":1},{"result":2}]'],
+    ['a non-object entry', '[3]'],
+    ['an array entry', '[[1]]'],
+  ])('%s is a CounterStoreError', async (_n, text) => {
+    await expect(wire(async () => new Response(text, { status: 200 })).get('k')).rejects.toBeInstanceOf(CounterStoreError)
+  })
+  it('decr is one request (atomic), and is harmless on a missing key', async () => {
+    const kv = fakeKv({ t: 0 })
+    const store = new KvRestCounterStore('https://x', 'tok', kv.fetchImpl)
+    await store.decr('missing')
+    expect(kv.requests).toHaveLength(1)
+    expect(kv.data.has('missing')).toBe(false)
+    await store.incr('k', 60)
+    kv.requests.length = 0
+    await store.decr('k')
+    expect(kv.requests).toHaveLength(1)
+    expect(await store.get('k')).toBe(0)
+  })
+})
+
 describe('store selection', () => {
   afterEach(resetCounterStore)
   it('kvConfigFrom accepts the Vercel KV names and the Upstash names, and needs both url and token', () => {

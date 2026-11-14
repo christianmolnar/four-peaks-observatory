@@ -1,5 +1,5 @@
 import { MemoryCounterStore } from './counter-store'
-import { GUEST_PER_DAY, GUEST_PER_HOUR, GuestLimiter, GuestLimitError, LimitConfigError, guestLimitsFrom, visitorKey } from './guest-limits'
+import { GUEST_PER_DAY, GUEST_PER_HOUR, GuestLimiter, GuestLimitError, LimitConfigError, VisitorKeyError, guestLimitsFrom, ipBucket, visitorKey } from './guest-limits'
 
 const H = 3600_000
 const T0 = Date.UTC(2026, 10, 14, 10, 30) // 10:30 UTC
@@ -32,6 +32,26 @@ describe('visitorKey', () => {
     expect(key).toMatch(/^[0-9a-f]{24}$/)
     expect(key).not.toContain('203')
     expect(visitorKey(h({ 'x-forwarded-for': '203.0.113.9' }), 'other')).not.toBe(key)
+  })
+  it('the platform header wins: a client-sent x-forwarded-for cannot override it', () => {
+    const real = visitorKey(h({ 'x-vercel-forwarded-for': '203.0.113.9' }), 's')
+    expect(visitorKey(h({ 'x-vercel-forwarded-for': '203.0.113.9', 'x-forwarded-for': '1.2.3.4', 'x-real-ip': '5.6.7.8' }), 's')).toBe(real)
+    expect(visitorKey(h({ 'x-real-ip': '203.0.113.9', 'x-forwarded-for': '1.2.3.4' }), 's')).toBe(real)
+    expect(visitorKey(h({ 'x-forwarded-for': '1.2.3.4' }), 's')).not.toBe(real)
+  })
+  it('no secret refuses (no constant fallback), naming AUTH_SECRET', () => {
+    expect(() => visitorKey(h({ 'x-real-ip': '1.1.1.1' }), undefined)).toThrow(VisitorKeyError)
+    expect(() => visitorKey(h({ 'x-real-ip': '1.1.1.1' }), '  ')).toThrow(/AUTH_SECRET/)
+  })
+  it('IPv6 shares a bucket per /64, in any spelling; IPv4-mapped IPv6 is the IPv4', () => {
+    const k = (ip: string) => visitorKey(h({ 'x-real-ip': ip }), 's')
+    expect(k('2001:db8::1')).toBe(k('2001:db8:0:0:ffff:ffff:ffff:ffff'))
+    expect(k('2001:0DB8:0000:0000::2')).toBe(k('[2001:db8::1]'))
+    expect(k('2001:db8:0:1::1')).not.toBe(k('2001:db8::1'))
+    expect(k('2001:db9::1')).not.toBe(k('2001:db8::1'))
+    expect(k('::ffff:203.0.113.9')).toBe(k('203.0.113.9'))
+    expect(k('::ffff:cb00:7109')).toBe(k('203.0.113.9'))
+    expect(ipBucket('2001:db8::1%eth0')).toBe('2001:db8:0:0::/64')
   })
   it('no header gives one shared key', () => {
     expect(visitorKey(h({}), 's')).toBe(visitorKey(h({}), 's'))

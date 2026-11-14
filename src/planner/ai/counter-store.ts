@@ -42,6 +42,9 @@ export class MemoryCounterStore implements CounterStore {
 
 export class CounterStoreError extends Error {}
 
+/** Upper bound for one KV round trip. A guest request waits at most this long before the clear 503. */
+export const KV_TIMEOUT_MS = 2000
+
 type Fetch = (input: string, init: RequestInit) => Promise<Response>
 
 /**
@@ -53,9 +56,27 @@ export class KvRestCounterStore implements CounterStore {
     private readonly url: string,
     private readonly token: string,
     private readonly fetchImpl: Fetch = (input, init) => fetch(input, init),
+    private readonly timeoutMs: number = KV_TIMEOUT_MS,
   ) {}
 
+  /** The whole exchange (connect, headers, body) is bounded by timeoutMs, whether or not the fetch honours the abort signal. */
   private async pipeline(commands: (string | number)[][]): Promise<unknown[]> {
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort()
+        reject(new CounterStoreError('Counter store timed out'))
+      }, this.timeoutMs)
+    })
+    try {
+      return await Promise.race([this.exchange(commands, controller.signal), timedOut])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  private async exchange(commands: (string | number)[][], signal: AbortSignal): Promise<unknown[]> {
     let res: Response
     try {
       res = await this.fetchImpl(`${this.url.replace(/\/+$/, '')}/pipeline`, {
@@ -63,17 +84,25 @@ export class KvRestCounterStore implements CounterStore {
         headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(commands),
         cache: 'no-store',
+        signal,
       })
     } catch {
       // The message is fixed text: never echo the URL or token.
       throw new CounterStoreError('Counter store unreachable')
     }
     if (!res.ok) throw new CounterStoreError(`Counter store answered ${res.status}`)
-    const out = (await res.json()) as { result?: unknown; error?: string }[]
+    let out: unknown
+    try {
+      out = await res.json()
+    } catch {
+      throw new CounterStoreError('Counter store answered with an unreadable body')
+    }
     if (!Array.isArray(out) || out.length !== commands.length) throw new CounterStoreError('Counter store answered with an unexpected shape')
-    return out.map((r) => {
-      if (r.error) throw new CounterStoreError('Counter store rejected a command')
-      return r.result
+    return out.map((r: unknown) => {
+      if (typeof r !== 'object' || r === null || Array.isArray(r)) throw new CounterStoreError('Counter store answered with an unexpected shape')
+      const { result, error } = r as { result?: unknown; error?: unknown }
+      if (error) throw new CounterStoreError('Counter store rejected a command')
+      return result
     })
   }
 
@@ -90,11 +119,12 @@ export class KvRestCounterStore implements CounterStore {
     return n
   }
   async decr(key: string): Promise<void> {
-    // Only when the key exists, so an expired key is not recreated as -1.
-    const n = await this.get(key)
-    if (n > 0) await this.pipeline([['DECR', key]])
+    // One atomic script: only a positive count is decremented, so an expired key is never recreated as -1.
+    await this.pipeline([['EVAL', DECR_IF_EXISTS, 1, key]])
   }
 }
+
+export const DECR_IF_EXISTS = "local n = tonumber(redis.call('GET', KEYS[1])) if n and n > 0 then return redis.call('DECR', KEYS[1]) end return 0"
 
 /** Vercel's Marketplace Upstash integration sets KV_REST_API_*; a direct Upstash database sets UPSTASH_REDIS_REST_*. */
 export function kvConfigFrom(env: Record<string, string | undefined>): { url: string; token: string } | null {

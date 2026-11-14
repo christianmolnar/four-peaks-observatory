@@ -32,13 +32,54 @@ export function guestLimitsFrom(env: Record<string, string | undefined> = proces
   }
 }
 
+/** Raised when guests cannot be told apart safely (no HMAC secret). The route refuses guests with 503. */
+export class VisitorKeyError extends Error {}
+
+/** Expands an IPv6 address to its 8 groups, or null when it is not valid. Handles `::`, an embedded IPv4 tail, brackets and a zone id. */
+function ipv6Groups(raw: string): number[] | null {
+  let a = raw.replace(/^\[|\]$/g, '').split('%')[0].toLowerCase()
+  const v4 = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(a)
+  if (v4) {
+    const o = v4.slice(1).map(Number)
+    if (o.some((n) => n > 255)) return null
+    a = a.slice(0, v4.index) + ((o[0] << 8) | o[1]).toString(16) + ':' + ((o[2] << 8) | o[3]).toString(16)
+  }
+  const halves = a.split('::')
+  if (halves.length > 2) return null
+  const side = (t: string) => (t === '' ? [] : t.split(':'))
+  const head = side(halves[0])
+  const tail = halves.length === 2 ? side(halves[1]) : []
+  const missing = 8 - head.length - tail.length
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return null
+  const all = [...head, ...Array(halves.length === 2 ? missing : 0).fill('0'), ...tail]
+  if (all.length !== 8 || !all.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null
+  return all.map((g) => parseInt(g, 16))
+}
+
+/** The bucket an address belongs to: IPv4 as is; IPv6 by its /64 prefix (one household or device owns a whole /64); IPv4-mapped IPv6 as the IPv4. */
+export function ipBucket(ip: string): string {
+  const groups = ip.includes(':') ? ipv6Groups(ip) : null
+  if (!groups) return ip
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    return `${groups[6] >> 8}.${groups[6] & 255}.${groups[7] >> 8}.${groups[7] & 255}`
+  }
+  return groups.slice(0, 4).map((g) => g.toString(16)).join(':') + '::/64'
+}
+
 /**
- * Who is calling, as an opaque key. The IP comes from the platform's forwarded header (Vercel sets it; the first entry is the client)
- * and is only ever used as an HMAC input: the raw address is never stored, logged or returned. No header: one shared bucket, the strictest case.
+ * Who is calling, as an opaque key. The IP comes from the platform's own header: `x-vercel-forwarded-for` (Vercel sets it and drops any client-sent copy),
+ * then `x-real-ip`, and only as a last resort the first `x-forwarded-for` entry (a client can forge that one when the platform does not overwrite it).
+ * It is only ever an HMAC input: the raw address is never stored, logged or returned. No header: one shared bucket, the strictest case.
+ * No secret: throws VisitorKeyError (there is no constant fallback; a public key would make the stored hashes reversible).
  */
 export function visitorKey(headers: Headers, secret: string | undefined = process.env.AUTH_SECRET): string {
-  const ip = headers.get('x-forwarded-for')?.split(',')[0]?.trim() || headers.get('x-real-ip')?.trim() || 'unknown'
-  return createHmac('sha256', secret || 'planner-guest').update(ip).digest('hex').slice(0, 24)
+  if (!secret || secret.trim() === '') throw new VisitorKeyError('AUTH_SECRET must be set so guests can be limited')
+  const ip =
+    headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
+    headers.get('x-real-ip')?.trim() ||
+    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    'unknown'
+  return createHmac('sha256', secret).update(ipBucket(ip)).digest('hex').slice(0, 24)
 }
 
 /** Fixed windows: the hour and the UTC day. Counters are named by window, so each starts at zero by itself. */
