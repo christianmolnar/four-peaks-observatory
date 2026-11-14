@@ -26,12 +26,12 @@ Code decides all of it (the engine in `src/planner/campaign/`): no AI, no cost, 
 
 Offers that night's slots to the itinerary through the same hand-off as the AI plan (asks before replacing slots that are there).
 Each slot takes the exposure mode closest to its minutes (`modeForMinutes`, shared with the AI apply) and the first slot's clock time becomes the start.
-The itinerary times its slots again, so its times differ. It is timed on the evening chosen at the top, so for night 2 or later set *Evening of* to that night to see its times.
+The itinerary times its slots again, so its times differ. Using a night also sets *Evening of* to that night's date (only when the itinerary took it), so its clocks, altitudes and flip notes are for that night. The result stays on screen and usable: it is tied to its own first night, so that move does not mark it out of date; a date change you make yourself does.
 
 ## How it runs
 
 - `startCampaign` (`src/planner/campaign/run.ts`) runs `planCampaign` in a Web Worker of its own for each run. Cancel ends the worker; a change while it runs does the same and says so.
-- Where there is no Worker (jest, old browsers) it runs on the main thread after one event-loop turn, with a console warning if a worker could not be made.
+- Where there is no Worker (jest, old browsers) it runs on the main thread after one event-loop turn. If a worker could not be made it does this silently in production (the build strips console output; only development shows a warning), and the page freezes for 1-3 s on a phone while it plans.
 - Time to plan at Fountain Hills (Node, desktop CPU): 3 targets x 3 nights 0.1 s, 6 x 3 0.25 s, 6 x 14 0.7 s, 25 x 14 4.9 s.
   In a browser at 4x CPU slowdown the main thread's longest task during the heaviest run (25 x 14) was about 100 ms, all of it rendering.
 

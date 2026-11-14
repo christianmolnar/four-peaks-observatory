@@ -1077,6 +1077,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
         formatTime={formatTime}
         createWorker={campaignWorker}
+        onUseDate={setDate}
         onApply={offerToItinerary}
       />
 

@@ -49,6 +49,8 @@ export interface CampaignPanelProps {
   formatTime: (d: Date) => string;
   /** For tests: stands in for the browser's Worker. */
   createWorker?: CampaignRunOptions['createWorker'];
+  /** Moves the page's Evening of, which is how a used night's date reaches the itinerary's clocks. */
+  onUseDate: (date: string) => void;
   /** Offers a night to the itinerary; answers true when it took it, false when the user kept their own. */
   onApply: (items: ItineraryItem[], startTime: string | null, label: string) => Promise<boolean>;
 }
@@ -119,7 +121,7 @@ export function readLimits(texts: Readonly<Record<string, LimitText>>, ids: read
   return { limits, errors };
 }
 
-export default function CampaignPanel({ base, targets, blocked, leftOutNote, profile, train, siteName, catalogTargets, formatTime, createWorker, onApply }: CampaignPanelProps) {
+export default function CampaignPanel({ base, targets, blocked, leftOutNote, profile, train, siteName, catalogTargets, formatTime, createWorker, onUseDate, onApply }: CampaignPanelProps) {
   const [nights, setNights] = useState(DEFAULT_NIGHTS);
   const [texts, setTexts] = useState<Record<string, LimitText>>({});
   const [run, setRun] = useState<Run>('idle');
@@ -127,6 +129,8 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
   const [done, setDone] = useState<Done | null>(null);
   // Which night was offered to the itinerary, and what came of it. Null: not offered yet.
   const [applyNote, setApplyNote] = useState<{ night: number; kind: 'applied' | 'kept' } | null>(null);
+  // The date a used night moved Evening of to. The result stays tied to its own first night, so that move is not a change the user made.
+  const [movedTo, setMovedTo] = useState<string | null>(null);
   // The run in flight and the inputs it was made from. A new run, or null, makes any earlier answer ignored.
   const flight = useRef<{ run: CampaignRun; key: string } | null>(null);
   const doneCount = useRef(0);
@@ -195,6 +199,7 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
     setProblem(null);
     setDone(null);
     setApplyNote(null);
+    setMovedTo(null);
     const snapshot = { input, parts, trainId: train.id, filterId: train.kind === 'optical' ? (train.filterId ?? null) : null, names: new Map(targets.map((t) => [t.id, t.name])) };
     started.result.then(
       (result) => {
@@ -219,7 +224,7 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
     setRun('cancelled');
   };
 
-  const stale = done !== null && parts !== null ? Object.keys(PART_LABELS).filter((k) => done.parts[k] !== parts[k]) : done !== null ? Object.keys(PART_LABELS) : [];
+  const stale = done !== null && parts !== null ? Object.keys(PART_LABELS).filter((k) => done.parts[k] !== parts[k] && !(k === 'night' && parts[k] === movedTo)) : done !== null ? Object.keys(PART_LABELS) : [];
   const firstNight = base === null ? '' : nightDateText(base.date);
   const status = loading
     ? `Planning ${plural(nights, 'night', 'nights')} from ${firstNight}. This runs in your browser and takes a few seconds.`
@@ -238,7 +243,7 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
         PLAN SEVERAL NIGHTS
       </h2>
       <p className="text-white/80 font-normal text-sm">
-        Spreads My plan over several nights in your order of priority: what does not fit one night rolls to the next, until each target has a useful amount of light or the nights run out. The first night is the evening chosen above, and the site, train, horizon and minimum altitude are the ones chosen above; there is nothing to set again here except the number of nights. Planets are not included.
+        Spreads My plan over several nights in your order of priority: what does not fit one night rolls to the next, until each target has a useful amount of light or the nights run out. The first night is the evening chosen above, and the site, train, horizon and minimum altitude are the ones chosen above; there is nothing to set again here except the number of nights and, if you want them, the limits per target. Planets are not included.
       </p>
 
       <div className="mt-3 max-w-xs">
@@ -339,7 +344,16 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
           catalogTargets={catalogTargets}
           formatTime={formatTime}
           applyNote={applyNote}
-          onApply={(night, items, startTime) => void onApply(items, startTime, `night ${night} of the several-night plan`).then((applied) => setApplyNote({ night, kind: applied ? 'applied' : 'kept' }))}
+          currentDate={base?.date ?? ''}
+          onApply={(night, items, startTime, date) =>
+            void onApply(items, startTime, `night ${night} of the several-night plan`).then((applied) => {
+              if (applied) {
+                setMovedTo(date);
+                onUseDate(date);
+              }
+              setApplyNote({ night, kind: applied ? 'applied' : 'kept' });
+            })
+          }
         />
       )}
     </section>
@@ -365,6 +379,7 @@ function Result({
   catalogTargets,
   formatTime,
   applyNote,
+  currentDate,
   onApply,
 }: {
   done: Done;
@@ -374,7 +389,8 @@ function Result({
   catalogTargets: readonly SlotTarget[];
   formatTime: (d: Date) => string;
   applyNote: { night: number; kind: 'applied' | 'kept' } | null;
-  onApply: (night: number, items: ItineraryItem[], startTime: string | null) => void;
+  currentDate: string;
+  onApply: (night: number, items: ItineraryItem[], startTime: string | null, date: string) => void;
 }) {
   const { result, names, input } = done;
   const nameOf = (id: string) => names.get(id) ?? id;
@@ -403,7 +419,7 @@ function Result({
               <li key={p.subjectId} className="space-y-2">
                 {isFirstCut && (
                   <p className="rounded border border-orange-300/50 bg-orange-400/10 px-3 py-2 text-orange-100 font-normal text-sm" data-testid="campaign-cut-line">
-                    <span className="font-medium">Cut line.</span> Targets above this line get a useful amount of light; from here down, some do not. {cut.text ?? ''}
+                    <span className="font-medium">Cut line.</span> {cut.lastFitId === null ? '' : 'Targets above this line get a useful amount of light; from here down, some do not. '}{cut.text ?? ''}
                   </p>
                 )}
                 <div className="rounded border border-white/15 p-3 text-sm font-normal text-white/90" data-testid={`campaign-target-${p.subjectId}`}>
@@ -469,6 +485,7 @@ function Result({
                       formatTime={formatTime}
                       applyNote={applyNote?.night === i + 1 ? applyNote.kind : null}
                       stale={stale.length > 0}
+                      currentDate={currentDate}
                       onApply={onApply}
                     />
                   )}
@@ -492,6 +509,7 @@ function NightBody({
   formatTime,
   applyNote,
   stale,
+  currentDate,
   onApply,
 }: {
   night: CampaignNight;
@@ -503,7 +521,8 @@ function NightBody({
   formatTime: (d: Date) => string;
   applyNote: 'applied' | 'kept' | null;
   stale: boolean;
-  onApply: (night: number, items: ItineraryItem[], startTime: string | null) => void;
+  currentDate: string;
+  onApply: (night: number, items: ItineraryItem[], startTime: string | null, date: string) => void;
 }) {
   const { input, names } = done;
   const nameOf = (id: string) => names.get(id) ?? id;
@@ -530,7 +549,7 @@ function NightBody({
   if (!dark) {
     return (
       <p className="text-white/90 font-normal text-sm" data-testid={`campaign-night-${number}-dark`}>
-        No usable darkness on {nightDateText(night.date)}: {night.outcomes.find((o) => o.reason !== null)?.reason?.text ?? night.cutLine.text ?? 'there is no astronomical night on this date.'}
+        No usable darkness on {nightDateText(night.date)}: {(night.outcomes.find((o) => o.reason !== null)?.reason?.text ?? night.cutLine.text ?? 'there is no astronomical night on this date.').replace(/\d{4}-\d{2}-\d{2}/g, nightDateText)}
       </p>
     );
   }
@@ -600,16 +619,16 @@ function NightBody({
       )}
 
       <div>
-        <button type="button" className={btn44} onClick={() => onApply(number, offer.items, offer.startTime)} disabled={applyBlock !== null} aria-describedby={noteId} data-testid={`campaign-apply-${number}`}>
+        <button type="button" className={btn44} onClick={() => onApply(number, offer.items, offer.startTime, night.date)} disabled={applyBlock !== null} aria-describedby={noteId} data-testid={`campaign-apply-${number}`}>
           Use night {number} as my itinerary
         </button>
         <p id={noteId} className="mt-1 text-white/70 font-normal text-xs" data-testid={noteId}>
           {applyBlock ??
             (applyNote === 'applied'
-              ? `Done: your itinerary below now holds this night’s order, first start time and, for each slot, the closest exposure mode to its length. It does not keep the plan’s slot times or exact lengths: the itinerary times each slot again with its own estimate, so its times will not match the ones above.${number > 1 ? ' It is timed on the evening chosen at the top of the page; set Evening of to this night’s date to see its times for that night.' : ''}`
+              ? `Done: your itinerary below now holds this night’s order, first start time and, for each slot, the closest exposure mode to its length. It does not keep the plan’s slot times or exact lengths: the itinerary times each slot again with its own estimate, so its times will not match the ones above. Evening of at the top of the page is now ${nightDateText(night.date)}, so the itinerary describes this night.`
               : applyNote === 'kept'
                 ? 'Your itinerary was left as it was.'
-                : `This replaces your night itinerary below with this night’s order, first start time and, for each slot, the closest exposure mode to its length. The plan’s slot times and exact lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the ones above.${number > 1 ? ` It is timed on the evening chosen at the top of the page, not on ${nightDateText(night.date)}.` : ''}`)}
+                : `This replaces your night itinerary below with this night’s order, first start time and, for each slot, the closest exposure mode to its length. The plan’s slot times and exact lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the ones above.${night.date !== currentDate ? ` It also sets Evening of at the top of the page to ${nightDateText(night.date)}, so the itinerary describes this night.` : ''}`)}
         </p>
       </div>
     </div>

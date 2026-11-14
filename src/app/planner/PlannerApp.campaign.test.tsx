@@ -14,6 +14,7 @@ import { arcToHorizonPoints } from '@/planner/profile';
 import { sampleProfile, saveMyPlan } from '@/planner/state';
 import type { AuthState } from './authState';
 import PlannerApp from './PlannerApp';
+import { nightDateText } from './catalogText';
 import { fakeCatalog, fakeWorkerRanker, ready } from './testkit';
 
 // The several-night panel on the whole page. The worker is a fake that runs the engine's own handler, so every answer is the real
@@ -80,7 +81,6 @@ const hhmm = (d: Date) => clock.format(d);
 const panel = () => screen.getByRole('region', { name: 'PLAN SEVERAL NIGHTS' });
 const go = () => within(panel()).getByRole('button', { name: /^Plan \d+ nights?$/ }) as HTMLButtonElement;
 const status = () => screen.getByTestId('campaign-status');
-const resultBox = () => screen.getByTestId('campaign-result');
 const itinerary = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
 const itinerarySlots = () => within(itinerary()).queryAllByRole('listitem').filter((li) => /^slot-s\d/.test(li.getAttribute('data-testid') ?? '') && !li.getAttribute('data-testid')!.startsWith('slot-time'));
 const nightButton = (n: number) => within(screen.getByTestId(`campaign-night-${n}`)).getByRole('button', { name: new RegExp(`^Night ${n},`) });
@@ -430,10 +430,14 @@ describe('nights without usable darkness', () => {
     await planned();
     for (const n of [1, 2]) {
       openNight(n);
-      expect(screen.getByTestId(`campaign-night-${n}-dark`).textContent).toMatch(/^No usable darkness on .*: No astronomical night on 2026-06-2\d\./);
+      expect(screen.getByTestId(`campaign-night-${n}-dark`).textContent).toMatch(/^No usable darkness on \w{3} 2\d Jun: No astronomical night on \w{3} 2\d Jun\./);
     }
     expect(screen.getByTestId('campaign-target-m42').textContent).toMatch(/\(Cut\)/);
     expect(screen.getByTestId('campaign-target-m42').textContent).toContain('0 min of light over 0 nights');
+    // The first target is the one cut: no target is above the line, so the line does not say they get light.
+    const line = screen.getByTestId('campaign-cut-line').textContent as string;
+    expect(line).toMatch(/^Cut line\./);
+    expect(line).not.toMatch(/Targets above this line/);
   });
 });
 
@@ -644,8 +648,75 @@ describe('Use night N as my itinerary', () => {
     const note = screen.getByTestId(`campaign-apply-note-${n}`).textContent as string;
     expect(note).toMatch(/^Done: your itinerary below now holds this night.s order/);
     expect(note).toMatch(/does not keep the plan.s slot times or exact lengths/);
-    if (n > 1) expect(note).toMatch(/timed on the evening chosen at the top of the page; set Evening of to this night.s date/);
-    else expect(note).not.toMatch(/set Evening of/);
+    expect(note).toContain(`Evening of at the top of the page is now ${nightDateText(night.date)}`);
+    // The evening moved to that night, so the itinerary's clocks are for it; the result is still usable.
+    expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).toBe(night.date);
+    expect(screen.queryByTestId('campaign-stale')).toBeNull();
+    for (let k = 1; k <= 3; k++) {
+      openNight(k);
+      if (planCampaign(w.sent()).nights[k - 1].slots.length > 0) expect((screen.getByTestId(`campaign-apply-${k}`) as HTMLButtonElement).disabled).toBe(false);
+    }
+    expect(status().textContent).toMatch(/^Plan ready for 3 nights/);
+  });
+
+  it('before it is used, the note says it will move Evening of (only when the night is a different date)', async () => {
+    const w = fakeCampaignWorker();
+    mount(w, { plan: SIX });
+    await ready();
+    await planned();
+    const night = planCampaign(w.sent()).nights;
+    openNight(1);
+    expect(screen.getByTestId('campaign-apply-note-1').textContent).not.toMatch(/Evening of/);
+    openNight(2);
+    expect(screen.getByTestId('campaign-apply-note-2').textContent).toContain(`It also sets Evening of at the top of the page to ${nightDateText(night[1].date)}`);
+  });
+
+  it('a date the user changes after a night was used still marks the plan out of date, and apply goes off', async () => {
+    const w = fakeCampaignWorker();
+    mount(w, { plan: SIX });
+    await ready();
+    const user = await planned();
+    openNight(2);
+    await user.click(screen.getByTestId('campaign-apply-2'));
+    await waitFor(() => expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).not.toBe(DATE));
+    expect(screen.queryByTestId('campaign-stale')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2026-12-02' } });
+    expect(screen.getByTestId('campaign-stale').textContent).toMatch(/you changed the first night/);
+    expect((screen.getByTestId('campaign-apply-1') as HTMLButtonElement).disabled).toBe(true);
+    // Back to the date the plan was made for: current again.
+    fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: DATE } });
+    expect(screen.queryByTestId('campaign-stale')).toBeNull();
+  });
+
+  it('declined: the itinerary and Evening of both stay', async () => {
+    const mine = [{ id: 's1', targetId: 'm31', trainId: 'deep-c11-2600', filterId: null, mode: 'balanced', note: 'mine' }];
+    window.localStorage.setItem(ITINERARY_KEY, JSON.stringify({ version: 2, items: mine, startTime: null }));
+    jest.spyOn(window, 'confirm').mockReturnValue(false);
+    const w = fakeCampaignWorker();
+    mount(w);
+    await ready();
+    const user = await planned();
+    openNight(2);
+    await user.click(screen.getByTestId('campaign-apply-2'));
+    await waitFor(() => expect(screen.getByTestId('campaign-apply-note-2').textContent).toBe('Your itinerary was left as it was.'));
+    expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).toBe(DATE);
+    expect(screen.queryByTestId('campaign-stale')).toBeNull();
+  });
+
+  it('after a reload the itinerary is kept and the evening is the page\'s own again', async () => {
+    const w = fakeCampaignWorker();
+    const first = mount(w, { plan: SIX });
+    await ready();
+    const user = await planned();
+    openNight(2);
+    await user.click(screen.getByTestId('campaign-apply-2'));
+    const night = planCampaign(w.sent()).nights[1];
+    await waitFor(() => expect(itinerarySlots()).toHaveLength(night.slots.length));
+    first.unmount();
+    mount(fakeCampaignWorker(), { plan: SIX });
+    await ready();
+    await waitFor(() => expect(itinerarySlots()).toHaveLength(night.slots.length));
+    expect(screen.queryByTestId('campaign-result')).toBeNull();
   });
 
   it('asks before replacing slots that are there, in words about this night, keeps theirs on No, and takes the night on Yes', async () => {
