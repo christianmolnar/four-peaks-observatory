@@ -1,20 +1,12 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { signIn, signOut } from 'next-auth/react';
+import { loadAuthState } from './authState';
+import type { AuthState } from './authState';
 
-export type AuthState = { kind: 'disabled' } | { kind: 'signedOut' } | { kind: 'signedIn'; login: string };
 
 const btn =
   'inline-flex items-center justify-center min-h-[44px] px-4 rounded border border-white/30 text-white/90 text-sm font-normal hover:bg-white/10';
-
-/** The page is prerendered, so the signed-out form is in the HTML; the session is read here after load. */
-export async function loadAuthState(): Promise<AuthState> {
-  const res = await fetch('/api/planner/session', { credentials: 'same-origin', cache: 'no-store' });
-  if (!res.ok) throw new Error(`Session check failed: ${res.status}`);
-  const body = (await res.json()) as { signedIn?: boolean; login?: string; configured?: boolean };
-  if (body.signedIn && body.login) return { kind: 'signedIn', login: body.login };
-  return body.configured === false ? { kind: 'disabled' } : { kind: 'signedOut' };
-}
 
 // Compact sign-in control. The planner works fully without it.
 export default function AuthControl() {

@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
+import type { AstronomicalNight } from '@/planner/astro';
+import { rigOf } from '@/planner/ai/body';
+import type { PlanTarget } from '@/planner/ai/body';
+import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { makeCsvTime, planToCsv } from '@/planner/export';
@@ -45,7 +49,10 @@ import {
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
+import AiPlanPanel from './AiPlanPanel';
 import AltitudeChart from './AltitudeChart';
+import { loadAuthState } from './authState';
+import type { AuthState } from './authState';
 import ExposurePanel from './ExposurePanel';
 import HorizonEditor from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
@@ -54,7 +61,8 @@ import OverflowMenu from './OverflowMenu';
 import PlanetsSection from './PlanetsSection';
 import PrintSheet from './PrintSheet';
 import { download } from './download';
-import type { ItineraryReport } from './ItinerarySection';
+import type { IncomingItinerary, ItineraryReport } from './ItinerarySection';
+import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
 import MyPlan from './MyPlan';
@@ -141,6 +149,10 @@ export interface PlannerAppProps {
   rank?: (query: TonightQuery) => Promise<RankResult>;
   /** The bundled catalog; defaults to the app-wide lazy loader. A test stands in a fake fetch behind its own loader. */
   loadCatalogIndex?: () => Promise<CatalogIndex>;
+  /** The AI night plan's request; defaults to the browser's fetch. A test stands in a fake. */
+  aiFetch?: typeof fetch;
+  /** Who is signed in (the owner sees the AI plan's review switch); defaults to the session endpoint the sign-in control reads. */
+  loadAuth?: () => Promise<AuthState>;
 }
 
 /** How long a toast stays up. */
@@ -155,7 +167,7 @@ const NO_ZONES: readonly BlockedArc[] = [];
 
 const fieldsOf = (arcs: readonly BlockedArc[]): HorizonFields[] => arcs.map(fieldsFromArc);
 
-export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog }: PlannerAppProps) {
+export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog, aiFetch, loadAuth = loadAuthState }: PlannerAppProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
   const [notice, setNotice] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -200,6 +212,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [printing, setPrinting] = useState(false);
   // The itinerary section leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
   const itineraryReport = useRef<ItineraryReport | null>(null);
+  // The AI plan offered to the itinerary, and who is waiting for its answer. The owner sees the AI review switch; a failed read leaves the page as a guest's.
+  const [incoming, setIncoming] = useState<IncomingItinerary | null>(null);
+  const incomingAnswer = useRef<((applied: boolean) => void) | null>(null);
+  const offers = useRef(0);
+  const [owner, setOwner] = useState(false);
+  useEffect(() => {
+    let live = true;
+    loadAuth().then(
+      (a) => live && setOwner(a.kind === 'signedIn' && a.owner),
+      (e) => console.error(e),
+    );
+    return () => {
+      live = false;
+    };
+  }, [loadAuth]);
 
   const endMinAltRun = () => {
     if (minAltTimer.current) clearTimeout(minAltTimer.current);
@@ -685,6 +712,44 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       : [{ id, name: body ?? target?.displayName ?? target?.name ?? id, isPlanet: body !== undefined, usableMinutes: entry?.usableMinutes ?? 0 }],
   );
 
+  // The AI plan takes My plan's fixed objects in the user's order; planets move, so they stay out, and so does anything not yet resolved.
+  const aiTargets = useMemo(
+    (): PlanTarget[] => planItems.flatMap(({ id, target, body }) => (body === undefined && target !== undefined ? [{ id, name: target.displayName ?? target.name, raHours: target.raHours, decDeg: target.decDeg }] : [])),
+    [planItems],
+  );
+  const aiBase = useMemo(() => {
+    if (planning.base === null || !train || !site) return null;
+    const timeZone = planning.base.timeZone || zone;
+    if (!timeZone) return null;
+    return { site: planning.base.site, timeZone, horizon: planning.base.horizon, minAltitude, date: planning.base.date, rig: rigOf(profile, train), bortle: site.bortle };
+  }, [planning.base, train, site, zone, minAltitude, profile]);
+  const planets = planItems.filter((p) => p.body !== undefined).length;
+  const unresolved = planItems.length - planets - aiTargets.length;
+  const aiBlocked =
+    planIds.length === 0
+      ? 'Add at least one target to My plan first.'
+      : !hasNight
+        ? 'There is no astronomical night on this date, so there is nothing to plan.'
+        : catalog.status === 'loading'
+          ? 'The catalog is still loading.'
+          : aiTargets.length === 0
+            ? 'My plan has no deep-sky targets the AI planner can use. It plans fixed objects, not planets.'
+            : aiBase === null
+              ? 'The site or train is not ready.'
+              : null;
+  const aiLeftOut = [
+    planets > 0 ? `${planets} ${planets === 1 ? 'planet is' : 'planets are'} left out: the AI plans fixed objects.` : '',
+    unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
+    aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of My plan are sent.` : '',
+  ].filter((x) => x !== '').join(' ');
+  /** Gives the plan to the itinerary section and waits for its answer (it asks before replacing a plan that is there). */
+  const offerToItinerary = (items: ItineraryItem[], startTime: string | null) =>
+    new Promise<boolean>((resolve) => {
+      incomingAnswer.current?.(false);
+      incomingAnswer.current = resolve;
+      setIncoming({ key: ++offers.current, items, startTime });
+    });
+
   const field =
     'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
   const btn =
@@ -956,6 +1021,23 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
       <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
 
+      <AiPlanPanel
+        base={aiBase}
+        targets={aiTargets}
+        blocked={aiBlocked}
+        leftOutNote={aiLeftOut}
+        profile={profile}
+        train={train}
+        siteName={site.name}
+        nightWord={nightWord}
+        night={hasNight ? (stableNight as AstronomicalNight) : null}
+        catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
+        formatTime={formatTime}
+        owner={owner}
+        fetchPlan={aiFetch}
+        onApply={offerToItinerary}
+      />
+
       <TargetSearch
         catalog={catalog}
         onRetryCatalog={retryCatalog}
@@ -1083,6 +1165,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           nightWord={nightWord}
           timeZone={siteZone || zone || undefined}
           report={itineraryReport}
+          incoming={incoming}
+          onIncoming={(applied) => {
+            setIncoming(null);
+            incomingAnswer.current?.(applied);
+            incomingAnswer.current = null;
+          }}
         />
       )}
 

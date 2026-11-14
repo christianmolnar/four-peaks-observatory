@@ -72,6 +72,16 @@ export interface ItinerarySectionProps {
   timeZone?: string;
   /** The page's print sheet reads the current plan from here; written on every change, so it never causes a render. */
   report?: MutableRefObject<ItineraryReport | null>;
+  /** A plan to take in (the AI plan's "Use this plan as my itinerary"): it replaces the slots and the start time, after a check when there are slots already. Answered through `onIncoming`. */
+  incoming?: IncomingItinerary | null;
+  onIncoming?: (applied: boolean) => void;
+}
+
+/** Items to put into the itinerary; `key` is new for every offer, so the same items can be offered twice. */
+export interface IncomingItinerary {
+  key: number;
+  items: ItineraryItem[];
+  startTime: string | null;
 }
 
 /** What the print sheet and the exports need of the itinerary. */
@@ -149,7 +159,7 @@ function Detail({
  * a train, a filter and a mode, scheduled one after the other with the changeover between them. Subs and counts come
  * from the exposure module; every time and number here is an estimate. Saved in this browser with a version.
  */
-export default function ItinerarySection({ profile, train, planOptions, catalog, scorer, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
+export default function ItinerarySection({ profile, train, planOptions, catalog, scorer, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, nightWord, timeZone, report, incoming, onIncoming }: ItinerarySectionProps) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [startTime, setStartTime] = useState<string | null>(null);
   // What is being typed in the start box; null: show the saved start time.
@@ -197,6 +207,14 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
       setProblem({ text: 'This browser would not save the itinerary, so it is lost when you reload the page.', urgent: false });
     }
   };
+  // An offered plan, once the saved one has been read (so it is not read over it). Saved like any other change.
+  useEffect(() => {
+    if (!incoming || !loaded) return;
+    const replace = items.length === 0 || window.confirm(`Replace your itinerary (${items.length} ${items.length === 1 ? 'slot' : 'slots'}) with the AI plan?`);
+    if (replace) commit(incoming.items, null, incoming.startTime);
+    onIncoming?.(replace);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per offer (its key), reading the items as they are then
+  }, [incoming?.key, loaded]);
   // After "Use night start" the box text is selected, so the next digit replaces it instead of adding to it.
   useEffect(() => {
     if (selectStart.current) startBox.current?.select();

@@ -197,7 +197,8 @@ describe('search', () => {
       await userEvent.setup().type(searchBox(), 'Zxqvbn Nebula');
       expect(screen.getByText('“Zxqvbn Nebula” is not in the bundled catalog.')).toBeTruthy();
       expect(screen.queryByRole('list', { name: 'Search results' })).toBeNull();
-      expect(fetchSpy).not.toHaveBeenCalled();
+      // The page asks the session endpoint once (the owner's AI switch); the search itself sends nothing.
+      expect(fetchSpy.mock.calls.filter(([url]) => url !== '/api/planner/session')).toEqual([]);
     } finally {
       globalThis.fetch = realFetch;
     }

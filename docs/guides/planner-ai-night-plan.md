@@ -1,6 +1,6 @@
 # Planner AI night plan
 
-The model decides; code supplies facts and checks. One night, up to 12 targets. No UI yet: the route and `src/planner/ai/plan.ts` are the deliverable.
+The model decides; code supplies facts and checks. One night, up to 12 targets. The page has a panel for it (see Planner panel); the route and `src/planner/ai/plan.ts` are the engine.
 
 ## Environment (set in Vercel and in `.env.local`; values never in the repo)
 
@@ -77,3 +77,13 @@ The model decides; code supplies facts and checks. One night, up to 12 targets. 
 - Owners are not affected; they are uncapped and never counted.
 - To open it up sooner, raise `PLANNER_GUEST_PER_DAY` (spend grows with it) or wait for UTC midnight.
 - The Anthropic console monthly spend limit is the final backstop.
+
+## Planner panel
+
+- `src/app/planner/AiPlanPanel.tsx`, just under My plan, reached from the My plan header link "Plan my night with AI". It has no controls of its own for date, site, train, horizon or minimum altitude: it sends what the page already holds, with My plan's fixed objects in the user's order (planets are left out, and so are targets past 12; the panel says so).
+- The request is built by `buildAiPlanBody` (`src/planner/ai/body.ts`) and the tests check it with the route's own `parseBody`. `catalogId` goes only for targets in the curated catalog, the only ones the route knows.
+- States: empty My plan (button disabled with the reason), loading with Cancel, superseded (an input changed while the request was out: the answer is dropped), each route error in plain words (429 from `Retry-After`, 503, 502 with Retry, 422), and a stale marker naming what changed (night, site, train, My plan, horizon or minimum altitude) after a plan was made.
+- The result: slots with times and minutes, the exposure the model asked for, the model's `notes` and the last slot's `reason`, the left-out list, the checker's findings in plain words (`plainText` in `src/planner/ai/view.ts` turns ids into names and ISO times into clock times), and the page's own night graph (`NightTimeline`).
+- The model gives no reason per slot or per cut target (the schema has `notes` and the last slot's `reason` only), so those two texts are what the page can show in the model's words.
+- "Use this plan as my itinerary" hands the slots to `ItinerarySection` (`incoming`), which asks before replacing slots that are there and saves like any itinerary change, so Print and the itinerary exports carry the plan. Not offered for an unverified plan, a smart-scope train, or more than 8 slots.
+- The review switch shows only for the owner (`owner` from `/api/planner/session`); a guest's request never carries `qualityReview`.

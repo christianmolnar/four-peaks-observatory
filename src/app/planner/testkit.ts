@@ -4,6 +4,7 @@ import { createCatalogLoader } from '@/planner/catalog/loader';
 import type { CatalogObject } from '@/planner/catalog/openngc';
 import type { CatalogPatches } from '@/planner/catalog/supplement';
 import { createTonightRanker } from '@/planner/tonight';
+import type { AuthState } from './authState';
 import type { WorkerLike } from '@/planner/tonight';
 import { createWorkerHandler } from '@/planner/tonight/handler';
 import type { WorkerRequest, WorkerResponse } from '@/planner/tonight/handler';
@@ -86,6 +87,8 @@ const defaultCatalog = fakeCatalog();
 export const pageProps = {
   rank: createTonightRanker({ createWorker: () => null, loadTargets: async () => (await defaultCatalog.load()).targets, yieldNow: async () => undefined }),
   loadCatalogIndex: defaultCatalog.load,
+  /** A guest: the page's one read of the session endpoint (for the owner's AI switch) is not the test's business. */
+  loadAuth: async (): Promise<AuthState> => ({ kind: 'signedOut' }),
 };
 
 /** Opens the sticky strip's controls (Evening of, Site, Train, Filter, Minimum altitude), which start closed; does nothing when they are open. */

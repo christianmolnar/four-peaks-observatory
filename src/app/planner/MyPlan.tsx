@@ -63,9 +63,14 @@ export default function MyPlan({ rows, nightWord, onMove, onRemove }: MyPlanProp
           </button>
         </h2>
         {rows.length > 0 && (
-          <a href="#itinerary-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
-            Plan an itinerary
-          </a>
+          <span className="flex flex-wrap gap-x-4">
+            <a href="#ai-plan-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              Plan my night with AI
+            </a>
+            <a href="#itinerary-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              Plan an itinerary
+            </a>
+          </span>
         )}
       </div>
       <div id="my-plan-body" hidden={!open} className="pb-3">
