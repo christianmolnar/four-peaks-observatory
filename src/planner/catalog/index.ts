@@ -5,14 +5,25 @@ export type TargetType =
   | 'galaxy'
   | 'planetary-nebula'
   | 'globular-cluster'
-  | 'open-cluster';
+  | 'open-cluster'
+  // Types that only the bundled OpenNGC extract uses (see `openngc.ts`):
+  | 'galaxy-group'
+  | 'dark-nebula'
+  | 'supernova-remnant'
+  | 'asterism'
+  | 'double-star';
 
-const TARGET_TYPES: readonly TargetType[] = [
+export const TARGET_TYPES: readonly TargetType[] = [
   'nebula',
   'galaxy',
   'planetary-nebula',
   'globular-cluster',
   'open-cluster',
+  'galaxy-group',
+  'dark-nebula',
+  'supernova-remnant',
+  'asterism',
+  'double-star',
 ];
 
 export interface CatalogTarget {
@@ -34,14 +45,16 @@ export interface CatalogTarget {
 
 /**
  * Lookup key: lower case, apostrophes and spacing dropped, leading zeros
- * removed from a trailing catalog number ("NGC 0224", "ngc224" and "N G C 224" agree); "Messier 42" is "M42".
+ * removed from a trailing catalog number ("NGC 0224", "ngc224" and "N G C 224" agree); "Messier 42" is "M42",
+ * "Caldwell 33" is "C33".
  */
 export function normalizeName(name: string): string {
   const key = name
     .toLowerCase()
     .replace(/['’`]/g, '')
     .replace(/[^a-z0-9]+/g, '')
-    .replace(/^messier(?=\d)/, 'm');
+    .replace(/^messier(?=\d)/, 'm')
+    .replace(/^caldwell(?=\d)/, 'c');
   return key.replace(/^([a-z]+)0+(\d)/, '$1$2');
 }
 
