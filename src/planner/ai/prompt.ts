@@ -1,7 +1,8 @@
 import type { Violation } from './check';
 import type { NightFacts } from './facts';
 import type { ModelPlan } from './schema';
-import { PLAN_JSON_SCHEMA, QUALITY_JSON_SCHEMA } from './schema';
+import { clip, MAX_QUALITY_TEXT_CHARS, PLAN_JSON_SCHEMA, QUALITY_JSON_SCHEMA } from './schema';
+export { clip };
 
 /** The exact text is mirrored in PROMPT.md for review; a test keeps them equal. */
 export const SYSTEM_PROMPT = `You plan one night of deep-sky imaging for a fixed observatory. You get a list of targets and a FACTS table computed by code. You decide; the code only supplies facts and checks your answer.
@@ -14,28 +15,38 @@ RULES
    - lie fully inside one of that target's windows (windows already exclude blocked sky and altitudes under minAltitudeDeg; they are a guide from a 5 minute scan, and the code checks every minute, so trust its messages);
    - not have the target's transit strictly between its start and end unless "meridianFlips.allowed" in the facts is true (a slot may always end or start exactly at the transit time printed in the facts);
    - keep at least slewMin minutes between its end and the next slot's start, with no overlap.
-   A slot may carry "exposureMinutes", the imaging minutes you plan in it; it may not exceed the slot's imaging time.
+   A slot may carry "exposureMinutes", the minutes you plan to expose in it. It may not exceed the slot length (end minus start), minus "meridianFlips.minutes" when the slot spans its target's transit.
    Prefer high altitude, a large moon separation and a low or set moon. A slot may be shorter than the exposure you chose when the night is short; say so in notes.
-5. The LAST target in the order takes all the observable time that is left, up to the end of its window or of the night. Without flips a slot cannot span the transit, so when the time before the transit is short and the target stays usable long after it, the last slot may start at its transit to use the time after the flip. Targets that do not fit go to "cut", in any order. FLIPS: when "meridianFlips.allowed" is true, a slot may span its target's transit, and the flip takes "meridianFlips.minutes" out of that slot: its imaging time is the slot length minus that. Use the fewest flips that gain a target or clearly more exposure, and when a slot that ends at the transit followed by a fresh slot after it loses nothing, prefer that to a slot that spans the transit. Every target id appears exactly once, in "plan" or in "cut". "fitsAll" is true exactly when "cut" is empty.
-6. LASTTARGET: when "plan" is not empty, "lastTarget" describes the last slot in time: its target "id", "leftoverMinutes" (the slot length in minutes), "subSeconds" (the same as in its exposure entry), "frames" (floor of the slot's imaging minutes x 60 / subSeconds, one less is allowed; imaging minutes are leftoverMinutes, minus "meridianFlips.minutes" when that slot spans its transit), "usefulness" ("useful", "marginal" or "not_useful": is that many frames at that exposure worth shooting and processing?) and "reason" (one line). Judge it honestly; do not change the numbers to look better.
+5. The LAST target in the order takes all the observable time that is left, up to the end of its window or of the night. When "meridianFlips.allowed" is false a slot cannot span the transit, so when the time before the transit is short and the target stays usable long after it, the last slot may start at its transit to use the time after the transit. Targets that do not fit go to "cut", in any order. FLIPS: when "meridianFlips.allowed" is true, a slot may span its target's transit, and the flip takes "meridianFlips.minutes" out of that slot. Use the fewest flips that gain a target or clearly more exposure, and when a slot that ends at the transit followed by a slot for another target after it loses nothing, prefer that to a slot that spans the transit. Never give the same target a second slot. Every target id appears exactly once, in "plan" or in "cut". "fitsAll" is true exactly when "cut" is empty.
+6. LASTTARGET: when "plan" is not empty, "lastTarget" describes the last slot in time: its target "id", "leftoverMinutes" (the slot length in minutes), "subSeconds" (the same as in its exposure entry), "frames" (floor of M x 60 / subSeconds, one less is allowed, where M is leftoverMinutes, minus "meridianFlips.minutes" when that slot spans its transit; frames do not use exposureMinutes), "usefulness" ("useful", "marginal" or "not_useful": is that many frames at that exposure worth shooting and processing?) and "reason" (one line). Judge it honestly; do not change the numbers to look better.
 7. Reply with one JSON object that matches this schema, and nothing else (no prose, no code fence):
 ${JSON.stringify(PLAN_JSON_SCHEMA)}`;
 
 export function buildUserPrompt(facts: NightFacts): string {
-  return `Plan this night. FACTS (JSON). For each target, "samples" has one row per entry of "sampleTimes": [altitude deg, azimuth deg, flag, moon separation deg]; flag is "ok", "low" (under minAltitudeDeg) or "blocked" (behind a horizon zone). "windows" are the spans where the target is usable, from a 5 minute scan (the check is finer). "transit" is when it crosses the meridian (the flip), to the whole minute, or null when that is outside the night. "meridianFlips" says whether a slot may span the transit and what a flip costs. "object", "rig" and "bortle" are what is known about the target, the equipment and the sky; they may be absent.
+  return `Plan this night. FACTS (JSON). For each target, "samples" has one row per entry of "sampleTimes": [altitude deg, azimuth deg, flag, moon separation deg]; flag is "ok", "low" (under minAltitudeDeg) or "blocked" (behind a horizon zone). "windows" are the spans where the target is usable, from a 5 minute scan (the check is finer); "sampleTimes" show the sampling step, and "windowsOmitted", when present, counts the shorter windows left out of the list. "transit" is when it crosses the meridian (the flip), to the whole minute, or null when that is outside the night. "meridianFlips" says whether a slot may span the transit and what a flip costs. "object", "rig" and "bortle" are what is known about the target, the equipment and the sky; they may be absent.
 
 ${JSON.stringify(facts)}`;
 }
 
-export function buildRepairPrompt(violations: readonly Violation[]): string {
+/** Hard limits on what one message may carry back to the model. Every echoed or listed text is clipped to these, so a call has a maximum length whatever the model replied. */
+export const MAX_LISTED_VIOLATIONS = 30;
+export const MAX_VIOLATION_CHARS = 300;
+export const MAX_ECHO_CHARS = 12_000;
+export const MAX_ERROR_CHARS = 300;
+
+/** The first MAX_LISTED_VIOLATIONS violations (the check reports them in slot order, then the whole-plan ones), each clipped, then "and N more". */
+export function buildRepairPrompt(violations: readonly Violation[], maxListed = MAX_LISTED_VIOLATIONS): string {
+  const listed = violations.slice(0, Math.min(maxListed, MAX_LISTED_VIOLATIONS)).map((v, i) => `${i + 1}. ${clip(v.message, MAX_VIOLATION_CHARS)}`);
+  const more = violations.length - listed.length;
+  if (more > 0) listed.push(`and ${more} more.`);
   return `The code checked your plan against the facts and found these violations:
-${violations.map((v, i) => `${i + 1}. ${v.message}`).join('\n')}
+${listed.join('\n')}
 
 Fix them. Change only what is needed, keep the rest of the plan, and use only the facts table. Reply with the full corrected plan as one JSON object, same schema, nothing else.`;
 }
 
 export function buildRetryPrompt(error: string): string {
-  return `Your reply could not be used: ${error}. Reply again with one JSON object matching the schema, and nothing else.`;
+  return `Your reply could not be used: ${clip(error, MAX_ERROR_CHARS)}. Reply again with one JSON object matching the schema, and nothing else.`;
 }
 
 export function buildQualityPrompt(): string {
@@ -44,9 +55,11 @@ ${JSON.stringify(QUALITY_JSON_SCHEMA)}`;
 }
 
 export function buildQualityRepairPrompt(issue: string, fix: string | undefined): string {
-  return `Your review of the plan found this issue: ${issue}${fix ? ` Suggested fix: ${fix}` : ''}
+  return `Your review of the plan found this issue: ${clip(issue, MAX_QUALITY_TEXT_CHARS)}${fix ? ` Suggested fix: ${clip(fix, MAX_QUALITY_TEXT_CHARS)}` : ''}
 
 Fix it. Keep every rule, use only the facts table, and reply with the full corrected plan as one JSON object, same schema, nothing else.`;
 }
 
-export const planAsReply = (plan: ModelPlan): string => JSON.stringify(plan);
+/** A previous reply sent back as the assistant turn, clipped to MAX_ECHO_CHARS (the reply cap, 3000 tokens at 4 characters). */
+export const planAsReply = (plan: ModelPlan): string => clip(JSON.stringify(plan), MAX_ECHO_CHARS);
+

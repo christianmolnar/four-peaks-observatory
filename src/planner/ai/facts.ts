@@ -8,6 +8,17 @@ import { SLEW_CENTER_MIN } from '../itinerary/constants';
 import { isoOf } from './instant';
 
 export const FACTS_STEP_MIN = 15;
+/** How much of the sky the facts text carries. Level 0 is the full table; each later level is coarser. `maxWindows` keeps the longest windows of a target (in time order). */
+export interface FactsLevel {
+  stepMin: number;
+  maxWindows: number;
+}
+/** The ladder `planNightWithAi` walks until the facts fit. The last level's size depends only on the target count and the night length (at most 24 h), never on the horizon. */
+export const FACTS_LEVELS: readonly FactsLevel[] = [
+  { stepMin: FACTS_STEP_MIN, maxWindows: Infinity },
+  { stepMin: 30, maxWindows: 24 },
+  { stepMin: 60, maxWindows: 8 },
+];
 export const MAX_TARGETS = 12;
 
 /** What the catalog knows about an object. Absent for a target that is not in it. */
@@ -72,6 +83,8 @@ export interface TargetFacts {
   object?: ObjectInfo;
   /** Usable spans (above the minimum altitude and outside blocked zones) as ISO local instants with offset, from a 5 minute scan, rounded inward to whole minutes. The check works every minute and may reject a slot inside a window. */
   windows: [string, string][];
+  /** Set only when `windows` was cut to the longest few: how many shorter windows were left out. */
+  windowsOmitted?: number;
   /** Meridian transit to the whole minute (ISO local instant with offset), or null when it is outside the night. A flip happens here; the check uses the same minute. */
   transit: string | null;
   /** One row per entry of `sampleTimes`: [altitude deg, azimuth deg, flag, moon separation deg]. */
@@ -88,7 +101,7 @@ export interface NightFacts {
   slewMin: number;
   /** Whether a slot may span its target's transit, and the minutes a flip takes out of the slot that spans it. */
   meridianFlips: { allowed: boolean; minutes: number };
-  /** Every FACTS_STEP_MIN from `night.start`, then `night.end` (ISO local instants with offset). */
+  /** Every `stepMin` of the facts level (15 at the full level) from `night.start`, then `night.end` (ISO local instants with offset). */
   sampleTimes: string[];
   /** The rig and sky; absent when the caller gave none. */
   rig?: RigInfo;
@@ -108,6 +121,13 @@ const MIN = 60000;
 const ceilMinute = (d: Date): Date => new Date(Math.ceil(d.getTime() / MIN) * MIN);
 const floorMinute = (d: Date): Date => new Date(Math.floor(d.getTime() / MIN) * MIN);
 const r1 = (n: number): number => Math.round(n * 10) / 10;
+
+const spanOf = (w: [string, string]): number => Date.parse(w[1]) - Date.parse(w[0]);
+/** The `n` longest windows (the earlier one on a tie), back in time order. */
+function keepLongest(windows: [string, string][], n: number): [string, string][] {
+  const keep = new Set(windows.map((w, i) => ({ w, i })).sort((a, b) => spanOf(b.w) - spanOf(a.w) || a.i - b.i).slice(0, n).map((x) => x.i));
+  return windows.filter((_, i) => keep.has(i));
+}
 
 /** The meridian transit after the night starts, to the nearest whole minute. Facts print it and the check tests slots against it, so both agree. */
 export function transitMinute(t: AiTarget, night: Night, site: Site): Date {
@@ -134,6 +154,22 @@ export function nightOf(input: AiPlanInput): Night {
   const b = nightBounds(ci, 0);
   if (!b.start || !b.end) throw new NoNightError(b.reason?.text ?? `No usable night on ${input.date}.`);
   return { start: b.start, end: b.end };
+}
+
+/** The same facts at a coarser level: every (stepMin / 15)th sample row (the night's end always stays) and a target's longest windows only. A pure cut of the full facts, so the building (the slow part) happens once. */
+export function coarsenFacts(facts: NightFacts, level: FactsLevel): NightFacts {
+  const every = Math.max(1, Math.round(level.stepMin / FACTS_STEP_MIN));
+  const lastIndex = facts.sampleTimes.length - 1;
+  const keep = (_: unknown, i: number): boolean => i % every === 0 || i === lastIndex;
+  return {
+    ...facts,
+    sampleTimes: facts.sampleTimes.filter(keep),
+    moon: { ...facts.moon, altitudeDeg: facts.moon.altitudeDeg.filter(keep) },
+    targets: facts.targets.map((t) => {
+      const windows = t.windows.length <= level.maxWindows ? t.windows : keepLongest(t.windows, level.maxWindows);
+      return { ...t, windows, samples: t.samples.filter(keep), ...(windows.length < t.windows.length ? { windowsOmitted: t.windows.length - windows.length } : {}) };
+    }),
+  };
 }
 
 /** Facts only: what the sky does tonight for each target. No judgment, no ranking. */

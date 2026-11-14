@@ -7,6 +7,7 @@ import { isoOf, parseIso } from './instant';
 import type { ModelPlan } from './schema';
 
 export type ViolationKind =
+  | 'too-many-slots'
   | 'unknown-target'
   | 'bad-time'
   | 'outside-night'
@@ -45,7 +46,12 @@ export interface Violation {
   message: string;
 }
 
+/** A plan with more than 3 x targets + 5 slots is malformed. */
+const MAX_SLOTS_PER_TARGET = 3;
+const MAX_SLOTS_EXTRA = 5;
 const MIN = 60000;
+/** Tolerance for float division of seconds by a sub length (1980 / 1.1 is 1799.9999999999998). */
+const EPS = 1e-9;
 
 /**
  * Exact check of a returned plan, on real instants (ISO time with offset, so a clock change cannot blur a slot).
@@ -60,6 +66,13 @@ export function checkPlan(input: AiPlanInput, night: Night, plan: ModelPlan): Vi
   const clock = (d: Date): string => isoOf(d, tz);
   const byId = new Map(input.targets.map((t) => [t.id, t]));
   const add = (kind: ViolationKind, message: string, id?: string): void => void out.push({ kind, id, message });
+
+  // More slots than this is malformed, whatever else is true: stop here so the check output stays bounded.
+  const maxSlots = MAX_SLOTS_PER_TARGET * input.targets.length + MAX_SLOTS_EXTRA;
+  if (plan.plan.length > maxSlots) {
+    add('too-many-slots', `The plan has ${plan.plan.length} slots; at most ${maxSlots} are accepted (each target has one slot). Send one slot per target.`);
+    return out;
+  }
 
   const timed: { id: string; start: Date; end: Date }[] = [];
   for (const slot of plan.plan) {
@@ -102,12 +115,12 @@ export function checkPlan(input: AiPlanInput, night: Night, plan: ModelPlan): Vi
         add('flip-in-slot', `${label} has the meridian transit at ${clock(transit)} inside it, so a flip would fall mid-slot; flips are not allowed (end the slot at the transit, or start one there).`, slot.id);
       } else {
         entry.flip = true;
-        if (slotMin <= MERIDIAN_FLIP_MIN) add('flip-in-slot', `${label} spans the transit at ${clock(transit)} but is only ${slotMin} min; the flip takes ${MERIDIAN_FLIP_MIN} min, leaving no imaging time.`, slot.id);
+        if (slotMin <= MERIDIAN_FLIP_MIN) add('flip-in-slot', `${label} spans the transit at ${clock(transit)} but is only ${slotMin} min; the flip takes ${MERIDIAN_FLIP_MIN} min, leaving no minutes to expose.`, slot.id);
       }
     }
-    const imaging = slotMin - (entry.flip ? MERIDIAN_FLIP_MIN : 0);
-    if (slot.exposureMinutes !== undefined && slot.exposureMinutes > imaging) {
-      add('exposure-mismatch', `${label}: exposureMinutes ${slot.exposureMinutes} is more than the ${imaging} min of imaging time (${slotMin} min slot${entry.flip ? ` minus the ${MERIDIAN_FLIP_MIN} min flip` : ''}).`, slot.id);
+    const allowed = slotMin - (entry.flip ? MERIDIAN_FLIP_MIN : 0);
+    if (slot.exposureMinutes !== undefined && slot.exposureMinutes > allowed) {
+      add('exposure-mismatch', `${label}: exposureMinutes ${slot.exposureMinutes} is more than the ${allowed} min allowed (${slotMin} min slot${entry.flip ? ` minus the ${MERIDIAN_FLIP_MIN} min flip` : ''}).`, slot.id);
     }
   }
 
@@ -185,13 +198,14 @@ function checkVerdict(plan: ModelPlan, timed: readonly Timed[], add: (k: Violati
   }
   if (!v) { add('missing-verdict', `lastTarget is missing: describe the last slot (${last.id}) with leftoverMinutes, subSeconds, frames, usefulness and reason.`, last.id); return; }
   const slotMinutes = (last.end.getTime() - last.start.getTime()) / MIN;
-  // Frames come from the imaging time: the slot minus the flip when the slot spans the transit.
+  // Frames come from leftoverMinutes (the slot length) minus the flip when the slot spans the transit; exposureMinutes plays no part.
   const minutes = slotMinutes - (last.flip ? MERIDIAN_FLIP_MIN : 0);
   if (v.id !== last.id) add('verdict-mismatch', `lastTarget is ${v.id} but the last slot in time is ${last.id}.`, last.id);
   if (v.leftoverMinutes !== slotMinutes) add('verdict-mismatch', `lastTarget.leftoverMinutes is ${v.leftoverMinutes} but the last slot (${last.id}) is ${slotMinutes} min long.`, last.id);
-  if (v.frames * v.subSeconds > minutes * 60) add('verdict-mismatch', `lastTarget: ${v.frames} frames x ${v.subSeconds} s is ${v.frames * v.subSeconds} s, more than the ${minutes * 60} s ${last.flip ? 'of imaging time' : 'slot'}.`, last.id);
-  const expected = Math.floor((minutes * 60) / v.subSeconds);
-  if (v.frames > expected || v.frames < expected - 1) add('verdict-mismatch', `lastTarget: ${v.frames} frames is wrong for ${minutes} min of imaging time${last.flip ? ` (${slotMinutes} min slot minus the ${MERIDIAN_FLIP_MIN} min flip)` : ''} at ${v.subSeconds} s subs; should be ${expected} (floor of minutes x 60 / subSeconds, one less is allowed).`, last.id);
+  if (v.frames * v.subSeconds > minutes * 60 + EPS) add('verdict-mismatch', `lastTarget: ${v.frames} frames x ${v.subSeconds} s is ${v.frames * v.subSeconds} s, more than the ${minutes * 60} s ${last.flip ? 'left after the flip' : 'slot'}.`, last.id);
+  // Float noise (1980 s / 1.1 s is 1799.9999999999998) must not reject the exact answer.
+  const expected = Math.floor((minutes * 60) / v.subSeconds + EPS);
+  if (v.frames > expected || v.frames < expected - 1) add('verdict-mismatch', `lastTarget: ${v.frames} frames is wrong for ${minutes} min${last.flip ? ` (${slotMinutes} min slot minus the ${MERIDIAN_FLIP_MIN} min flip)` : ''} at ${v.subSeconds} s subs; should be ${expected} (floor of minutes x 60 / subSeconds, one less is allowed).`, last.id);
   if (v.frames < 1 && v.usefulness !== 'not_useful') add('verdict-mismatch', `lastTarget has 0 frames, so usefulness must be not_useful.`, last.id);
   const exposure = plan.exposures.find((e) => e.id === v.id);
   if (exposure && exposure.subSeconds !== v.subSeconds) add('verdict-mismatch', `lastTarget.subSeconds is ${v.subSeconds} but the exposure entry for ${v.id} says ${exposure.subSeconds}.`, last.id);
@@ -241,7 +255,8 @@ function bestUsableRun(input: AiPlanInput, night: Night, busy: readonly Timed[],
 
 /**
  * Warnings for a plan with no violations. Exact, no judgment of value: a cut target that would fit the free time
- * (with slew) for at least MIN_USEFUL_SLOT_MIN, and free night time after the last slot that its target could use.
+ * (with slew) for at least MIN_USEFUL_SLOT_MIN, and at least MIN_USEFUL_SLOT_MIN of free night time after the last
+ * slot that its target could use.
  */
 export function planWarnings(input: AiPlanInput, night: Night, plan: ModelPlan): PlanWarning[] {
   const out: PlanWarning[] = [];
@@ -275,17 +290,17 @@ export function planWarnings(input: AiPlanInput, night: Night, plan: ModelPlan):
   const more = (reach - last.end.getTime()) / MIN;
   const flip = input.allowFlips ? null : afterTransitWarning(input, t, last, transit, nightEnd);
   if (flip) out.push({ kind: 'free-time-after-last', id: last.id, message: flip });
-  else if (freeMin >= MIN_USEFUL_SLOT_MIN && more >= 1) {
+  else if (freeMin >= MIN_USEFUL_SLOT_MIN && more >= MIN_USEFUL_SLOT_MIN) {
     out.push({ kind: 'free-time-after-last', id: last.id, message: `${last.id} is the last slot and ends ${isoOf(last.end, tz)}, but ${freeMin} min of night remain and it stays usable ${more} more min (to ${isoOf(new Date(reach), tz)}); the last target takes all the observable time left.` });
   }
   return out;
 }
 
 /**
- * A last slot that ends at or before its transit leaves the time after the flip unused. From the transit, find the first
+ * A last slot that ends at or before its transit leaves the time after the transit unused. From the transit, find the first
  * usable minute (the transit itself may be blocked, for example by a horizon zone on the meridian), then the usable run
- * from there to the night end or the next unusable minute. When that run is at least MIN_USEFUL_SLOT_MIN and longer
- * than the slot, the message says to start the slot there; otherwise null.
+ * from there to the night end or the next unusable minute. When that run is longer than the slot by at least
+ * MIN_USEFUL_SLOT_MIN (a smaller gain is not worth a warning), the message says to start the slot there; otherwise null.
  */
 function afterTransitWarning(input: AiPlanInput, t: AiTarget, last: Timed, transit: number, nightEnd: number): string | null {
   if (transit < last.end.getTime() || transit > nightEnd) return null;
@@ -300,8 +315,8 @@ function afterTransitWarning(input: AiPlanInput, t: AiTarget, last: Timed, trans
   while (to + MIN <= nightEnd && usable(to + MIN)) to += MIN;
   const run = (to - from) / MIN;
   const slotMin = (last.end.getTime() - last.start.getTime()) / MIN;
-  if (run < MIN_USEFUL_SLOT_MIN || run <= slotMin) return null;
+  if (run - slotMin < MIN_USEFUL_SLOT_MIN) return null;
   const tz = input.timeZone;
   const where = from === transit ? 'start at the transit' : `the transit is unusable until ${isoOf(new Date(from), tz)}; start there`;
-  return `${last.id} is the last slot (${slotMin} min) and ends at or before its transit ${isoOf(new Date(transit), tz)}, but it is usable ${run} min after the transit (${isoOf(new Date(from), tz)} to ${isoOf(new Date(to), tz)}); ${where} to take the time after the flip.`;
+  return `${last.id} is the last slot (${slotMin} min) and ends at or before its transit ${isoOf(new Date(transit), tz)}, but it is usable ${run} min after the transit (${isoOf(new Date(from), tz)} to ${isoOf(new Date(to), tz)}); ${where} to take the time after the transit.`;
 }

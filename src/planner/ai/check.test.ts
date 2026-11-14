@@ -309,6 +309,8 @@ describe('last-target verdict', () => {
     expect(w).toHaveLength(1);
     expect(w[0].id).toBe('t2');
     expect(w[0].message).toContain('start at the transit');
+    expect(w[0].message).toContain('to take the time after the transit.');
+    expect(w[0].message).not.toContain('flip');
     expect(w[0].message).toMatch(/usable (\d+) min after the transit/);
     const run = Number(/usable (\d+) min after the transit/.exec(w[0].message)![1]);
     expect(run).toBeGreaterThan(200);
@@ -338,6 +340,56 @@ describe('last-target verdict', () => {
     const p = planOf(INPUT, [['t1', clock(endMs - 30 * MIN), clock(endMs)]], { cut: ['t2', 't3'], fitsAll: false });
     const w = planWarnings(INPUT, night(), p).filter((x) => x.kind === 'free-time-after-last');
     expect(w).toEqual([]);
+  });
+});
+
+describe('polish: a warning needs a gain worth a slot', () => {
+  const lastWindowEnd = (): number => Date.parse(buildFacts(INPUT).facts.targets[0].windows.at(-1)![1]);
+  const warnsFor = (p: ReturnType<typeof planOf>): string[] => planWarnings(INPUT, night(), p).filter((x) => x.kind === 'free-time-after-last').map((x) => x.message);
+  it('free time after the last slot: 29 extra minutes is silent, 30 warns', () => {
+    const end = lastWindowEnd();
+    const at = (before: number) => planOf(INPUT, [['t1', clock(end - (before + 30) * MIN), clock(end - before * MIN)]], { cut: ['t2', 't3'], fitsAll: false });
+    expect(checkPlan(INPUT, night(), at(29))).toEqual([]);
+    expect(warnsFor(at(20))).toEqual([]);
+    expect(warnsFor(at(29))).toEqual([]);
+    const w = warnsFor(at(30));
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('stays usable 30 more min');
+  });
+  it('transit-forward: a run after the transit that beats the slot by under 30 minutes is silent, by 30 or more warns', () => {
+    const tr = Math.round(transitOf(INPUT, 't2') / MIN) * MIN;
+    const plan = (len: number) => planOf(INPUT, [['t2', clock(tr - len * MIN), clock(tr)]], { cut: ['t1', 't3'], fitsAll: false });
+    const runOf = (len: number): number => Number(/usable (\d+) min after the transit/.exec(warnsFor(plan(len)).join(' '))?.[1] ?? 0);
+    const full = runOf(60);
+    expect(full).toBeGreaterThan(100);
+    const near = full - 29; // slot 29 min short of the run
+    expect(checkPlan(INPUT, night(), plan(near))).toEqual([]);
+    expect(warnsFor(plan(near)).filter((m) => m.includes('after the transit'))).toEqual([]);
+    expect(runOf(full - 30)).toBe(full);
+  });
+});
+
+describe('polish: float rounding of frames', () => {
+  const slot = (min: number, sub: number, frames: number) => {
+    const start = night().start.getTime() + 60 * MIN;
+    const p = planOf(INPUT, [['t1', clock(start), clock(start + min * MIN)]], { cut: ['t2', 't3'] });
+    p.exposures = p.exposures.map((e) => (e.id === 't1' ? { ...e, subSeconds: sub } : e));
+    p.lastTarget = { id: 't1', leftoverMinutes: min, subSeconds: sub, frames, usefulness: 'useful', reason: 'x' };
+    return p;
+  };
+  const frames = (p: ReturnType<typeof planOf>) => checkPlan(INPUT, night(), p).filter((v) => v.kind === 'verdict-mismatch');
+  it('33 min at 1.1 s subs: the exact 1800 and one less pass, 1798 and 1801 do not', () => {
+    expect(frames(slot(33, 1.1, 1800))).toEqual([]);
+    expect(frames(slot(33, 1.1, 1799))).toEqual([]);
+    expect(frames(slot(33, 1.1, 1798))).toHaveLength(1);
+    expect(frames(slot(33, 1.1, 1801)).length).toBeGreaterThan(0);
+  });
+  it('other fractional subs are exact too', () => {
+    for (const [min, sub] of [[7, 0.7], [61, 0.1], [45, 2.2], [10, 0.3]] as const) {
+      const exact = Math.floor((min * 60 + 1e-6) / sub);
+      expect(frames(slot(min, sub, exact))).toEqual([]);
+      expect(frames(slot(min, sub, exact + 1)).length).toBeGreaterThan(0);
+    }
   });
 });
 
