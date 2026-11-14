@@ -22,7 +22,7 @@ function draw(ids: string[], startAt?: Date) {
   const items: ItineraryItem[] = ids.map((targetId, i) => ({ id: `n${i}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }));
   const inputs = items.map((i) => slotInputFor(i, profile, starterTargets));
   const plan = buildItinerary({ site: SITE, night: NIGHT, horizon: HORIZON, minAltitude: 20, bortle: 6, slots: inputs, startAt, formatTime: fmt });
-  const view = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={20} formatTime={fmt} />);
+  const view = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={20} formatTime={fmt} nightWord="that night (12/15/2026)" />);
   return { plan, ...view };
 }
 const thick = (c: HTMLElement) => c.querySelectorAll('svg polyline[stroke-width="5"]');
@@ -67,6 +67,14 @@ describe('Night graph', () => {
     expect(thick(container)).toHaveLength(0);
     expect(container.textContent).toMatch(/1\. Andromeda Galaxy: no time, not drawn/);
     expect(container.querySelector('svg desc')!.textContent).toMatch(/Slot 1, Andromeda Galaxy: no time\./);
+  });
+
+  it('says why nothing is drawn, naming the night the page chose', () => {
+    const inputs = [slotInputFor({ id: 'n0', targetId: 'm31', trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }, profile, starterTargets)];
+    const plan = buildItinerary({ site: SITE, night: NIGHT, horizon: HORIZON, minAltitude: 89, bortle: 6, slots: inputs, formatTime: fmt });
+    const { container } = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={89} formatTime={fmt} nightWord="that night (12/15/2026)" />);
+    expect(container.textContent).toMatch(/No slot has time that night \(12\/15\/2026\), so nothing is drawn/);
+    expect(container.textContent).not.toMatch(/tonight/i);
   });
 
   it('the table of numbers is collapsed on load and holds start, middle and end for every slot', () => {

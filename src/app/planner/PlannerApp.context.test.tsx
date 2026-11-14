@@ -23,7 +23,7 @@ const trainSelect = () => screen.getByLabelText('Train') as HTMLSelectElement;
 const siteSelect = () => screen.getByLabelText('Site') as HTMLSelectElement;
 const exposure = () => screen.getByRole('region', { name: /^EXPOSURE:/ });
 const itinerary = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
-const bortleSelects = () => screen.queryAllByLabelText(/^Sky darkness \(Bortle class\)/) as HTMLSelectElement[];
+const bortleSelects = () => screen.queryAllByLabelText(/^Sky darkness, Bortle class \(1 to 9, 1 is darkest\)$/) as HTMLSelectElement[];
 
 /** jsdom does not toggle a <details> on a click, so open it the way the browser would. */
 const openList = (summary: string) => {
@@ -154,10 +154,10 @@ describe('"tonight" only when the date is tonight', () => {
 
   it('says that night, with the date, on any other date, and follows the date picker both ways', () => {
     app(base(), '2026-12-15');
-    expect(screen.getByRole('heading', { name: 'THAT NIGHT (2026-12-15)' })).toBeTruthy();
-    expect(screen.getByLabelText('Only targets usable that night')).toBeTruthy();
-    expect(screen.getByTestId('target-cards').getAttribute('aria-label')).toBe('Targets ranked for that night (2026-12-15)');
-    expect(screen.getByRole('table', { name: 'Targets ranked for that night (2026-12-15)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'THAT NIGHT (12/15/2026)' })).toBeTruthy();
+    expect(screen.getByLabelText('Only targets usable that night (12/15/2026)')).toBeTruthy();
+    expect(screen.getByTestId('target-cards').getAttribute('aria-label')).toBe('Targets ranked for that night (12/15/2026)');
+    expect(screen.getByRole('table', { name: 'Targets ranked for that night (12/15/2026)' })).toBeTruthy();
     expect(screen.queryByText(/usable tonight/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: tonight() } });
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();

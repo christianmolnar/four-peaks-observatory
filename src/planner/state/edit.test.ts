@@ -37,7 +37,7 @@ describe('site Bortle class', () => {
     expect('bortle' in cleared.sites[0]).toBe(false);
   });
   it('refuses a class that is not 1 to 9, naming the box', () => {
-    expect(() => replaceItem(sample(), 'sites', sample().sites[0].id, texts({ bortle: '12' }))).toThrow(/Sky darkness \(Bortle class\): choose one of 1, 2/);
+    expect(() => replaceItem(sample(), 'sites', sample().sites[0].id, texts({ bortle: '12' }))).toThrow(/Sky darkness, Bortle class: choose one of 1, 2/);
   });
 });
 

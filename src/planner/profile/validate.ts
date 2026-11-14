@@ -169,8 +169,11 @@ function timeZone(o: Obj, path: string): string {
   return v;
 }
 
+/** A hand-edited file may write the class as text ("6"); a whole number in text is read as that number, anything else is rejected at this field. */
 function bortle(o: Obj, path: string): number {
-  const v = num(o, 'bortle', path, 1, 9);
+  const raw = o.bortle;
+  const asText = typeof raw === 'string' && /^\s*[1-9]\s*$/.test(raw);
+  const v = num(asText ? { bortle: Number(raw) } : o, 'bortle', path, 1, 9);
   if (!Number.isInteger(v)) throw new ProfileError(`${path}.bortle`, `expected a whole number from 1 to 9, got ${v}`);
   return v;
 }
