@@ -172,6 +172,35 @@ describe('the request', () => {
     expect(okInput(f.sent[0]).targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
   });
 
+  it('focus moves to Cancel while planning and comes back to the Plan button when it ends', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const f = fakeFetch(async (s) => { await gate; return engine(okInput(s)); });
+    mount(f.fn);
+    await ready();
+    const user = userEvent.setup();
+    go().focus();
+    await user.keyboard('{Enter}');
+    const cancel = await within(panel()).findByRole('button', { name: 'Cancel' });
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    release();
+    await screen.findByTestId('ai-result', {}, { timeout: 20000 });
+    expect(document.activeElement).toBe(go());
+  });
+
+  it('focus returns to the Plan button after Cancel', async () => {
+    const f = fakeFetch((s) => hang(s));
+    mount(f.fn);
+    await ready();
+    const user = userEvent.setup();
+    go().focus();
+    await user.keyboard('{Enter}');
+    const cancel = await within(panel()).findByRole('button', { name: 'Cancel' });
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(document.activeElement).toBe(go()));
+  });
+
   it('one key press on the focused button plans (keyboard operable)', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
@@ -369,6 +398,27 @@ describe('states', () => {
     expect(within(p).getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
+  it('a 200 that is not JSON (a proxy page) reads as an unreadable answer, not as a lost connection', async () => {
+    const f = fakeFetch(() => ({ status: 200, unreadable: true }));
+    mount(f.fn);
+    await ready();
+    await userEvent.setup().click(go());
+    const p = await screen.findByTestId('ai-problem');
+    expect(p.textContent).toMatch(/answer could not be read/);
+    expect(p.textContent).not.toMatch(/could not be reached|connection/);
+    expect(screen.queryByTestId('ai-result')).toBeNull();
+  });
+
+  it('a 400 does not tell the user to remove targets', async () => {
+    const f = fakeFetch(() => ({ status: 400, json: { error: 'rig.camera must be a short string' } }));
+    mount(f.fn);
+    await ready();
+    await userEvent.setup().click(go());
+    const p = (await screen.findByTestId('ai-problem')).textContent ?? '';
+    expect(p).toMatch(/could not accept this request/);
+    expect(p).not.toMatch(/fewer targets|horizon/);
+  });
+
   it('a 200 that is not a plan is an error, not a crash', async () => {
     const f = fakeFetch(() => ({ status: 200, json: { hello: 'world' } }));
     mount(f.fn);
@@ -503,9 +553,9 @@ describe('Use this plan as my itinerary', () => {
     const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string);
     expect(saved.items.map((i: { targetId: string }) => i.targetId)).toEqual(['m31', 'ic405']);
     expect(saved.items[0].trainId).toBe('deep-c11-2600');
-    expect(saved.items[0].note).toMatch(/^AI plan: \d\d:\d\d to \d\d:\d\d\.$/);
+    expect(saved.items[0].note).toBe('From the AI plan, slot 1 of 2. The itinerary times it again with its own estimate.');
     expect(saved.startTime).toMatch(/^\d\d:\d\d$/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: your itinerary below now holds this plan/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: your itinerary below now holds this plan.s order and first start time only/);
     // The page's own itinerary start box shows the AI plan's first start.
     expect((within(itinerary()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(saved.startTime);
   });
@@ -527,6 +577,45 @@ describe('Use this plan as my itinerary', () => {
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string).items.map((i: { targetId: string }) => i.targetId)).toEqual(['m31', 'ic405']);
+  });
+
+  it.each([
+    ['2 targets', ['m31', 'ic405'], 50],
+    ['6 targets', ['m31', 'ic405', 'm33', 'm42', 'ngc1499', 'ngc2264'], 25],
+  ])('%s: the itinerary keeps the AI order and first start, never prints AI times beside its own, and says the times are not kept', async (_name, plan, len) => {
+    const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i, len))));
+    mount(f.fn, { plan });
+    await ready();
+    const user = await planned();
+    expect(apply().disabled).toBe(false);
+    const aiSlots = slotsText();
+    expect(aiSlots).toHaveLength(plan.length);
+    const aiTimes = aiSlots.map((t) => t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3));
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/times will not match the plan above/);
+    await user.click(apply());
+    await waitFor(() => expect(itinerarySlots()).toHaveLength(plan.length));
+    // The order and the first start are the AI's.
+    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string);
+    expect(saved.items.map((i: { targetId: string }) => i.targetId)).toEqual(plan);
+    expect(saved.startTime).toBe(aiTimes[0][0]);
+    // The itinerary shows its own estimated times; where they differ from the AI's, no item note carries the AI's.
+    const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
+    expect(shown.every((t) => /\(estimate\)/.test(t))).toBe(true);
+    for (const item of saved.items as { note: string }[]) expect(item.note).not.toMatch(/\d\d:\d\d|\d min/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/does not keep the AI.s slot times or lengths/);
+    // The print sheet prints what the itinerary shows.
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+    const sheetText = screen.getByTestId('print-sheet').textContent ?? '';
+    for (const t of shown) {
+      const [a, b] = t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3);
+      expect(sheetText).toContain(a);
+      expect(sheetText).toContain(b);
+    }
+    act(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
   });
 
   it('the print sheet carries the plan because the itinerary now holds it', async () => {

@@ -38,7 +38,9 @@ describe('itineraryFromAiPlan', () => {
     expect(items.every((i) => i.trainId === 'train-a' && i.filterId === 'filter-b' && i.mode === 'balanced')).toBe(true)
     expect(new Set(items.map((i) => i.id)).size).toBe(3)
     expect(startTime).toBe(clockOfIso(slots[0][1]))
-    expect(items[0].note).toContain(`${clockOfIso(slots[0][1])} to ${clockOfIso(slots[0][2])}`)
+    // The item holds no AI time or minutes: the itinerary shows its own times for the slot, and the two would disagree.
+    expect(items.map((i) => i.note)).toEqual([1, 2, 3].map((n) => `From the AI plan, slot ${n} of 3. The itinerary times it again with its own estimate.`))
+    expect(items.every((i) => !/\d\d:\d\d|\d min/.test(i.note))).toBe(true)
   })
 })
 

@@ -4,7 +4,7 @@ import { resolveTrain } from '../profile'
 import type { Profile, TrainEntry } from '../profile'
 import { MAX_TARGETS } from './facts'
 import type { AiPlanInput, AiTarget, RigInfo } from './facts'
-import { MAX_HORIZON_POINTS } from './request'
+import { MAX_HORIZON_POINTS, MAX_SHORT_TEXT } from './request'
 
 /** The curated catalog's ids: the only targets the server can add object facts for (see `parseBody`). */
 const CURATED = new Set(starterTargets.map((t) => t.id))
@@ -37,6 +37,9 @@ export interface AiPlanBody {
 
 export class RequestTooLargeError extends Error {}
 
+/** A profile name has no length limit; the route takes at most MAX_SHORT_TEXT characters. The start of a name still says which gear it is. */
+const clip = (name: string): string => name.slice(0, MAX_SHORT_TEXT)
+
 /** The imaging rig of a train, in the words the route takes. Every field the profile does not hold is left out (unknown), never guessed. */
 export function rigOf(profile: Profile, train: TrainEntry): RigInfo {
   const r = resolveTrain(profile, train)
@@ -44,11 +47,11 @@ export function rigOf(profile: Profile, train: TrainEntry): RigInfo {
   if (r.scope.focalLengthMm !== undefined) rig.focalLengthMm = r.scope.focalLengthMm
   if (r.scope.apertureMm !== undefined) rig.apertureMm = r.scope.apertureMm
   if (r.camera.pixelSizeUm !== undefined) rig.pixelSizeUm = r.camera.pixelSizeUm
-  if (r.camera.name) rig.camera = r.camera.name
+  if (r.camera.name) rig.camera = clip(r.camera.name)
   if (r.cameraSpec?.colour !== undefined) rig.colourCamera = r.cameraSpec.colour
   if (r.filter) {
-    rig.filter = r.filter.name
-    if (r.filter.kind) rig.filterKind = r.filter.kind
+    rig.filter = clip(r.filter.name)
+    if (r.filter.kind) rig.filterKind = clip(r.filter.kind)
   }
   return rig
 }

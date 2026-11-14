@@ -6,11 +6,13 @@ import { starterTargets } from '../catalog'
 
 export const MAX_BODY_BYTES = 64 * 1024
 export const MAX_HORIZON_POINTS = 360
+/** The longest short text the route takes (rig camera, filter and filter kind). */
+export const MAX_SHORT_TEXT = 80
 
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-const str = (v: unknown, max = 80): v is string => typeof v === 'string' && v.length > 0 && v.length <= max
+const str = (v: unknown, max = MAX_SHORT_TEXT): v is string => typeof v === 'string' && v.length > 0 && v.length <= max
 
 /** Validates the request body. Returns the input and the review flag, or the first problem. */
 export function parseBody(b: unknown): { input: AiPlanInput; qualityReview: boolean } | string {

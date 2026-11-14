@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AstronomicalNight } from '@/planner/astro';
+import { MAX_TARGETS } from '@/planner/ai/facts';
 import { MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import { slotInputFor } from '@/planner/itinerary/resolve';
@@ -66,6 +67,8 @@ interface Done {
   startTime: string | null;
 }
 
+const UNREADABLE = Symbol('unreadable');
+
 const PART_LABELS: Record<string, string> = { night: 'the night', site: 'the site', train: 'the train', plan: 'My plan', sky: 'the horizon or minimum altitude' };
 
 /** The request as the page would send it now, split by what the user chose: the stale marker names what moved. */
@@ -117,6 +120,22 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
   }, [key]);
   useEffect(() => () => flight.current?.controller.abort(), []);
 
+  // Focus follows the work: the Plan button goes disabled when planning starts, so Cancel takes focus; when it ends Cancel is gone,
+  // so focus goes back to the Plan button (unless the user already moved it somewhere else).
+  const planButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const wasLoading = useRef(false);
+  const loadingNow = run === 'loading';
+  useEffect(() => {
+    if (loadingNow) {
+      cancelButton.current?.focus();
+    } else if (wasLoading.current) {
+      const a = document.activeElement;
+      if (a === null || a === document.body || a === planButton.current) planButton.current?.focus();
+    }
+    wasLoading.current = loadingNow;
+  }, [loadingNow]);
+
   const disabledReason = blocked ?? prepared?.tooLarge ?? null;
 
   const send = async () => {
@@ -153,8 +172,10 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
         if (current()) fail(problemFor(res.status, res.headers.get('Retry-After'), message));
         return;
       }
-      const result = readResult(await res.json());
+      // A 200 that is not JSON (a proxy's HTML page) is an unreadable answer, not a failed connection.
+      const json: unknown = await res.json().catch((e: unknown) => (controller.signal.aborted ? Promise.reject(e) : UNREADABLE));
       if (!current()) return;
+      const result = json === UNREADABLE ? null : readResult(json);
       if (result === null) return fail(UNREADABLE_PROBLEM);
       const { items, startTime } = itineraryFromAiPlan(result, train.id, train.kind === 'optical' ? (train.filterId ?? null) : null);
       flight.current = null;
@@ -163,7 +184,7 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
     } catch (e) {
       if (!current()) return;
       if (controller.signal.aborted && timedOut) fail(TIMEOUT_PROBLEM);
-      else if (e instanceof RequestTooLargeError) fail(problemFor(400, null, ''));
+      else if (e instanceof RequestTooLargeError) fail({ text: e.message, retry: false });
       else fail(NETWORK_PROBLEM);
     } finally {
       clearTimeout(timer);
@@ -200,7 +221,7 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
       </p>
       {form !== null && (
         <p className="mt-2 text-white/70 font-normal text-sm" data-testid="ai-inputs">
-          Will plan {nightWord} at {siteName}, with {train.name}, minimum altitude {form.minAltitude}°{form.horizon && form.horizon.length > 1 ? ', and your horizon' : ''}, for {targets.length > 12 ? 12 : targets.length} {targets.length === 1 ? 'target' : 'targets'} from My plan.
+          Will plan {nightWord} at {siteName}, with {train.name}, minimum altitude {form.minAltitude}°{form.horizon && form.horizon.length > 1 ? ', and your horizon' : ''}, for {Math.min(targets.length, MAX_TARGETS)} {targets.length === 1 ? 'target' : 'targets'} from My plan.
         </p>
       )}
       {leftOutNote !== '' && <p className="mt-1 text-white/70 font-normal text-sm" data-testid="ai-left-out-note">{leftOutNote}</p>}
@@ -213,11 +234,11 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button type="button" className={btn44} onClick={() => void send()} disabled={disabledReason !== null || loading} aria-describedby={disabledReason !== null ? 'ai-plan-reason' : undefined}>
+        <button ref={planButton} type="button" className={btn44} onClick={() => void send()} disabled={disabledReason !== null || loading} aria-describedby={disabledReason !== null ? 'ai-plan-reason' : undefined}>
           Plan my night with AI
         </button>
         {loading && (
-          <button type="button" className={btn44} onClick={cancel}>
+          <button ref={cancelButton} type="button" className={btn44} onClick={cancel}>
             Cancel
           </button>
         )}
@@ -428,10 +449,10 @@ function Result({
         <p id="ai-apply-note" className="mt-1 text-white/70 font-normal text-xs" data-testid="ai-apply-note">
           {applyBlock ??
             (applyNote === 'applied'
-              ? 'Done: your itinerary below now holds this plan. It keeps the order and the start time; the itinerary times the slots itself, so its minutes can differ a little.'
+              ? 'Done: your itinerary below now holds this plan\u2019s order and first start time only. It does not keep the AI\u2019s slot times or lengths: the itinerary times each slot again with its own estimate, so its times will not match the plan above.'
               : applyNote === 'kept'
                 ? 'Your itinerary was left as it was.'
-                : 'This replaces your night itinerary below. The itinerary times the slots itself, so its minutes can differ a little from the AI’s.')}
+                : 'This replaces your night itinerary below with this plan\u2019s order and first start time only. The AI\u2019s slot times and lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the plan above.')}
         </p>
       </div>
     </div>

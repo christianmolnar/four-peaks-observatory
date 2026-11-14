@@ -3,7 +3,7 @@ import { sampleProfile } from '../state'
 import { buildAiPlanBody, RequestTooLargeError, rigOf } from './body'
 import type { AiPlanForm } from './body'
 import { MAX_TARGETS } from './facts'
-import { MAX_HORIZON_POINTS, parseBody } from './request'
+import { MAX_HORIZON_POINTS, MAX_SHORT_TEXT, parseBody } from './request'
 import { INPUT } from './testkit'
 
 // The panel's request, checked by the route's own parseBody: what the page sends is what the route accepts, field for field.
@@ -89,5 +89,20 @@ describe('rigOf', () => {
     const rig = rigOf(profile, optical)
     expect(rig.focalLengthMm).toBeGreaterThan(0)
     expect(rig.camera).toBeTruthy()
+  })
+
+  it('clips a camera and a filter name over the route\'s limit, so parseBody accepts it and the route never answers 400 for the rig', () => {
+    const profile = sampleProfile()
+    const train = profile.trains.find((t) => t.kind === 'optical')!
+    const long = 'N'.repeat(81)
+    if (train.kind !== 'optical') throw new Error('expected an optical train')
+    const filter = profile.equipment.filters[0]
+    train.filterId = filter.id
+    profile.equipment.cameras.find((c) => c.id === train.cameraId)!.name = long
+    filter.name = long
+    const rig = rigOf(profile, train)
+    expect(rig.camera).toBe('N'.repeat(MAX_SHORT_TEXT))
+    expect(rig.filter).toBe('N'.repeat(MAX_SHORT_TEXT))
+    expect(parsed(buildAiPlanBody({ ...form, rig }, false)).input.rig).toMatchObject({ camera: rig.camera, filter: rig.filter })
   })
 })

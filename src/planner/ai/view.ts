@@ -65,7 +65,7 @@ export function problemFor(status: number, retryAfter: string | null, serverMess
         : { text: 'There is no usable night to plan: at this site on this date the sky is never dark enough, or nothing in My plan is up. Pick another night or site.', retry: false }
     case 413:
     case 400:
-      return { text: 'The AI planner could not accept this request. Try fewer targets in My plan or a simpler horizon.', retry: false }
+      return { text: 'The AI planner could not accept this request. Nothing was changed. Try again; if it keeps happening, tell the site owner.', retry: false }
     default:
       return { text: `The AI planner could not be reached (error ${status}). Try again.`, retry: true }
   }
@@ -78,14 +78,16 @@ export const UNREADABLE_PROBLEM: AiProblem = { text: 'The AI planner answered, b
 /** The minutes between two ISO instants. */
 export const minutesBetween = (a: string, b: string): number => Math.round((Date.parse(b) - Date.parse(a)) / 60000)
 
-const noteFor = (clockStart: string, clockEnd: string, light: number | undefined): string => {
-  const text = `AI plan: ${clockStart} to ${clockEnd}${light !== undefined ? `, about ${Math.round(light)} min of light` : ''}.`
+/** No AI clock times or minutes here: the itinerary shows its own times for the slot, and the two would disagree. */
+const noteFor = (index: number, count: number): string => {
+  const text = `From the AI plan, slot ${index + 1} of ${count}. The itinerary times it again with its own estimate.`
   return text.length <= MAX_NOTE_CHARS ? text : text.slice(0, MAX_NOTE_CHARS)
 }
 
 /**
  * The AI plan as the manual itinerary holds it: one item per slot in time order, on the chosen train and its filter, with the
- * plan's first start as the itinerary's start. The itinerary then times the slots itself (its own estimates).
+ * plan's first start as the itinerary's start. An item holds only a mode, not minutes, so the AI's slot times and lengths are not kept:
+ * the itinerary times the slots itself (its own estimates) and the page says so.
  */
 export function itineraryFromAiPlan(result: AiPlanResult, trainId: string, filterId: string | null): { items: ItineraryItem[]; startTime: string | null } {
   const slots = [...result.plan.plan].sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
@@ -95,7 +97,7 @@ export function itineraryFromAiPlan(result: AiPlanResult, trainId: string, filte
     trainId,
     filterId,
     mode: 'balanced',
-    note: noteFor(clockOfIso(s.start), clockOfIso(s.end), s.exposureMinutes),
+    note: noteFor(i, slots.length),
   }))
   return { items, startTime: slots.length > 0 ? clockOfIso(slots[0].start) : null }
 }
@@ -134,6 +136,7 @@ export function timelinePlanOf({ items, inputs, result, site, horizon, minAltitu
       window: null,
       altitudes: input.problem ? null : slotAltitudes(input.source, site, start, end, horizon, minAltitude),
       warnings: [],
+      // The type requires it; the night graph never draws it.
       label: 'estimate',
     }
   })
