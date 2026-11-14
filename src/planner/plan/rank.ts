@@ -27,25 +27,42 @@ export function precessionMargin(when: Date): number {
 }
 
 /**
- * No class (galaxy, cluster, nebula, other) takes more than this share of the list, at any length of it (the top 20 as
- * well as the top 100), while other classes still have candidates at `CLASS_CAP_MIN_SCORE`. The list is "what to image
- * tonight" for a person, not a census: scoring each class by its own percentile cannot fix the mix, because a class
- * with many objects (3,800 galaxies, 650 clusters) puts many objects in its top tenth, so counts alone would decide
- * the list. The cap is on the list, not the score.
+ * The deep-sky classes (galaxy, cluster, nebula including supernova remnants and planetary nebulae) take part in the
+ * mix: none takes more than this share of the list, at any length of it (the top 20 as well as the top 100). The list
+ * is "what to image tonight" for a person, not a census: scoring each class by its own percentile cannot fix the mix,
+ * because a class with many objects (3,800 galaxies, 650 clusters) puts many objects in its top tenth, so counts alone
+ * would decide the list. The cap is on the list, not the score.
+ *
+ * The "other" bucket (double stars, dark nebulae, planets) is not part of the mix and has no reserved place: it
+ * competes on score alone, and is never promoted past a higher-scoring entry.
  */
 export const CLASS_SHARE_CAP = 0.4;
+/** A class may hold at least this many places once the cap applies, so the first places are not handed out one per class. */
+export const CLASS_CAP_MIN_PLACES = 2;
+/** The cap applies from this place on (floor(0.4 * 5) = 2 = `CLASS_CAP_MIN_PLACES`); the places before it go purely by score. */
+export const CLASS_CAP_FROM_PLACE = 5;
 /**
- * A candidate only counts as "still available" to the cap at this total or better (of 100): a night's target that
- * scores under it is a poor choice whatever its class. Below it the cap steps aside: a weak object of a rare class
- * does not displace a strong one of a common class, and the slots the cap leaves open go to the best remaining,
- * whatever the class.
+ * The cap may hand a place to a lower-scoring entry of a class still under its cap only when that entry is within this
+ * many points of the entry it displaces (the best remaining, of a class at its cap). Wider and the cap trades a
+ * 95-point galaxy for a 45-point cluster just to show a different class; otherwise the better entry stays and the
+ * list is allowed to be less mixed.
  */
-export const CLASS_CAP_MIN_SCORE = 40;
+export const CLASS_PROMOTION_MARGIN = 15;
+/**
+ * ... and only when that entry scores at least this fraction of the night's best score: on a poor night 15 points
+ * below the best is still a weak target, and the mix is not worth showing it.
+ */
+export const CLASS_PROMOTION_MIN_FRACTION = 0.6;
+
+const MIX_CLASSES: readonly string[] = ['galaxy', 'cluster', 'nebula'];
 
 /**
- * The best `limit` of a best-first list, mixed by class: each place goes to the best remaining entry whose class is
- * still under `CLASS_SHARE_CAP` of the list so far (rounded down, or up where that leaves no class to take the place) and scores at least `CLASS_CAP_MIN_SCORE`; when there is none, to the
- * best remaining of any class. Within a class the order is the score order. The result is in the order picked.
+ * The best `limit` of a best-first list, mixed by class. Each place goes to the best remaining entry, unless that
+ * entry's class is a deep-sky class already at its cap of the list so far (`max(CLASS_CAP_MIN_PLACES, floor(share * m))`
+ * from place `CLASS_CAP_FROM_PLACE`): then it goes to the best remaining entry of a deep-sky class under its cap, if that
+ * one is within `CLASS_PROMOTION_MARGIN` points of the entry it displaces and scores at least
+ * `CLASS_PROMOTION_MIN_FRACTION` of the night's best; otherwise the better entry stays. Within a class the order is the
+ * score order. The result is in the order picked.
  */
 export function capClassShare(sorted: readonly PlanEntry[], limit: number): PlanEntry[] {
   const queues = new Map<string, PlanEntry[]>();
@@ -55,19 +72,25 @@ export function capClassShare(sorted: readonly PlanEntry[], limit: number): Plan
     if (q) q.push(e);
     else queues.set(c, [e]);
   }
-  const heads = [...queues.keys()].map((c) => ({ queue: queues.get(c) as PlanEntry[], next: 0, taken: 0 }));
+  const heads = [...queues.entries()].map(([name, queue]) => ({ name, queue, next: 0, taken: 0 }));
+  const bestTotal = sorted.length > 0 ? sorted[0].score.total : 0;
   const out: PlanEntry[] = [];
   while (out.length < limit) {
-    // A list of m entries holds at most floor(cap * m) of a class; where that leaves no class to take the next place
-    // (m = 4 with three classes), the rounding goes up to ceil(cap * m), and only then does the cap give way.
-    const m = out.length + 1;
     const live = heads.filter((h) => h.next < h.queue.length);
     if (live.length === 0) break;
     const best = (hs: typeof live) => hs.reduce((a, b) => (compareEntries(b.queue[b.next], a.queue[a.next]) < 0 ? b : a));
-    const under = (allowed: number) => live.filter((h) => h.taken < allowed && h.queue[h.next].score.total >= CLASS_CAP_MIN_SCORE);
-    const floor = under(Math.max(1, Math.floor(CLASS_SHARE_CAP * m + 1e-9)));
-    const open = floor.length > 0 ? floor : under(Math.max(1, Math.ceil(CLASS_SHARE_CAP * m - 1e-9)));
-    const pick = best(open.length > 0 ? open : live);
+    const m = out.length + 1;
+    const cap = m < CLASS_CAP_FROM_PLACE ? Infinity : Math.max(CLASS_CAP_MIN_PLACES, Math.floor(CLASS_SHARE_CAP * m + 1e-9));
+    let pick = best(live);
+    if (MIX_CLASSES.includes(pick.name) && pick.taken >= cap) {
+      const under = live.filter((h) => MIX_CLASSES.includes(h.name) && h.taken < cap);
+      if (under.length > 0) {
+        const alt = best(under);
+        const displaced = pick.queue[pick.next].score.total;
+        const total = alt.queue[alt.next].score.total;
+        if (displaced - total <= CLASS_PROMOTION_MARGIN && total >= CLASS_PROMOTION_MIN_FRACTION * bestTotal) pick = alt;
+      }
+    }
     out.push(pick.queue[pick.next++]);
     pick.taken++;
   }

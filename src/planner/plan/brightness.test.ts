@@ -4,7 +4,7 @@ import { starterTargets } from '../catalog';
 import { parseExtract } from '../catalog/openngc';
 import { createCatalogIndex } from '../catalog/search';
 import { catalogPatches } from '../catalog/supplement';
-import { BRIGHTNESS_RANGE, brightnessClass, brightnessScore, fractionBrighter, galaxyBlend, magnitudeWeight, scoreOfFraction } from './brightness';
+import { BRIGHTNESS_RANGE, DIFFUSE_SB_FRACTION, DIFFUSE_WEIGHT_LOSS, brightnessClass, brightnessScore, fractionBrighter, galaxyBlend, magnitudeWeight, scoreOfFraction } from './brightness';
 import type { BrightnessClass, Photometry } from './brightness';
 import { BRIGHTNESS_PERCENTILES } from './brightness-percentiles';
 
@@ -111,6 +111,31 @@ describe('scoring by percentile', () => {
     }
     // The same two numbers in a small outline are judged on the surface brightness, as before.
     expect(brightnessScore({ type: 'galaxy', mag: 10.01, surfaceBrightness: 24.17, sizeArcmin: { major: 1 } })).toBeLessThanOrEqual(-9);
+  });
+
+  it('takes weight off the magnitude share past the 98th percentile of surface brightness, linearly, up to half', () => {
+    expect(magnitudeWeight(20, 0.5)).toBe(1);
+    expect(magnitudeWeight(20, DIFFUSE_SB_FRACTION)).toBe(1);
+    expect(magnitudeWeight(20, 1)).toBeCloseTo(1 - DIFFUSE_WEIGHT_LOSS, 9);
+    expect(magnitudeWeight(20, (DIFFUSE_SB_FRACTION + 1) / 2)).toBeCloseTo(1 - DIFFUSE_WEIGHT_LOSS / 2, 9);
+    expect(magnitudeWeight(1, 1)).toBe(0);
+    // 0.98 of the galaxies are brighter in surface brightness than the cut: it comes from the table, not by hand.
+    const sbs = objects.filter((o) => (o.type === 'galaxy' || o.type === 'galaxy-group') && o.surfaceBrightness !== undefined && !o.sbComputed).map((o) => o.surfaceBrightness as number);
+    const beyond = sbs.filter((v) => v > BRIGHTNESS_PERCENTILES.galaxySB.cuts[Math.round(DIFFUSE_SB_FRACTION * 100)]).length / sbs.length;
+    expect(beyond).toBeLessThanOrEqual(1 - DIFFUSE_SB_FRACTION + 0.005);
+  });
+
+  it('does not rate an ultra-diffuse dwarf +10 on its magnitude: Sextans dSph and Leo I stay under +5, while NGC 891, M33, M31, M81 and M101 keep +10', () => {
+    for (const id of ['pgc88608', 'ugc5470']) {
+      const t = catalog.find((x) => x.id === id);
+      expect(t).toBeDefined();
+      expect(brightnessScore(t!)).toBeLessThan(5);
+    }
+    for (const id of ['ngc891', 'm33', 'm31', 'm81', 'm101', 'ngc55', 'ngc300', 'ngc2403', 'ngc5128', 'ngc6946']) {
+      const t = catalog.find((x) => x.id === id);
+      expect(t).toBeDefined();
+      expect(brightnessScore(t!)).toBeGreaterThanOrEqual(9.9);
+    }
   });
 
   // The point of the method: the same share of every class lands at the top and at the bottom, by construction.

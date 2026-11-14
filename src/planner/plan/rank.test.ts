@@ -11,7 +11,7 @@ import { moonSeparation, targetAltAz } from '../astro';
 import type { Site } from '../astro';
 import { NOMINAL_FIELD_ARCMIN, compareEntries, fieldOf, framingScore, nightContext, percentOfFrame, planTonight, planTrainFor, sizeScore } from './index';
 import type { PlanEntry, PlanTarget, PlanTrain, TonightInput } from './index';
-import { CLASS_CAP_MIN_SCORE, CLASS_SHARE_CAP, HIDDEN_LEADING, canReachAltitude, capClassShare, precessionMargin, rankTargets, screenTargets } from './rank';
+import { CLASS_CAP_FROM_PLACE, CLASS_CAP_MIN_PLACES, CLASS_PROMOTION_MARGIN, CLASS_PROMOTION_MIN_FRACTION, CLASS_SHARE_CAP, HIDDEN_LEADING, canReachAltitude, capClassShare, precessionMargin, rankTargets, screenTargets } from './rank';
 import type { RankInput } from './rank';
 
 const raw = JSON.parse(readFileSync(join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r3.json'), 'utf8'));
@@ -477,43 +477,79 @@ describe('a train without a field of its own', () => {
 });
 
 describe('the class share cap', () => {
-  const entry = (id: string, type: string, total: number): PlanEntry => ({ id, type, score: { total } } as unknown as PlanEntry);
+  const entry = (id: string, type: string, total: number): PlanEntry => ({ id, type, name: id, usableMinutes: 100, fit: 'fits', score: { total } } as unknown as PlanEntry);
   const ids = (es: readonly PlanEntry[]): string[] => es.map((e) => e.id);
-  const many = (type: string, prefix: string, n: number, top: number): PlanEntry[] => Array.from({ length: n }, (_, i) => entry(`${prefix}${i}`, type, top - i));
+  const many = (type: string, prefix: string, n: number, top: number, step = 1): PlanEntry[] => Array.from({ length: n }, (_, i) => entry(`${prefix}${i}`, type, top - i * step));
+  const byScore = (es: PlanEntry[]): PlanEntry[] => es.sort((a, b) => b.score.total - a.score.total);
+  const MIX = ['galaxy', 'open-cluster', 'nebula'];
+  const count = (es: readonly PlanEntry[], type: string): number => es.filter((e) => e.type === type).length;
 
-  it('names its cap and its minimum score', () => {
+  it('names its constants', () => {
     expect(CLASS_SHARE_CAP).toBe(0.4);
-    expect(CLASS_CAP_MIN_SCORE).toBe(40);
+    expect(CLASS_CAP_MIN_PLACES).toBe(2);
+    expect(CLASS_CAP_FROM_PLACE).toBe(5);
+    expect(Math.floor(CLASS_SHARE_CAP * CLASS_CAP_FROM_PLACE)).toBe(CLASS_CAP_MIN_PLACES);
+    expect(CLASS_PROMOTION_MARGIN).toBe(15);
+    expect(CLASS_PROMOTION_MIN_FRACTION).toBe(0.6);
   });
 
-  it('holds a class that fills the top of the list to its cap while others have candidates, keeping score order within each class', () => {
-    const sorted = [...many('galaxy', 'g', 30, 100), ...many('open-cluster', 'c', 10, 60), ...many('nebula', 'n', 10, 55)].sort((a, b) => b.score.total - a.score.total);
+  it('does not hand the first places out one per class: before the cap applies the order is the score order', () => {
+    const sorted = byScore([...many('galaxy', 'g', 30, 100, 0.1), ...many('open-cluster', 'c', 5, 95, 0.1), ...many('planet', 'p', 2, 94, 0.1)]);
+    expect(ids(capClassShare(sorted, CLASS_CAP_FROM_PLACE - 1))).toEqual(ids(sorted.slice(0, CLASS_CAP_FROM_PLACE - 1)));
+  });
+
+  it('holds a deep-sky class to max(2, 40%) of every prefix from 10 (the places before the cap applies went by score alone), while others have candidates near its score', () => {
+    const sorted = byScore([...many('galaxy', 'g', 30, 100, 0.2), ...many('open-cluster', 'c', 10, 96, 0.2), ...many('nebula', 'n', 10, 95, 0.2)]);
     const out = capClassShare(sorted, 20);
     expect(out).toHaveLength(20);
-    const galaxies = out.filter((e) => e.type === 'galaxy');
-    expect(galaxies.length).toBeLessThanOrEqual(8);
-    for (const type of ['galaxy', 'open-cluster', 'nebula']) {
+    for (let m = 10; m <= out.length; m++) {
+      for (const type of MIX) expect(count(out.slice(0, m), type)).toBeLessThanOrEqual(Math.max(CLASS_CAP_MIN_PLACES, Math.floor(CLASS_SHARE_CAP * m + 1e-9)));
+    }
+    for (const type of MIX) {
       const mine = ids(out.filter((e) => e.type === type));
       expect(mine).toEqual(ids(sorted.filter((e) => e.type === type)).slice(0, mine.length));
     }
-    for (let m = 3; m <= out.length; m++) {
-      for (const type of ['galaxy', 'open-cluster', 'nebula']) expect(out.slice(0, m).filter((e) => e.type === type).length).toBeLessThanOrEqual(Math.max(1, Math.ceil(0.4 * m - 1e-9)));
-    }
   });
 
-  it('leftover slots go to the best remaining of any class when the others are out of candidates at the minimum score', () => {
-    const sorted = [...many('galaxy', 'g', 30, 100), ...many('open-cluster', 'c', 5, CLASS_CAP_MIN_SCORE - 1)];
-    const out = capClassShare(sorted, 20);
-    expect(out).toHaveLength(20);
-    // The clusters score under the minimum: they do not claim places ahead of the galaxies, which take them all.
-    expect(out.every((e) => e.type === 'galaxy')).toBe(true);
+  it('leaves the better entry in place when the class under its cap scores far more than the margin below it', () => {
+    const sorted = byScore([...many('galaxy', 'g', 30, 100, 0.1), ...many('open-cluster', 'c', 5, 100 - 2 * CLASS_PROMOTION_MARGIN)]);
+    expect(capClassShare(sorted, 20).every((e) => e.type === 'galaxy')).toBe(true);
   });
 
-  it('a candidate of another class above the minimum score is not left out for a class over its cap', () => {
-    const sorted = [...many('galaxy', 'g', 30, 100), ...many('open-cluster', 'c', 2, CLASS_CAP_MIN_SCORE + 5)];
+  it('promotes an entry of a class under its cap that is within the margin of the entry it displaces', () => {
+    const sorted = byScore([...many('galaxy', 'g', 30, 100, 0.1), ...many('open-cluster', 'c', 5, 100 - CLASS_PROMOTION_MARGIN + 0.5, 0.1)]);
     const out = capClassShare(sorted, 10);
-    expect(ids(out).filter((id) => id.startsWith('c'))).toEqual(['c0', 'c1']);
-    expect(out.filter((e) => e.type === 'galaxy')).toHaveLength(8);
+    expect(count(out, 'open-cluster')).toBe(4);
+    // Whatever is promoted is within the margin of the best entry left out at that place.
+    out.forEach((e, i) => {
+      const left = sorted.filter((x) => !out.slice(0, i + 1).includes(x));
+      expect(left[0].score.total - e.score.total).toBeLessThanOrEqual(CLASS_PROMOTION_MARGIN);
+    });
+  });
+
+  it('does not promote an entry under the minimum fraction of the night\'s best, even within the margin of the entry it displaces', () => {
+    const below = byScore([entry('top', 'nebula', 100), ...many('galaxy', 'g', 30, 62, 0.1), ...many('open-cluster', 'c', 3, 100 * CLASS_PROMOTION_MIN_FRACTION - 1)]);
+    expect(count(capClassShare(below, 15), 'open-cluster')).toBe(0);
+    const above = byScore([entry('top', 'nebula', 100), ...many('galaxy', 'g', 30, 62, 0.1), ...many('open-cluster', 'c', 3, 100 * CLASS_PROMOTION_MIN_FRACTION + 1)]);
+    expect(count(capClassShare(above, 15), 'open-cluster')).toBeGreaterThan(0);
+  });
+
+  it('the "other" bucket takes no reserved place and is never promoted: it comes where its score puts it, and does not count toward the mix', () => {
+    const planets = [entry('mars', 'planet', 70), entry('m40', 'double-star', 60)];
+    const sorted = byScore([...many('galaxy', 'g', 30, 100, 0.2), ...many('open-cluster', 'c', 10, 96, 0.2), ...planets]);
+    const out = capClassShare(sorted, 40);
+    expect(ids(out.slice(0, 10))).not.toContain('mars');
+    expect(ids(out.slice(0, 10))).not.toContain('m40');
+    // Never ahead of a higher-scoring entry: once picked, nothing better is left behind it.
+    out.forEach((e, i) => {
+      if (e.type === 'planet' || e.type === 'double-star') {
+        const left = sorted.filter((x) => !out.slice(0, i + 1).includes(x));
+        expect(Math.max(...left.map((x) => x.score.total))).toBeLessThanOrEqual(e.score.total);
+      }
+    });
+    // And a strong planet is not held back by a class cap: it takes the place its score earns.
+    const strong = byScore([...many('galaxy', 'g', 30, 100, 0.2), entry('jupiter', 'planet', 99.7)]);
+    expect(ids(capClassShare(strong, 10)).indexOf('jupiter')).toBeLessThan(3);
   });
 
   it('returns what there is when the list is shorter than the limit', () => {

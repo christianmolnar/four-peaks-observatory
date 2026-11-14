@@ -64,10 +64,18 @@ const tables = Object.fromEntries(
 // then scored by where its blend stands in that: the top tenth is +10.
 const MAG_WEIGHT_FROM_ARCMIN = 2;
 const MAG_WEIGHT_FULL_ARCMIN = 10;
-export function magnitudeWeight(majorArcmin) {
-  if (majorArcmin === undefined) return 0.5;
-  const t = Math.log(majorArcmin / MAG_WEIGHT_FROM_ARCMIN) / Math.log(MAG_WEIGHT_FULL_ARCMIN / MAG_WEIGHT_FROM_ARCMIN);
-  return Math.max(0, Math.min(1, t));
+// Past the 98th percentile of galaxySB (an ultra-diffuse galaxy) the magnitude weight loses up to half (DIFFUSE_*, as in brightness.ts).
+const DIFFUSE_SB_FRACTION = 0.98;
+const DIFFUSE_WEIGHT_LOSS = 0.5;
+export function magnitudeWeight(majorArcmin, sbFraction) {
+  let bySize = 0.5;
+  if (majorArcmin !== undefined) {
+    const t = Math.log(majorArcmin / MAG_WEIGHT_FROM_ARCMIN) / Math.log(MAG_WEIGHT_FULL_ARCMIN / MAG_WEIGHT_FROM_ARCMIN);
+    bySize = Math.max(0, Math.min(1, t));
+  }
+  if (sbFraction === undefined) return bySize;
+  const diffuse = Math.max(0, Math.min(1, (sbFraction - DIFFUSE_SB_FRACTION) / (1 - DIFFUSE_SB_FRACTION)));
+  return bySize * (1 - DIFFUSE_WEIGHT_LOSS * diffuse);
 }
 const blends = raw.objects
   .filter((o) => GALAXY.includes(o.type))
@@ -75,7 +83,7 @@ const blends = raw.objects
     const sb = o.surfaceBrightness === undefined ? undefined : fractionBrighter(o.surfaceBrightness, tables.galaxySB.cuts);
     const mag = o.mag === undefined ? undefined : fractionBrighter(o.mag, tables.galaxyMag.cuts);
     if (sb === undefined || mag === undefined) return sb ?? mag;
-    const w = magnitudeWeight(o.majorArcmin);
+    const w = magnitudeWeight(o.majorArcmin, sb);
     return (1 - w) * sb + w * mag;
   })
   .filter((v) => v !== undefined);

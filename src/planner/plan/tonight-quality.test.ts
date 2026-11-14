@@ -9,7 +9,7 @@ import type { Site } from '../astro';
 import type { PlanEntry, PlanTarget, PlanTrain } from './index';
 import { brightnessClass } from './brightness';
 import { compareEntries } from './index';
-import { CLASS_CAP_MIN_SCORE, CLASS_SHARE_CAP, rankTargets } from './rank';
+import { CLASS_CAP_MIN_PLACES, CLASS_PROMOTION_MARGIN, CLASS_PROMOTION_MIN_FRACTION, CLASS_SHARE_CAP, rankTargets } from './rank';
 import type { RankInput } from './rank';
 
 /** "Tonight's best" over the whole catalog, judged on what an imager would want to see in the list. */
@@ -20,6 +20,8 @@ const phoenix: Site = { latitude: 33.5, longitude: -112, elevationM: 400 };
 const camera = { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176 };
 const refractor: PlanTrain = { kind: 'optical', name: '540/80', optics: opticalTrain({ focalLengthMm: 540, apertureMm: 80 }, camera) };
 const longTrain: PlanTrain = { kind: 'optical', name: '2000/200', optics: opticalTrain({ focalLengthMm: 2000, apertureMm: 200 }, camera) };
+const mid: PlanTrain = { kind: 'optical', name: '800/130', optics: opticalTrain({ focalLengthMm: 800, apertureMm: 130 }, camera) };
+const huge: PlanTrain = { kind: 'optical', name: '3900/356', optics: opticalTrain({ focalLengthMm: 3900, apertureMm: 356 }, camera) };
 const smart: PlanTrain = { kind: 'smart', name: 'smart', optics: null };
 
 const top = (over: Partial<RankInput> & Pick<RankInput, 'date' | 'train' | 'minAltitude'>): PlanEntry[] =>
@@ -173,8 +175,9 @@ describe('tonight\'s best: a smart scope (nominal field)', () => {
   });
 });
 
-// The evaluator's scenarios. The list is mixed by class (`capClassShare`): no class above `CLASS_SHARE_CAP` of it, at
-// any length from 3 entries up, while other classes have candidates at `CLASS_CAP_MIN_SCORE`.
+// The evaluator's scenarios. The three deep-sky classes (galaxy, cluster, nebula) are mixed by `capClassShare`; the
+// "other" bucket is not, and competes on score alone. The mix may never trade a strong entry for a weak one: what the
+// cap promotes is within `CLASS_PROMOTION_MARGIN` points of the entry it displaces, and above a fraction of the night's best.
 const SCENARIOS: Record<string, Parameters<typeof top>[0]> = {
   'Sydney 2027-01-08, smart': { site: sydney, timeZone: 'Australia/Sydney', date: '2027-01-08', train: smart, minAltitude: 20 },
   'PHX 2027-07-10, smart': { date: '2027-07-10', train: smart, minAltitude: 20 },
@@ -182,30 +185,80 @@ const SCENARIOS: Record<string, Parameters<typeof top>[0]> = {
   '40 S 2027-06-15, 2000 mm': { site: { latitude: -40, longitude: 175, elevationM: 50 }, timeZone: 'Pacific/Auckland', date: '2027-06-15', train: longTrain, minAltitude: 30 },
   '60 N 2027-01-10, 540 mm': { site: { latitude: 60, longitude: 10, elevationM: 100 }, timeZone: 'Europe/Oslo', date: '2027-01-10', train: refractor, minAltitude: 40 },
   'PHX 2027-04-15, 2000 mm': { date: '2027-04-15', train: longTrain, minAltitude: 30 },
+  'Toronto 2027-07-05, 800/130 mm': { site: { latitude: 45.4, longitude: -75.7, elevationM: 100 }, timeZone: 'America/Toronto', date: '2027-07-05', train: mid, minAltitude: 30 },
+  'PHX 2027-04-10, 3900/356 mm, min 50': { date: '2027-04-10', train: huge, minAltitude: 50 },
 };
+const DEEP_SKY = ['galaxy', 'cluster', 'nebula'];
 
-describe('tonight\'s best: a mixed list by construction', () => {
-  it.each(Object.entries(SCENARIOS))('%s: no class above the cap in the top 100, nor in any prefix of 3 or more', (_name, scenario) => {
-    const entries = top(scenario);
+describe('tonight\'s best: a mixed list that never trades a strong entry for a weak one', () => {
+  const lists = Object.entries(SCENARIOS).map(([name, scenario]) => ({ name, entries: top(scenario), pool: poolOf(scenario) }));
+  const idsIn = (es: readonly PlanEntry[]): string[] => es.map((e) => e.id);
+
+  it.each(lists.map((l) => [l.name, l] as const))('%s: every place goes to an entry within the margin of the best left out, and a promoted one scores a fraction of the night\'s best', (_name, { entries, pool }) => {
     expect(entries).toHaveLength(100);
-    expect(Math.max(...Object.values(countsOf(entries)))).toBeLessThanOrEqual(Math.floor(CLASS_SHARE_CAP * entries.length));
-    const counts: Record<string, number> = {};
+    const best = pool[0].score.total;
     entries.forEach((e, i) => {
-      counts[classOf(e)] = (counts[classOf(e)] ?? 0) + 1;
-      if (i + 1 >= 3) expect(counts[classOf(e)]).toBeLessThanOrEqual(Math.max(1, Math.ceil(CLASS_SHARE_CAP * (i + 1) - 1e-9)));
+      const left = pool.filter((p) => !idsIn(entries.slice(0, i + 1)).includes(p.id));
+      const displaced = Math.max(...left.map((p) => p.score.total));
+      expect(displaced - e.score.total).toBeLessThanOrEqual(CLASS_PROMOTION_MARGIN + 1e-9);
+      if (displaced > e.score.total) expect(e.score.total).toBeGreaterThanOrEqual(CLASS_PROMOTION_MIN_FRACTION * best);
     });
   });
 
-  it.each(Object.entries(SCENARIOS))('%s: within a class the order is the score order, and every class with usable candidates shows up in the top 20', (_name, scenario) => {
-    const entries = top(scenario);
+  it.each(lists.map((l) => [l.name, l] as const))('%s: no "other" entry is in the top 10 unless it would be there uncapped, and none is placed above a better one', (_name, { entries, pool }) => {
+    entries.slice(0, 10).filter((e) => classOf(e) === 'other').forEach((e) => expect(rankOf(pool, e.id)).toBeLessThan(10));
+    entries.forEach((e, i) => {
+      if (classOf(e) === 'other') expect(Math.max(...pool.filter((p) => !idsIn(entries.slice(0, i + 1)).includes(p.id)).map((p) => p.score.total))).toBeLessThanOrEqual(e.score.total);
+    });
+  });
+
+  // The rule: from place 5 a deep-sky class holds at most max(2, 40%) of the first m places, unless the best entry
+  // left out is of that class and no deep-sky class under its cap has an entry that is within the margin of it and above the fraction.
+  it.each(lists.map((l) => [l.name, l] as const))('%s: at every prefix from 10 to 100 no deep-sky class is above its cap, except where the rule allows it', (_name, { entries, pool }) => {
+    const best = pool[0].score.total;
+    const counts: Record<string, number> = {};
+    entries.forEach((e, i) => {
+      const m = i + 1;
+      counts[classOf(e)] = (counts[classOf(e)] ?? 0) + 1;
+      const cap = Math.max(CLASS_CAP_MIN_PLACES, Math.floor(CLASS_SHARE_CAP * m + 1e-9));
+      if (m < 10 || !DEEP_SKY.includes(classOf(e)) || counts[classOf(e)] <= cap) return;
+      const left = pool.filter((p) => !idsIn(entries.slice(0, i)).includes(p.id));
+      const alt = left.filter((p) => DEEP_SKY.includes(classOf(p)) && (counts[classOf(p)] ?? 0) < cap).map((p) => p.score.total);
+      const options = alt.filter((t) => e.score.total - t <= CLASS_PROMOTION_MARGIN && t >= CLASS_PROMOTION_MIN_FRACTION * best);
+      expect(`${_name} m=${m} ${classOf(e)}: ${options.length} promotable`).toBe(`${_name} m=${m} ${classOf(e)}: 0 promotable`);
+    });
+  });
+
+  it.each(lists.map((l) => [l.name, l] as const))('%s: within a class the order is the score order, and the Sextans dwarf spheroidal and Leo I are not in the top 20', (_name, { entries }) => {
     const last: Record<string, PlanEntry> = {};
     for (const e of entries) {
       const before = last[classOf(e)];
       if (before) expect(compareEntries(before, e)).toBeLessThanOrEqual(0);
       last[classOf(e)] = e;
     }
-    const classes = new Set(poolOf(scenario).filter((e) => e.score.total >= CLASS_CAP_MIN_SCORE).map(classOf));
-    expect(new Set(entries.slice(0, 20).map(classOf)).size).toBeGreaterThanOrEqual(Math.min(3, classes.size));
+    for (const id of ['pgc88608', 'ugc5470']) expect(rankOf(entries.slice(0, 20), id)).toBe(-1);
+  });
+
+  it('keeps the weak objects of the evaluator\'s failing lists out of them: M40 (a double star), Uranus and NGC 6823', () => {
+    const by = (name: string): PlanEntry[] => lists.find((l) => l.name === name)!.entries;
+    expect(rankOf(by('PHX 2027-07-10, smart').slice(0, 20), 'm40')).toBe(-1);
+    expect(rankOf(by('Toronto 2027-07-05, 800/130 mm').slice(0, 20), 'm40')).toBe(-1);
+    expect(rankOf(by('PHX 2026-11-14, 540 mm').slice(0, 10), 'uranus')).toBe(-1);
+    expect(rankOf(by('PHX 2027-04-10, 3900/356 mm, min 50').slice(0, 20), 'ngc6823')).toBe(-1);
+    const huge = by('PHX 2027-04-10, 3900/356 mm, min 50').slice(0, 20);
+    // The evaluator's bound, stated in points and not through the constant: no top-20 entry far below the best of the night.
+    for (const name of ['PHX 2027-04-10, 3900/356 mm, min 50', 'PHX 2027-04-15, 2000 mm']) {
+      const t20 = by(name).slice(0, 20);
+      expect(Math.min(...t20.map((e) => e.score.total))).toBeGreaterThanOrEqual(Math.max(...t20.map((e) => e.score.total)) - 20);
+    }
+  });
+
+  it('still mixes the classes where the night allows it: at least 3 classes in the top 20 on the 540 mm and smart-scope lists, and no class above half of the top 20', () => {
+    for (const name of ['PHX 2026-11-14, 540 mm', 'PHX 2027-07-10, smart', 'Sydney 2027-01-08, smart', '60 N 2027-01-10, 540 mm']) {
+      const top20 = lists.find((l) => l.name === name)!.entries.slice(0, 20);
+      expect(new Set(top20.map(classOf)).size).toBeGreaterThanOrEqual(3);
+      expect(Math.max(...Object.values(countsOf(top20)))).toBeLessThanOrEqual(10);
+    }
   });
 });
 

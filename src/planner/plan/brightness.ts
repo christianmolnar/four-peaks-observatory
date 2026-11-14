@@ -10,7 +10,7 @@
  *  - galaxy: a blend of two shares: where its surface brightness stands among galaxies (OpenNGC's measured mean over
  *    the D25 outline; worked out from magnitude and size where the catalog has none) and where its integrated
  *    magnitude stands. The weight moves with size: a small galaxy is judged on surface brightness, a large one (10'
- *    and up) on its magnitude. The D25 mean is diluted by the faint outer disc in proportion to how big the outline
+ *    and up) on its magnitude, less so when its surface brightness is beyond the catalog's 98th percentile (ultra-diffuse dwarfs). The D25 mean is diluted by the faint outer disc in proportion to how big the outline
  *    is, and most of all for a thin edge-on one: NGC 891 (mag 10, 13 x 3') sits in the faintest tenth by surface
  *    brightness and the brightest few percent by magnitude. A blend is not uniform, so it is ranked once more among
  *    all galaxies' blends, and the top tenth still scores +10.
@@ -50,11 +50,30 @@ const NEBULA_TYPES = ['nebula', 'supernova-remnant', 'planetary-nebula'];
 const MAG_WEIGHT_FROM_ARCMIN = 2;
 const MAG_WEIGHT_FULL_ARCMIN = 10;
 
-/** The weight of the magnitude share in a galaxy's blend: 0 for a small one, 1 for a large one; 0.5 when its size is unknown. */
-export function magnitudeWeight(majorArcmin: number | undefined): number {
-  if (majorArcmin === undefined) return 0.5;
-  const t = Math.log(majorArcmin / MAG_WEIGHT_FROM_ARCMIN) / Math.log(MAG_WEIGHT_FULL_ARCMIN / MAG_WEIGHT_FROM_ARCMIN);
-  return Math.max(0, Math.min(1, t));
+/**
+ * Past this share-fainter in surface brightness (the catalog's 98th percentile, worked out by the percentile build) a
+ * galaxy is ultra-diffuse, and the magnitude share loses weight (see `magnitudeWeight`): a dwarf spheroidal 30' across
+ * (Sextans, SB 28.07, the faintest in the catalog) has a fair magnitude only because it is spread over half a degree.
+ * It is not a target a large bright galaxy is.
+ */
+export const DIFFUSE_SB_FRACTION = 0.98;
+/** How much of the magnitude weight an ultra-diffuse galaxy at the very faint end of the surface brightness loses: half, so it keeps half of its surface brightness share. */
+export const DIFFUSE_WEIGHT_LOSS = 0.5;
+
+/**
+ * The weight of the magnitude share in a galaxy's blend: 0 for a small one, 1 for a large one; 0.5 when its size is
+ * unknown. `sbFraction` (its share-fainter in surface brightness, if known) takes the weight down linearly by up to
+ * `DIFFUSE_WEIGHT_LOSS` from `DIFFUSE_SB_FRACTION` (0.98) to 1, so the faintest-surfaced galaxies are never judged on magnitude alone.
+ */
+export function magnitudeWeight(majorArcmin: number | undefined, sbFraction?: number): number {
+  const bySize = (() => {
+    if (majorArcmin === undefined) return 0.5;
+    const t = Math.log(majorArcmin / MAG_WEIGHT_FROM_ARCMIN) / Math.log(MAG_WEIGHT_FULL_ARCMIN / MAG_WEIGHT_FROM_ARCMIN);
+    return Math.max(0, Math.min(1, t));
+  })();
+  if (sbFraction === undefined) return bySize;
+  const diffuse = Math.max(0, Math.min(1, (sbFraction - DIFFUSE_SB_FRACTION) / (1 - DIFFUSE_SB_FRACTION)));
+  return bySize * (1 - DIFFUSE_WEIGHT_LOSS * diffuse);
 }
 
 /**
@@ -65,7 +84,7 @@ export function galaxyBlend(t: Photometry): number | null {
   const sb = t.surfaceBrightness === undefined ? undefined : fractionBrighter(t.surfaceBrightness, BRIGHTNESS_PERCENTILES.galaxySB);
   const mag = t.mag === undefined ? undefined : fractionBrighter(t.mag, BRIGHTNESS_PERCENTILES.galaxyMag);
   if (sb === undefined || mag === undefined) return sb ?? mag ?? null;
-  const w = magnitudeWeight(t.sizeArcmin?.major);
+  const w = magnitudeWeight(t.sizeArcmin?.major, sb);
   return (1 - w) * sb + w * mag;
 }
 
