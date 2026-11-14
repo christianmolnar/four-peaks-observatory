@@ -29,6 +29,8 @@ export interface ExposurePanelProps {
   /** False: the site has none and DEFAULT_BORTLE is an assumption, said so. */
   bortleSet: boolean;
   formatTime: (d: Date) => string;
+  /** "tonight" or "that night (date)", from the page. */
+  nightWord: string;
 }
 
 const num = (x: number): string => String(Number(x.toFixed(1)));
@@ -192,7 +194,7 @@ function ModeCard({ m, checked, onSelect, formatTime }: { m: ModeEstimate; check
  * sky: the cards always hold the same rows, each row reserves the height of its longest wrap, and the warnings
  * box has a fixed height (it scrolls, and says so when it does).
  */
-export default function ExposurePanel({ entry, target, optics, camera, filter, site, bortle, bortleSet, formatTime }: ExposurePanelProps) {
+export default function ExposurePanel({ entry, target, optics, camera, filter, site, bortle, bortleSet, formatTime, nightWord }: ExposurePanelProps) {
   const [mode, setMode] = useState<ExposureMode>('balanced');
 
   const report = useMemo(() => {
@@ -254,7 +256,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
     <section aria-labelledby="exposure-heading" className={frame}>
       {heading}
       <p className="text-white/80 font-normal text-sm">
-        Estimates for tonight, not predictions. Each number carries a range, and the sky, seeing and equipment will move it. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
+        Estimates for {nightWord}, not predictions. Each number carries a range, and the sky, seeing and equipment will move it. Light means integrated exposure; elapsed adds setup, dithers, autofocus and a meridian flip.
       </p>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3 items-start">
@@ -292,7 +294,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
             <th scope="col" className="w-[3.5rem] md:w-[4.25rem] py-2 pr-2">Light</th>
             <th scope="col" className="py-2 pr-2">Signal-to-noise vs 30 min, estimate (range)</th>
             <th scope="col" className="w-[5.25rem] md:w-auto py-2 pr-2">Gain on step before, estimate (range)</th>
-            <th scope="col" className="py-2">Tonight</th>
+            <th scope="col" className="py-2">{nightWord.charAt(0).toUpperCase() + nightWord.slice(1)}</th>
           </tr>
         </thead>
         <tbody>

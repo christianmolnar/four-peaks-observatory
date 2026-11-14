@@ -23,6 +23,8 @@ export interface NightTimelineProps {
   horizon: readonly HorizonPoint[] | null;
   minAltitude: number;
   formatTime: (d: Date) => string;
+  /** "tonight" or "that night (date)", from the page. */
+  nightWord: string;
   idPrefix?: string;
 }
 
@@ -50,7 +52,7 @@ export function wrapWords(text: string, maxChars: number): string[] {
  * start (the changeover or the wait). The drawing is as wide as its box, so text stays the size on screen and nothing scrolls sideways.
  * Nothing moves, so there is no motion to reduce.
  */
-export default function NightTimeline({ plan, inputs, night, site, horizon, minAltitude, formatTime, idPrefix = 'timeline' }: NightTimelineProps) {
+export default function NightTimeline({ plan, inputs, night, site, horizon, minAltitude, formatTime, nightWord, idPrefix = 'timeline' }: NightTimelineProps) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   useLayoutEffect(() => {
@@ -133,7 +135,7 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
         ? 'Add a target to draw it on the night.'
         : afterNight
           ? `Your start, ${formatTime(plan.startsAt)}, is after the night ends (${formatTime(night.end as Date)}), so no slot has time.`
-          : 'No slot has time tonight, so nothing is drawn.';
+          : `No slot has time ${nightWord}, so nothing is drawn.`;
   const emptyLines = emptyWhy ? wrapWords(emptyWhy, Math.max(12, Math.floor((width - MARGIN.left - MARGIN.right - 16) / CHAR_PX))) : [];
 
   return (

@@ -231,16 +231,16 @@ export const WARNING_TEXT = {
   planetWaitsClamped: (name: string, waitMin: number, at: string): string => `Waits ${waitMin} min so the slot is at the highest ${name} reaches in this window (${at}), not on the moment its window opens.`,
   laterWindow: (name: string, firstOpens: string, firstCloses: string, firstLightMin: number, waitMin: number, opens: string, closes: string): string =>
     `Skips its short first window (${firstOpens} to ${firstCloses}, ${firstLightMin} min of light) and waits ${waitMin} min for the window ${opens} to ${closes}, which suits the mode better.`,
-  noTimeNever: (name: string): string => `No usable time left for ${name} tonight: its window never opens.`,
+  noTimeNever: (name: string): string => `No usable time left for ${name}: its window never opens.`,
   /** Nothing ran before: the window closes as the night starts. */
-  noTimeAtStart: (name: string, closedAt: string, nightStart: string): string => `No usable time left for ${name} tonight: its window closes at ${closedAt}, as the night starts (${nightStart}).`,
+  noTimeAtStart: (name: string, closedAt: string, nightStart: string): string => `No usable time left for ${name}: its window closes at ${closedAt}, as the night starts (${nightStart}).`,
   /** Nothing ran before, and the start time you gave is after the window closed. */
-  noTimeBeforeStart: (name: string, closedAt: string, startTime: string): string => `No usable time left for ${name} tonight: its window closes at ${closedAt}, before your start time (${startTime}).`,
+  noTimeBeforeStart: (name: string, closedAt: string, startTime: string): string => `No usable time left for ${name}: its window closes at ${closedAt}, before your start time (${startTime}).`,
   /** The slots before were still running when the window closed. */
-  noTimeSlots: (name: string, closedAt: string, slotsEnd: string): string => `No usable time left for ${name} tonight: its window closed at ${closedAt}, and the slots before end ${slotsEnd}.`,
+  noTimeSlots: (name: string, closedAt: string, slotsEnd: string): string => `No usable time left for ${name}: its window closed at ${closedAt}, and the slots before end ${slotsEnd}.`,
   /** The slots before ended in time; the changeover after them ran past the close. */
   noTimeChangeover: (name: string, closedAt: string, slotsEnd: string, changeover: string, minutes: number, changeoverEnds: string): string =>
-    `No usable time left for ${name} tonight: its window closed at ${closedAt}. The slots before end ${slotsEnd}, then the changeover (${changeover}; ${minutes} min in all) runs to ${changeoverEnds}, after the window closed.`,
+    `No usable time left for ${name}: its window closed at ${closedAt}. The slots before end ${slotsEnd}, then the changeover (${changeover}; ${minutes} min in all) runs to ${changeoverEnds}, after the window closed.`,
   lowStart: (altitude: number, direction: string, limit: number): string => `Starts at ${altitude}° ${direction}, under the limit of ${limit}° there.`,
   lowEnd: (altitude: number, direction: string, limit: number): string => `Ends at ${altitude}° ${direction}, under the limit of ${limit}° there.`,
   startBeforeNight: (nightStart: string): string => `Your start time is before the night: imaging begins when the night starts, ${nightStart}.`,
@@ -654,8 +654,8 @@ function noTimeText(name: string, windows: readonly TimeWindow[], cursor: Date, 
 function whyThisOrder(opens: { name: string; at: Date | null }[], formatTime: (d: Date) => string): string {
   if (opens.length === 0) return 'Add targets to build a schedule.';
   const timed = opens.filter((o): o is { name: string; at: Date } => o.at !== null);
-  if (timed.length === 0) return opens.length === 1 ? 'The slot has no usable window tonight.' : 'No slot has a usable window tonight.';
-  if (timed.length < 2) return opens.length === 1 ? 'One slot to place.' : `Only ${timed[0].name} has a usable window tonight.`;
+  if (timed.length === 0) return opens.length === 1 ? 'The slot has no usable window.' : 'No slot has a usable window.';
+  if (timed.length < 2) return opens.length === 1 ? 'One slot to place.' : `Only ${timed[0].name} has a usable window.`;
   for (let i = 1; i < timed.length; i++) {
     if (timed[i].at.getTime() < timed[i - 1].at.getTime()) {
       return `Your order: ${timed[i].name} opens at ${formatTime(timed[i].at)}, before ${timed[i - 1].name} at ${formatTime(timed[i - 1].at)}.`;

@@ -505,7 +505,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
     });
   }
   if (input.usableMinutes <= 0) {
-    shared.push({ code: 'no-usable-time', severity: 'warning', text: 'This target has no usable time tonight, so no exposure can be planned.' });
+    shared.push({ code: 'no-usable-time', severity: 'warning', text: 'This target has no usable time on the chosen night, so no exposure can be planned.' });
   }
 
   const sb = surfaceBrightnessOf(input.target);
@@ -567,7 +567,7 @@ export function planExposure(input: ExposureInput): ExposureReport {
       modeWarnings.push({
         code: 'limited-by-usable-time',
         severity: 'note',
-        text: `Only ${Math.round(input.usableMinutes)} usable minutes tonight: this plan stops at ${integrationMin} minutes of light, not ${spec.targetMin}.`,
+        text: `Only ${Math.round(input.usableMinutes)} usable minutes on the chosen night: this plan stops at ${integrationMin} minutes of light, not ${spec.targetMin}.`,
       });
     }
     if (input.usableMinutes > 0 && integrationMin < spec.rangeMin[0]) {

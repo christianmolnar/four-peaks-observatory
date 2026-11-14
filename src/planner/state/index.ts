@@ -14,10 +14,10 @@ export interface Selection {
 }
 
 /**
- * The saved selection, or null when none is stored. Damaged text throws, in words, so the page can say
- * the choice starts over; a storage that cannot be read throws too. Whether the ids still exist is the caller's check.
+ * The saved selection, or null when none is stored. Damaged text is removed from storage and throws, in words, so the page says it once
+ * and the choice starts over; a storage that cannot be read throws too. Whether the ids still exist is the caller's check.
  */
-export function loadSelection(storage: Pick<Storage, 'getItem'>): Selection | null {
+export function loadSelection(storage: Pick<Storage, 'getItem' | 'removeItem'>): Selection | null {
   let text: string | null;
   try {
     text = storage.getItem(SELECTION_KEY);
@@ -33,6 +33,11 @@ export function loadSelection(storage: Pick<Storage, 'getItem'>): Selection | nu
   }
   const o = v as Record<string, unknown> | null;
   if (typeof o !== 'object' || o === null || typeof o.siteId !== 'string' || typeof o.trainId !== 'string') {
+    try {
+      storage.removeItem(SELECTION_KEY);
+    } catch (e) {
+      throw new Error(`Your saved site and train choice is damaged and could not be cleared: ${(e as Error).message}`);
+    }
     throw new Error('Your saved site and train choice is damaged, so the first of each is used.');
   }
   return { siteId: o.siteId, trainId: o.trainId };

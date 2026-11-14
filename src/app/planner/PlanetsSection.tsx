@@ -20,6 +20,8 @@ export interface PlanetsSectionProps {
   horizon: readonly HorizonPoint[] | null;
   minAltitude: number;
   formatTime: (d: Date) => string;
+  /** "tonight" or "that night (date)", from the page. */
+  nightWord: string;
 }
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -66,6 +68,7 @@ const PlanetPanel = memo(function PlanetPanel({
   horizonSet,
   night,
   formatTime,
+  nightWord,
   checked,
   onToggle,
 }: {
@@ -75,6 +78,7 @@ const PlanetPanel = memo(function PlanetPanel({
   horizonSet: boolean;
   night: AstronomicalNight;
   formatTime: (d: Date) => string;
+  nightWord: string;
   checked: ReadonlySet<string>;
   onToggle: (key: string) => void;
 }) {
@@ -91,7 +95,7 @@ const PlanetPanel = memo(function PlanetPanel({
   const sampling = info.apertureMm !== undefined && info.scaleArcsecPx !== undefined ? samplingFor(info.scaleArcsecPx, info.apertureMm) : null;
   return (
     <div>
-      <h3 className="text-white font-normal text-base mb-2">{body}: tonight</h3>
+      <h3 className="text-white font-normal text-base mb-2">{body}: {nightWord}</h3>
       <dl className="grid gap-x-6 md:grid-cols-2">
         <Row label="Apparent diameter" basis="computed">
           {f1(card.apparentDiameterArcsec)} arcsec{card.diameterPx !== null ? `, about ${r0(card.diameterPx)} pixels across on ${info.trainName}` : ''}.
@@ -99,7 +103,7 @@ const PlanetPanel = memo(function PlanetPanel({
         <Row label="Phase" basis="computed">{phaseText(card)}</Row>
         <Row label={card.event.kind === 'opposition' ? 'Opposition' : card.event.kind === 'greatest-elongation' ? 'Elongation' : 'Moon'} basis="computed">{eventText(card)}</Row>
         <Row label="Culmination" basis="computed">
-          {formatTime(card.culmination.time)} at {r0(card.culmination.altitude)}°, {card.culmination.insideNight ? 'inside tonight’s night' : 'outside tonight’s night'}.
+          {formatTime(card.culmination.time)} at {r0(card.culmination.altitude)}°, {card.culmination.insideNight ? 'inside the astronomical night' : 'outside the astronomical night'}.
         </Row>
         <Row label="Clear of your horizon" basis="computed">
           {r0(card.usableMinutes)} min{card.goodMinutes !== null && card.dispersionAltitudeDeg !== null ? `, ${r0(card.goodMinutes)} of them above ${r0(card.dispersionAltitudeDeg)}°` : ''}. Peak {r0(card.peak.altitude)}° at {formatTime(card.peak.time)}.
@@ -133,6 +137,7 @@ const PlanetPanel = memo(function PlanetPanel({
             horizonSet={horizonSet}
             minAltitude={minAltitude}
             formatTime={formatTime}
+            nightWord={nightWord}
             idPrefix={`planet-${body.toLowerCase()}`}
           />
         )}
@@ -174,7 +179,7 @@ const PlanetPanel = memo(function PlanetPanel({
  * computed, estimated, sourced or assumed. The eight detail panels sit in one grid cell, only the selected one visible,
  * so the section is as tall as the tallest and choosing another planet moves nothing.
  */
-export default function PlanetsSection({ profile, train, site, night, horizon, minAltitude, formatTime }: PlanetsSectionProps) {
+export default function PlanetsSection({ profile, train, site, night, horizon, minAltitude, formatTime, nightWord }: PlanetsSectionProps) {
   // The train's numbers as one stable object: a filter change makes a new profile but leaves these as they were.
   const fresh = planetTrainInfo(profile, train);
   const infoKey = JSON.stringify(fresh);
@@ -211,7 +216,7 @@ export default function PlanetsSection({ profile, train, site, night, horizon, m
       </section>
     );
   }
-  // Default: the first planet that is clear of the horizon tonight, else the first card.
+  // Default: the first planet that is clear of the horizon on the chosen night, else the first card.
   const selectedBody: CardBody = picked ?? cards.find((c) => c.usableMinutes > 0)?.body ?? CARD_BODIES[0];
   const horizonSet = horizon !== null && horizon.length > 0;
 
@@ -219,7 +224,7 @@ export default function PlanetsSection({ profile, train, site, night, horizon, m
     <section aria-labelledby="planets-heading" className={frame}>
       {heading}
       <p className="text-white/80 font-normal text-sm">
-        Computed for the middle of tonight&apos;s astronomical night, the same night as the target list (so Mercury, Venus and the early Moon, which are twilight objects, may show as not clear when they could be imaged earlier; that is not computed). Usable time counts your saved horizon and the minimum altitude. Jupiter&apos;s Great Red Spot transits are not shown: there is no verified longitude model.
+        Computed for {nightWord}, at the middle of the astronomical night, the same night as the target list (so Mercury, Venus and the early Moon, which are twilight objects, may show as not clear when they could be imaged earlier; that is not computed). Usable time counts your saved horizon and the minimum altitude. Jupiter&apos;s Great Red Spot transits are not shown: there is no verified longitude model.
       </p>
 
       <fieldset className="mt-4">
@@ -236,7 +241,7 @@ export default function PlanetsSection({ profile, train, site, night, horizon, m
                     <span aria-hidden={!on} className={`text-xs text-sky-200 ${on ? '' : 'invisible'}`}>Selected</span>
                   </div>
                   <p className="text-white text-sm min-h-10 max-md:min-h-[3.75rem]">
-                    {c.usableMinutes > 0 ? `Clear of your horizon ${r0(c.usableMinutes)} min` : 'Not clear of your horizon tonight'}
+                    {c.usableMinutes > 0 ? `Clear of your horizon ${r0(c.usableMinutes)} min` : `Not clear of your horizon ${nightWord}`}
                   </p>
                   <p className="text-white/90 text-sm min-h-10">{c.usableMinutes === 0 && c.peak.altitude < 0 ? 'Below the horizon all night' : `Peak ${r0(c.peak.altitude)}° at ${formatTime(c.peak.time)}`}</p>
                   <p className="text-white/90 text-sm min-h-10 max-md:min-h-[3.75rem]">{f1(c.apparentDiameterArcsec)} arcsec, {f1(c.illuminatedFraction * 100)}% lit</p>
@@ -266,6 +271,7 @@ export default function PlanetsSection({ profile, train, site, night, horizon, m
                 horizonSet={horizonSet}
                 night={night}
                 formatTime={formatTime}
+                nightWord={nightWord}
                 checked={checked}
                 onToggle={toggle}
               />
