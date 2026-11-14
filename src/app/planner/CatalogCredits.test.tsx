@@ -12,4 +12,14 @@ describe('catalog credits', () => {
     expect(html).toContain('href="https://github.com/mattiaverga/OpenNGC"');
     expect(html).toContain('href="https://creativecommons.org/licenses/by-sa/4.0/"');
   });
+
+  it('credits OpenStreetMap for the time-zone boundaries, under ODbL, always', () => {
+    expect(text).toContain('Time-zone boundaries');
+    expect(text).toContain('built from data © OpenStreetMap contributors');
+    expect(text).toContain('timezone-boundary-builder');
+    expect(text).toContain('ODbL');
+    expect(html).toContain('href="https://www.openstreetmap.org/copyright"');
+    expect(html).toContain('href="https://opendatacommons.org/licenses/odbl/1-0/"');
+    expect(html).toContain('href="https://github.com/evansiroky/timezone-boundary-builder"');
+  });
 });

@@ -1,9 +1,11 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
+import type { SiteFieldKey } from '@/planner/location/client';
+import SiteFinder from './SiteFinder';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
 
@@ -110,7 +112,15 @@ function FormShell({ legend, error, onSave, onRemove, children }: { legend: stri
 function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void }) {
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
+  // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
+  const textsRef = useRef(texts);
+  const commit = (next: Record<string, string>) => {
+    textsRef.current = next;
+    setTexts(next);
+  };
   const [error, setError] = useState<string | null>(null);
+  // Boxes whose value a lookup wrote and the user has not edited since. A lookup may overwrite only these (and empty boxes); every other value is saved or typed by the user.
+  const filled = useRef(new Set<string>());
   const run = (fn: () => Profile, what: string) => {
     try {
       const next = fn();
@@ -120,6 +130,10 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       setError((e as Error).message);
     }
   };
+  const apply = (next: Record<string, string>, changed: SiteFieldKey[]) => {
+    changed.forEach((k) => filled.current.add(k));
+    commit(next);
+  };
   return (
     <FormShell
       legend={`${spec.title === 'Site' ? 'Site' : spec.noun[0].toUpperCase() + spec.noun.slice(1)}: ${item.name}`}
@@ -127,8 +141,18 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
       onRemove={() => run(() => removeItem(profile, list, item.id), `Removed ${item.name}.`)}
     >
+      {list === 'sites' && <SiteFinder texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
       {spec.fields.map((f) => (
-        <Box key={f.key} id={`edit-${list}-${item.id}-${f.key}`} spec={f} value={texts[f.key] ?? ''} onChange={(v) => setTexts((t) => ({ ...t, [f.key]: v }))} />
+        <Box
+          key={f.key}
+          id={`edit-${list}-${item.id}-${f.key}`}
+          spec={f}
+          value={texts[f.key] ?? ''}
+          onChange={(v) => {
+            filled.current.delete(f.key);
+            commit({ ...textsRef.current, [f.key]: v });
+          }}
+        />
       ))}
     </FormShell>
   );
