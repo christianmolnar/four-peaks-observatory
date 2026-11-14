@@ -53,6 +53,17 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // The bundled catalog extract: the file name carries the OpenNGC tag and a build revision
+        // (scripts/build-catalog.mjs), so any change to the content is a new URL.
+        source: '/catalog/openngc-:version.json',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
         source: '/images/(.*)',
         headers: [
           {

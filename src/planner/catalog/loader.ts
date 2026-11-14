@@ -2,6 +2,8 @@ import { starterTargets } from './index';
 import type { CatalogTarget } from './index';
 import { CATALOG_URL, parseExtract } from './openngc';
 import { createCatalogIndex } from './search';
+import { catalogPatches } from './supplement';
+import type { CatalogPatches } from './supplement';
 import type { CatalogIndex, SearchQuery, SearchResult } from './search';
 
 export interface CatalogLoaderOptions {
@@ -9,6 +11,8 @@ export interface CatalogLoaderOptions {
   fetch?: typeof fetch;
   url?: string;
   curated?: readonly CatalogTarget[];
+  /** The name supplement and overrides; defaults to the bundled data files. */
+  patches?: CatalogPatches;
 }
 
 /**
@@ -23,7 +27,7 @@ export function createCatalogLoader(options: CatalogLoaderOptions = {}): () => P
     const res = await doFetch(url);
     if (!res.ok) throw new Error(`Catalog fetch failed: ${url} returned HTTP ${res.status}`);
     const extract = parseExtract(await res.json());
-    return createCatalogIndex(extract.objects, options.curated ?? starterTargets);
+    return createCatalogIndex(extract.objects, options.curated ?? starterTargets, options.patches ?? catalogPatches);
   };
   return () => {
     if (pending === null) {

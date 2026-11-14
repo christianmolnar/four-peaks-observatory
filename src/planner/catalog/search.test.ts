@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { starterTargets } from './index';
+import { TARGET_TYPES, normalizeName, starterTargets } from './index';
 import { createCatalogLoader } from './loader';
 import { CATALOG_URL, parseExtract } from './openngc';
 import { createCatalogIndex } from './search';
-import type { CatalogIndex, SearchQuery } from './search';
+import type { CatalogIndex, SearchHit, SearchQuery, SearchTarget } from './search';
 
-const ASSET = join(process.cwd(), 'public', 'catalog', 'openngc-v20260501.json');
+const ASSET = join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r2.json');
 const rawText = readFileSync(ASSET, 'utf8');
 const raw = JSON.parse(rawText);
 
@@ -129,21 +129,27 @@ describe('name search and ranking', () => {
   });
 
   it('orders by tier: designation, then prefix, then substring, then fuzzy', () => {
-    const r = index.search({ text: 'm4', limit: 50 });
-    expect(r.hits[0].target.id).toBe('m4'.length ? r.hits[0].target.id : '');
+    const r = index.search({ text: 'nebul', limit: 500 });
+    expect(r.hits.length).toBeGreaterThan(50);
     const kinds = r.hits.map((h) => h.match);
     const rank = ['designation', 'name-exact', 'name-prefix', 'word-prefix', 'substring', 'fuzzy'];
     const order = kinds.map((k) => rank.indexOf(k));
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
-  it('substring: "nebula" finds names that contain it', () => {
-    expect(index.search({ text: 'trifid' }).hits.length).toBeGreaterThan(0);
+  it('prefix: "trifid" is the start of a name; word-prefix and substring reach further inside', () => {
+    expect(index.search({ text: 'trifid' }).hits[0]).toMatchObject({ match: 'name-exact' });
+    expect(index.search({ text: 'trif' }).hits[0]).toMatchObject({ match: 'name-prefix' });
+    const word = index.search({ text: 'cluster' }).hits[0];
+    expect(word.match).toBe('word-prefix');
+    const sub = index.search({ text: 'ouble clus' });
+    expect(sub.hits[0]).toMatchObject({ match: 'substring' });
+    expect(sub.hits[0].target.id).toBe('c14');
   });
 
   it('is deterministic and capped by limit', () => {
-    const a = index.search({ text: 'ngc 7', limit: 7 });
-    const b = index.search({ text: 'ngc 7', limit: 7 });
+    const a = index.search({ text: 'nebula', limit: 7 });
+    const b = index.search({ text: 'nebula', limit: 7 });
     expect(a.hits).toHaveLength(7);
     expect(a.total).toBeGreaterThan(7);
     expect(a.hits.map((h) => h.target.id)).toEqual(b.hits.map((h) => h.target.id));
@@ -155,12 +161,14 @@ describe('name search and ranking', () => {
 });
 
 describe('every Messier and Caldwell resolves', () => {
-  it('M1..M110 except the known absent M102', () => {
+  it('M1..M110, and M102 is an alias of M101 as OpenNGC says', () => {
     const missing: number[] = [];
     for (let n = 1; n <= 110; n++) {
       if (index.search({ text: `M${n}` }).hits[0]?.match !== 'designation') missing.push(n);
     }
-    expect(missing).toEqual([102]);
+    expect(missing).toEqual([]);
+    expect(ids({ text: 'M102' })).toEqual(['m101']);
+    expect(ids({ text: 'Messier 102' })).toEqual(['m101']);
   });
 
   it('C1..C109', () => {
@@ -184,7 +192,10 @@ describe('merge with the curated 25', () => {
     const everything = index.search({ types: ['galaxy', 'nebula', 'open-cluster', 'globular-cluster', 'planetary-nebula'], limit: 100000 });
     const seen = everything.hits.map((h) => h.target.id);
     expect(new Set(seen).size).toBe(seen.length);
-    expect(index.size).toBe(raw.count - 0 - claimedCount() + starterTargets.length);
+    // Each curated target stands for the catalog rows it shares a number with, plus two that only share its name and
+    // place: NGC 2238 (Rosette Nebula) and IC 4703 (Eagle Nebula).
+    expect(index.size).toBe(raw.count - claimedCount() - 2 + starterTargets.length);
+    expect(index.size).toBe(4914);
   });
 
   function claimedCount(): number {
@@ -213,9 +224,14 @@ describe('merge with the curated 25', () => {
     }
   });
 
-  it('Heart and Soul pair stays curated if present in the starter list', () => {
-    const pairs = starterTargets.filter((t) => /heart|soul/i.test(t.name));
-    for (const p of pairs) expect(index.search({ text: p.name }).hits[0].target.curated).toBe(true);
+  it('a curated name finds the curated target first, once: every name and alias of all 25', () => {
+    for (const c of starterTargets) {
+      for (const label of [c.name, ...c.aliases]) {
+        const hits = index.search({ text: label, limit: 50 }).hits;
+        expect(hits[0].target.id).toBe(c.id);
+        expect(hits.filter((h) => h.target.id === c.id)).toHaveLength(1);
+      }
+    }
   });
 });
 
@@ -280,6 +296,18 @@ describe('not found locally', () => {
 
   it('an empty query is not a miss', () => {
     expect(index.search({ text: '  ' })).toMatchObject({ hits: [], notFoundLocally: false });
+    expect(index.search({})).toMatchObject({ hits: [], notFoundLocally: false });
+  });
+
+  it.each(['🔭', '.*', '---', '?!'])('a query with nothing searchable in it (%s) is a miss', (text) => {
+    expect(index.search({ text })).toMatchObject({ hits: [], total: 0, notFoundLocally: true });
+    expect(index.search({ text, types: ['galaxy'] })).toMatchObject({ hits: [], notFoundLocally: true });
+  });
+
+  it('a complete designation with no exact hit is a miss, never a prefix hit: NGC 99999, NGC 65, IC 5, M11111', () => {
+    for (const text of ['NGC 99999', 'NGC 65', 'IC 5', 'M11111', 'C 110']) {
+      expect(index.search({ text })).toMatchObject({ hits: [], total: 0, notFoundLocally: true });
+    }
   });
 
   it('a filter that excludes a found name is not a miss', () => {
@@ -291,5 +319,245 @@ describe('index over a small catalog', () => {
   it('works without curated targets', () => {
     const small = createCatalogIndex(raw.objects.slice(0, 50), []);
     expect(small.size).toBe(50);
+  });
+});
+
+describe('designations the first build lost (found as aliases)', () => {
+  it.each([
+    ['NGC 2244', 'ngc2239'], // the Rosette cluster, C 50
+    ['NGC 1291', 'ngc1269'],
+    ['NGC 6533', 'm8'], // a Dup row of the Lagoon: the curated M8 stands for it
+    ['NGC 6634', 'ngc6637'], // M69
+    ['IC 547', 'ngc2947'],
+    ['IC 2494', 'ngc2947'],
+    ['IC 843', 'ngc4913'],
+    ['NGC 651', 'ngc650'], // M76
+    ['NGC 2478', 'ngc2422'], // M47
+    ['IC 1985', 'ic348'],
+    ['NGC 4656', 'ngc4656-ned01'], // the Hockey Stick: its group number
+  ])('%s -> %s first, as a designation', (text, id) => {
+    const r = index.search({ text });
+    expect(r.hits[0].target.id).toBe(id);
+    expect(r.hits[0].match).toBe('designation');
+    expect(r.notFoundLocally).toBe(false);
+  });
+});
+
+describe('Dup rows whose primary is not in the extract', () => {
+  it('stay unfound: IC 819 and IC 3543 duplicate NGC 4676A and NGC 4565C, which are below the cut', () => {
+    for (const text of ['IC 819', 'IC 3543']) expect(index.search({ text })).toMatchObject({ hits: [], notFoundLocally: true });
+  });
+});
+
+describe('a curated target is never listed twice', () => {
+  it.each([
+    ['rosette nebula', 'ngc2237'],
+    ['eagle nebula', 'm16'],
+    ['C 49', 'ngc2237'],
+    ['NGC 2238', 'ngc2237'],
+    ['IC 4703', 'm16'],
+    ['rosette', 'ngc2237'],
+  ])('%s -> only %s', (text, id) => {
+    const hits = index.search({ text, limit: 50 }).hits.filter((h) => h.match === 'designation' || h.match === 'name-exact');
+    expect(hits.map((h) => h.target.id)).toEqual([id]);
+    expect(hits[0].target.curated).toBe(true);
+  });
+
+  const everything = (): SearchHit[] => index.search({ types: [...TARGET_TYPES], limit: 100000 }).hits;
+  const sepArcmin = (a: SearchTarget, b: SearchTarget): number => {
+    const dec = ((a.decDeg + b.decDeg) / 2) * (Math.PI / 180);
+    return Math.hypot((a.raHours - b.raHours) * 15 * Math.cos(dec), a.decDeg - b.decDeg) * 60;
+  };
+  const nameKeys = (t: SearchTarget): Set<string> =>
+    new Set([t.name, ...t.aliases].map(normalizeName).filter((k) => !/^[a-z]{1,4}\d+[a-z]{0,2}$/.test(k)));
+  const FEW_ARCMIN = 5;
+
+  it('no two results of any name search share a name within a few arcmin and are not the same curated target', () => {
+    const labels = new Set<string>(starterTargets.flatMap((c) => [c.name, ...c.aliases]));
+    // 100 catalog names, spread over the whole catalog
+    const named = raw.objects.filter((o: { name: string; id: string }) => !/^(NGC|IC) \d+$/.test(o.name) && o.name !== o.id);
+    for (let i = 0; i < 100; i++) labels.add(named[Math.floor((i * named.length) / 100)].name);
+    expect(labels.size).toBeGreaterThan(100);
+    const clashes: string[] = [];
+    for (const text of labels) {
+      const hits = index.search({ text, limit: 100 }).hits;
+      for (let i = 0; i < hits.length; i++) {
+        for (let j = i + 1; j < hits.length; j++) {
+          const [a, b] = [hits[i].target, hits[j].target];
+          if (!a.curated && !b.curated) continue; // two catalog rows that share a name (Antennae, Butterfly Galaxies) are two objects
+          const shared = [...nameKeys(a)].filter((k) => nameKeys(b).has(k));
+          if (shared.length > 0 && sepArcmin(a, b) < FEW_ARCMIN) clashes.push(`${text}: ${a.id} / ${b.id} (${shared[0]})`);
+        }
+      }
+    }
+    expect(clashes).toEqual([]);
+  });
+
+  it('across the whole index: no catalog object shares a name with a curated target inside its footprint', () => {
+    const all = everything().map((h) => h.target);
+    const clashes: string[] = [];
+    for (const c of all.filter((t) => t.curated)) {
+      const keys = nameKeys(c);
+      const radius = Math.max(FEW_ARCMIN, (c.sizeArcmin?.major ?? 0) / 2);
+      for (const t of all) {
+        if (t.id === c.id || t.curated) continue;
+        if ([...nameKeys(t)].some((k) => keys.has(k)) && sepArcmin(c, t) <= radius) clashes.push(`${c.id} / ${t.id}`);
+      }
+    }
+    expect(clashes).toEqual([]);
+  });
+});
+
+describe('names people type', () => {
+  it.each([
+    ['the andromeda galaxy', 'm31'],
+    ['The Andromeda Galaxy', 'm31'],
+    ['Barnard 33', 'b33'],
+    ['barnard33', 'b33'],
+    ['Sharpless 155', 'c9'],
+    ['Sharpless 2-155', 'c9'],
+    ['Sh2-155', 'c9'],
+    ['47 Tucanae', 'ngc104'],
+    ['47 Tuc', 'ngc104'],
+    ['ω Cen', 'ngc5139'],
+    ['Ω Centauri', 'ngc5139'],
+    ['omega cen', 'ngc5139'],
+    ['M３１', 'm31'],
+    ['ＮＧＣ　２２４', 'm31'],
+    ['the guitar', 'ngc3561'],
+  ])('%s -> %s first', (text, id) => {
+    const r = index.search({ text });
+    expect(r.hits[0].target.id).toBe(id);
+    expect(r.notFoundLocally).toBe(false);
+  });
+
+  it('a Greek letter is a Bayer abbreviation, not nothing: "tet Car" and "θ Car" agree', () => {
+    expect(ids({ text: 'θ Car' })).toEqual(ids({ text: 'tet Car' }));
+    expect(ids({ text: 'θ Car' })[0]).toBe('ic2602');
+  });
+});
+
+describe('popular nicknames from the supplement', () => {
+  const supplement = JSON.parse(readFileSync(join(process.cwd(), 'src', 'planner', 'data', 'catalog-supplement.json'), 'utf8')).entries as { id: string; names: string[] }[];
+  const known = new Set<string>(raw.objects.map((o: { id: string }) => o.id));
+
+  it('every entry is tied to an object of the catalog and finds it', () => {
+    expect(supplement.length).toBeGreaterThan(10);
+    for (const e of supplement) {
+      expect(known.has(e.id)).toBe(true);
+      for (const n of e.names) {
+        const hit = index.search({ text: n, limit: 5 }).hits.find((h) => h.target.id === e.id || h.target.aliases.includes(n));
+        expect(hit).toBeDefined();
+      }
+    }
+  });
+
+  it.each([
+    ['heart nebula', 'ic1805'],
+    ['heart', 'ic1805'],
+    ['soul', 'ic1848'],
+    ['pacman', 'ngc281'],
+    ['elephant trunk', 'ic1396'],
+    ["elephant's trunk", 'ic1396'],
+    ['seven sisters', 'mel22'],
+    ['wizard', 'ngc7380'],
+    ['seagull', 'ic2177'],
+    ['jellyfish', 'ic443'],
+    ['hockey stick', 'ngc4656-ned01'],
+    ["witch's broom", 'ngc6960'],
+    // already in OpenNGC, so they must keep working
+    ['pelican', 'ic5070'],
+    ['cocoon nebula', 'ic5146'],
+    ['bubble nebula', 'ngc7635'],
+    ['crescent', 'ngc6888'],
+    ['iris nebula', 'ngc7023'],
+    ['cave', 'c9'],
+    ['horsehead', 'b33'],
+    ['needle galaxy', 'ngc4565'],
+    ['whale', 'ngc4631'],
+    ['sunflower', 'ngc5055'],
+    ['black eye', 'ngc4826'],
+    ['double cluster', 'c14'],
+    ['cigar', 'm82'],
+    ['leo triplet', 'leo-triplet'],
+    ["markarian's chain", 'markarians-chain'],
+    ['monkey head', 'ngc2174'],
+    ['christmas tree', 'ngc2264'],
+  ])('%s -> %s first', (text, id) => {
+    expect(ids({ text })[0]).toBe(id);
+  });
+});
+
+describe('overrides of upstream naming errors', () => {
+  it('the Flame Nebula is NGC 2024, not IC 434', () => {
+    expect(ids({ text: 'flame nebula' })[0]).toBe('ngc2024');
+    expect(ids({ text: 'NGC 2024' })[0]).toBe('ngc2024');
+    const ic434 = index.search({ text: 'IC 434' }).hits[0].target;
+    expect(ic434.id).toBe('ic434');
+    expect(ic434.name).toBe('IC 434');
+    expect(ids({ text: 'flame nebula', limit: 50 } as SearchQuery, 50)).not.toContain('ic434');
+  });
+});
+
+describe('number-only queries', () => {
+  it('a number is that number in every catalog: M, NGC, IC, Caldwell, in that order', () => {
+    expect(ids({ text: '31' }, 10)).toEqual(['m31', 'ic405']); // M31, then IC 405 (which is C 31)
+    expect(ids({ text: '42' })[0]).toBe('m42');
+    expect(ids({ text: '7000' })[0]).toBe('ngc7000');
+  });
+
+  it('every hit of a number carries that number, and none is a number inside another (7242 for 42)', () => {
+    for (const text of ['42', '7000', '224', '13']) {
+      const r = index.search({ text, limit: 50 });
+      expect(r.hits.length).toBeGreaterThan(0);
+      for (const h of r.hits) {
+        const labels = [h.target.id, h.target.name, ...h.target.aliases].join(' ');
+        expect(labels).toMatch(new RegExp(`(^|[^0-9])0*${text}([^0-9]|$)`, 'i'));
+      }
+    }
+  });
+
+  it('a number nobody has is a miss', () => {
+    expect(index.search({ text: '99999' })).toMatchObject({ hits: [], notFoundLocally: true });
+  });
+});
+
+describe('filter validation', () => {
+  it.each([
+    ['sizeArcmin.min NaN', { sizeArcmin: { min: NaN } }, 'sizeArcmin.min'],
+    ['sizeArcmin.max Infinity', { sizeArcmin: { max: Infinity } }, 'sizeArcmin.max'],
+    ['frame.minPercent NaN', { frame: { fovArcmin: 180, minPercent: NaN } }, 'frame.minPercent'],
+    ['frame.maxPercent -Infinity', { frame: { fovArcmin: 180, maxPercent: -Infinity } }, 'frame.maxPercent'],
+    ['frame.fovArcmin Infinity', { frame: { fovArcmin: Infinity } }, 'frame.fovArcmin'],
+    ['frame.fovArcmin NaN', { frame: { fovArcmin: NaN } }, 'frame.fovArcmin'],
+    ['frame.fovArcmin negative', { frame: { fovArcmin: -3 } }, 'frame.fovArcmin'],
+    ['an unknown type', { types: ['star' as never] }, 'unknown target type'],
+    ['limit 1.5', { limit: 1.5 }, 'limit'],
+  ])('%s throws a clear error', (_label, query, where) => {
+    expect(() => index.search(query as SearchQuery)).toThrow(where);
+  });
+
+  it('still accepts a plain range and a plain frame', () => {
+    expect(index.search({ sizeArcmin: { min: 10 }, frame: { fovArcmin: 180, minPercent: 10, maxPercent: 90 } }).hits.length).toBeGreaterThan(0);
+  });
+});
+
+describe('hits do not expose the index', () => {
+  it('targets are frozen, deeply, and a later search is unchanged', () => {
+    const before = JSON.stringify(index.search({ text: 'M31' }));
+    const t = index.search({ text: 'M31' }).hits[0].target as unknown as { aliases: string[]; sizeArcmin: { major: number }; seasonMonths: number[]; name: string };
+    expect(Object.isFrozen(t)).toBe(true);
+    expect(() => t.aliases.push('Mutated')).toThrow(TypeError);
+    expect(() => { t.sizeArcmin.major = 1; }).toThrow(TypeError);
+    expect(() => t.seasonMonths.push(13)).toThrow(TypeError);
+    expect(() => { t.name = 'Mutated'; }).toThrow(TypeError);
+    expect(JSON.stringify(index.search({ text: 'M31' }))).toBe(before);
+    expect(ids({ text: 'Mutated' })).toEqual([]);
+  });
+
+  it('catalog (not curated) targets are frozen too, and the curated source list is untouched', () => {
+    const t = index.search({ text: 'NGC 1291' }).hits[0].target as unknown as { aliases: string[] };
+    expect(() => t.aliases.push('Mutated')).toThrow(TypeError);
+    expect(Object.isFrozen(starterTargets[0].aliases)).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { TARGET_TYPES } from './index';
 import type { TargetType } from './index';
 
 /** Where the bundled extract is served from (written by `scripts/build-catalog.mjs`). */
-export const CATALOG_URL = '/catalog/openngc-v20260501.json';
+export const CATALOG_URL = '/catalog/openngc-v20260501-r2.json';
 
 /** One object of the bundled OpenNGC extract. Field names are the file's own. */
 export interface CatalogObject {
@@ -73,6 +73,9 @@ function checkObject(o: unknown, i: number): CatalogObject {
   if (r.constellation !== undefined && typeof r.constellation !== 'string') fail(`${at}.constellation`, 'expected a string');
   if (r.aliases !== undefined && (!Array.isArray(r.aliases) || !r.aliases.every((a) => typeof a === 'string' && a !== ''))) {
     fail(`${at}.aliases`, 'expected an array of non-empty strings');
+  }
+  if (Array.isArray(r.aliases) && r.aliases.some((a) => /NaN|undefined/.test(a as string))) {
+    fail(`${at}.aliases`, 'an alias holds NaN or undefined (a failed number conversion in the build)');
   }
   return r as unknown as CatalogObject;
 }

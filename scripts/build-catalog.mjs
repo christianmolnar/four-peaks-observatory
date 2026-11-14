@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds the bundled deep-sky extract public/catalog/openngc-v20260501.json from OpenNGC.
+// Builds the bundled deep-sky extract public/catalog/openngc-v20260501-r2.json from OpenNGC.
 //
 //   node scripts/build-catalog.mjs                      fetch NGC.csv and addendum.csv at the pinned tag
 //   node scripts/build-catalog.mjs --src <dir>          read NGC.csv and addendum.csv from <dir> instead
@@ -15,9 +15,11 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 export const TAG = 'v20260501';
+// Bump when the build rules change the output for the same tag: the file is served `immutable`, so its name must change.
+export const REVISION = 2;
 const RAW = `https://raw.githubusercontent.com/mattiaverga/OpenNGC/${TAG}/database_files`;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const DEFAULT_OUT = join(ROOT, 'public', 'catalog', `openngc-${TAG}.json`);
+const DEFAULT_OUT = join(ROOT, 'public', 'catalog', `openngc-${TAG}-r${REVISION}.json`);
 
 export const MAG_LIMIT = 14;
 export const SIZE_LIMIT_ARCMIN = 1;
@@ -73,9 +75,9 @@ function degrees(s) {
   return sign * (d + m / 60 + x / 3600);
 }
 
-/** Id: lower case OpenNGC name without leading zeros ("NGC0224" -> "ngc224"). */
+/** Id: lower case OpenNGC name without leading zeros, spaces as hyphens ("NGC0224" -> "ngc224", "NGC4656 NED01" -> "ngc4656-ned01"). */
 function idOf(name) {
-  return name.toLowerCase().replace(/^([a-z]+)0+(\d)/, '$1$2');
+  return name.toLowerCase().replace(/^([a-z]+)0+(\d)/, '$1$2').replace(/ /g, '-');
 }
 
 /** "NGC0224" -> "NGC 224", "IC0405" -> "IC 405", "Mel022" -> "Mel 22", "B033" -> "B 33". */
@@ -83,6 +85,26 @@ function labelOf(name) {
   const m = /^([A-Za-z]+)0*(\d+)(.*)$/.exec(name);
   return m ? `${m[1]} ${m[2]}${m[3]}` : name;
 }
+
+/**
+ * One cell of the NGC, IC or M column: a comma separated list of numbers, each with an optional letter suffix
+ * or NED component ("0651", "0547,2494", "1487NW", "4656 NED02"). Returns { num, tail } for each; anything else throws.
+ */
+function refsOf(cell, column) {
+  return cell
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => {
+      const m = /^0*(\d+)([A-Z]{0,2})(?: (NED\d+))?$/.exec(t);
+      if (m === null) throw new Error(`Unreadable ${column} reference "${t}"`);
+      return { num: Number(m[1]), tail: `${m[2]}${m[3] === undefined ? '' : ` ${m[3]}`}` };
+    });
+}
+
+const refLabel = (cat, r) => (cat === 'M' ? `M${r.num}${r.tail}` : `${cat} ${r.num}${r.tail}`);
+/** The id such a reference gives a primary object ("NGC", {6523} -> "ngc6523", "M", {101} -> "m101"). */
+const refId = (cat, r) => idOf(`${cat}${r.num}${r.tail}`);
 
 function sbFrom(mag, maj, min) {
   const areaArcsec2 = (Math.PI / 4) * maj * 60 * min * 60;
@@ -95,9 +117,8 @@ function toRecord(row, type) {
   const maj = num(row.MajAx);
   const min = num(row.MinAx);
   const mag = num(row['V-Mag']) ?? num(row['B-Mag']);
-  const m = num(row.M);
-  const ngcRef = num(row.NGC);
-  const icRef = num(row.IC);
+  const mRefs = refsOf(row.M, 'M');
+  const m = mRefs[0]?.num;
   const ident = row.Identifiers.split(',').map((s) => s.trim()).filter(Boolean);
   const cNum = (() => {
     if (/^C\d+$/.test(row.Name)) return Number(row.Name.slice(1));
@@ -107,13 +128,21 @@ function toRecord(row, type) {
   const common = row['Common names'].split(',').map((s) => s.trim()).filter(Boolean);
   const own = /^(NGC|IC)\d+$/.test(row.Name) ? undefined : labelOf(row.Name);
   const extra = ident.filter((s) => /^(LBN|SH 2-)/.test(s));
-  // The NGC and IC columns cross-reference other catalogs; they become aliases, never the object's own number.
+  // The NED components of a galaxy group ("NGC 4656 NED01") answer to the group's number as well.
+  const parent = /^(NGC|IC)(\d+) NED\d+$/.exec(row.Name);
+  const parentLabel = parent === null ? [] : [`${parent[1]} ${Number(parent[2])}`];
+  // The NGC, IC and M columns cross-reference other numbers of the same object: all of them become aliases,
+  // except the row's own number.
+  const ownLabel = labelOf(row.Name);
   const crossRefs = [
-    ...(ngcRef !== undefined && !/^NGC/.test(row.Name) ? [`NGC ${ngcRef}`] : []),
-    ...(icRef !== undefined && !/^IC/.test(row.Name) ? [`IC ${icRef}`] : []),
-  ];
+    ...mRefs.slice(1).map((r) => refLabel('M', r)),
+    ...refsOf(row.NGC, 'NGC').map((r) => refLabel('NGC', r)),
+    ...refsOf(row.IC, 'IC').map((r) => refLabel('IC', r)),
+  ].filter((a) => a !== ownLabel);
   const name = common[0] ?? (m !== undefined ? `M${m}` : labelOf(row.Name));
-  const aliases = [...common.slice(1), ...(own ? [own] : []), ...crossRefs, ...extra].filter((a) => a !== name);
+  const aliases = [...new Set([...common.slice(1), ...(own ? [own] : []), ...parentLabel, ...crossRefs, ...extra])].filter(
+    (a) => a !== name,
+  );
 
   const rec = {
     id: idOf(row.Name),
@@ -154,6 +183,7 @@ export function buildExtract(ngcCsv, addendumCsv) {
   const objects = [];
   const droppedByType = {};
   const droppedNamed = []; // dropped by type although it has a common name, an M or a C number
+  const dupRows = [];
   let droppedByCut = 0;
 
   for (const row of rows) {
@@ -165,6 +195,7 @@ export function buildExtract(ngcCsv, addendumCsv) {
     if (type === undefined && isM && row.Type in MESSIER_TYPE_OVERRIDE) {
       type = MESSIER_TYPE_OVERRIDE[row.Type];
     }
+    if (row.Type === 'Dup') dupRows.push(row);
     if (type === undefined) {
       droppedByType[row.Type] = (droppedByType[row.Type] ?? 0) + 1;
       if (forced) droppedNamed.push(`${row.Name} (${row.Type}${isM ? `, M${Number(row.M)}` : ''})`);
@@ -191,6 +222,29 @@ export function buildExtract(ngcCsv, addendumCsv) {
 
   objects.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
+  // A Dup row is a second number of an object that has its own row; its NGC, IC or M column names that object.
+  // The Dup's own number (and its M number, if any) becomes an alias of the object, so it can be searched.
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  const byM = new Map(objects.filter((o) => o.m !== undefined).map((o) => [o.m, o]));
+  const dupFolded = [];
+  const dupUnresolved = [];
+  for (const row of dupRows) {
+    const refs = [
+      ...refsOf(row.NGC, 'NGC').map((r) => byId.get(refId('NGC', r))),
+      ...refsOf(row.IC, 'IC').map((r) => byId.get(refId('IC', r))),
+      ...refsOf(row.M, 'M').map((r) => byM.get(r.num)),
+    ];
+    const primary = refs.find((p) => p !== undefined);
+    if (primary === undefined) {
+      dupUnresolved.push(labelOf(row.Name));
+      continue;
+    }
+    const own = row.Name.startsWith('M') ? row.Name.replace(/^M0*/, 'M') : labelOf(row.Name);
+    const have = new Set([primary.name, ...(primary.aliases ?? [])]);
+    if (!have.has(own)) primary.aliases = [...(primary.aliases ?? []), own];
+    dupFolded.push(own);
+  }
+
   const missingMessier = [];
   for (let n = 1; n <= 110; n++) if (!objects.some((o) => o.m === n)) missingMessier.push(n);
   const missingCaldwell = [];
@@ -204,6 +258,8 @@ export function buildExtract(ngcCsv, addendumCsv) {
       droppedByTypeTotal: Object.values(droppedByType).reduce((a, b) => a + b, 0),
       droppedByCut,
       droppedNamed,
+      dupFolded: dupFolded.length,
+      dupUnresolved,
       missingMessier,
       missingCaldwell,
     },
@@ -262,7 +318,7 @@ async function main() {
     license: 'CC-BY-SA-4.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
     modifications:
-      'Filtered to real object types, mag <= 14 (or no magnitude, for non-galaxies) and size >= 1 arcmin plus every Messier, Caldwell and named object; fields renamed; surface brightness computed from magnitude and size where the source has none (sbComputed).',
+      'Filtered to real object types, mag <= 14 (or no magnitude, for non-galaxies) and size >= 1 arcmin plus every Messier, Caldwell and named object; fields renamed; duplicate (Dup) designations folded into the aliases of the object they duplicate; surface brightness computed from magnitude and size where the source has none (sbComputed).',
     acknowledgment:
       'Includes data from NED, HyperLEDA, SIMBAD (CDS) and HEASARC, as credited by OpenNGC.',
     count: objects.length,

@@ -43,18 +43,50 @@ export interface CatalogTarget {
   brightCore?: boolean;
 }
 
+// Greek letters as the Bayer abbreviations SIMBAD and OpenNGC use ("tet Car Cluster", "omi Per Cloud"), so a typed
+// "ω Cen" or "omega cen" and the catalog's "Omega Centauri" meet on the same letters.
+const GREEK: Record<string, string> = {
+  α: 'alp', β: 'bet', γ: 'gam', δ: 'del', ε: 'eps', ζ: 'zet', η: 'eta', θ: 'tet', ι: 'iot', κ: 'kap', λ: 'lam', μ: 'mu',
+  ν: 'nu', ξ: 'ksi', ο: 'omi', π: 'pi', ρ: 'rho', σ: 'sig', ς: 'sig', τ: 'tau', υ: 'ups', φ: 'phi', χ: 'chi', ψ: 'psi', ω: 'ome',
+};
+const GREEK_WORDS: Record<string, string> = {
+  alpha: 'alp', beta: 'bet', gamma: 'gam', delta: 'del', epsilon: 'eps', zeta: 'zet', theta: 'tet', iota: 'iot', kappa: 'kap',
+  lambda: 'lam', xi: 'ksi', omicron: 'omi', sigma: 'sig', upsilon: 'ups', omega: 'ome',
+};
+const GREEK_SYMBOLS = new RegExp(`[${Object.keys(GREEK).join('')}]`, 'g');
+
 /**
- * Lookup key: lower case, apostrophes and spacing dropped, leading zeros
- * removed from a trailing catalog number ("NGC 0224", "ngc224" and "N G C 224" agree); "Messier 42" is "M42",
- * "Caldwell 33" is "C33".
+ * The words of a name: Unicode compatibility form (NFKC: full-width digits and letters), lower case, apostrophes
+ * dropped, a leading "the" dropped, Greek letters (symbol or spelled out) as Bayer abbreviations, split on anything
+ * that is not a letter or digit.
  */
-export function normalizeName(name: string): string {
-  const key = name
+export function nameWords(name: string): string[] {
+  const text = name
+    .normalize('NFKC')
     .toLowerCase()
     .replace(/['’`]/g, '')
-    .replace(/[^a-z0-9]+/g, '')
+    .replace(/^\s*the\s+/, '')
+    .replace(GREEK_SYMBOLS, (g) => ` ${GREEK[g]} `);
+  return text
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map((w) => GREEK_WORDS[w] ?? w);
+}
+
+/**
+ * Lookup key: the words of the name joined, with leading zeros removed from a trailing catalog number ("NGC 0224",
+ * "ngc224" and "N G C 224" agree). Catalog names collapse to their short form: "Messier 42" is "M42", "Caldwell 33" is
+ * "C33", "Barnard 33" is "B33", "Sharpless 155" and "Sharpless 2-155" are "Sh2155" (as in "Sh 2-155").
+ */
+export function normalizeName(name: string): string {
+  const words = nameWords(name);
+  if (words[0] === 'sharpless' && words[1] === '2' && /^\d/.test(words[2] ?? '')) words.splice(1, 1);
+  const key = words
+    .join('')
     .replace(/^messier(?=\d)/, 'm')
-    .replace(/^caldwell(?=\d)/, 'c');
+    .replace(/^caldwell(?=\d)/, 'c')
+    .replace(/^barnard(?=\d)/, 'b')
+    .replace(/^sharpless(?=\d)/, 'sh2');
   return key.replace(/^([a-z]+)0+(\d)/, '$1$2');
 }
 

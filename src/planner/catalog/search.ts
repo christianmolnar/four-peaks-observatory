@@ -1,30 +1,33 @@
-import { normalizeName } from './index';
+import { TARGET_TYPES, nameWords, normalizeName } from './index';
 import type { CatalogTarget, TargetType } from './index';
 import type { CatalogObject } from './openngc';
+import { applyPatches } from './supplement';
+import type { CatalogPatches } from './supplement';
 
 /**
  * One searchable target: a curated starter target (with its flags) or a bundled OpenNGC object.
- * A catalog object that matches a curated target by designation is not listed; the curated one stands for it.
+ * A catalog object that matches a curated target by designation, or by name and place, is not listed; the curated
+ * one stands for it. Targets are frozen: they are shared by every search, so a caller cannot change them.
  */
 export interface SearchTarget {
-  id: string;
-  name: string;
-  aliases: string[];
-  raHours: number;
-  decDeg: number;
-  type: TargetType;
-  sizeArcmin?: { major: number; minor: number };
-  positionAngleDeg?: number;
-  mag?: number;
-  surfaceBrightness?: number;
-  sbComputed?: true;
-  constellation?: string;
+  readonly id: string;
+  readonly name: string;
+  readonly aliases: readonly string[];
+  readonly raHours: number;
+  readonly decDeg: number;
+  readonly type: TargetType;
+  readonly sizeArcmin?: Readonly<{ major: number; minor: number }>;
+  readonly positionAngleDeg?: number;
+  readonly mag?: number;
+  readonly surfaceBrightness?: number;
+  readonly sbComputed?: true;
+  readonly constellation?: string;
   /** Curated only. */
-  seasonMonths?: number[];
+  readonly seasonMonths?: readonly number[];
   /** Curated only. */
-  brightCore?: boolean;
+  readonly brightCore?: boolean;
   /** True when this is one of the curated starter targets. */
-  curated: boolean;
+  readonly curated: boolean;
 }
 
 export type MatchKind =
@@ -71,7 +74,11 @@ export interface SearchResult {
 }
 
 const DEFAULT_LIMIT = 20;
-const DESIGNATION = /^[a-z]{1,4}\d+[a-z]?$/;
+// A catalog designation: letters, a number, at most two suffix letters ("ngc224", "ic1396", "m31", "ngc1487nw").
+const DESIGNATION = /^[a-z]{1,4}\d+[a-z]{0,2}$/;
+const NUMBER_ONLY = /^\d+$/;
+/** Catalog designations a bare number can mean, in the order their hits rank: M, NGC, IC, Caldwell. */
+const CATALOG_RANK: Record<string, number> = { m: 0, ngc: 1, ic: 2, c: 3 };
 
 const TIER: Record<Exclude<MatchKind, 'filter'>, number> = {
   designation: 0,
@@ -98,11 +105,7 @@ interface Entry {
 }
 
 function nameKey(label: string): NameKey {
-  const words = label
-    .toLowerCase()
-    .replace(/['’`]/g, '')
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
+  const words = nameWords(label);
   const wordStarts: number[] = [];
   let at = 0;
   words.forEach((w, i) => {
@@ -128,12 +131,12 @@ function fromCurated(t: CatalogTarget): Entry {
     target: {
       id: t.id,
       name: t.name,
-      aliases: t.aliases,
+      aliases: [...t.aliases],
       raHours: t.raHours,
       decDeg: t.decDeg,
       type: t.type,
-      ...(t.sizeArcmin === undefined ? {} : { sizeArcmin: t.sizeArcmin }),
-      seasonMonths: t.seasonMonths,
+      ...(t.sizeArcmin === undefined ? {} : { sizeArcmin: { ...t.sizeArcmin } }),
+      seasonMonths: [...t.seasonMonths],
       ...(t.brightCore === undefined ? {} : { brightCore: t.brightCore }),
       curated: true,
     },
@@ -164,11 +167,16 @@ function ownDesignations(o: CatalogObject): string[] {
 
 function fromObject(o: CatalogObject): Entry {
   const aliases = o.aliases ?? [];
+  const shown = new Set([normalizeName(o.name)]);
+  const labels = [...numberDesignations(o).map(designationLabel), ...aliases].filter((a) => {
+    const k = normalizeName(a);
+    return !shown.has(k) && shown.add(k);
+  });
   const e: Entry = {
     target: {
       id: o.id,
       name: o.name,
-      aliases: [...numberDesignations(o).filter((k) => k !== normalizeName(o.name)).map(designationLabel), ...aliases],
+      aliases: labels,
       raHours: o.raHours,
       decDeg: o.decDeg,
       type: o.type,
@@ -214,6 +222,40 @@ function absorb(curated: Entry, object: Entry): void {
   if (object.messier === 0) curated.messier = 0;
 }
 
+const DEG = Math.PI / 180;
+
+/** Angular separation of two targets, in arcminutes. */
+function separationArcmin(a: SearchTarget, b: SearchTarget): number {
+  const d1 = a.decDeg * DEG;
+  const d2 = b.decDeg * DEG;
+  const dra = (a.raHours - b.raHours) * 15 * DEG;
+  const h = Math.sin((d2 - d1) / 2) ** 2 + Math.cos(d1) * Math.cos(d2) * Math.sin(dra / 2) ** 2;
+  return (2 * Math.asin(Math.min(1, Math.sqrt(h))) / DEG) * 60;
+}
+
+/** Objects closer than this to a curated target's center, whatever their size, can be the same thing. */
+const MIN_FOOTPRINT_ARCMIN = 5;
+
+/**
+ * The same object under another number: it shares a common name with the curated target and lies inside the
+ * larger of the two footprints (the Rosette Nebula is NGC 2237 in the curated list and NGC 2238 upstream).
+ */
+function sameThing(curated: Entry, object: Entry): boolean {
+  const have = new Set(curated.names.map((n) => n.key));
+  if (!object.names.some((n) => have.has(n.key))) return false;
+  const radius = Math.max(
+    MIN_FOOTPRINT_ARCMIN,
+    (curated.target.sizeArcmin?.major ?? 0) / 2,
+    (object.target.sizeArcmin?.major ?? 0) / 2,
+  );
+  return separationArcmin(curated.target, object.target) <= radius;
+}
+
+function deepFreeze<T extends object>(o: T): T {
+  for (const v of Object.values(o)) if (typeof v === 'object' && v !== null && !Object.isFrozen(v)) deepFreeze(v);
+  return Object.freeze(o);
+}
+
 /** Levenshtein distance, or max + 1 as soon as it is certain to exceed max. */
 function editDistance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -244,23 +286,39 @@ interface Match {
   dist: number;
 }
 
+/**
+ * How a query matches an entry, or null.
+ * - A designation-shaped query ("ngc651", "c14") is complete: it matches only that designation (or a name that is
+ *   exactly that). There is no prefix match, so "NGC 651" never turns into "NGC 6514".
+ * - A number alone ("7000", "42") means that number in any catalog: M42, NGC 42, IC 42, C 42, ranked in that
+ *   order; a name that starts with the digits ("47 Tucanae") also matches. It never matches inside a name.
+ */
 function exactMatch(e: Entry, q: string): Match | null {
   const own = e.designations.get(q);
   if (own !== undefined) return { kind: 'designation', sub: own, dist: 0 };
+  if (NUMBER_ONLY.test(q)) {
+    const wanted = Number(q);
+    let hit: Match | null = null;
+    for (const [k, sub] of e.designations) {
+      const m = /^(m|ngc|ic|c)(\d+)$/.exec(k);
+      if (m === null || Number(m[2]) !== wanted) continue;
+      const cand: Match = { kind: 'designation', sub, dist: CATALOG_RANK[m[1]] };
+      if (hit === null || cand.sub < hit.sub || (cand.sub === hit.sub && cand.dist < hit.dist)) hit = cand;
+    }
+    if (hit !== null) return hit;
+    return e.names.some((n) => n.key.startsWith(q)) ? { kind: 'name-prefix', sub: 0, dist: 0 } : null;
+  }
+  const complete = DESIGNATION.test(q);
   let best: Match | null = null;
   const take = (kind: Match['kind']): void => {
     if (best === null || TIER[kind] < TIER[best.kind]) best = { kind, sub: 0, dist: 0 };
   };
   for (const n of e.names) {
     if (n.key === q) take('name-exact');
+    else if (complete) continue;
     else if (n.key.startsWith(q)) take('name-prefix');
-    // A designation-shaped query ("c14") only matches names from the front, never inside "NGC 1487 NED02".
-    else if (DESIGNATION.test(q)) continue;
     else if (n.wordStarts.some((s) => n.key.startsWith(q, s))) take('word-prefix');
     else if (n.key.includes(q)) take('substring');
-  }
-  if (best === null && q.length >= 2 && /\d/.test(q)) {
-    for (const k of e.designations.keys()) if (k.startsWith(q)) return { kind: 'name-prefix', sub: 1, dist: 0 };
   }
   return best;
 }
@@ -313,9 +371,27 @@ function passes(t: SearchTarget, f: SearchFilters): { ok: boolean; percent?: num
   return { ok: true, percent };
 }
 
+function checkFinite(name: string, v: unknown): void {
+  if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v))) throw new Error(`${name} must be a finite number, got ${String(v)}`);
+}
+
+/** Throws on a filter value that would silently match everything or nothing (NaN, Infinity, an unknown type). */
 function checkQuery(q: SearchQuery): void {
   if (q.limit !== undefined && !(Number.isInteger(q.limit) && q.limit > 0)) throw new Error(`limit must be a positive integer, got ${q.limit}`);
-  if (q.frame !== undefined && !(q.frame.fovArcmin > 0)) throw new Error(`frame.fovArcmin must be positive, got ${q.frame.fovArcmin}`);
+  if (q.types !== undefined) {
+    if (!Array.isArray(q.types)) throw new Error('types must be an array of target types');
+    for (const t of q.types) if (!TARGET_TYPES.includes(t)) throw new Error(`types holds an unknown target type: ${String(t)}`);
+  }
+  if (q.sizeArcmin !== undefined) {
+    checkFinite('sizeArcmin.min', q.sizeArcmin.min);
+    checkFinite('sizeArcmin.max', q.sizeArcmin.max);
+  }
+  if (q.frame !== undefined) {
+    checkFinite('frame.fovArcmin', q.frame.fovArcmin);
+    if (!(q.frame.fovArcmin > 0)) throw new Error(`frame.fovArcmin must be positive, got ${q.frame.fovArcmin}`);
+    checkFinite('frame.minPercent', q.frame.minPercent);
+    checkFinite('frame.maxPercent', q.frame.maxPercent);
+  }
 }
 
 export interface CatalogIndex {
@@ -325,23 +401,30 @@ export interface CatalogIndex {
 }
 
 /**
- * Builds the search index once. A catalog object whose own designation (id, M, NGC, IC, C number) is also a
- * designation of a curated target is dropped in favor of the curated one.
+ * Builds the search index once. A catalog object is dropped in favor of a curated target when its own designation
+ * (id, M, NGC, IC, C number) is also a designation of the curated target, or when it shares a common name with it
+ * and lies inside its footprint. `patches` (the name supplement and overrides) are applied to the objects first.
  */
 export function createCatalogIndex(
   objects: readonly CatalogObject[],
   curated: readonly CatalogTarget[],
+  patches?: CatalogPatches,
 ): CatalogIndex {
+  const patched = patches === undefined ? objects : applyPatches(objects, patches);
   const curatedEntries = curated.map(fromCurated);
   const claimedBy = new Map<string, Entry>();
   for (const e of curatedEntries) for (const k of e.designations.keys()) if (!claimedBy.has(k)) claimedBy.set(k, e);
   const rest: Entry[] = [];
-  for (const o of objects) {
-    const owner = ownDesignations(o).map((k) => claimedBy.get(k)).find((e) => e !== undefined);
-    if (owner === undefined) rest.push(fromObject(o));
-    else absorb(owner, fromObject(o));
+  for (const o of patched) {
+    const entry = fromObject(o);
+    const owner =
+      ownDesignations(o).map((k) => claimedBy.get(k)).find((e) => e !== undefined) ??
+      curatedEntries.find((c) => sameThing(c, entry));
+    if (owner === undefined) rest.push(entry);
+    else absorb(owner, entry);
   }
   const entries: Entry[] = [...curatedEntries, ...rest];
+  for (const e of entries) deepFreeze(e.target);
   const ids = new Set<string>();
   for (const e of entries) {
     if (ids.has(e.target.id)) throw new Error(`Catalog index: duplicate id ${e.target.id}`);
@@ -355,6 +438,8 @@ export function createCatalogIndex(
       const limit = query.limit ?? DEFAULT_LIMIT;
       const text = (query.text ?? '').trim();
       const q = normalizeName(text);
+      // Something was typed but nothing searchable is left of it ("🔭", ".*"): a miss, not an empty box.
+      if (text !== '' && q === '') return { text, hits: [], total: 0, notFoundLocally: true };
       const filtered = (list: { e: Entry; m: Match | null }[]): SearchHit[] =>
         list
           .map(({ e, m }) => ({ e, m, f: passes(e.target, query) }))

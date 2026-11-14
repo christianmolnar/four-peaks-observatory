@@ -6,7 +6,7 @@ import { gzipSync } from 'node:zlib';
 
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, 'scripts', 'build-catalog.mjs');
-const ASSET = join(ROOT, 'public', 'catalog', 'openngc-v20260501.json');
+const ASSET = join(ROOT, 'public', 'catalog', 'openngc-v20260501-r2.json');
 
 const HEAD =
   'Name;Type;RA;Dec;Const;MajAx;MinAx;PosAng;B-Mag;V-Mag;J-Mag;H-Mag;K-Mag;SurfBr;Hubble;Pax;Pm-RA;Pm-Dec;RadVel;Redshift;Cstar U-Mag;Cstar B-Mag;Cstar V-Mag;M;NGC;IC;Cstar Names;Identifiers;Common names;NED notes;OpenNGC notes;Sources';
@@ -86,6 +86,61 @@ describe('build script rules (fixture input)', () => {
   });
 });
 
+describe('cross-references and Dup rows (fixture input)', () => {
+  const g = { Type: 'G', RA: '03:00:00', Dec: '+10:00:00', MajAx: '3', 'V-Mag': '11' };
+  const ngc = [
+    row({ ...g, Name: 'NGC2239', Type: 'Cl+N', NGC: '2244', Identifiers: 'C 050,MWSC 0896' }),
+    row({ ...g, Name: 'NGC0650', Type: 'PN', M: '076', NGC: '0651', 'Common names': 'Little Dumbbell Nebula' }),
+    row({ ...g, Name: 'NGC2947', IC: '0547,2494' }),
+    row({ ...g, Name: 'NGC4913', IC: '0843,4088' }),
+    row({ ...g, Name: 'NGC1269', NGC: '1291' }),
+    row({ ...g, Name: 'NGC1487 NED01', NGC: '1487NW' }),
+    row({ ...g, Name: 'NGC6523', Type: 'Neb', M: '008', 'Common names': 'Lagoon Nebula' }),
+    row({ ...g, Name: 'NGC5457', M: '101', 'Common names': 'Pinwheel Galaxy' }),
+    row({ ...g, Name: 'IC0434', Type: 'HII', IC: '' }),
+    // Dup rows: the primary is named in the NGC, IC or M column
+    row({ Name: 'NGC6533', Type: 'Dup', RA: '18:03:41.27', Dec: '-24:22:48.6', NGC: '6523' }),
+    row({ Name: 'IC0547', Type: 'Dup', RA: '09:36:05.79', Dec: '-12:26:12.2', NGC: '2947' }),
+    row({ Name: 'IC0843', Type: 'Dup', RA: '13:02:00', Dec: '+29:00:00', NGC: '4913', IC: '4088' }),
+    row({ Name: 'IC3543', Type: 'Dup', RA: '12:35:41.42', Dec: '+26:17:09.0', NGC: '4565C' }),
+  ];
+  const built = build(ngc, [row({ Name: 'M102', Type: 'Dup', RA: '14:03:12.54', Dec: '+54:20:56.2', M: '101' })]);
+  const byId = Object.fromEntries(built.objects.map((o) => [o.id as string, o]));
+  const aliases = (id: string): string[] => (byId[id].aliases as string[] | undefined) ?? [];
+
+  it('keeps the same-catalog cross-reference: NGC 2244 is on NGC 2239, NGC 1291 on NGC 1269, NGC 651 on NGC 650', () => {
+    expect(aliases('ngc2239')).toContain('NGC 2244');
+    expect(aliases('ngc1269')).toEqual(['NGC 1291']);
+    expect(aliases('ngc650')).toContain('NGC 651');
+  });
+
+  it('splits a column on commas and strips leading zeros: IC 547 and IC 2494 on NGC 2947', () => {
+    expect(aliases('ngc2947')).toEqual(['IC 547', 'IC 2494']);
+    expect(aliases('ngc4913')).toEqual(['IC 843', 'IC 4088']);
+  });
+
+  it('keeps letter suffixes and NED components, and gives a NED component its group number', () => {
+    expect(Object.keys(byId)).toContain('ngc1487-ned01');
+    expect(Object.keys(byId).filter((id) => id.includes(' '))).toEqual([]);
+    expect(aliases('ngc1487-ned01')).toEqual(['NGC 1487', 'NGC 1487NW']);
+  });
+
+  it('never writes a NaN alias', () => {
+    for (const o of built.objects) for (const a of (o.aliases as string[] | undefined) ?? []) expect(a).not.toMatch(/NaN|undefined/);
+  });
+
+  it('folds each Dup row into the object it duplicates, including M102 into M101', () => {
+    expect(aliases('ngc6523')).toEqual(['NGC 6533']);
+    expect(aliases('ngc2947')).toContain('IC 547'); // once, not twice
+    expect(aliases('ngc2947').filter((a) => a === 'IC 547')).toHaveLength(1);
+    expect(aliases('ngc5457')).toEqual(['M102']);
+  });
+
+  it('lists the Dup rows whose primary is not in the extract', () => {
+    expect(built.report).toMatchObject({ dupFolded: 4, dupUnresolved: ['IC 3543'] });
+  });
+});
+
 describe('the committed asset (pinned to OpenNGC v20260501)', () => {
   const text = readFileSync(ASSET, 'utf8');
   const doc = JSON.parse(text);
@@ -111,11 +166,12 @@ describe('the committed asset (pinned to OpenNGC v20260501)', () => {
   });
 
   it('stays near the measured size', () => {
-    expect(text.length).toBeGreaterThan(1_000_000);
-    expect(text.length).toBeLessThan(1_100_000);
+    // Measured: 1,059,983 bytes raw, 158,284 gzip -9.
+    expect(text.length).toBeGreaterThan(1_050_000);
+    expect(text.length).toBeLessThan(1_070_000);
     const gz = gzipSync(text, { level: 9 }).length;
-    expect(gz).toBeGreaterThan(150_000);
-    expect(gz).toBeLessThan(165_000);
+    expect(gz).toBeGreaterThan(155_000);
+    expect(gz).toBeLessThan(162_000);
   });
 
   it('holds 109 Messier objects (all but M102) and 109 Caldwell objects', () => {
@@ -123,6 +179,33 @@ describe('the committed asset (pinned to OpenNGC v20260501)', () => {
     const c = new Set(doc.objects.filter((o: { c?: number }) => o.c).map((o: { c: number }) => o.c));
     expect([...Array(110).keys()].map((i) => i + 1).filter((n) => !m.has(n))).toEqual([102]);
     expect([...Array(109).keys()].map((i) => i + 1).filter((n) => !c.has(n))).toEqual([]);
+  });
+
+  const byId = new Map<string, { aliases?: string[] }>(doc.objects.map((o: { id: string }) => [o.id, o]));
+  const has = (id: string, alias: string): boolean => (byId.get(id)?.aliases ?? []).includes(alias);
+
+  it('has no NaN alias and no id with a space', () => {
+    for (const o of doc.objects) {
+      for (const a of o.aliases ?? []) expect(a).not.toMatch(/NaN|undefined/);
+      expect(o.id).not.toContain(' ');
+    }
+  });
+
+  it('carries the designations round 1 lost', () => {
+    expect(has('ngc2239', 'NGC 2244')).toBe(true); // the Rosette cluster, C 50
+    expect(has('ngc1269', 'NGC 1291')).toBe(true);
+    expect(has('ngc650', 'NGC 651')).toBe(true); // M76
+    expect(has('ngc6523', 'NGC 6533')).toBe(true); // M8, a Dup row
+    expect(has('ngc2947', 'IC 547')).toBe(true);
+    expect(has('ngc2947', 'IC 2494')).toBe(true);
+    expect(has('ngc4913', 'IC 843')).toBe(true);
+    expect(has('ngc5457', 'M102')).toBe(true);
+  });
+
+  it('holds the measured alias counts', () => {
+    const withAliases = doc.objects.filter((o: { aliases?: string[] }) => (o.aliases?.length ?? 0) > 0).length;
+    const total = doc.objects.reduce((n: number, o: { aliases?: string[] }) => n + (o.aliases?.length ?? 0), 0);
+    expect([withAliases, total]).toEqual([510, 562]);
   });
 
   it('records the input hashes and the licence', () => {
