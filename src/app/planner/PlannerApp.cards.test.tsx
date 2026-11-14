@@ -58,7 +58,7 @@ describe('compact target rows', () => {
   it('the short why differs between rows (not one sentence repeated)', async () => {
     await app();
     showAll();
-    const whys = listRows().map((r) => r.querySelector('p')!.textContent as string);
+    const whys = listRows().map((r) => r.querySelector(':scope > p')!.textContent as string);
     expect(whys.length).toBeGreaterThan(3);
     expect(new Set(whys).size).toBeGreaterThan(whys.length / 2);
   });

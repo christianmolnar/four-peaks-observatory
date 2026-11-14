@@ -105,8 +105,8 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                 <span className="md:hidden"> · </span>
                 <span className="md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
               </div>
-              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:pl-0">{rowWhy(e)}</p>
-              <div className="col-start-2 row-span-4 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
+              <p className="col-start-1 hidden pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:block md:pl-0">{rowWhy(e)}</p>
+              <div className="col-start-2 row-span-3 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
                 <button
                   type="button"
                   aria-label={inPlan ? `${e.name} is in my plan` : `Add ${e.name} to my plan`}

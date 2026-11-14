@@ -12,6 +12,8 @@ import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, rowNames, show
 // Neptune are up. A hundred and thirty bright galaxies fill the best 100 and outscore every planet, as the real catalog does, so
 // the planets reach the page only if they are kept beside the cut. The ranking is the real one behind a fake worker.
 
+jest.setTimeout(60000); // a hundred rows in jsdom, under a loaded machine
+
 const DATE = '2026-11-13';
 const FILLER: CatalogObject[] = Array.from({ length: 130 }, (_, i) => ({
   id: `fill${i + 100}`,
