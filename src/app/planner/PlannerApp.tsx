@@ -20,6 +20,7 @@ import { planetIdOf, SLOT_BODIES } from '@/planner/itinerary/resolve';
 import { rankTonightAsync } from '@/planner/tonight';
 import type { TonightQuery } from '@/planner/tonight';
 import {
+  CAPTURED_KEY,
   DEFAULT_MIN_ALTITUDE,
   MIN_ALTITUDE_RANGE,
   MAX_MY_PLAN,
@@ -64,9 +65,11 @@ import PrintSheet from './PrintSheet';
 import { download } from './download';
 import type { IncomingItinerary, ItineraryReport } from './ItinerarySection';
 import type { CampaignPanelProps } from './CampaignPanel';
+import { ITINERARY_KEY } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
+import ResetAll from './ResetAll';
 import MyPlan from './MyPlan';
 import type { MyPlanRow } from './MyPlan';
 import TargetList, { Group } from './TargetList';
@@ -221,6 +224,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const incomingAnswer = useRef<((applied: boolean) => void) | null>(null);
   const offers = useRef(0);
   const [owner, setOwner] = useState(false);
+  // Reset all: remounts the itinerary (it reads storage when it mounts); the count asks for focus on the button once the page has settled.
+  const [itineraryKey, setItineraryKey] = useState(0);
+  const [resetFocus, setResetFocus] = useState(0);
+  useEffect(() => {
+    if (resetFocus > 0) document.getElementById('reset-all')?.focus();
+  }, [resetFocus]);
   useEffect(() => {
     let live = true;
     loadAuth().then(
@@ -587,31 +596,33 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     }
   };
 
-  const resetSample = () => {
-    if (!window.confirm('Replace the stored profile with the sample profile?')) return;
-    try {
-      window.localStorage.removeItem(PROFILE_KEY);
-    } catch (e) {
-      setNotice(`Could not clear the stored profile: ${(e as Error).message}`);
-    }
-    try {
-      window.localStorage.removeItem(SELECTION_KEY);
-    } catch (e) {
-      setNotice(`Could not clear the stored site and train choice: ${(e as Error).message}`);
-    }
-    try {
-      window.localStorage.removeItem(MY_PLAN_KEY);
-    } catch (e) {
-      setNotice(`Could not clear the stored plan: ${(e as Error).message}`);
+  /** Reset all: back to what a first visit shows. The stored copies go, then every piece of state that was read from them is set again. */
+  const resetAll = () => {
+    const stored: [string, string][] = [
+      [PROFILE_KEY, 'profile'],
+      [SELECTION_KEY, 'site and train choice'],
+      [MY_PLAN_KEY, 'plan'],
+      [ITINERARY_KEY, 'itinerary'],
+      [CAPTURED_KEY, 'captured list'],
+    ];
+    for (const [key, what] of stored) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (e) {
+        setNotice(`Could not clear the stored ${what}: ${(e as Error).message}`);
+      }
     }
     setPlanIds([]);
+    setCaptured(new Set());
+    setItineraryKey((k) => k + 1); // the itinerary reads its storage when it mounts
     const sample = sampleProfile();
     setProfile(sample);
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
     setSiteId('');
     setTrainId('');
     setImportError(null);
-    setNotice('Sample profile restored.');
+    setNotice('Reset: the planner is back to its starting point.');
+    setResetFocus((n) => n + 1);
   };
 
   const toggleCaptured = (id: string) => {
@@ -799,7 +810,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       <div className={panel}>
         <h1 className="text-2xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
         <p className="text-white/90 font-normal mt-4">
-          The profile needs at least one site and one train. Import a profile below, or reset to the sample.
+          The profile needs at least one site and one train. Import a profile below, or reset all to start from the sample.
         </p>
         {importError && (
           <p role="alert" className="bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm mt-4">
@@ -808,7 +819,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
         <div className="flex flex-wrap items-end gap-4 mt-4">
           {importControl}
-          <button type="button" className={btn} onClick={resetSample}>Replace profile with sample</button>
+          <ResetAll onConfirm={resetAll} />
         </div>
       </div>
     );
@@ -1004,7 +1015,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </WrapSelect>
             <p id="plan-filter-msg" className="mt-1 h-10 overflow-hidden text-sm leading-5 text-white/70 font-normal">
               {train.kind === 'optical' && profile.equipment.filters.length === 0
-                ? 'No filters. Use Replace profile with sample.'
+                ? (<>No filters yet. <a href="#gear-heading" className="text-sky-300 underline underline-offset-2">Add one in the profile editor.</a></>)
                 : ''}
             </p>
           </div>
@@ -1193,6 +1204,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
       {stableNight && astroSite && catalog.status !== 'loading' && (
         <ItinerarySection
+          key={itineraryKey}
           profile={profile}
           train={train}
           planOptions={planOptions}
@@ -1272,7 +1284,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             Export profile (JSON)
           </button>
           {importControl}
-          <button type="button" className={btn} onClick={resetSample}>Replace profile with sample</button>
+        </div>
+        <div className="mt-4">
+          <ResetAll onConfirm={resetAll} />
         </div>
         <p className="text-white/60 font-normal text-xs mt-3">
           Imports are checked field by field; a rejected file changes nothing and the error names the field.

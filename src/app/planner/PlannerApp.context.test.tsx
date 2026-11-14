@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { PROFILE_KEY, SELECTION_KEY, defaultTonightDate, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { pageProps, ready, resetAll } from './testkit';
 
 // Nothing is asked twice: the sky darkness belongs to the site, the page opens on the gear last chosen,
 // and the wording follows the date picked.
@@ -133,14 +133,12 @@ describe('the page opens on the site and train last chosen', () => {
     expect(trainSelect().value).toBe('deep-c11-reducer-533');
   });
 
-  it('forgets the choice when the profile is replaced with the sample', async () => {
+  it('forgets the choice on Reset all', async () => {
     const user = userEvent.setup();
-    jest.spyOn(window, 'confirm').mockReturnValue(true);
     await app();
     await user.selectOptions(trainSelect(), 'smart-seestar-s50');
-    await user.click(screen.getByRole('button', { name: 'Replace profile with sample' }));
+    await resetAll(user);
     expect(window.localStorage.getItem(SELECTION_KEY)).toBeNull();
-    jest.restoreAllMocks();
   });
 });
 

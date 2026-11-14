@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testi
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { chooseMore, listRows, pageProps, ready, rowName, showAll } from './testkit';
+import { chooseMore, listRows, pageProps, ready, resetAll, rowName, showAll } from './testkit';
 
 // A fresh visitor: no stored data, no props. The page loads the sample, edits go to localStorage, reload keeps them.
 
@@ -157,7 +157,7 @@ describe('editing site and gear', () => {
     await waitFor(() => expect(screen.getByTestId('horizon-summary').textContent).toMatch(/55° high/));
   });
 
-  it('Replace profile with sample restores the sample', async () => {
+  it('Reset all restores the sample', async () => {
     const u = userEvent.setup();
     await app();
     const siteBox = await open(u, /^Site \(1\)/);
@@ -166,8 +166,7 @@ describe('editing site and gear', () => {
     await u.type(name, 'Backyard');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
     expect(screen.getByLabelText('Site').textContent).toContain('Backyard');
-    jest.spyOn(window, 'confirm').mockReturnValue(true);
-    await u.click(screen.getByRole('button', { name: 'Replace profile with sample' }));
+    await resetAll(u);
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull();
     expect(screen.getByLabelText('Site').textContent).toContain('Fountain Hills');
   });
@@ -188,8 +187,7 @@ describe('profile JSON', () => {
     const text = await blobs[blobs.length - 1].text();
     expect(JSON.parse(text)).toEqual(edited);
     // Start over, then bring the file back.
-    jest.spyOn(window, 'confirm').mockReturnValue(true);
-    await u.click(screen.getByRole('button', { name: 'Replace profile with sample' }));
+    await resetAll(u);
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull();
     await u.upload(screen.getByLabelText('Import profile (JSON)'), file(text));
     await waitFor(() => expect(window.localStorage.getItem(PROFILE_KEY)).not.toBeNull());

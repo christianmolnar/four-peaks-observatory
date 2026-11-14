@@ -5,7 +5,7 @@ import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { pageProps, ready, resetAll } from './testkit';
 
 // Real keystrokes, one key at a time, through the whole page. The expected values are the rows of the
 // round-2 and round-3 failure tables. The form holds the text and nothing else holds a copy of it, so
@@ -28,6 +28,8 @@ const slider = (name: string) => screen.getByRole('slider', { name: `${name} sli
 /** The text of a field's message line, without the decorative "! " that is hidden from screen readers. */
 const msg = (name: string) => ((document.getElementById(`${ID[name]}-msg`) as HTMLElement).textContent as string).replace(/^! /, '');
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
+/** A button of the page; "Reset all" is pressed through its confirmation. */
+const press = async (u: U, label: string) => (label === 'Reset all' ? resetAll(u) : u.click(button(label)));
 const summary = () => screen.getByTestId('horizon-summary').textContent;
 const nightSummary = () => screen.getByTestId('night-summary').textContent;
 const status = () => screen.getByTestId('horizon-status').textContent;
@@ -478,20 +480,20 @@ describe('external events set the boxes from the saved data, in one place', () =
 
   it.each([
     ['Use sample horizon', 'a horizon-only draft'],
-    ['Replace profile with sample', 'the whole profile'],
+    ['Reset all', 'the whole profile'],
   ])('bad 500 in Start, %s (%s): Start 120, no message, first click', async (label) => {
     await app();
     const u = user();
     await type(u, START, '500');
-    await u.click(button(label));
+    await press(u, label);
     clean();
   });
 
-  it.each([['Use sample horizon'], ['Replace profile with sample']])('bad 95 in Height, %s: Height 42', async (label) => {
+  it.each([['Use sample horizon'], ['Reset all']])('bad 95 in Height, %s: Height 42', async (label) => {
     await app();
     const u = user();
     await type(u, HEIGHT, '95');
-    await u.click(button(label));
+    await press(u, label);
     clean();
   });
 
@@ -529,13 +531,13 @@ describe('external events set the boxes from the saved data, in one place', () =
 
   describe.each([
     ['Use sample horizon'],
-    ['Replace profile with sample'],
+    ['Reset all'],
   ])('Minimum altitude has no stale draft after %s', (label) => {
     it('100 typed, then the button: 20, no message', async () => {
       await app();
       const u = user();
       await type(u, MINALT, '100');
-      await u.click(button(label));
+      await press(u, label);
       expect(box(MINALT).value).toBe('20');
       expect(slider(MINALT).value).toBe('20');
       expect(msg(MINALT)).toBe('');
@@ -578,12 +580,12 @@ describe('external events set the boxes from the saved data, in one place', () =
 
 // Round-3 table 1: the first mouse click after bad typing, no Enter or Tab in between.
 describe('the first click after bad typing works (no key pressed after the last digit)', () => {
-  it('500 in Start, Use sample horizon / Replace profile with sample: reset at once', async () => {
-    for (const label of ['Use sample horizon', 'Replace profile with sample']) {
+  it('500 in Start, Use sample horizon / Reset all: reset at once', async () => {
+    for (const label of ['Use sample horizon', 'Reset all']) {
       await app();
       const u = user();
       await type(u, START, '500');
-      await u.click(button(label));
+      await press(u, label);
       clean();
       cleanup();
     }
@@ -734,9 +736,9 @@ describe('toasts clear themselves and never take a click', () => {
     jest.useFakeTimers();
     await app();
     const u = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-    await u.click(button('Replace profile with sample'));
+    await resetAll(u);
     const toast = screen.getByRole('status');
-    expect(toast.textContent).toBe('Sample profile restored.');
+    expect(toast.textContent).toBe('Reset: the planner is back to its starting point.');
     for (let el: HTMLElement | null = toast; el && el !== document.body; el = el.parentElement) {
       if (el.className.includes('fixed')) break;
       expect(el.className).toContain('pointer-events-none');

@@ -197,7 +197,10 @@ describe('Filter selector and its warnings', () => {
     const p = sampleProfile();
     await app({ ...p, trains: p.trains.map((t) => (t.kind === 'optical' ? { ...t, filterId: undefined } : t)), equipment: { ...p.equipment, filters: [] } });
     expect(filterSelect().options).toHaveLength(1);
-    expect(document.getElementById('plan-filter-msg')!.textContent).toMatch(/^No filters\. Use Replace profile with sample\.$/);
+    const msg = document.getElementById('plan-filter-msg')!;
+    expect(msg.textContent).toBe('No filters yet. Add one in the profile editor.');
+    expect(msg.querySelector('a')!.getAttribute('href')).toBe('#gear-heading');
+    expect(document.getElementById('gear-heading')).toBeTruthy();
   });
 
   it('a train whose scope has no aperture says what is missing instead of guessing', async () => {
