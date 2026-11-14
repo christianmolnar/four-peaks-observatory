@@ -39,7 +39,7 @@ export const LIST_SPECS: Record<ListKey, ListSpec> = {
       { key: 'longitude', label: 'Longitude', kind: 'number', unit: 'deg, east is positive', required: true },
       { key: 'elevationM', label: 'Elevation', kind: 'number', unit: 'm' },
       { key: 'timeZone', label: 'Time zone', kind: 'text', unit: 'e.g. America/Phoenix; empty uses your browser' },
-      { key: 'bortle', label: 'Sky darkness (Bortle class)', kind: 'choice', numeric: true, emptyText: `Not set (${DEFAULT_BORTLE} assumed)`, options: ['1', '2', '3', '4', '5', '6', '7', '8', '9'], unit: '1 to 9, 1 is darkest' },
+      { key: 'bortle', label: 'Sky darkness, Bortle class', kind: 'choice', numeric: true, emptyText: `Not set (${DEFAULT_BORTLE} assumed)`, options: ['1', '2', '3', '4', '5', '6', '7', '8', '9'], unit: '1 to 9, 1 is darkest' },
     ],
   },
   scopes: {

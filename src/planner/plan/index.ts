@@ -275,7 +275,7 @@ function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: n
 function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
   const limit = horizonSet ? 'the horizon and minimum altitude' : `the flat ${minAltitude} deg minimum (horizon not set)`;
   if (e.usableMinutes <= 0) {
-    return `Never clears ${limit} tonight; it peaks at ${fmt(e.peakAltitude)} deg in the ${compass(e.peakAzimuth)}.`;
+    return `Never clears ${limit}; it peaks at ${fmt(e.peakAltitude)} deg in the ${compass(e.peakAzimuth)}.`;
   }
   const first = `Clear of ${limit} for ${fmt(e.usableMinutes / 60, 1)} h.`;
   const notes: string[] = [];

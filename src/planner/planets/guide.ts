@@ -66,8 +66,8 @@ export function buildGuide(input: GuideInput): GuideSection[] {
 
   // -------------------------------------------------------------- before you start
   const when = card.usableMinutes > 0
-    ? `${name} peaks at ${round(card.peak.altitude)}° at ${formatTime(card.peak.time)} and is clear of your horizon for ${round(card.usableMinutes)} min tonight (computed).`
-    : `${name} is not clear of your horizon at any time tonight (computed), so there is nothing to capture.`;
+    ? `${name} peaks at ${round(card.peak.altitude)}° at ${formatTime(card.peak.time)} and is clear of your horizon for ${round(card.usableMinutes)} min (computed).`
+    : `${name} is not clear of your horizon at any time (computed), so there is nothing to capture.`;
   sections.push({
     id: 'before',
     title: 'Before you start',
@@ -183,7 +183,7 @@ export function buildGuide(input: GuideInput): GuideSection[] {
   clipItems.push({
     id: 'session',
     title: 'Session length (not the clip length)',
-    text: `The session is the time at the telescope after cool-down: plan about ${SESSION_MIN} minutes (assumption). That is ${clips} clips of ${round(clipS)} s with ${CLIP_GAP_S} s between them to save and check focus (computed from those). Tonight ${name} is clear of your horizon for ${round(card.usableMinutes)} minutes (computed).${good}${mosaicFit}`,
+    text: `The session is the time at the telescope after cool-down: plan about ${SESSION_MIN} minutes (assumption). That is ${clips} clips of ${round(clipS)} s with ${CLIP_GAP_S} s between them to save and check focus (computed from those). ${name} is clear of your horizon for ${round(card.usableMinutes)} minutes (computed).${good}${mosaicFit}`,
     basis: 'assumption',
   });
   clipItems.push({
@@ -212,7 +212,7 @@ export function buildGuide(input: GuideInput): GuideSection[] {
         title: moon ? 'Favour the high Moon' : 'Favour the high planets',
         text:
           limitAlt !== null
-            ? `The spread equals the telescope's resolution (${f2(dawes)}") at ${round(limitAlt)}° (computed; one resolution element is an assumption). Image above it when you can; ${MIN_ALT_NOTE}. ${name} peaks at ${round(card.peak.altitude)}° tonight, a spread of ${card.dispersionAtPeakArcsec !== null ? f2(card.dispersionAtPeakArcsec) : 'n/a'}".`
+            ? `The spread equals the telescope's resolution (${f2(dawes)}") at ${round(limitAlt)}° (computed; one resolution element is an assumption). Image above it when you can; ${MIN_ALT_NOTE}. ${name} peaks at ${round(card.peak.altitude)}°, a spread of ${card.dispersionAtPeakArcsec !== null ? f2(card.dispersionAtPeakArcsec) : 'n/a'}".`
             : 'Give the telescope aperture to see the altitude where dispersion matters.',
         basis: 'computed',
       },

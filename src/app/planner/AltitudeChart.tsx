@@ -24,11 +24,13 @@ export interface AltitudeChartProps {
   horizonSet: boolean;
   minAltitude: number;
   formatTime: (d: Date) => string;
+  /** "tonight" or "that night (date)", from the page. */
+  nightWord: string;
   /** Prefix for the ids the title and description get, so two charts on one page do not share them. */
   idPrefix?: string;
 }
 
-export default function AltitudeChart({ entry, night, track, horizonSet, minAltitude, formatTime, idPrefix = 'alt' }: AltitudeChartProps) {
+export default function AltitudeChart({ entry, night, track, horizonSet, minAltitude, formatTime, nightWord, idPrefix = 'alt' }: AltitudeChartProps) {
   // Drawn 1:1 with its box (no scaling of the viewBox), so the 12 px text is 12 px on a phone as well.
   const box = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(DEFAULT_WIDTH);
@@ -70,7 +72,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
       ? `${entry.name}: peaks at ${entry.peakAltitude.toFixed(0)} degrees, ${compass(entry.peakAzimuth)}, at ${formatTime(entry.peakTime)}. Usable ${entry.windows
           .map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`)
           .join(' and ')}.`
-      : `${entry.name}: never clears the limit tonight; peaks at ${entry.peakAltitude.toFixed(0)} degrees.`;
+      : `${entry.name}: never clears the limit ${nightWord}; peaks at ${entry.peakAltitude.toFixed(0)} degrees.`;
 
   return (
     <div>

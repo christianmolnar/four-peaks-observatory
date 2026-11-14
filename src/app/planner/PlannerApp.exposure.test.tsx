@@ -51,7 +51,7 @@ describe('Exposure panel', () => {
     }
     expect(within(p).getAllByText(/^\d+ \(range \d+ to \d+ subs\)$/)).toHaveLength(3);
     expect(p.textContent).toMatch(/setup 30, dithers/);
-    expect(p.textContent).toMatch(/Estimates for tonight, not predictions/);
+    expect(p.textContent).toMatch(/Estimates for that night \(12\/15\/2026\), not predictions/);
   });
 
   it('the marginal rows give 30, 60, 90 and 120 minutes at x1.00, x1.41, x1.73 and x2.00 of the signal-to-noise', () => {

@@ -75,7 +75,7 @@ describe('start time in the schedule', () => {
     const start = new Date('2026-12-16T08:00:00Z');
     const plan = build(['m31'], start);
     expect(plan.slots[0].warnings.map((w) => w.code)).toEqual(['no-time']);
-    expect(plan.slots[0].warnings[0].text).toBe('No usable time left for Andromeda Galaxy tonight: its window closes at 06:35, before your start time (08:00).');
+    expect(plan.slots[0].warnings[0].text).toBe('No usable time left for Andromeda Galaxy: its window closes at 06:35, before your start time (08:00).');
   });
   it('a start after the night ends gives every slot no time and a message, and does not throw', () => {
     const plan = build(['m31', 'm42'], new Date((NIGHT.end as Date).getTime() + 30 * MIN));

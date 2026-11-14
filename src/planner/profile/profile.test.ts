@@ -305,7 +305,11 @@ describe('site bortle', () => {
     });
     expect(validateProfile(v2).sites.every((s) => s.bortle === undefined)).toBe(true);
   });
-  it.each([0, 10, 5.5, '6', null, NaN])('rejects %p at the field', (bad) => {
+  it.each(['6', ' 6 '])('reads a whole number written as text (%p) as that number', (text) => {
+    expect(validateProfile(withBortle(text)).sites[0].bortle).toBe(6);
+    expect(parseProfile(JSON.stringify(withBortle(text))).sites[0].bortle).toBe(6);
+  });
+  it.each([0, 10, 5.5, '', 'six', '6.5', '10', '0', null, NaN])('rejects %p at the field', (bad) => {
     failsAt((p) => { p.sites[0].bortle = bad; }, '$.sites[0].bortle');
   });
 });

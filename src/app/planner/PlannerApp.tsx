@@ -61,6 +61,9 @@ const TYPE_LABELS: Record<TypeFilter, string> = {
   planets: 'Planets',
 };
 
+/** The picked day as the date input shows it: the browser's own locale. */
+const dateLabel = (iso: string) => new Intl.DateTimeFormat(undefined, { timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+
 type RankedEntry = NonNullable<ReturnType<typeof planTonight>>['entries'][number];
 
 /** The text of one ranked target, shared by the table row (md and up) and the card (below md). */
@@ -280,10 +283,21 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   const siteZone = site?.timeZone;
   const formatTime = useMemo(() => clockIn(siteZone), [siteZone]);
   // The evening "tonight" means at this site; any other picked date is "that night".
-  const tonightDate = useMemo(
-    () => (siteLon !== undefined ? defaultTonightDate(new Date(), siteLon, siteZone) : ''),
-    [siteLon, siteZone],
-  );
+  const [, setClockTick] = useState(0); // bumped when the site's date moves on, to re-render with a fresh read of the clock
+  const tonightDate = siteLon !== undefined ? defaultTonightDate(new Date(), siteLon, siteZone) : '';
+  // A page left open: once a minute and when the tab comes back, re-read the clock; only a new site date re-renders.
+  useEffect(() => {
+    if (siteLon === undefined) return undefined;
+    const check = () => {
+      if (defaultTonightDate(new Date(), siteLon, siteZone) !== tonightDate) setClockTick((n) => n + 1);
+    };
+    const id = setInterval(check, 60000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [siteLon, siteZone, tonightDate]);
   const astroSite = useMemo(
     () => (siteLat !== undefined && siteLon !== undefined ? { latitude: siteLat, longitude: siteLon, elevationM: siteElev } : null),
     [siteLat, siteLon, siteElev],
@@ -556,7 +570,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
 
   const night = plan?.night;
   const isTonight = date === '' || date === tonightDate;
-  const nightWord = isTonight ? 'tonight' : 'that night';
+  const nightWord = isTonight ? 'tonight' : `that night (${dateLabel(date)})`;
   const bortle = site.bortle ?? DEFAULT_BORTLE;
   const zoneName = siteZone ?? zone;
   const zoneText = zoneName ? `Times are in ${siteZone ? "the site's" : "your browser's"} time zone (${zoneName}).` : '';
@@ -603,7 +617,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       </div>
 
       <section aria-labelledby="controls-heading" className={panel}>
-        <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">{isTonight ? 'TONIGHT' : `THAT NIGHT (${date})`}</h2>
+        <h2 id="controls-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">{nightWord.toUpperCase()}</h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr] items-start">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
@@ -722,7 +736,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           <p className="text-white/90 font-normal">No targets match these filters.</p>
         ) : (
           <>
-            <ul className="lg:hidden space-y-3" data-testid="target-cards" aria-label={`Targets ranked for ${nightWord}${isTonight ? '' : ` (${date})`}`}>
+            <ul className="lg:hidden space-y-3" data-testid="target-cards" aria-label={`Targets ranked for ${nightWord}`}>
               {filtered.map((e, i) => {
                 const t = targetText(e, formatTime);
                 const isSel = selected?.id === e.id;
@@ -771,7 +785,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             </ul>
             <div className="hidden lg:block">
             <table className="w-full text-left text-sm font-normal text-white/90" data-testid="target-table">
-              <caption className="sr-only">Targets ranked for {nightWord}{isTonight ? '' : ` (${date})`}</caption>
+              <caption className="sr-only">Targets ranked for {nightWord}</caption>
               <thead className="text-white">
                 <tr className="border-b border-white/20">
                   <th scope="col" className="py-2 pr-3">Captured</th>
@@ -849,6 +863,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             horizonSet={plan.horizonSet}
             minAltitude={minAltitude}
             formatTime={formatTime}
+            nightWord={nightWord}
           />
         </section>
       )}
@@ -864,6 +879,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           bortle={bortle}
           bortleSet={site.bortle !== undefined}
           formatTime={formatTime}
+          nightWord={nightWord}
         />
       )}
 
@@ -879,6 +895,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           bortle={bortle}
           bortleSet={site.bortle !== undefined}
           formatTime={formatTime}
+          nightWord={nightWord}
           timeZone={siteZone || zone || undefined}
           report={itineraryReport}
         />
@@ -893,6 +910,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
           horizon={horizon}
           minAltitude={minAltitude}
           formatTime={formatTime}
+          nightWord={nightWord}
         />
       )}
 

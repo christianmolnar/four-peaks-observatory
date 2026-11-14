@@ -52,6 +52,8 @@ export interface ItinerarySectionProps {
   /** False: the site has none and DEFAULT_BORTLE is an assumption, said so. */
   bortleSet: boolean;
   formatTime: (d: Date) => string;
+  /** "tonight" or "that night (date)", from the page. */
+  nightWord: string;
   /** IANA zone of the site (or the browser): the start time is a clock time in it. */
   timeZone?: string;
   /** The page's print sheet reads the current plan from here; written on every change, so it never causes a render. */
@@ -130,7 +132,7 @@ function Detail({
  * a train, a filter and a mode, scheduled one after the other with the changeover between them. Subs and counts come
  * from the exposure module; every time and number here is an estimate. Saved in this browser with a version.
  */
-export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, timeZone, report }: ItinerarySectionProps) {
+export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [startTime, setStartTime] = useState<string | null>(null);
   // What is being typed in the start box; null: show the saved start time.
@@ -307,7 +309,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     <section aria-labelledby="itinerary-heading" className={frame}>
       {heading}
       <p className="text-white/80 font-normal text-sm">
-        Slots run in the order below, one after the other. Each starts when the one before is done and the changeover is over, or when its target clears your horizon, whichever is later. Times, subs and overhead are estimates for tonight, not predictions. Setup (30 minutes) happens before the first slot and is not counted.
+        Slots run in the order below, one after the other. Each starts when the one before is done and the changeover is over, or when its target clears your horizon, whichever is later. Times, subs and overhead are estimates for {nightWord}, not predictions. Setup (30 minutes) happens before the first slot and is not counted.
       </p>
 
       <div className="mt-4 grid gap-4 md:grid-cols-[2fr_auto] items-end">
@@ -316,7 +318,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
           <WrapSelect id="it-add-target" className="w-full" value={addId || options[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={options.length === 0}>
             {options.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name}{e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: {e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : 'not clear tonight'}
+                {e.name}{e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: {e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : `not clear ${nightWord}`}
               </option>
             ))}
           </WrapSelect>
@@ -423,7 +425,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
 
       <div className="mt-4">
         <h3 className="text-white font-normal text-base mb-2">Night graph</h3>
-        <NightTimeline plan={plan} inputs={inputs} night={night} site={site} horizon={horizon} minAltitude={minAltitude} formatTime={formatTime} />
+        <NightTimeline plan={plan} inputs={inputs} night={night} site={site} horizon={horizon} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
       </div>
 
       {loaded && shown.length === 0 ? (

@@ -242,7 +242,7 @@ describe('the schedule', () => {
     const s = plan.slots[1];
     expect(codes(s)).toEqual(['no-time']);
     expect(s.warnings[0].severity).toBe('warning');
-    expect(s.warnings[0].text).toMatch(/No usable time left for Andromeda Galaxy tonight: its window closed at 06:35/);
+    expect(s.warnings[0].text).toMatch(/No usable time left for Andromeda Galaxy: its window closed at 06:35/);
     expect(s.end.getTime()).toBe(s.start.getTime());
     expect(s.integrationMin).toBe(0);
     expect(plan.totals.changeoverMin).toBe(0);
@@ -254,7 +254,7 @@ describe('the schedule', () => {
     const w = plan.slots[1].warnings[0];
     expect(w.code).toBe('no-time');
     expect(w.text).toBe(
-      'No usable time left for Triangulum Galaxy tonight: its window closed at 07:11. The slots before end 07:00, then the changeover (slew and centre 3 min, train change 15 min, refocus 3 min; 21 min in all) runs to 07:21, after the window closed.',
+      'No usable time left for Triangulum Galaxy: its window closed at 07:11. The slots before end 07:00, then the changeover (slew and centre 3 min, train change 15 min, refocus 3 min; 21 min in all) runs to 07:21, after the window closed.',
     );
     expect(w.text).not.toMatch(/and the slots before end/);
   });
@@ -263,16 +263,16 @@ describe('the schedule', () => {
     // With a 60 degree minimum only Andromeda (high near the meridian) opens; Orion never gets that high.
     const high = { minAltitude: 60 };
     const first = build([item('m42')], high).slots[0].warnings[0].text;
-    expect(first).toBe('No usable time left for Orion Nebula tonight: its window never opens.');
+    expect(first).toBe('No usable time left for Orion Nebula: its window never opens.');
     const later = build([item('m31'), item('m42')], high).slots[1].warnings[0].text;
     expect(later).toBe(first);
   });
 
   it('the one-slot sentence counts the slots that open, not the slots listed', () => {
     const high = { minAltitude: 60 };
-    expect(build([item('m31'), item('m42')], high).why).toBe('Only Andromeda Galaxy has a usable window tonight.');
-    expect(build([item('m42')], high).why).toBe('The slot has no usable window tonight.');
-    expect(build([item('m42'), item('m43')], high).why).toBe('No slot has a usable window tonight.');
+    expect(build([item('m31'), item('m42')], high).why).toBe('Only Andromeda Galaxy has a usable window.');
+    expect(build([item('m42')], high).why).toBe('The slot has no usable window.');
+    expect(build([item('m42'), item('m43')], high).why).toBe('No slot has a usable window.');
     expect(build([item('m31')]).why).toBe('One slot to place.');
   });
 
@@ -443,7 +443,7 @@ describe('the schedule', () => {
     const plan = build([item('ngc2359')], { night: tonightsNight(SITE, '2027-03-27') });
     const text = plan.slots[0].warnings[0].text;
     expect(codes(plan.slots[0])).toEqual(['no-time']);
-    expect(text).toMatch(/^No usable time left for Thor's Helmet tonight: its window closes at \d\d:\d\d, as the night starts \(\d\d:\d\d\)\.$/);
+    expect(text).toMatch(/^No usable time left for Thor's Helmet: its window closes at \d\d:\d\d, as the night starts \(\d\d:\d\d\)\.$/);
     expect(text).not.toMatch(/slots before/);
   });
 
