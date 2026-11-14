@@ -50,6 +50,7 @@ import {
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AiPlanPanel from './AiPlanPanel';
+import CampaignPanel from './CampaignPanel';
 import AltitudeChart from './AltitudeChart';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
@@ -62,6 +63,7 @@ import PlanetsSection from './PlanetsSection';
 import PrintSheet from './PrintSheet';
 import { download } from './download';
 import type { IncomingItinerary, ItineraryReport } from './ItinerarySection';
+import type { CampaignPanelProps } from './CampaignPanel';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
@@ -151,6 +153,8 @@ export interface PlannerAppProps {
   loadCatalogIndex?: () => Promise<CatalogIndex>;
   /** The AI night plan's request; defaults to the browser's fetch. A test stands in a fake. */
   aiFetch?: typeof fetch;
+  /** The several-night plan's worker; defaults to the bundled one. A test stands in a fake. */
+  campaignWorker?: CampaignPanelProps['createWorker'];
   /** Who is signed in (the owner sees the AI plan's review switch); defaults to the session endpoint the sign-in control reads. */
   loadAuth?: () => Promise<AuthState>;
 }
@@ -167,7 +171,7 @@ const NO_ZONES: readonly BlockedArc[] = [];
 
 const fieldsOf = (arcs: readonly BlockedArc[]): HorizonFields[] => arcs.map(fieldsFromArc);
 
-export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog, aiFetch, loadAuth = loadAuthState }: PlannerAppProps) {
+export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog, aiFetch, campaignWorker, loadAuth = loadAuthState }: PlannerAppProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
   const [notice, setNotice] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -742,12 +746,31 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
     aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of My plan are sent.` : '',
   ].filter((x) => x !== '').join(' ');
+  // The several-night plan takes the same fixed objects, with their catalog type (it picks each one's useful range). Planets and anything not yet resolved stay out.
+  const campaignTargets = useMemo(
+    () => planItems.flatMap(({ target, body }) => (body === undefined && target !== undefined ? [{ id: target.id, name: target.displayName ?? target.name, raHours: target.raHours, decDeg: target.decDeg, type: target.type }] : [])),
+    [planItems],
+  );
+  const campaignBlocked =
+    planIds.length === 0
+      ? 'Add at least one target to My plan first.'
+      : catalog.status === 'loading'
+        ? 'The catalog is still loading.'
+        : campaignTargets.length === 0
+          ? 'My plan has no deep-sky targets to plan. This plans fixed objects, not planets.'
+          : aiBase === null
+            ? 'The site or train is not ready.'
+            : null;
+  const campaignLeftOut = [
+    planets > 0 ? `${planets} ${planets === 1 ? 'planet is' : 'planets are'} left out: planets move across the sky from night to night, and this plan places fixed objects.` : '',
+    unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
+  ].filter((x) => x !== '').join(' ');
   /** Gives the plan to the itinerary section and waits for its answer (it asks before replacing a plan that is there). */
-  const offerToItinerary = (items: ItineraryItem[], startTime: string | null) =>
+  const offerToItinerary = (items: ItineraryItem[], startTime: string | null, label?: string) =>
     new Promise<boolean>((resolve) => {
       incomingAnswer.current?.(false);
       incomingAnswer.current = resolve;
-      setIncoming({ key: ++offers.current, items, startTime });
+      setIncoming({ key: ++offers.current, items, startTime, label });
     });
 
   const field =
@@ -1017,6 +1040,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             Edit horizon
           </a>
         </p>
+        <p className="text-white/80 font-normal text-sm">
+          <a href="#campaign-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            Plan several nights from this evening
+          </a>
+        </p>
       </div>
 
       <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
@@ -1035,6 +1063,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         formatTime={formatTime}
         owner={owner}
         fetchPlan={aiFetch}
+        onApply={offerToItinerary}
+      />
+
+      <CampaignPanel
+        base={aiBase}
+        targets={campaignTargets}
+        blocked={campaignBlocked}
+        leftOutNote={campaignLeftOut}
+        profile={profile}
+        train={train}
+        siteName={site.name}
+        catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
+        formatTime={formatTime}
+        createWorker={campaignWorker}
         onApply={offerToItinerary}
       />
 

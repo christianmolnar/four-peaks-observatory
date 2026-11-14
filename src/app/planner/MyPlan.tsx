@@ -67,6 +67,9 @@ export default function MyPlan({ rows, nightWord, onMove, onRemove }: MyPlanProp
             <a href="#ai-plan-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
               Plan my night with AI
             </a>
+            <a href="#campaign-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              Plan several nights
+            </a>
             <a href="#itinerary-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
               Plan an itinerary
             </a>

@@ -80,6 +80,8 @@ export interface ItinerarySectionProps {
 /** Items to put into the itinerary; `key` is new for every offer, so the same items can be offered twice. */
 export interface IncomingItinerary {
   key: number;
+  /** What the offer is called when the user is asked to replace their slots: "the AI plan" (the default) or "night 2 of the several-night plan". */
+  label?: string;
   items: ItineraryItem[];
   startTime: string | null;
 }
@@ -210,7 +212,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
   // An offered plan, once the saved one has been read (so it is not read over it). Saved like any other change.
   useEffect(() => {
     if (!incoming || !loaded) return;
-    const replace = items.length === 0 || window.confirm(`Replace your itinerary (${items.length} ${items.length === 1 ? 'slot' : 'slots'}) with the AI plan?`);
+    const replace = items.length === 0 || window.confirm(`Replace your itinerary (${items.length} ${items.length === 1 ? 'slot' : 'slots'}) with ${incoming.label ?? 'the AI plan'}?`);
     if (replace) commit(incoming.items, null, incoming.startTime);
     onIncoming?.(replace);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per offer (its key), reading the items as they are then
