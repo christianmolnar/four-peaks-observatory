@@ -37,7 +37,7 @@ describe('the horizon compass text is at least 12 px on screen at any width', ()
     const svg = container.querySelector('svg[role=img]') as SVGSVGElement;
     const scale = width / svg.viewBox.baseVal.width;
     const texts = [...svg.querySelectorAll('text')];
-    expect(texts.map((t) => t.textContent)).toEqual(['N', 'E', 'S', 'W', '30°', '60°']);
+    expect(texts.map((t) => t.textContent)).toEqual(['1', 'N', 'E', 'S', 'W', '30°', '60°']) // '1' is zone 1's number on its sector;
     for (const t of texts) expect(Number(t.getAttribute('font-size')) * scale).toBeGreaterThanOrEqual(12);
   });
 

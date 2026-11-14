@@ -129,7 +129,7 @@ describe('draft and commit', () => {
     await u.tab();
     await u.tab();
     expect(box(START).value).toBe('500');
-    expect(msg(START)).toBe('Use 0 to 359 degrees.');
+    expect(msg(START)).toBe('Use 0 to 360 degrees.');
     await u.click(box(START));
     await u.keyboard('{Escape}');
     expect(box(START).value).toBe('500');
@@ -255,8 +255,8 @@ describe('nothing moves: the message lines and buttons are always there', () => 
 
 // Round-2 table 1: a bad value typed key by key.
 describe.each([
-  ['500 in Start', START, '500', 'Use 0 to 359 degrees.', '120'],
-  ['361 in Start', START, '361', 'Use 0 to 359 degrees.', '120'],
+  ['500 in Start', START, '500', 'Use 0 to 360 degrees.', '120'],
+  ['361 in Start', START, '361', 'Use 0 to 360 degrees.', '120'],
   ['320 in Start (equals End)', START, '320', 'Start and End must differ.', '120'],
   ['91 in Height', HEIGHT, '91', 'Use 0 to 90 degrees.', '42'],
 ])('a bad value typed key by key: %s', (_n, name, text, message, original) => {
@@ -787,6 +787,7 @@ describe('Clear horizon and Add a zone', () => {
 describe('up to four zones', () => {
   const idOf = (zone: number, id: string) => (zone === 0 ? id : `${id}-${zone + 1}`);
   const zbox = (zone: number, id: string) => document.getElementById(`${idOf(zone, id)}-number`) as HTMLInputElement;
+  const zslider = (zone: number, name: string) => screen.getAllByRole('slider', { name: `${name} slider` })[zone] as HTMLInputElement;
   const zmsg = (zone: number, id: string) => ((document.getElementById(`${idOf(zone, id)}-msg`) as HTMLElement).textContent as string).replace(/^! /, '');
   const zoneCount = () => document.querySelectorAll('#horizon [role=group]').length;
   const storedArcs = () => JSON.parse(stored() as string).sites[0].blockedArcs;
@@ -801,7 +802,7 @@ describe('up to four zones', () => {
     expect(button('Add another zone').disabled).toBe(false);
   });
 
-  it('adds zones to four; the fifth cannot be added; each new zone is placed without overlap', async () => {
+  it('adds zones to four; the fifth cannot be added; each new zone starts where the last ended, 30 wide, at its height', async () => {
     await app();
     const u = user();
     for (let n = 2; n <= 4; n++) {
@@ -813,48 +814,77 @@ describe('up to four zones', () => {
     expect(zoneCount()).toBe(4);
     expect(screen.getByText('4 zones is the most.')).toBeTruthy();
     for (let n = 0; n < 4; n++) for (const id of ['arc-start', 'arc-end', 'arc-height']) expect(zmsg(n, id)).toBe('');
+    // 120-320 at 42, then 320-350, 350-20 (past 360), 20-50, all at 42; boxes, sliders and chart show them at once.
+    const expected = [['120', '320'], ['320', '350'], ['350', '20'], ['20', '50']];
+    expected.forEach(([start, end], n) => {
+      expect(zbox(n, 'arc-start').value).toBe(start);
+      expect(zslider(n, 'Start azimuth').value).toBe(start);
+      expect(zbox(n, 'arc-end').value).toBe(end);
+      expect(zslider(n, 'End azimuth').value).toBe(end);
+      expect(zbox(n, 'arc-height').value).toBe('42');
+    });
+    expect(screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent).toContain('4 blocked zones');
+    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(4);
     expect(status()).toBe('Unsaved changes');
     await u.click(button('Save horizon'));
     const arcs = storedArcs();
     expect(arcs).toHaveLength(4);
     expect(arcs[0]).toEqual({ startAz: 120, endAz: 320, heightDeg: 42 });
+    expect(arcs[2]).toEqual({ startAz: 350, endAz: 20, heightDeg: 42 });
     expect(status()).toBe('Saved');
-    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(4);
   });
 
-  it('overlapping zones show a clear error on both rows, disable Save, and store nothing', async () => {
+  it('a new zone takes the height of the last zone, not a fixed one', async () => {
+    const p = sampleProfile();
+    await app({ ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 10, endAz: 40, heightDeg: 15 }, { startAz: 100, endAz: 160, heightDeg: 60 }] }] });
+    await user().click(button('Add another zone'));
+    expect([zbox(2, 'arc-start').value, zbox(2, 'arc-end').value, zbox(2, 'arc-height').value]).toEqual(['160', '190', '60']);
+  });
+
+  it('overlapping zones are accepted: no message, Save stores them as typed, the chart says where they overlap', async () => {
     await app();
     const u = user();
     await u.click(button('Add another zone'));
     await typeInto(u, zbox(1, 'arc-start'), '200');
     await typeInto(u, zbox(1, 'arc-end'), '250');
-    expect(zmsg(1, 'arc-start')).toBe('Overlaps or touches zone 1.');
-    expect(zmsg(0, 'arc-start')).toBe('Overlaps or touches zone 2.');
-    expect(status()).toBe('Fix the highlighted box to save');
-    expect(button('Save horizon').disabled).toBe(true);
-    expect(stored()).toBeNull();
-    // The refused zone is not drawn; the chart keeps the one valid zone.
-    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(1);
-    // Moving it clear of zone 1 clears both messages and Save stores two zones.
-    await typeInto(u, zbox(1, 'arc-start'), '330');
-    await typeInto(u, zbox(1, 'arc-end'), '350');
-    expect(zmsg(1, 'arc-start')).toBe('');
-    expect(zmsg(0, 'arc-start')).toBe('');
+    await typeInto(u, zbox(1, 'arc-height'), '60');
+    for (const id of ['arc-start', 'arc-end', 'arc-height']) for (const n of [0, 1]) expect(zmsg(n, id)).toBe('');
+    expect(status()).toBe('Unsaved changes');
+    expect(button('Save horizon').disabled).toBe(false);
+    expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(2);
+    const text = screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent as string;
+    expect(text).toContain('Zones 1 and 2 overlap from 200 deg (S) clockwise to 250 deg (W); there the highest applies, 60 deg.');
     await u.click(button('Save horizon'));
     expect(storedArcs()).toEqual([
       { startAz: 120, endAz: 320, heightDeg: 42 },
-      { startAz: 330, endAz: 350, heightDeg: 30 },
+      { startAz: 200, endAz: 250, heightDeg: 60 },
     ]);
   });
 
-  it('a zone that only touches another is refused too', async () => {
+  it('a zone that only touches another is accepted too, and a repeat of the same zone', async () => {
     await app();
     const u = user();
     await u.click(button('Add another zone'));
-    await typeInto(u, zbox(1, 'arc-start'), '320');
-    await typeInto(u, zbox(1, 'arc-end'), '350');
-    expect(zmsg(1, 'arc-start')).toMatch(/^Overlaps or touches zone 1/);
-    expect(button('Save horizon').disabled).toBe(true);
+    expect([zbox(1, 'arc-start').value, zbox(1, 'arc-end').value]).toEqual(['320', '350']); // touches zone 1 at 320
+    expect(zmsg(1, 'arc-start')).toBe('');
+    expect(button('Save horizon').disabled).toBe(false);
+    await u.click(button('Save horizon'));
+    expect(storedArcs()).toHaveLength(2);
+    await u.click(button('Add another zone'));
+    await typeInto(u, zbox(2, 'arc-start'), '120');
+    await typeInto(u, zbox(2, 'arc-end'), '320');
+    await u.click(button('Save horizon'));
+    expect(storedArcs()[2]).toEqual({ startAz: 120, endAz: 320, heightDeg: 42 });
+  });
+
+  it('the table gives the highest height where zones overlap, and says so', async () => {
+    const p = sampleProfile();
+    await app({ ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 50 }] }] });
+    const rows = [...document.querySelectorAll('#horizon table tbody tr')].map((r) => [...r.querySelectorAll('th,td')].map((c) => c.textContent));
+    expect(rows.find((r) => r[1] === '135')).toEqual(['SE', '135', '30']);
+    expect(rows.find((r) => r[1] === '180')).toEqual(['S', '180', '50']);
+    expect(rows.find((r) => r[1] === '225')).toEqual(['SW', '225', '50']);
+    expect(document.querySelector('#horizon details')?.textContent).toContain('Zones 1 and 2 overlap from 150 deg (SE) clockwise to 200 deg (S); there the highest applies, 50 deg.');
   });
 
   it('each zone has the same field rules: a bad Start in zone 2 says so under zone 2 only', async () => {
@@ -862,7 +892,7 @@ describe('up to four zones', () => {
     const u = user();
     await u.click(button('Add another zone'));
     await typeInto(u, zbox(1, 'arc-start'), '500');
-    expect(zmsg(1, 'arc-start')).toBe('Use 0 to 359 degrees.');
+    expect(zmsg(1, 'arc-start')).toBe('Use 0 to 360 degrees.');
     expect(zmsg(0, 'arc-start')).toBe('');
     await typeInto(u, zbox(1, 'arc-height'), '91');
     expect(zmsg(1, 'arc-height')).toBe('Use 0 to 90 degrees.');
@@ -958,5 +988,133 @@ describe('up to four zones', () => {
     expect(zoneCount()).toBe(1);
     expect(document.body.textContent).toBe(planBefore);
     window.localStorage.clear();
+  });
+});
+
+describe('every azimuth runs 0 to 360, and each slider follows its box', () => {
+  const four = () => {
+    const p = sampleProfile();
+    return {
+      ...p,
+      sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 50 }, { startAz: 300, endAz: 40, heightDeg: 20 }, { startAz: 10, endAz: 340, heightDeg: 5 }] }],
+    };
+  };
+  const sliders = (name: string) => screen.getAllByRole('slider', { name: `${name} slider` }) as HTMLInputElement[];
+  const boxes = (name: string) => screen.getAllByRole('spinbutton', { name: new RegExp(`^${name} \\(deg\\)`) }) as HTMLInputElement[];
+  /** Every slider sits where its box says, and every azimuth control runs the full range. */
+  const inStep = () => {
+    for (const name of [START, END, HEIGHT]) {
+      sliders(name).forEach((el, i) => expect(el.value).toBe(boxes(name)[i].value));
+    }
+    for (const name of [START, END]) {
+      for (const el of [...sliders(name), ...boxes(name)]) {
+        expect(el.min).toBe('0');
+        expect(el.max).toBe('360');
+      }
+    }
+    for (const el of [...sliders(HEIGHT), ...boxes(HEIGHT)]) expect([el.min, el.max]).toEqual(['0', '90']);
+  };
+
+  it('four zones, overlapping: all eight azimuth sliders and boxes run 0 to 360', async () => {
+    await app(four());
+    expect(sliders(START)).toHaveLength(4);
+    inStep();
+  });
+
+  it('typing 360 and 0 in any zone is accepted, the slider follows, and 360 is saved as 0', async () => {
+    await app(four());
+    const u = user();
+    for (const n of [0, 3]) {
+      await u.clear(boxes(START)[n]);
+      await u.type(boxes(START)[n], '360');
+      expect(sliders(START)[n].value).toBe('360');
+    }
+    expect(boxes(START)[0].getAttribute('aria-invalid')).toBe('false');
+    expect(button('Save horizon').disabled).toBe(false);
+    await u.click(button('Save horizon'));
+    expect(JSON.parse(stored() as string).sites[0].blockedArcs.map((z: { startAz: number }) => z.startAz)).toEqual([0, 150, 300, 0]);
+    expect(status()).toBe('Saved');
+  });
+
+  it('after moving a slider the box follows, with other zones around it', async () => {
+    await app(four());
+    fireEvent.change(sliders(START)[1], { target: { value: '360' } });
+    fireEvent.change(sliders(END)[2], { target: { value: '0' } });
+    expect(boxes(START)[1].value).toBe('360');
+    expect(boxes(END)[2].value).toBe('0');
+    inStep();
+  });
+
+  it('boxes and sliders agree after Add, Remove, Discard, Use sample horizon, a site change and an import', async () => {
+    if (!Blob.prototype.text) {
+      Blob.prototype.text = function (this: Blob) {
+        return new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result));
+          r.onerror = () => rej(r.error);
+          r.readAsText(this);
+        });
+      };
+    }
+    const p = four();
+    const profile = { ...p, sites: [{ ...p.sites[0], blockedArcs: p.sites[0].blockedArcs.slice(0, 3) }, { ...p.sites[0], id: 'other', name: 'Other Site' }] };
+    await app(profile);
+    const u = user();
+    inStep();
+    await u.click(button('Add another zone'));
+    expect(sliders(START)).toHaveLength(4);
+    expect(boxes(START)[3].value).toBe('40'); // where zone 3 ended
+    inStep();
+    await u.click(button('Remove zone 1'));
+    expect(sliders(START)).toHaveLength(3);
+    inStep();
+    fireEvent.change(sliders(END)[0], { target: { value: '360' } });
+    inStep();
+    await u.click(button('Discard changes'));
+    expect(sliders(START)).toHaveLength(3);
+    expect(boxes(END)[0].value).toBe('200');
+    inStep();
+    await u.click(button('Use sample horizon'));
+    expect(sliders(START)).toHaveLength(1);
+    inStep();
+    await u.selectOptions(screen.getByLabelText('Site'), 'other');
+    expect(sliders(START)).toHaveLength(4);
+    inStep();
+    const file = new File([JSON.stringify(sampleProfile())], 'profile.json', { type: 'application/json' });
+    await u.upload(screen.getByLabelText('Import profile (JSON)'), file);
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported/));
+    expect(sliders(START)).toHaveLength(1);
+    inStep();
+  });
+
+  it('a profile saved under the old no-overlap rule loads unchanged and is not dirty', async () => {
+    const p = sampleProfile();
+    const old = [{ startAz: 100, endAz: 160, heightDeg: 60 }, { startAz: 220, endAz: 300, heightDeg: 20 }, { startAz: 320, endAz: 20, heightDeg: 35 }];
+    await app({ ...p, sites: [{ ...p.sites[0], blockedArcs: old }] });
+    expect(status()).toBe('');
+    expect(boxes(START).map((b) => b.value)).toEqual(['100', '220', '320']);
+    expect(boxes(END).map((b) => b.value)).toEqual(['160', '300', '20']);
+    inStep();
+  });
+});
+
+describe('layout: zone cards above the chart in at most 2 columns', () => {
+  it('the zone grid is one column on a phone and two from md up, and comes before the chart in the page', async () => {
+    const p = sampleProfile();
+    const arcs = [{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 50 }, { startAz: 300, endAz: 40, heightDeg: 20 }, { startAz: 10, endAz: 340, heightDeg: 5 }];
+    await app({ ...p, sites: [{ ...p.sites[0], blockedArcs: arcs }] });
+    const grid = screen.getByTestId('zone-grid');
+    expect(grid.className).toMatch(/\bgrid-cols-1\b/);
+    expect(grid.className).toMatch(/\bmd:grid-cols-2\b/);
+    expect(grid.className).not.toMatch(/grid-cols-[3-9]/);
+    expect(grid.querySelectorAll('[role=group]')).toHaveLength(4);
+    const chart = document.querySelector('#horizon svg[role=img]') as Element;
+    expect(grid.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Tab order: zone cards, Add, Save, Discard, Use sample, then the chart text and table, with Clear horizon last.
+    const order = [...document.querySelectorAll('#horizon input, #horizon button, #horizon summary')].map((e) => e.id || e.textContent || e.tagName);
+    expect(order.indexOf('arc-start-number')).toBeLessThan(order.indexOf('Add another zone'));
+    expect(order.indexOf('Add another zone')).toBeLessThan(order.indexOf('Save horizon'));
+    expect(order.indexOf('Use sample horizon')).toBeLessThan(order.indexOf('Horizon as a table'));
+    expect(order.at(-2)).toBe('Clear horizon');
   });
 });

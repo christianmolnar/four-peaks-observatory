@@ -1,6 +1,7 @@
 import { ProfileError } from '../profile';
 import {
   CAPTURED_KEY,
+  HORIZON_RANGE,
   checkZoneFields,
   newZoneFields,
   checkWholeDegrees,
@@ -162,12 +163,14 @@ describe('checkZoneFields', () => {
   it('is computed from the text alone: same text, same answer', () => {
     const f = fieldsFromArc({ startAz: 120, endAz: 320, heightDeg: 42 });
     expect(checkArcFields(f, ok)).toEqual({});
-    expect(checkArcFields({ ...f, start: '500' }, ok)).toEqual({ start: 'Use 0 to 359 degrees.' });
-    expect(checkArcFields({ ...f, start: '500' }, ok)).toEqual({ start: 'Use 0 to 359 degrees.' });
+    expect(checkArcFields({ ...f, start: '500' }, ok)).toEqual({ start: 'Use 0 to 360 degrees.' });
+    expect(checkArcFields({ ...f, start: '361' }, ok)).toEqual({ start: 'Use 0 to 360 degrees.' });
+    expect(checkArcFields({ ...f, start: '360' }, ok)).toEqual({});
+    expect(checkArcFields({ ...f, end: '360' }, ok)).toEqual({});
     expect(checkArcFields({ ...f, height: '91' }, ok)).toEqual({ height: 'Use 0 to 90 degrees.' });
     expect(checkArcFields({ start: '', end: 'x', height: '1.5' }, ok)).toEqual({
-      start: 'Enter a number from 0 to 359.',
-      end: 'Numbers only, from 0 to 359.',
+      start: 'Enter a number from 0 to 360.',
+      end: 'Numbers only, from 0 to 360.',
       height: 'Whole degrees only.',
     });
   });
@@ -288,29 +291,46 @@ describe('zone rows', () => {
   const ok = () => null;
   const row = (startAz: number, endAz: number, heightDeg = 30) => fieldsFromArc({ startAz, endAz, heightDeg });
 
-  it('newZoneFields: the first zone is the default, later ones sit in the widest open gap and never clash', () => {
-    expect(newZoneFields([])).toEqual({ start: '90', end: '180', height: '30' });
-    const one = [row(120, 320)];
-    const second = newZoneFields(one);
-    expect(second).toEqual({ start: '25', end: '55', height: '30' });
-    const all = [...one, second, newZoneFields([...one, second])];
-    expect(checkZoneFields(all, ok)).toEqual([{}, {}, {}]);
-    const four = [...all, newZoneFields(all)];
-    expect(checkZoneFields(four, ok)).toEqual([{}, {}, {}, {}]);
+  it('every azimuth box runs 0 to 360 whatever the other zones hold; 360 is stored as 0', () => {
+    expect(HORIZON_RANGE.start).toEqual({ min: 0, max: 360 });
+    expect(HORIZON_RANGE.end).toEqual({ min: 0, max: 360 });
+    expect(HORIZON_RANGE.height).toEqual({ min: 0, max: 90 });
+    const crowded = [row(100, 160), row(150, 200), row(0, 359, 5), row(180, 270)];
+    expect(checkZoneFields(crowded, ok)).toEqual([{}, {}, {}, {}]);
+    expect(effectiveArc(row(360, 90), {}, null, ok)).toEqual({ startAz: 0, endAz: 90, heightDeg: 30 });
+    expect(sameFields([{ start: '360', end: '90', height: '30' }], [row(0, 90)])).toBe(true);
   });
 
-  it('checkZoneFields flags overlapping and touching zones on both rows, and only when the numbers are valid', () => {
-    const e = checkZoneFields([row(100, 160), row(150, 200), row(160, 170), row(300, 310)], ok);
-    expect(e[0].arc).toMatch(/^Overlaps or touches zone 2/);
-    expect(e[1].arc).toMatch(/^Overlaps or touches zone 1/);
-    expect(e[2].arc).toMatch(/^Overlaps or touches zone 1/); // touches zone 1 at 160
-    expect(e[3]).toEqual({});
+  it('newZoneFields: the first zone is the default; the next starts where the last ended, 30 wide, at its height', () => {
+    expect(newZoneFields([])).toEqual({ start: '90', end: '180', height: '30' });
+    expect(newZoneFields([row(120, 320)])).toEqual({ start: '320', end: '350', height: '30' });
+    expect(newZoneFields([row(120, 320), row(10, 80, 55)])).toEqual({ start: '80', end: '110', height: '55' });
+  });
+
+  it('newZoneFields wraps past 360, ignores the other zones, and keeps going to a full four', () => {
+    expect(newZoneFields([row(100, 350, 42)])).toEqual({ start: '350', end: '20', height: '42' });
+    expect(newZoneFields([row(100, 360, 42)])).toEqual({ start: '0', end: '30', height: '42' });
+    // Where the new zone lands is not moved to fit: it overlaps zone 1 here, which is allowed.
+    expect(newZoneFields([row(10, 100), row(300, 20, 12)])).toEqual({ start: '20', end: '50', height: '12' });
+    let zones = [row(120, 320)];
+    while (zones.length < 4) zones = [...zones, newZoneFields(zones)];
+    expect(zones.map((z) => [z.start, z.end])).toEqual([['120', '320'], ['320', '350'], ['350', '20'], ['20', '50']]);
+    expect(checkZoneFields(zones, ok)).toEqual([{}, {}, {}, {}]);
+  });
+
+  it('newZoneFields starts from the last row whose boxes hold numbers', () => {
+    expect(newZoneFields([row(120, 320), { start: '', end: 'x', height: '' }])).toEqual({ start: '320', end: '350', height: '30' });
+  });
+
+  it('checkZoneFields never refuses a zone for overlapping or touching another', () => {
+    const e = checkZoneFields([row(100, 160), row(150, 200), row(160, 170), row(100, 160), row(300, 310)], ok);
+    expect(e).toEqual([{}, {}, {}, {}, {}]);
     expect(checkZoneFields([row(100, 160), { start: '', end: '150', height: '9' }], ok)[0]).toEqual({});
   });
 
   it('effectiveArc: a new row (no saved zone) is drawn only when it has no message', () => {
     const f = row(200, 250);
     expect(effectiveArc(f, {}, null, ok)).toEqual({ startAz: 200, endAz: 250, heightDeg: 30 });
-    expect(effectiveArc(f, { arc: 'Overlaps or touches zone 1.' }, null, ok)).toBeNull();
+    expect(effectiveArc(f, { arc: 'Start and End must differ.' }, null, ok)).toBeNull();
   });
 });

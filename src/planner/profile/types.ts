@@ -30,7 +30,7 @@ export interface ProfileSite {
   timeZone?: string;
   /** Sky darkness at the site, Bortle class 1 to 9 (whole number). Absent: not set, and the planner assumes DEFAULT_BORTLE and says so. */
   bortle?: number;
-  /** Blocked zones, 0 to MAX_ZONES, none overlapping or touching. Empty: nothing is blocked. */
+  /** Blocked zones, 0 to MAX_ZONES. They may overlap or touch: the blocked region is their union, and where they overlap the highest height applies. Empty: nothing is blocked. */
   blockedArcs: BlockedArc[];
 }
 
