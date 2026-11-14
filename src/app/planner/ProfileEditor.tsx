@@ -1,9 +1,11 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
+import { fillSiteFields } from '@/planner/location/client';
+import SiteFinder from './SiteFinder';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
 
@@ -111,6 +113,10 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
   const [error, setError] = useState<string | null>(null);
+  // Boxes the user typed in. A lookup fills the others and never overwrites these.
+  const touched = useRef(new Set<string>());
+  const textsRef = useRef(texts);
+  textsRef.current = texts;
   const run = (fn: () => Profile, what: string) => {
     try {
       const next = fn();
@@ -120,6 +126,11 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       setError((e as Error).message);
     }
   };
+  const fill = (values: Parameters<typeof fillSiteFields>[2]): string[] => {
+    const { texts: next, kept } = fillSiteFields(textsRef.current, touched.current, values);
+    setTexts(next);
+    return kept;
+  };
   return (
     <FormShell
       legend={`${spec.title === 'Site' ? 'Site' : spec.noun[0].toUpperCase() + spec.noun.slice(1)}: ${item.name}`}
@@ -127,8 +138,18 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
       onRemove={() => run(() => removeItem(profile, list, item.id), `Removed ${item.name}.`)}
     >
+      {list === 'sites' && <SiteFinder latitudeText={texts.latitude ?? ''} longitudeText={texts.longitude ?? ''} onFill={fill} />}
       {spec.fields.map((f) => (
-        <Box key={f.key} id={`edit-${list}-${item.id}-${f.key}`} spec={f} value={texts[f.key] ?? ''} onChange={(v) => setTexts((t) => ({ ...t, [f.key]: v }))} />
+        <Box
+          key={f.key}
+          id={`edit-${list}-${item.id}-${f.key}`}
+          spec={f}
+          value={texts[f.key] ?? ''}
+          onChange={(v) => {
+            touched.current.add(f.key);
+            setTexts((t) => ({ ...t, [f.key]: v }));
+          }}
+        />
       ))}
     </FormShell>
   );
