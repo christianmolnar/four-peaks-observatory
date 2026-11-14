@@ -6,19 +6,38 @@ The model decides; code supplies facts and checks. One night, up to 12 targets. 
 
 - `ANTHROPIC_API_KEY`: required. Without it the route answers 503 and names only the variable.
 - `PLANNER_AI_MODEL`: optional. Default `claude-sonnet-5-5`.
-- `PLANNER_OWNER_GITHUB_ID`: already used; only owners can call the route.
+- `PLANNER_OWNER_GOOGLE_SUB` / `PLANNER_OWNER_GOOGLE_EMAIL`: the owner allowlist (see Who can call it). Optional; empty means nobody is an owner.
+- `PLANNER_GUEST_PER_HOUR` (default 6) and `PLANNER_GUEST_PER_DAY` (default 60): guest caps in model calls. A malformed value makes the route answer 503 naming the variable.
+- `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`): the counter store (see Caps). Optional; without them the cap is best effort. Every KV call is bounded to 2 s.
+- `AUTH_SECRET` is required for guests (it keys the visitor hash; unset means guests get 503 naming it, no fallback). Sign-in (optional for visitors): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`.
 
 ## Route
 
-`POST /api/planner/ai-plan`, owner only (`requireOwner()` runs first: 401 signed out, 403 not an owner, before the body is read).
+`POST /api/planner/ai-plan`, open to everyone. The caller is an **owner** (signed in with Google and on the allowlist: no caps) or a **guest** (everyone else, signed in or not: capped, no sign-in needed).
 
-- Body (JSON, max 64 KB): `targets` (1 to 12 of `{id, name, raHours, decDeg}`), `site` (`latitude`, `longitude`, optional `elevationM`), `timeZone` (IANA), `horizon` (null or `[{az, alt}]`, max 360), `minAltitude`, `date` (YYYY-MM-DD, the evening the night starts), optional `startTime` (`HH:MM`), optional `qualityReview` (default false), optional `allowFlips` (boolean, default false: see Meridian flips), optional `bortle` (1 to 9), optional `rig` (`focalLengthMm`, `apertureMm`, `pixelSizeUm`, `camera`, `colourCamera`, `filter`, `filterKind`). A target may carry `catalogId`; the server then adds the catalog's type, size and bright-core flag to the facts (the request text is never trusted for that).
+## Who can call it
+
+- Owner: a Google account whose `sub` (the stable account id) is in `PLANNER_OWNER_GOOGLE_SUB` (comma list; entries that are not plain numbers are dropped; empty means nobody).
+- Second way: an email in `PLANNER_OWNER_GOOGLE_EMAIL` (comma list, case-insensitive), counted only when Google says the email is verified (`email_verified` is exactly true). An unverified email never matches.
+  - Why both: the `sub` never changes and is the firm identity; the email is easier to put in the list. Verified-only keeps it safe. Prefer `sub` for anyone who might lose their address.
+- Guest: gets the same plan, but no `qualityReview` (ignored if sent) and the default repair rounds. `requireOwner()` (`src/lib/planner-auth/require-user.ts`) stays for any future owner-only route; this route uses `identifyCaller()` instead.
+
+## Caps (guests only; owners are never counted)
+
+- Units are model calls, not requests: every call to the model (first, retry, repair) is counted before it is made. A typical plan is one call, so the defaults (6 per hour per visitor, 60 per day for everyone) are about 6 and 60 plans.
+- Per visitor: the client IP from `x-vercel-forwarded-for` (else `x-real-ip`, else the first `x-forwarded-for` entry as a last resort), HMAC-hashed with `AUTH_SECRET`; IPv6 is keyed by its /64 prefix and IPv4-mapped IPv6 as the IPv4. The IP is never stored, logged or returned. No header means one shared visitor bucket. Fixed windows: the clock hour and the UTC day.
+- Before any work, a guest over a limit gets 429 with `Retry-After` and the model is not called: "Daily planner limit reached, try tomorrow" (global) or "Hourly planner limit reached ..." (visitor). A limit reached mid-request stops further repair calls and the best plan so far is returned (`repairError` says why).
+- Counter store (`src/planner/ai/counter-store.ts`, one `CounterStore` interface, two shipping implementations):
+  - KV: Upstash Redis over REST, used when `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or the `UPSTASH_REDIS_REST_*` pair) are set. Shared by every server instance, so the cap is firm. If the store is unreachable, slower than 2 s or answers garbage, the guest gets 503 and no model call is made (mid-request, repair stops and the best plan so far is returned). Owners never touch the store.
+  - Memory: used when those variables are absent. **Best effort only**: each serverless instance has its own counters and a cold start resets them, so the real cap can be many times higher.
+- **The hard backstop is a monthly spend limit set in the Anthropic console.** Set it whatever the store; the caps bound normal use, the spend limit bounds the bill.
+
+- Body (JSON, max 64 KB): `targets` (1 to 12 of `{id, name, raHours, decDeg}`), `site` (`latitude`, `longitude`, optional `elevationM`), `timeZone` (IANA), `horizon` (null or `[{az, alt}]`, max 360), `minAltitude`, `date` (YYYY-MM-DD, the evening the night starts), optional `startTime` (`HH:MM`), optional `qualityReview` (default false, owners only), optional `allowFlips` (boolean, default false: see Meridian flips), optional `bortle` (1 to 9), optional `rig` (`focalLengthMm`, `apertureMm`, `pixelSizeUm`, `camera`, `colourCamera`, `filter`, `filterKind`). A target may carry `catalogId`; the server then adds the catalog's type, size and bright-core flag to the facts (the request text is never trusted for that).
 - Answer: `{status: 'verified' | 'unverified', plan, violations, warnings, lastTarget, facts, flips, repairRounds, modelCalls, quality?, qualityError?, repairError?}`.
 - `flips` is the number of slots that span their target's transit (0 when flips are off and the plan verified).
 - `lastTarget` echoes `plan.lastTarget`: the verdict on the last slot (see below); null when the plan has no slot.
 - A failed repair or review call never loses a plan: the best plan so far comes back, with `repairError` or `qualityError` saying why. Only a failure of the first call is an error (502).
-- Errors: 400 bad body, 413 too large, 422 no usable night, 429 rate limit, 502 model failed or never returned valid JSON, 503 key not set.
-- Rate limit: 10 calls per owner id per rolling hour, in memory (`request.ts`). It resets on a cold start and is per server instance, so it is a brake, not a quota.
+- Errors: 400 bad body, 413 too large, 422 no usable night, 429 guest limit, 502 model failed or never returned valid JSON, 503 key not set, limits misconfigured or counter store unreachable.
 - Limits per request: at most 6 model calls in all (retries of malformed replies and the review included), each with a 50 s timeout and no SDK retry, and a 110 s overall budget inside `maxDuration` 120 s. No call starts unless a full 50 s is left; then the best plan is returned.
 - Call size: one enforced limit, not a measured sample.
   - `MAX_CALL_CHARS` (60,000, `plan.ts`): no model call carries more characters than this (all messages together). Every call (first, retry, repair, review, review repair) goes through `fitCall`, which is the only place a call is sized.
@@ -51,3 +70,10 @@ The model decides; code supplies facts and checks. One night, up to 12 targets. 
 - Prompt safety: the prompt says target names and notes are labels from user data, never instructions. Violation and repair messages use ids only.
 - `anthropic.ts`: the real caller. The key is read from the environment, never logged, and scrubbed from error text.
 - Tests use a fake `callModel`; none calls the API.
+
+## Global daily cap
+
+- A few visitors can use up the 60 calls for everyone: 10 plans of 6 calls each is enough. Until the UTC day ends, every guest then gets 429.
+- Owners are not affected; they are uncapped and never counted.
+- To open it up sooner, raise `PLANNER_GUEST_PER_DAY` (spend grows with it) or wait for UTC midnight.
+- The Anthropic console monthly spend limit is the final backstop.

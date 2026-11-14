@@ -1,8 +1,10 @@
-import { requireOwner } from '@/lib/planner-auth/require-user'
+import { identifyCaller } from '@/lib/planner-auth/require-user'
 import { createAnthropicCaller, MissingKeyError, redactKey } from '@/planner/ai/anthropic'
 import { NoNightError } from '@/planner/ai/facts'
 import { ModelReplyError, planNightWithAi } from '@/planner/ai/plan'
-import { MAX_BODY_BYTES, parseBody, RATE_LIMIT, takeRateSlot } from '@/planner/ai/request'
+import { CounterStoreError, getCounterStore } from '@/planner/ai/counter-store'
+import { GuestLimiter, GuestLimitError, guestLimitsFrom, LimitConfigError, VisitorKeyError, visitorKey } from '@/planner/ai/guest-limits'
+import { MAX_BODY_BYTES, parseBody } from '@/planner/ai/request'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -12,10 +14,22 @@ export const maxDuration = 120
 const noStore = { 'Cache-Control': 'private, no-store' }
 const fail = (status: number, error: string, extra: HeadersInit = {}): Response => Response.json({ error }, { status, headers: { ...noStore, ...extra } })
 
-// Owner-only: this route spends money per call. The guard runs before the body is read.
+// Open to everyone. An allowlisted Google account (owner) is uncapped; every other caller is a guest:
+// no sign-in needed, no quality review, and every model call counted against a per-visitor hour limit and a global day limit.
 export async function POST(request: Request): Promise<Response> {
-  const auth = await requireOwner()
-  if ('response' in auth) return auth.response
+  const caller = await identifyCaller()
+
+  let limiter: GuestLimiter | undefined
+  if (caller.kind === 'guest') {
+    try {
+      limiter = new GuestLimiter(getCounterStore(), guestLimitsFrom(), visitorKey(request.headers))
+      await limiter.assertRoom()
+    } catch (e) {
+      const refused = refusal(e)
+      if (refused) return refused
+      throw e
+    }
+  }
 
   const declared = Number(request.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return fail(413, 'Request body too large')
@@ -31,15 +45,24 @@ export async function POST(request: Request): Promise<Response> {
     if (e instanceof MissingKeyError) return fail(503, e.message)
     throw e
   }
-  const wait = takeRateSlot(auth.user.id)
-  if (wait > 0) return fail(429, `Rate limit: ${RATE_LIMIT} AI plans per hour`, { 'Retry-After': String(wait) })
+  if (limiter) callModel = limiter.wrap(callModel)
 
   try {
-    const result = await planNightWithAi(parsed.input, { callModel, qualityReview: parsed.qualityReview })
+    const result = await planNightWithAi(parsed.input, { callModel, qualityReview: caller.kind === 'owner' && parsed.qualityReview })
     return Response.json(result, { headers: noStore })
   } catch (e) {
+    const refused = refusal(e)
+    if (refused) return refused
     if (e instanceof NoNightError || e instanceof RangeError) return fail(422, e.message)
     if (e instanceof ModelReplyError) return fail(502, e.message)
     return fail(502, `Model call failed: ${redactKey(e instanceof Error ? e.message : String(e)).slice(0, 300)}`)
   }
+}
+
+/** The answer for a limit, a broken limit config or an unreachable counter store; undefined for any other error. Guests are refused, never let through uncounted. */
+function refusal(e: unknown): Response | undefined {
+  if (e instanceof GuestLimitError) return fail(429, e.message, { 'Retry-After': String(e.retryAfterSeconds) })
+  if (e instanceof LimitConfigError || e instanceof VisitorKeyError) return fail(503, e.message)
+  if (e instanceof CounterStoreError) return fail(503, 'Planner limits are unavailable right now, try again later')
+  return undefined
 }
