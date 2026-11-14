@@ -33,6 +33,7 @@ export async function rankChunked(input: RankInput, options: ChunkedOptions): Pr
   const chunk = options.chunkSize ?? CHUNK_SIZE;
   const yieldNow = options.yieldNow ?? yieldToEventLoop;
   const ranker = prepareRanking(input);
+  await yieldNow(); // the night's sky and the screen are one block of work; the scoring starts after a yield
   const entries: PlanEntry[] = [];
   for (let i = 0; i < ranker.candidates.length; i += chunk) {
     if (!options.isCurrent()) throw new SupersededError();
@@ -40,6 +41,11 @@ export async function rankChunked(input: RankInput, options: ChunkedOptions): Pr
     await yieldNow();
   }
   if (!options.isCurrent()) throw new SupersededError();
-  entries.push(...ranker.planets());
+  for (const planet of ranker.planets) {
+    if (!options.isCurrent()) throw new SupersededError();
+    entries.push(planet());
+    await yieldNow();
+  }
+  if (!options.isCurrent()) throw new SupersededError();
   return ranker.finish(entries);
 }

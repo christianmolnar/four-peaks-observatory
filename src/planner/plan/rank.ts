@@ -13,8 +13,17 @@ const SCREEN_STRIDE_MINUTES = 15;
  * target is never more than 0.2507 deg per minute times half the gap above the higher sample.
  */
 const MAX_RATE_DEG_PER_MIN = 0.2507;
-/** The true declination of date differs from J2000 by under 0.4 deg through 2100; the zenith-distance test allows for it. */
-const PRECESSION_MARGIN_DEG = 0.5;
+/** Precession moves a declination at most 20 arcsec a year, and catalog positions are J2000: the zenith-distance test allows for it. */
+const PRECESSION_DEG_PER_YEAR = 20 / 3600;
+/** Slack on top of the precession allowance (it is a bound at 20 arcsec a year, not an exact rate). */
+const MARGIN_FLOOR_DEG = 0.1;
+const MS_PER_YEAR = 365.25 * 86400000;
+const J2000_MS = Date.UTC(2000, 0, 1, 12);
+
+/** How far a declination of date can sit from its J2000 value at `when`, plus a floor, degrees. */
+export function precessionMargin(when: Date): number {
+  return MARGIN_FLOOR_DEG + (Math.abs(when.getTime() - J2000_MS) / MS_PER_YEAR) * PRECESSION_DEG_PER_YEAR;
+}
 
 export interface RankInput extends Omit<TonightInput, 'targets'> {
   /** Every candidate: the curated targets plus the catalog, one entry per object. */
@@ -38,8 +47,8 @@ export interface RankResult {
 }
 
 /** The screen's verdict on one target, without any trigonometry: false when it cannot reach the minimum altitude at this latitude. */
-export function canReachAltitude(latitude: number, decDeg: number, minAltitude: number): boolean {
-  return 90 - Math.abs(latitude - decDeg) + PRECESSION_MARGIN_DEG >= minAltitude;
+export function canReachAltitude(latitude: number, decDeg: number, minAltitude: number, marginDeg: number): boolean {
+  return 90 - Math.abs(latitude - decDeg) + marginDeg >= minAltitude;
 }
 
 /** The train's size screen: false for a target too small for the frame, or too large unless `includeTooLarge`. */
@@ -71,11 +80,13 @@ export function screenTargets(
   const gapMinutes = stride * ctx.stepMinutes;
   const slack = (MAX_RATE_DEG_PER_MIN * gapMinutes) / 2;
   const last = sky.times.length - 1;
+  const margin = precessionMargin(ctx.end);
   const kept: PlanTarget[] = [];
   for (const t of targets) {
-    if (!canReachAltitude(site.latitude, t.decDeg, minAltitude)) continue;
-    if (!inSizeBand(ctx.train, t, options)) continue;
+    // The same checks, and the same error, as `planTonight` makes when it places the target.
     const p = skyPoint(t.raHours, t.decDeg);
+    if (!canReachAltitude(site.latitude, t.decDeg, minAltitude, margin)) continue;
+    if (!inSizeBand(ctx.train, t, options)) continue;
     let reaches = false;
     for (let k = 0; ; k += stride) {
       const kk = Math.min(k, last);
@@ -95,7 +106,8 @@ export function screenTargets(
 export interface Ranker {
   candidates: readonly PlanTarget[];
   evaluate(t: PlanTarget): PlanEntry;
-  planets(): PlanEntry[];
+  /** One scorer per planet to include (none when planets are off), so a caller can yield between them. */
+  planets: readonly (() => PlanEntry)[];
   finish(entries: PlanEntry[]): RankResult;
 }
 
@@ -109,7 +121,7 @@ export function prepareRanking(input: RankInput): Ranker {
     return {
       candidates: [],
       evaluate: () => { throw new Error('No astronomical night to evaluate against'); },
-      planets: () => [],
+      planets: [],
       finish: () => ({ night: ctx.night, horizonSet: ctx.horizonSet, minAltitude: input.minAltitude, entries: [], counts: { input: input.targets.length, scored: 0, usable: 0 } }),
     };
   }
@@ -117,7 +129,7 @@ export function prepareRanking(input: RankInput): Ranker {
   return {
     candidates,
     evaluate: (t) => evaluateTarget(ctx, t),
-    planets: () => (input.includePlanets === false ? [] : PLANETS.map((b) => evaluatePlanet(ctx, b))),
+    planets: input.includePlanets === false ? [] : PLANETS.map((b) => () => evaluatePlanet(ctx, b)),
     finish(entries) {
       const usable = entries.filter((e) => e.usableMinutes > 0).sort(compareEntries);
       return {
@@ -138,5 +150,5 @@ export function prepareRanking(input: RankInput): Ranker {
  */
 export function rankTargets(input: RankInput): RankResult {
   const r = prepareRanking(input);
-  return r.finish([...r.candidates.map((t) => r.evaluate(t)), ...r.planets()]);
+  return r.finish([...r.candidates.map((t) => r.evaluate(t)), ...r.planets.map((p) => p())]);
 }

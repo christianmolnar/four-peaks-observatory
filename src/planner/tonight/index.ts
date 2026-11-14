@@ -64,6 +64,7 @@ export function createTonightRanker(options: TonightOptions = {}): (query: Tonig
         };
         w.onerror = (e) => {
           worker = null; // the next call starts a fresh worker
+          w.terminate(); // an error event does not stop a worker, and it holds its own copy of the catalog
           failAll(new Error(`Tonight worker crashed: ${e.message ?? 'unknown error'}`));
         };
         return w;

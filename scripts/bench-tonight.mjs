@@ -58,9 +58,16 @@ const train = {
   name: 'bench',
   optics: opticalTrain({ focalLengthMm: 540, apertureMm: 80 }, { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176 }),
 };
+const longTrain = {
+  kind: 'optical',
+  name: 'bench 2000',
+  optics: opticalTrain({ focalLengthMm: 2000, apertureMm: 200 }, { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176 }),
+};
+const smartTrain = { kind: 'smart', name: 'bench smart', optics: null };
 const sites = [
-  { label: 'north 33.5 N', site: { latitude: 33.5, longitude: -112.0, elevationM: 400 }, timeZone: 'America/Phoenix' },
-  { label: 'south 33.9 S', site: { latitude: -33.9, longitude: 151.2, elevationM: 50 }, timeZone: 'Australia/Sydney' },
+  { label: '33.5 N', site: { latitude: 33.5, longitude: -112.0, elevationM: 400 }, timeZone: 'America/Phoenix' },
+  { label: '60 N', site: { latitude: 60, longitude: 10.0, elevationM: 100 }, timeZone: 'Europe/Oslo' },
+  { label: '40 S', site: { latitude: -40, longitude: 175.0, elevationM: 50 }, timeZone: 'Pacific/Auckland' },
 ];
 
 const percentile = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
@@ -68,8 +75,10 @@ let over = false;
 console.log(`catalog: ${targets.length} targets, ${RUNS} timed runs per site, budget ${BUDGET_MS} ms`);
 // The default size screen drops most small objects for a wide field; with it off the whole sky is scored (the worst case).
 const variants = [
-  { name: 'default size band', extra: {} },
-  { name: 'no size screen', extra: { minFramePercent: 0, includeTooLarge: true } },
+  { name: '540 mm, default size band', extra: {} },
+  { name: '540 mm, no size screen', extra: { minFramePercent: 0, includeTooLarge: true } },
+  { name: '2000 mm, default size band', extra: { train: longTrain } },
+  { name: 'smart scope (no size screen exists)', extra: { train: smartTrain } },
 ];
 for (const { label, site, timeZone, variant } of sites.flatMap((x) => variants.map((v) => ({ ...x, variant: v })))) {
   const input = { site, timeZone, horizon, minAltitude: 30, date: '2026-11-14', train, targets, limit: 100, ...variant.extra };

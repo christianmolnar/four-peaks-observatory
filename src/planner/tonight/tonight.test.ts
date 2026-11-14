@@ -62,6 +62,19 @@ describe('without a Worker (jest, old browsers)', () => {
     expect(yields).toBeGreaterThan(1);
   });
 
+  it('yields after the night and the screen are prepared, before any scoring, and between planets', async () => {
+    const events: string[] = [];
+    const rankAsync = createTonightRanker({ loadTargets, chunkSize: 1000, yieldNow: async () => { events.push('yield'); } });
+    const r = await rankAsync(query());
+    // some / 1000 per chunk = 1 chunk: prepared, yield, chunk, yield, then 7 planets with a yield each.
+    expect(events).toHaveLength(1 + 1 + 7);
+    expect(r.entries).toEqual(direct(query()).entries);
+    const noPlanets = createTonightRanker({ loadTargets, chunkSize: 1000, yieldNow: async () => { events.push('again'); }, });
+    events.length = 0;
+    await noPlanets(query({ includePlanets: false }));
+    expect(events).toEqual(['again', 'again']);
+  });
+
   it('falls back, with one warning, when the worker cannot be made', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const rankAsync = createTonightRanker({ loadTargets, createWorker: () => { throw new Error('blocked'); } });
@@ -140,8 +153,9 @@ describe('with a worker', () => {
     await expect(rankAsync(query({ limit: 0 }))).rejects.toThrow(/Tonight worker failed: limit must be a positive integer/);
   });
 
-  it('a crashed worker rejects the waiting call and the next call starts a new worker', async () => {
+  it('a crashed worker rejects the waiting call, is terminated, and the next call starts a new worker', async () => {
     let made = 0;
+    const terminate = jest.fn();
     const rankAsync = createTonightRanker({
       createWorker: () => {
         made++;
@@ -149,14 +163,16 @@ describe('with a worker', () => {
         const crashing: WorkerLike = {
           onmessage: null,
           onerror: null,
-          terminate: () => undefined,
+          terminate,
           postMessage: () => { setTimeout(() => crashing.onerror?.({ message: 'boom' }), 0); },
         };
         return crashing;
       },
     });
     await expect(rankAsync(query())).rejects.toThrow('Tonight worker crashed: boom');
+    expect(terminate).toHaveBeenCalledTimes(1);
     expect((await rankAsync(query())).entries).toHaveLength(25);
     expect(made).toBe(2);
+    expect(terminate).toHaveBeenCalledTimes(1);
   });
 });

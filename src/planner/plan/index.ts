@@ -7,6 +7,7 @@ import { opticalTrain, targetFitsFrame } from '../optics';
 import type { OpticalTrain } from '../optics';
 import { resolveTrain } from '../profile';
 import type { Profile, TrainEntry } from '../profile';
+import { brightnessScore } from './brightness';
 import { createNightSky, skyPoint } from './sky';
 import type { NightSky } from './sky';
 
@@ -45,8 +46,10 @@ export interface ScoreParts {
   moon: number;
   /** 0 or -25: the target does not fit the train's frame. */
   fit: number;
-  /** -10 to +10 from the catalog's surface brightness (else magnitude); 0 when it has neither. */
+  /** -10 to +10 against the object's own class (galaxy, cluster, nebula, planetary nebula, other); 0 when it has no photometry. */
   brightness: number;
+  /** -25 to +10 from the share of the frame it fills: best from 20 to 70 percent, worst at the 3 percent floor; 0 when unknown. */
+  framing: number;
   /** Sum of the parts, clamped to 0..100; 0 when there is no usable window. */
   total: number;
 }
@@ -273,7 +276,7 @@ export function fitLabel(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
   }
 }
 
-const SCORE_PARTS = ['usable', 'altitude', 'season', 'moon', 'fit', 'brightness'] as const;
+const SCORE_PARTS = ['usable', 'altitude', 'season', 'moon', 'fit', 'brightness', 'framing'] as const;
 
 function scoreOf(parts: Omit<ScoreParts, 'total'>, usable: boolean): ScoreParts {
   const sum = SCORE_PARTS.reduce((s, k) => s + parts[k], 0);
@@ -309,24 +312,21 @@ export function fitOf(train: PlanTrain, target: PlanTarget): { fit: Fit; detail:
     : { fit: 'too-large', detail: `Target ${size} does not fit the ${fov} field` };
 }
 
-/** Surface brightness (mag/arcsec2) at or below which an object scores full brightness marks, and at or above which it loses them. */
-const SB_BRIGHT = 21;
-const SB_FAINT = 24;
-/** V magnitude equivalents, used only when the catalog has no surface brightness. */
-const MAG_BRIGHT = 8;
-const MAG_FAINT = 14;
+export { brightnessScore } from './brightness';
 
 /**
- * -10 to +10 from the catalog's surface brightness (else its magnitude): +10 at the bright end, -10 at the faint end.
- * An object with neither is neutral (0), never penalised and never hidden.
+ * -25 to +10 from the share of the frame's long side the target fills: +10 from 20 to 70 percent, falling in a
+ * straight line to -25 at the 3 percent floor, and to 0 at 100 percent (one that is over the frame also takes the
+ * too-large penalty). 0 when the share is unknown (a smart scope, no size, no field).
  */
-export function brightnessScore(t: Pick<PlanTarget, 'mag' | 'surfaceBrightness'>): number {
-  const [value, bright, faint] =
-    t.surfaceBrightness !== undefined ? [t.surfaceBrightness, SB_BRIGHT, SB_FAINT] : t.mag !== undefined ? [t.mag, MAG_BRIGHT, MAG_FAINT] : [null, 0, 1];
-  if (value === null) return 0;
-  const mid = (bright + faint) / 2;
-  return Math.max(-10, Math.min(10, ((mid - value) / (faint - bright)) * 20));
+export function framingScore(percent: number | null): number {
+  if (percent === null) return 0;
+  if (percent < FRAME_BEST_FROM) return -25 + ((percent - 3) / (FRAME_BEST_FROM - 3)) * 35;
+  if (percent <= FRAME_BEST_TO) return 10;
+  return Math.max(0, ((100 - percent) / (100 - FRAME_BEST_TO)) * 10);
 }
+const FRAME_BEST_FROM = 20;
+const FRAME_BEST_TO = 70;
 
 function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
   const text = describeSky(e, horizonSet, minAltitude);
@@ -476,6 +476,7 @@ function entryOf(ctx: NightContext, id: string, name: string, type: string, sour
   const seasons = target?.seasonMonths ?? [];
   const inSeason = seasons.length > 0 ? seasons.includes(ctx.month) : null;
   const { fit, detail } = target ? fitOf(ctx.train, target) : { fit: 'not-applicable' as Fit, detail: '' };
+  const percent = target ? percentOfFrame(ctx.train, target) : null;
   const score = scoreOf(
     {
       usable: Math.min(usableMinutes / 60 / 4, 1) * 50,
@@ -484,6 +485,7 @@ function entryOf(ctx: NightContext, id: string, name: string, type: string, sour
       moon: moonUp ? -20 * ctx.illumination * closeness : 0,
       fit: fit === 'too-large' ? -25 : 0,
       brightness: target ? brightnessScore(target) : 0,
+      framing: framingScore(percent),
     },
     usableMinutes > 0,
   );
@@ -505,7 +507,7 @@ function entryOf(ctx: NightContext, id: string, name: string, type: string, sour
     seasonMonths: [...seasons],
     fit,
     fitDetail: detail,
-    percentOfFrame: target ? percentOfFrame(ctx.train, target) : null,
+    percentOfFrame: percent,
     magnitude: target?.mag ?? null,
     surfaceBrightness: target?.surfaceBrightness ?? null,
     sbComputed: target?.surfaceBrightness !== undefined && target.sbComputed === true,

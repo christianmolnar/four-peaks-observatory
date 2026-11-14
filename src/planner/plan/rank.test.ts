@@ -9,9 +9,10 @@ import { opticalTrain } from '../optics';
 import { arcToHorizonPoints } from '../profile';
 import { moonSeparation, targetAltAz } from '../astro';
 import type { Site } from '../astro';
-import { brightnessScore, nightContext, planTonight } from './index';
+import { BRIGHTNESS_REFERENCE, GALAXY_MAGNITUDE_REFERENCE } from './brightness';
+import { brightnessScore, framingScore, nightContext, planTonight } from './index';
 import type { PlanTarget, PlanTrain, TonightInput } from './index';
-import { canReachAltitude, rankTargets, screenTargets } from './rank';
+import { canReachAltitude, precessionMargin, rankTargets, screenTargets } from './rank';
 import type { RankInput } from './rank';
 
 const raw = JSON.parse(readFileSync(join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r3.json'), 'utf8'));
@@ -134,10 +135,10 @@ describe('the screen against brute force', () => {
   });
 
   it('the strict zenith-distance rule needs no trigonometry and agrees with the sky', () => {
-    expect(canReachAltitude(33.5, -60, 30)).toBe(false);
-    expect(canReachAltitude(33.5, 33.5, 89)).toBe(true);
-    expect(canReachAltitude(-33.9, 40, 30)).toBe(false);
-    expect(canReachAltitude(89, 0, 30)).toBe(false);
+    expect(canReachAltitude(33.5, -60, 30, 0.5)).toBe(false);
+    expect(canReachAltitude(33.5, 33.5, 89, 0.5)).toBe(true);
+    expect(canReachAltitude(-33.9, 40, 30, 0.5)).toBe(false);
+    expect(canReachAltitude(89, 0, 30, 0.5)).toBe(false);
   });
 
   it('over the whole catalog the ranked top matches a full plan\'s top', () => {
@@ -146,6 +147,36 @@ describe('the screen against brute force', () => {
     const full = planTonight({ ...input, targets: catalog });
     expect(ranked.entries.map((e) => e.id)).toEqual(full.entries.slice(0, 100).map((e) => e.id));
   }, 120000);
+});
+
+describe('the screen: precession and bad input', () => {
+  const one: PlanTarget = { id: 'x', name: 'X', type: 'galaxy', raHours: 0, decDeg: -26.5, sizeArcmin: { major: 30, minor: 20 } };
+
+  it('keeps a target that planTonight finds usable far from 2000 (the margin grows with the years)', () => {
+    const input = { site: phoenix, horizon: null, minAltitude: 30.6, date: '2150-09-22', timeZone: 'America/Phoenix', train: narrow, targets: [one], includePlanets: false };
+    const plan = planTonight(input);
+    expect(plan.entries[0].usableMinutes).toBeGreaterThan(0);
+    expect(rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true }).entries.map((e) => e.id)).toEqual(['x']);
+  });
+
+  it('precessionMargin is 20 arcsec a year from 2000 plus a floor, either side', () => {
+    expect(precessionMargin(new Date(Date.UTC(2000, 0, 1, 12)))).toBeCloseTo(0.1, 9);
+    expect(precessionMargin(new Date(Date.UTC(2100, 0, 1, 12)))).toBeCloseTo(0.1 + (100 * 20) / 3600, 2);
+    expect(precessionMargin(new Date(Date.UTC(1900, 0, 1, 12)))).toBeCloseTo(0.1 + (100 * 20) / 3600, 2);
+  });
+
+  it.each([
+    ['NaN declination', { raHours: 1, decDeg: NaN }],
+    ['infinite declination', { raHours: 1, decDeg: Infinity }],
+    ['declination past the pole', { raHours: 1, decDeg: 91 }],
+    ['NaN right ascension', { raHours: NaN, decDeg: 10 }],
+    ['right ascension 24', { raHours: 24, decDeg: 10 }],
+  ])('%s throws a RangeError, as planTonight does, instead of dropping the target', (_n, pos) => {
+    const bad: PlanTarget = { ...one, ...pos };
+    const input = { site: phoenix, horizon: null, minAltitude: 30, date: DATE, train: narrow, targets: [bad], includePlanets: false };
+    expect(() => planTonight(input)).toThrow(RangeError);
+    expect(() => rankTargets(input)).toThrow(RangeError);
+  });
 });
 
 describe('the ranking', () => {
@@ -284,38 +315,122 @@ describe('the size band', () => {
   });
 });
 
-describe('brightness', () => {
-  it('is neutral without data, higher for a brighter surface, and flags a computed value', () => {
+describe('brightness, per class', () => {
+  const ref = BRIGHTNESS_REFERENCE;
+
+  it('is neutral without data and reaches +10 at a class\'s first quartile, 0 at its median, -10 at its third', () => {
     expect(brightnessScore({})).toBe(0);
-    expect(brightnessScore({ surfaceBrightness: 19 })).toBe(10);
-    expect(brightnessScore({ surfaceBrightness: 26 })).toBe(-10);
-    expect(brightnessScore({ surfaceBrightness: 22.5 })).toBeCloseTo(0, 9);
-    expect(brightnessScore({ surfaceBrightness: 21 })).toBeGreaterThan(brightnessScore({ surfaceBrightness: 23 }));
-    expect(brightnessScore({ mag: 6 })).toBeGreaterThan(brightnessScore({ mag: 13 }));
-    // Surface brightness wins over magnitude when both are there.
-    expect(brightnessScore({ mag: 6, surfaceBrightness: 26 })).toBe(-10);
+    expect(brightnessScore({ type: 'galaxy' })).toBe(0);
+    for (const [type, c] of [['nebula', 'nebula'], ['planetary-nebula', 'planetary-nebula']] as const) {
+      expect(brightnessScore({ type, surfaceBrightness: ref[c].q1 })).toBeCloseTo(10, 9);
+      expect(brightnessScore({ type, surfaceBrightness: ref[c].median })).toBeCloseTo(0, 9);
+      expect(brightnessScore({ type, surfaceBrightness: ref[c].q3 })).toBeCloseTo(-10, 9);
+      expect(brightnessScore({ type, surfaceBrightness: ref[c].q1 - 3 })).toBeCloseTo(10, 9);
+      expect(brightnessScore({ type, surfaceBrightness: ref[c].q3 + 3 })).toBeCloseTo(-10, 9);
+    }
+  });
+
+  it('scores the same "typical for its class" alike across classes: the median of each scores 0', () => {
+    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: ref.galaxy.median, mag: GALAXY_MAGNITUDE_REFERENCE.median })).toBeCloseTo(0, 9);
+    expect(brightnessScore({ type: 'open-cluster', surfaceBrightness: ref.cluster.median })).toBeCloseTo(0, 9);
+    expect(brightnessScore({ type: 'nebula', surfaceBrightness: ref.nebula.median })).toBeCloseTo(0, 9);
+    // The old shared scale gave a typical cluster (SB 21.2) +10 and a typical galaxy (23.2) -4.
+    expect(brightnessScore({ type: 'open-cluster', surfaceBrightness: 21.2 })).toBeLessThan(1);
+    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 23.2 })).toBeGreaterThan(-1);
+  });
+
+  it('scores a galaxy by the better of its surface brightness and its magnitude (NGC 891: faint on average, bright in total)', () => {
+    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 24.17, mag: 10.01 })).toBe(10);
+    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 24.17, mag: 15 })).toBe(-10);
+  });
+
+  it('uses magnitude, against the whole catalog\'s, when the surface brightness is not comparable: computed for a galaxy, or absent', () => {
+    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 20, sbComputed: true, mag: 12.53 })).toBeCloseTo(0, 9);
+    expect(brightnessScore({ type: 'double-star', mag: 8 })).toBe(10);
+    expect(brightnessScore({ type: 'nebula', mag: 8 })).toBe(10);
+  });
+
+  it('the reference ranges are the catalog\'s own quartiles (re-derive them when the extract changes)', () => {
+    const at = (xs: number[], p: number): number => [...xs].sort((a, b) => a - b)[Math.floor(p * (xs.length - 1))];
+    const objects = raw.objects as { type: string; mag?: number; surfaceBrightness?: number; sbComputed?: boolean }[];
+    const sb = (types: string[], computedOk: boolean): number[] =>
+      objects.filter((o) => types.includes(o.type) && o.surfaceBrightness !== undefined && (computedOk || !o.sbComputed)).map((o) => o.surfaceBrightness as number);
+    const groups: [string, number[]][] = [
+      ['galaxy', sb(['galaxy', 'galaxy-group'], false)],
+      ['cluster', sb(['open-cluster', 'globular-cluster', 'asterism'], true)],
+      ['nebula', sb(['nebula', 'dark-nebula', 'supernova-remnant'], true)],
+      ['planetary-nebula', sb(['planetary-nebula'], true)],
+      ['unknown', objects.filter((o) => o.mag !== undefined).map((o) => o.mag as number)],
+    ];
+    for (const [name, values] of groups) {
+      const r = ref[name as keyof typeof ref];
+      expect(r.q1).toBeCloseTo(at(values, 0.25), 1);
+      expect(r.median).toBeCloseTo(at(values, 0.5), 1);
+      expect(r.q3).toBeCloseTo(at(values, 0.75), 1);
+    }
+    const galaxyMags = objects.filter((o) => ['galaxy', 'galaxy-group'].includes(o.type) && o.surfaceBrightness !== undefined && !o.sbComputed && o.mag !== undefined).map((o) => o.mag as number);
+    expect(GALAXY_MAGNITUDE_REFERENCE.q1).toBeCloseTo(at(galaxyMags, 0.25), 1);
+    expect(GALAXY_MAGNITUDE_REFERENCE.median).toBeCloseTo(at(galaxyMags, 0.5), 1);
+    expect(GALAXY_MAGNITUDE_REFERENCE.q3).toBeCloseTo(at(galaxyMags, 0.75), 1);
   });
 
   it('ranks the brighter of two otherwise equal targets first, never hides the unknown, and says "computed"', () => {
-    const at = { raHours: 4.5, decDeg: 33.5, type: 'galaxy', sizeArcmin: { major: 10, minor: 8 } };
+    const at = { raHours: 4.5, decDeg: 33.5, type: 'nebula', sizeArcmin: { major: 10, minor: 8 } };
     const targets: PlanTarget[] = [
-      { id: 'faint', name: 'Faint', surfaceBrightness: 24, ...at },
+      { id: 'faint', name: 'Faint', surfaceBrightness: 24, sbComputed: true, ...at },
       { id: 'unknown', name: 'Unknown', ...at },
-      { id: 'bright', name: 'Bright', surfaceBrightness: 20, sbComputed: true, ...at },
+      { id: 'bright', name: 'Bright', surfaceBrightness: 19, sbComputed: true, ...at },
     ];
     const r = rank({ targets, includePlanets: false });
     expect(r.entries.map((e) => e.id)).toEqual(['bright', 'unknown', 'faint']);
     const [bright, unknown] = r.entries;
     expect(bright.sbComputed).toBe(true);
-    expect(bright.why).toContain('SB 20.0 (computed)');
+    expect(bright.why).toContain('SB 19.0 (computed)');
     expect(unknown.score.brightness).toBe(0);
     expect(unknown.surfaceBrightness).toBeNull();
     expect(unknown.why).not.toMatch(/SB|mag /);
   });
 
-  it('does not change the curated 25, which carry no brightness', () => {
-    for (const e of planTonight({ site: phoenix, horizon: null, minAltitude: 20, date: DATE, train: narrow, targets: starterTargets }).entries) {
-      expect(e.score.brightness).toBe(0);
-    }
+  it('gives the curated showpieces the photometry of the catalog object each stands for', () => {
+    const byId = (id: string) => catalog.find((t) => t.id === id)!;
+    expect(byId('m31')).toMatchObject({ mag: 3.44, surfaceBrightness: 23.63 });
+    expect(byId('m31').sbComputed).toBeUndefined();
+    expect(byId('m42')).toMatchObject({ mag: 4, surfaceBrightness: 21.96, sbComputed: true });
+    expect(byId('m33').mag).toBeCloseTo(5.79, 2);
+    // The four the extract itself has no magnitude for stay neutral.
+    expect(starterTargets.filter((t) => catalog.find((c) => c.id === t.id)!.mag === undefined).map((t) => t.id)).toEqual(['ic410', 'ngc1977', 'ngc2174', 'ngc2359']);
+  });
+
+  it('scores the curated 25 for brightness now that they carry photometry; planTonight and rankTargets still agree', () => {
+    const input: TonightInput = { site: phoenix, horizon: null, minAltitude: 20, date: DATE, train: narrow, targets: index.targets.filter((t) => t.curated) };
+    const plan = planTonight(input);
+    expect(plan.entries.filter((e) => !e.isPlanet).some((e) => e.score.brightness !== 0)).toBe(true);
+    expect(rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true }).entries).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
+  });
+});
+
+describe('framing', () => {
+  it('is best from 20 to 70 percent of the frame, falls to the 3 percent floor, and is neutral when unknown', () => {
+    expect(framingScore(null)).toBe(0);
+    expect(framingScore(20)).toBe(10);
+    expect(framingScore(45)).toBe(10);
+    expect(framingScore(70)).toBe(10);
+    expect(framingScore(3)).toBeCloseTo(-25, 9);
+    expect(framingScore(100)).toBeCloseTo(0, 9);
+    expect(framingScore(4)).toBeLessThan(framingScore(8));
+    expect(framingScore(8)).toBeLessThan(framingScore(19));
+    expect(framingScore(85)).toBeLessThan(10);
+  });
+
+  it('a 6 arcmin cluster at 4 percent does not tie with M33 at 42 percent', () => {
+    const at = { raHours: 1.56, decDeg: 33.5, type: 'open-cluster' };
+    const targets: PlanTarget[] = [
+      { id: 'small', name: 'Small', sizeArcmin: { major: 6, minor: 6 }, ...at },
+      { id: 'big', name: 'Big', sizeArcmin: { major: 62, minor: 36 }, ...at },
+    ];
+    const r = rank({ targets, train: wide, includePlanets: false, minFramePercent: 0 });
+    expect(r.entries.map((e) => e.id)).toEqual(['big', 'small']);
+    expect(r.entries[0].score.total).toBeGreaterThan(r.entries[1].score.total);
+    expect(r.entries[1].score.framing).toBeLessThan(-15);
   });
 });
