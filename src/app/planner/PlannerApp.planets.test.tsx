@@ -29,6 +29,11 @@ async function openBody(user: ReturnType<typeof userEvent.setup>, name: string) 
   await user.click(within(rowOf(name)).getByRole('button', { expanded: false }));
   return screen.getByTestId(`solar-detail-${name}`);
 }
+/** The checklist sits behind its own closed fold in the detail: opens it. */
+async function openList(user: ReturnType<typeof userEvent.setup>, detail: HTMLElement) {
+  await user.click(within(detail).getByRole('button', { name: /^Lucky-imaging checklist/, expanded: false }));
+  return detail;
+}
 const ringOf = (detail: HTMLElement) => [...detail.querySelectorAll('dt')].find((d) => /Saturn ring tilt/.test(d.textContent ?? ''))!.nextElementSibling!.textContent!;
 
 beforeAll(() => {
@@ -79,7 +84,7 @@ describe('Solar system rows', () => {
     const text = detail.textContent ?? '';
     expect(text).toMatch(/Apparent diameter, computed.*arcsec, about \d+ pixels across on C11 \+ ASI676MC/);
     expect(text).toMatch(/Clip length limit, computed, period sourced.*9\.925 h/);
-    expect(text).toMatch(/Image scale and sampling, computed, seeing assumed.*0\.15 arcsec per pixel on C11 \+ ASI676MC \(planets\): near the limit against 0\.18\. Seeing assumed 2 arcsec \(assumption\)/);
+    expect(text).toMatch(/Image scale and sampling, computed, seeing assumed.*0\.15 arcsec per pixel on C11 \+ ASI676MC \(solar system\): near the limit against 0\.18\. Seeing assumed 2 arcsec \(assumption\)/);
     expect(text).toMatch(/Culmination, computed/);
     expect(text).toMatch(/Phase, computed/);
     expect(text).toMatch(/Clear of your horizon, computed/);
@@ -107,7 +112,7 @@ describe('Solar system rows', () => {
   it('the checklist ticks with the Space key, stays ticked when the row is closed and opened again, and has a basis word on every line', async () => {
     const user = userEvent.setup();
     app();
-    const detail = await openBody(user, 'Jupiter');
+    const detail = await openList(user, await openBody(user, 'Jupiter'));
     const boxes = within(detail).getAllByRole('checkbox') as HTMLInputElement[];
     expect(boxes.length).toBeGreaterThanOrEqual(18);
     boxes[0].focus();
@@ -121,8 +126,10 @@ describe('Solar system rows', () => {
     for (const li of items) expect(li.textContent).toMatch(/(computed|sourced|assumption|practice|not verified)$/);
     // The tick belongs to Jupiter: Saturn's first box is clear; Jupiter's are still ticked after Saturn and back.
     await user.click(within(rowOf('Saturn')).getByRole('button', { expanded: false }));
+    await openList(user, screen.getByTestId('solar-detail-Saturn'));
     expect((within(screen.getByTestId('solar-detail-Saturn')).getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(false);
     await user.click(within(rowOf('Jupiter')).getByRole('button', { expanded: false }));
+    await openList(user, screen.getByTestId('solar-detail-Jupiter'));
     const again = within(screen.getByTestId('solar-detail-Jupiter')).getAllByRole('checkbox') as HTMLInputElement[];
     expect([again[0].checked, again[1].checked, again[2].checked]).toEqual([true, true, false]);
   });
@@ -130,7 +137,7 @@ describe('Solar system rows', () => {
   it('clip length and session length are separate lines, and ASIAIR is only ever "not verified"', async () => {
     const user = userEvent.setup();
     app();
-    const detail = await openBody(user, 'Jupiter');
+    const detail = await openList(user, await openBody(user, 'Jupiter'));
     const text = detail.textContent ?? '';
     expect(text).toMatch(/Clip length\. Up to \d+ s per clip for Jupiter/);
     expect(text).toMatch(/Session length \(not the clip length\)\. The session is the time at the telescope/);
@@ -142,8 +149,8 @@ describe('Solar system rows', () => {
   it('with the Powermate train selected, the scale is the nominal 0.06 and the guide offers the native train first', async () => {
     const user = userEvent.setup();
     app(withTrain('planet-c11-powermate-676'));
-    const text = (await openBody(user, 'Jupiter')).textContent ?? '';
-    expect(text).toMatch(/0\.06 arcsec per pixel on C11 \+ 2\.5x Powermate \+ ASI676MC \(planets\): oversampled/);
+    const text = (await openList(user, await openBody(user, 'Jupiter'))).textContent ?? '';
+    expect(text).toMatch(/0\.06 arcsec per pixel on C11 \+ 2\.5x Powermate \+ ASI676MC \(solar system\): oversampled/);
     expect(text.indexOf('Start native')).toBeLessThan(text.indexOf('Add the extender only when seeing justifies it'));
     expect(text).toMatch(/no stated camera spacing/);
   });
@@ -151,7 +158,7 @@ describe('Solar system rows', () => {
   it('the guide names the camera of the train in use (ASI533MC, not ASI676MC) and qualifies the exposure line per planet', async () => {
     const user = userEvent.setup();
     app(withTrain('deep-c11-reducer-533'));
-    const text = (await openBody(user, 'Saturn')).textContent ?? '';
+    const text = (await openList(user, await openBody(user, 'Saturn'))).textContent ?? '';
     expect(text).toMatch(/The ZWO ASI533MC is a colour camera/);
     expect(text).toMatch(/What the ZWO ASI533MC delivers at your ROI/);
     expect(text).not.toMatch(/ASI676MC/);

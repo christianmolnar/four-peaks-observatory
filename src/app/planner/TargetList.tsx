@@ -43,6 +43,8 @@ export interface TargetListProps {
   renderDetail: (e: PlanEntry) => ReactNode;
   /** The most rows it will ever show (the list is the best 100, not a census). */
   max?: number;
+  /** Rows that are not up on the chosen night ("tonight" or the date): no number, no score, "Not clear <night>" in place of the window. */
+  notClear?: string;
 }
 
 /**
@@ -50,7 +52,7 @@ export interface TargetListProps {
  * Add button in its own column. The best ten show first and "Show more" adds ten at a time. A row opens its detail in
  * place. One layout for every width (a grid that folds to a column), so the page holds each row once.
  */
-export default function TargetList({ entries, label, idPrefix, formatTime, describe, fitText, planIds, added, onAdd, openId, onToggle, renderDetail, max = 100 }: TargetListProps) {
+export default function TargetList({ entries, label, idPrefix, formatTime, describe, fitText, planIds, added, onAdd, openId, onToggle, renderDetail, max = 100, notClear }: TargetListProps) {
   const [shown, setShown] = useState(FIRST_ROWS);
   const total = Math.min(entries.length, max);
   const visible = entries.slice(0, Math.min(shown, total));
@@ -93,7 +95,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                   className="-my-0.5 inline-flex max-w-full items-baseline gap-1.5 rounded py-0.5 text-left text-[15px] font-medium leading-[18px] text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
                 >
                   <span aria-hidden="true" className="w-4 shrink-0 text-xs text-white/70">{isOpen ? '▾' : '▸'}</span>
-                  <span className="break-words"><span className="text-white/70">{i + 1}.</span> {e.name}</span>
+                  <span className="break-words">{notClear === undefined && <span className="text-white/70">{i + 1}. </span>}{e.name}</span>
                 </button>
                 {d.aka !== '' && <span className="ml-1.5 text-white/70">{d.aka}</span>}
                 <p className="pl-[1.375rem] text-white/70">{d.meta}</p>
@@ -101,20 +103,20 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
               {/* On a phone the up window, peak, fit and score are one line; from md they are two columns. */}
               <div className="col-start-1 pl-[1.375rem] md:contents">
                 <span className="md:col-auto md:block">
-                  Up {upRange(e, formatTime)}
+                  {notClear === undefined ? `Up ${upRange(e, formatTime)}` : `Not clear ${notClear}`}
                   <span className="md:hidden"> · peak {peakShort(e)}</span>
                   <span className="hidden md:block">peak {peakText(e, formatTime)}</span>
                 </span>
                 <span data-testid="row-fit-score" className="md:col-auto md:block">
-                  <span className="md:hidden"> · </span>
+                  {(fitText ? fitText(e) : fitLabel(e)) !== '' && <span className="md:hidden"> · </span>}
                   <span>{fitText ? fitText(e) : fitLabel(e)}</span>
-                  <span className="hidden md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
+                  {notClear === undefined && <span className="hidden md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>}
                 </span>
               </div>
-              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:pl-0">{rowWhy(e)}</p>
+              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:pl-0">{notClear === undefined ? rowWhy(e) : 'Never clear of your horizon and minimum altitude.'}</p>
               <div className="col-start-2 row-span-3 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
                 {/* On a phone the score sits above the button, so the stats line keeps to one line. */}
-                <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>
+                {notClear === undefined && <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>}
                 <button
                   type="button"
                   aria-label={inPlan ? `${e.name} is in my plan` : `Add ${e.name} to my plan`}

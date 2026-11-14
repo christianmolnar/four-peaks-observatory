@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { HorizonPoint } from '@/planner/horizon';
 import { clipPlanet, planetSky, samplingFor } from '@/planner/planets';
@@ -89,6 +89,10 @@ function SolarSystemPanel({
         : null,
     [card, info, formatTime],
   );
+  // The 21-item checklist is most of the height: closed until asked for. The ticks live in the page, so closing keeps them.
+  const [listOpen, setListOpen] = useState(false);
+  const listId = useId();
+  const itemCount = guide === null ? 0 : guide.reduce((n, section) => n + section.items.length, 0);
   const sampling = info.apertureMm !== undefined && info.scaleArcsecPx !== undefined ? samplingFor(info.scaleArcsecPx, info.apertureMm) : null;
   return (
     <div>
@@ -125,8 +129,20 @@ function SolarSystemPanel({
         <p className="text-white/80 font-normal text-sm mt-2">Mosaic at this field: about {card.mosaicPanelsPerSide} by {card.mosaicPanelsPerSide} panels (computed).</p>
       )}
 
-      <h4 className="text-white font-normal text-base mt-6 mb-2">Lucky-imaging checklist: {body}</h4>
-      {guide === null ? (
+      <h4 className="mt-6">
+        <button
+          type="button"
+          aria-expanded={listOpen}
+          aria-controls={listId}
+          onClick={() => setListOpen(!listOpen)}
+          className="flex min-h-11 w-full items-center gap-2 rounded text-left text-base font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+        >
+          <span aria-hidden="true" className="w-4 text-white/70">{listOpen ? '▾' : '▸'}</span>
+          Lucky-imaging checklist: {body}{itemCount > 0 ? ` (${itemCount} items)` : ''}
+        </button>
+      </h4>
+      <div id={listId} hidden={!listOpen}>
+      {listOpen && (guide === null ? (
         <p className="text-white/90 font-normal text-sm">{info.missing ?? 'The guide needs an optical train with a telescope aperture.'}</p>
       ) : (
         guide.map((section) => (
@@ -150,7 +166,8 @@ function SolarSystemPanel({
             </ul>
           </fieldset>
         ))
-      )}
+      ))}
+      </div>
     </div>
   );
 }

@@ -218,8 +218,7 @@ describe('the label', () => {
     expect([...document.querySelectorAll('optgroup')].map((g) => g.label)).toContain('Solar system');
     await u.type(searchBox(), 'Jupiter');
     expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('Solar system');
-    // What is left is the user's own train names, "(planets)".
-    const text = (document.body.textContent ?? '').replace(/\(planets\)/g, '');
+    const text = document.body.textContent ?? '';
     expect(text).not.toMatch(/\bPlanets\b/);
     expect(text).not.toMatch(/\bplanet\b/);
   });

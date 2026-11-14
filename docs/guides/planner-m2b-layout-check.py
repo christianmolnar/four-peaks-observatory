@@ -1,21 +1,11 @@
 #!/usr/bin/env python3
 """
-Layout proof for the /planner Planets section and Night itinerary (headless Chromium, real keys, real mouse),
+Layout proof for the /planner Night itinerary (headless Chromium, real keys, real mouse),
 at 1280, 768 and 390 px, on the sample profile with the evening set to 2026-12-15.
 
-jsdom has no layout, so Jest cannot see a card or a heading move. This script checks:
-  Planets
-    P1. Choosing each of the eight planets with the arrow keys (Right through all eight, Left back) leaves the page
-        position and size of every card, the whole section, the Itinerary section, the Edit horizon heading and the
-        Profile section unchanged.
-    P2. A real mouse click (move, press, hold 90 ms, release) on each card chooses it and moves nothing.
-    P3. Nothing is clipped: every row of the visible panel and every card line fits its box (scrollHeight <=
-        clientHeight), nothing inside the section scrolls sideways, and the page does not scroll sideways.
-    P4. Tab never reaches an element inside a hidden panel (80 Tab presses from the chosen card), and the Space key
-        ticks a checklist box without moving anything.
-    P5. The visible altitude chart has a title and a description (the text alternative).
+jsdom has no layout, so Jest cannot see a slot or a heading move. This script checks:
   Itinerary (four slots: Orion Nebula, Triangulum Galaxy, Thor's Helmet, Saturn, on the C11 + 0.7x + ASI533MC train)
-    I1. Eight reorder presses of the Up and Down buttons, by keyboard: the section, the Planets section, the Edit
+    I1. Eight reorder presses of the Up and Down buttons, by keyboard: the section, the Edit
         horizon heading, the Profile section and the details box keep their size and position; each slot keeps its own
         height wherever it moves; focus stays on the pressed button.
     I2. Changing a slot's filter (all 13 options with ArrowDown), train and mode: the same boxes stay.
@@ -23,12 +13,12 @@ jsdom has no layout, so Jest cannot see a card or a heading move. This script ch
     I4. Nothing is clipped: the Light line, the chips, the why line, the totals, the note box and the details fit.
         The overlap warning is visible after Orion Nebula, then Triangulum Galaxy.
     I5. No sideways scroll anywhere.
-Sections: --only planets,itinerary (default: both).
+Sections: --only itinerary (the only one).
 
 Run (needs Playwright for Python and its Chromium; the repo itself depends on neither):
   ~/tools/shots/bin/python docs/guides/planner-m2b-layout-check.py         # starts its own next dev, stops it after
   ~/tools/shots/bin/python docs/guides/planner-m2b-layout-check.py http://localhost:3000/planner
-Exit code 0 only if every check passes. Add --shots DIR to save screenshots of both sections.
+Exit code 0 only if every check passes. Add --shots DIR to save screenshots of the section.
 """
 import os
 import signal
@@ -90,16 +80,12 @@ BOXES_JS = """() => {
     return [r.x + scrollX, r.y + scrollY, r.width, r.height].map(v => Math.round(v * 100) / 100); };
   const q = (s) => document.querySelector(s);
   const out = {
-    'planets section': box(q('section[aria-labelledby=planets-heading]')),
     'itinerary section': box(q('section[aria-labelledby=itinerary-heading]')),
-    'planet cards grid': box(q('section[aria-labelledby=planets-heading] fieldset')),
-    'planet panels': box(q('section[aria-labelledby=planets-heading] .mt-6.grid')),
     'slot details': box(q('[data-testid=slot-detail]')),
     'Edit horizon heading': box(q('#horizon-heading')),
     'profile section': box(q('section[aria-labelledby=profile-heading]')),
     'exposure panel': box(q('section[aria-labelledby=exposure-heading]')),
   };
-  document.querySelectorAll('input[name=planet]').forEach((i) => { out['card ' + i.value] = box(i.closest('label')); });
   return out;
 }"""
 SLOT_SIZES_JS = """() => Object.fromEntries([...document.querySelectorAll('[data-testid^=slot-s]')]
@@ -108,14 +94,11 @@ SLOT_SIZES_JS = """() => Object.fromEntries([...document.querySelectorAll('[data
 CLIP_JS = """() => {
   const bad = [];
   const fits = (e, what) => { if (e && e.scrollHeight > e.clientHeight + 1) bad.push(what + ' clipped: ' + e.scrollHeight + ' of ' + e.clientHeight); };
-  const vis = document.querySelector('section[aria-labelledby=planets-heading] .mt-6.grid > div:not(.invisible)');
-  if (vis) vis.querySelectorAll('dd').forEach((d, i) => fits(d, 'planet row ' + i));
-  document.querySelectorAll('input[name=planet]').forEach((i) => i.closest('label').querySelectorAll('p').forEach((p) => fits(p, 'card line ' + i.value)));
   document.querySelectorAll('[data-testid^=slot-light-],[data-testid^=itinerary-why],[data-testid^=itinerary-totals],[data-testid^=slot-chips-]').forEach((e) => fits(e, e.getAttribute('data-testid')));
   document.querySelectorAll('section[aria-labelledby=itinerary-heading] input[type=text]').forEach((e) => { if (e.scrollWidth > e.clientWidth + 1 && e.value.length < 20) bad.push('note box too narrow'); });
   const det = document.querySelector('[data-testid=slot-detail]');
   if (det) { const live = det.firstElementChild; if (live.getBoundingClientRect().bottom > det.getBoundingClientRect().bottom + 1) bad.push('details content taller than its box'); }
-  for (const sec of document.querySelectorAll('section[aria-labelledby=planets-heading],section[aria-labelledby=itinerary-heading]')) {
+  for (const sec of document.querySelectorAll('section[aria-labelledby=itinerary-heading]')) {
     for (const e of sec.querySelectorAll('*')) {
       if (e.closest('svg') || e.closest('.invisible') || e.tagName === 'CAPTION' || e.classList.contains('sr-only')) continue;
       if (e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline' && getComputedStyle(e).overflowX !== 'visible') bad.push('sideways: ' + e.tagName + ' ' + (e.textContent || '').slice(0, 30));
@@ -137,13 +120,10 @@ class Pg:
         self.p.wait_for_selector("#plan-train")
         self.p.fill("#plan-date", DATE)
         self.p.select_option("#plan-train", train)
-        self.p.wait_for_selector("input[name=planet]")
+        self.p.wait_for_selector("#it-add-target")
 
     def boxes(self):
         return self.p.evaluate(BOXES_JS)
-
-    def selected_planet(self):
-        return self.p.evaluate("document.querySelector('input[name=planet]:checked').value")
 
     def clip(self):
         return self.p.evaluate(CLIP_JS)
@@ -163,70 +143,6 @@ def mouse_click(pg, locator):
     pg.p.wait_for_timeout(90)
     pg.p.mouse.up()
     pg.p.wait_for_timeout(80)
-
-
-def check_planets(pg, label, shots, width):
-    pg.fresh()
-    base = pg.boxes()
-    order = ["Jupiter", "Saturn", "Mars", "Venus", "Mercury", "Uranus", "Neptune", "Moon"]
-    # P1: arrow keys through all eight and back, starting from the first card.
-    pg.p.locator("input[name=planet]:checked").focus()
-    bad, seen, clip = [], [], []
-    for _ in range(8):
-        pg.p.keyboard.press("ArrowLeft")
-    seen.append(pg.selected_planet())
-    base = pg.boxes()
-    for step in range(7):
-        pg.p.keyboard.press("ArrowRight")
-        seen.append(pg.selected_planet())
-        m = moved(base, pg.boxes())
-        if m:
-            bad.append(f"Right #{step + 1} -> {seen[-1]}: moved {m[:3]}")
-        clip += pg.clip()
-    for step in range(7):
-        pg.p.keyboard.press("ArrowLeft")
-        seen.append(pg.selected_planet())
-        m = moved(base, pg.boxes())
-        if m:
-            bad.append(f"Left #{step + 1} -> {seen[-1]}: moved {m[:3]}")
-        clip += pg.clip()
-    record(f"{label} planets: arrow keys visit all eight cards ({', '.join(dict.fromkeys(seen))}) and nothing moves", len(set(seen)) == 8 and not bad, "; ".join(bad[:3]))
-    record(f"{label} planets: nothing clipped or scrolling sideways across all eight (cards, rows, section)", not clip, "; ".join(dict.fromkeys(clip))[:300])
-    # P2: real mouse on every card.
-    bad = []
-    for name in order:
-        loc = pg.p.locator(f"input[name=planet][value={name}]").locator("xpath=ancestor::label")
-        loc.scroll_into_view_if_needed()
-        mouse_click(pg, loc)
-        if pg.selected_planet() != name:
-            bad.append(f"click {name}: got {pg.selected_planet()}")
-        m = moved(base, pg.boxes())
-        if m:
-            bad.append(f"click {name}: moved {m[:3]}")
-    record(f"{label} planets: a real mouse click on each card chooses it and nothing moves", not bad, "; ".join(bad[:3]))
-    # P4: Tab never enters a hidden panel; Space ticks a box without moving anything.
-    pg.p.locator("input[name=planet][value=Jupiter]").focus()
-    pg.p.keyboard.press("ArrowLeft")
-    pg.p.locator("input[name=planet]:checked").focus()
-    hidden, boxes_reached, bad = 0, 0, []
-    base = pg.boxes()
-    for _ in range(80):
-        pg.p.keyboard.press("Tab")
-        inside = pg.p.evaluate("(() => { const a = document.activeElement; const mine = !!a.closest('section[aria-labelledby=planets-heading]'); return [!!a.closest('[aria-hidden=true]'), mine ? (a.type || a.tagName) : 'elsewhere']; })()")
-        hidden += 1 if inside[0] else 0
-        if inside[1] == "checkbox":
-            boxes_reached += 1
-            pg.p.keyboard.press("Space")
-            m = moved(base, pg.boxes())
-            if m:
-                bad.append(f"Space moved {m[:2]}")
-    record(f"{label} planets: 80 Tab presses reach {boxes_reached} checklist boxes and none inside a hidden panel; Space ticks without moving anything", hidden == 0 and boxes_reached >= 10 and not bad, f"hidden={hidden} boxes={boxes_reached} {'; '.join(bad[:2])}")
-    # P5: the text alternative.
-    alt = pg.p.evaluate("""(() => { const vis = document.querySelector('section[aria-labelledby=planets-heading] .mt-6.grid > div:not(.invisible)');
-      const svg = vis.querySelector('svg'); return [svg.getAttribute('role'), svg.querySelector('title').textContent, svg.querySelector('desc').textContent.length]; })()""")
-    record(f"{label} planets: the visible chart is an image with a title and a description ({alt[1]!r}, {alt[2]} characters)", alt[0] == "img" and alt[1] and alt[2] > 20, str(alt))
-    if shots:
-        pg.p.locator("section[aria-labelledby=planets-heading]").screenshot(path=os.path.join(shots, f"planets-{width}.png"))
 
 
 def add_slot(pg, target_value):
@@ -250,7 +166,6 @@ def check_itinerary(pg, label, shots, width):
     record(f"{label} itinerary: an overlap, a flip and a cut-short slot show their warnings ({' | '.join(chips)[:140]})", any("Warning: overlaps window" in c for c in chips) and any("meridian flip" in c for c in chips) and any("cut short" in c for c in chips), str(chips))
     base = pg.boxes()
     sizes = pg.p.evaluate(SLOT_SIZES_JS)
-    sections = lambda b: {k: v for k, v in b.items() if not k.startswith("card ") and k != "planet cards grid" and k != "planet panels"}
     # I1: eight reorder presses by keyboard.
     bad, clip = [], []
     plan = [(0, "down"), (1, "down"), (3, "up"), (3, "up"), (2, "down"), (0, "up"), (1, "down"), (2, "up")]
@@ -273,7 +188,7 @@ def check_itinerary(pg, label, shots, width):
         if s2 != sizes:
             bad.append(f"press {n + 1}: slot heights changed {sizes} -> {s2}")
         clip += pg.clip()
-    record(f"{label} itinerary: eight Up/Down presses by keyboard keep the section, the Planets section, the Edit horizon heading, the Profile section and the details box where they were; every slot keeps its height; focus follows", not bad, "; ".join(bad[:3]))
+    record(f"{label} itinerary: eight Up/Down presses by keyboard keep the section, the Edit horizon heading, the Profile section and the details box where they were; every slot keeps its height; focus follows", not bad, "; ".join(bad[:3]))
     record(f"{label} itinerary: nothing clipped or scrolling sideways during the reorders", not clip, "; ".join(dict.fromkeys(clip))[:300])
     # I2: filter, train and mode on the second slot.
     ids = slot_ids(pg)
@@ -333,8 +248,6 @@ def run(pw, url, label, width, height, shots, only):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     pg = Pg(page, url)
-    if only is None or "planets" in only:
-        check_planets(pg, label, shots, width)
     if only is None or "itinerary" in only:
         check_itinerary(pg, label, shots, width)
     record(f"{label}: no page errors", not errors, "; ".join(errors[:2]))

@@ -117,6 +117,17 @@ describe('CSV readability', () => {
     expect(optical).toEqual(expect.arrayContaining(['Fits', 'Too large']));
   });
 
+  it('the Type column says Solar system for the Moon and planets; a body keeps its own name in the name column', () => {
+    const rows = parseCsv(planToCsv(plan.entries, { formatTime: () => 't' })).slice(1);
+    const body = rows.filter((r) => r[CSV_HEADER.indexOf('Solar system')] === 'yes');
+    expect(body.length).toBeGreaterThan(0);
+    for (const r of body) {
+      expect(r[CSV_HEADER.indexOf('Type')]).toBe('Solar system');
+      expect(r[CSV_HEADER.indexOf('Name')]).toMatch(/^(Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Moon)$/);
+    }
+    for (const r of rows.filter((x) => x[CSV_HEADER.indexOf('Solar system')] === 'no')) expect(r[CSV_HEADER.indexOf('Type')]).not.toBe('Solar system');
+  });
+
   it('formats times with date, time and zone', () => {
     expect(formatCsvTime(new Date(Date.UTC(2026, 11, 15, 3, 7)))).toMatch(/^2026-12-1[45] \d\d:\d\d \S+/);
   });

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
+import { apparentDiameterArcsec } from '@/planner/planets';
+import type { CardBody } from '@/planner/planets';
 import type { AstronomicalNight } from '@/planner/astro';
 import { rigOf } from '@/planner/ai/body';
 import type { PlanTarget } from '@/planner/ai/body';
@@ -202,6 +204,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [openId, setOpenId] = useState<string>('');
   // The two groups under the list: the user's own open or close, else the default for the situation.
   const [planetsOpen, setPlanetsOpen] = useState<boolean | null>(null);
+  const [notUpOpen, setNotUpOpen] = useState<boolean | null>(null);
   // The solar-system checklist ticks, "Body:item"; not saved.
   const [solarChecked, setSolarChecked] = useState<ReadonlySet<string>>(new Set());
   const toggleSolar = useCallback(
@@ -499,15 +502,22 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const bodies = moonEntry !== null && moonEntry.usableMinutes > 0 ? [...ranked.planets, moonEntry] : ranked.planets;
     return [...bodies].sort((x, y) => y.score.total - x.score.total);
   }, [ranked, type, moonEntry]);
+  // The bodies that are not up that night keep their rows (and their detail), under "Not up", never ranked and never counted as up.
+  const notUpGroup = useMemo((): readonly PlanEntry[] => {
+    if (scorer === null || type === 'deep-sky') return [];
+    const up = new Set(planetGroup.map((e) => e.id));
+    return SLOT_BODIES.map((b) => scorer.planet(b)).filter((e) => !up.has(e.id));
+  }, [scorer, type, planetGroup]);
   const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && type !== 'solar-system' ? ranked.noFit : []), [ranked, showNoFit, type]);
   // Everything the Type filter lets through, in reading order: what Export and Print carry.
   const filtered = useMemo(() => [...mainList, ...planetGroup], [mainList, planetGroup]);
-  const openEntry = useMemo(() => [...mainList, ...planetGroup, ...noFitList].find((e) => e.id === openId), [mainList, planetGroup, noFitList, openId]);
+  const openEntry = useMemo(() => [...mainList, ...planetGroup, ...notUpGroup, ...noFitList].find((e) => e.id === openId), [mainList, planetGroup, notUpGroup, noFitList, openId]);
   // Where the page lists a target, said in the search result when it is there.
   const listedAs = (id: string): string | undefined => {
     const place = mainList.findIndex((e) => e.id === id);
     if (place >= 0) return `#${place + 1} in the list below.`;
     if (planetGroup.some((e) => e.id === id)) return 'Listed under Solar system below.';
+    if (notUpGroup.some((e) => e.id === id)) return 'Listed under Solar system, Not up, below.';
     if (noFitList.some((e) => e.id === id)) return 'Listed under “Does not fit this frame” below.';
     return undefined;
   };
@@ -674,7 +684,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const place = planIds.length + 1;
     const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
     const target = catalogById?.get(id);
-    const name = body ?? target?.displayName ?? target?.name ?? [...mainList, ...planetGroup, ...noFitList].find((e) => e.id === id)?.name ?? id;
+    const name = body ?? target?.displayName ?? target?.name ?? [...mainList, ...planetGroup, ...notUpGroup, ...noFitList].find((e) => e.id === id)?.name ?? id;
     setAdded({ id, text: `Added, #${place} in My plan`, say: `${name} added, number ${place} in My plan.` });
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
@@ -862,6 +872,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
           : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
   const planetary = train.kind === 'optical' && train.tag === 'planetary';
+  // The Solar system group: open on a planetary train, and for the Solar system view only; closed otherwise. A hand-made open or close wins.
+  const groupOpen = planetsOpen ?? (planetary || type === 'solar-system');
+  // "Not up" inside it: closed, unless nothing is up (then it is the only content).
+  const notUpShown = notUpOpen ?? planetGroup.length === 0;
   // The plan mixes kinds when the train is for one and My plan holds the other (adding is never blocked, the train never switches by itself).
   const trainNote =
     planetary && planItems.some((p) => p.body === undefined)
@@ -881,6 +895,29 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return { aka: d !== '' && d !== e.name ? d : '', meta: [typeLabel(t.type), sizeText(t.sizeArcmin), t.constellation].filter((x) => x !== undefined && x !== '').join(' · ') };
   };
   const solarBody = (id: string) => SLOT_BODIES.find((b) => planetIdOf(b) === id);
+  // The fit column of a body row says its apparent size at the middle of the night (the rest of the detail is in the row).
+  const bodyFit = (e: PlanEntry): string => {
+    const body = solarBody(e.id);
+    if (body === undefined || !stableNight || stableNight.kind !== 'normal' || !stableNight.start || !stableNight.end || !astroSite) return '';
+    const mid = new Date((stableNight.start.getTime() + stableNight.end.getTime()) / 2);
+    return `${apparentDiameterArcsec(body, mid, astroSite).toFixed(1)}″ across`;
+  };
+  const solarDetail = (body: CardBody) =>
+    stableNight && astroSite ? (
+      <SolarSystemDetail
+        body={body}
+        profile={profile}
+        train={train}
+        site={astroSite}
+        night={stableNight}
+        horizon={horizon}
+        minAltitude={minAltitude}
+        formatTime={formatTime}
+        nightWord={nightWord}
+        checked={solarChecked}
+        onToggle={toggleSolar}
+      />
+    ) : null;
   const renderDetail = (e: PlanEntry) => {
     const t = detailText(e, formatTime);
     return (
@@ -899,21 +936,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         {track && stableNight && e.id === openId && (
           <AltitudeChart entry={e} night={stableNight} track={track} horizonSet={horizon !== null} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
         )}
-        {e.isPlanet && solarBody(e.id) !== undefined && stableNight && astroSite && (
-          <SolarSystemDetail
-            body={solarBody(e.id)!}
-            profile={profile}
-            train={train}
-            site={astroSite}
-            night={stableNight}
-            horizon={horizon}
-            minAltitude={minAltitude}
-            formatTime={formatTime}
-            nightWord={nightWord}
-            checked={solarChecked}
-            onToggle={toggleSolar}
-          />
-        )}
+        {e.isPlanet && solarBody(e.id) !== undefined && solarDetail(solarBody(e.id)!)}
       </div>
     );
   };
@@ -1153,6 +1176,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         listedAs={listedAs}
         added={added}
         onAdd={addToPlan}
+        renderBodyDetail={solarDetail}
       />
 
       <section aria-labelledby="list-heading" className={panel}>
@@ -1164,7 +1188,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <WrapSelect id="f-type" className="w-full" value={type} onChange={(e) => {
                 const next = e.target.value as TypeFilter;
                 setType(next);
-                if (next === 'solar-system') setPlanetsOpen(true); // the group is the whole view: show it open
               }}>
                 {(Object.keys(TYPE_LABELS) as TypeFilter[]).map((k) => (
                   <option key={k} value={k}>{TYPE_LABELS[k]}</option>
@@ -1220,9 +1243,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         ) : (
           <>
             {type !== 'solar-system' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
-            {planetGroup.length > 0 && (
-              <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={planetsOpen ?? planetary} onToggle={() => setPlanetsOpen(!(planetsOpen ?? planetary))}>
-                <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" />
+            {(planetGroup.length > 0 || notUpGroup.length > 0) && (
+              <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={groupOpen} onToggle={() => setPlanetsOpen(!groupOpen)}>
+                {planetGroup.length > 0 && <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" fitText={bodyFit} />}
+                {notUpGroup.length > 0 && (
+                  <Group id="planets-notup-group" title={`Not up ${nightWord} (${notUpGroup.length})`} open={notUpShown} onToggle={() => setNotUpOpen(!notUpShown)}>
+                    <TargetList {...listProps} entries={notUpGroup} label={`Solar system not up ${nightWord}`} idPrefix="notup" fitText={bodyFit} notClear={nightWord} />
+                  </Group>
+                )}
               </Group>
             )}
             {type === 'solar-system' ? (

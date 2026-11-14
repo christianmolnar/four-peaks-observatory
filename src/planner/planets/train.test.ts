@@ -14,8 +14,8 @@ describe('the planetary train from the profile', () => {
     expect(i.missing).toBeNull();
     expect([i.scopeName, i.cameraName, i.cameraColour]).toEqual(['Celestron C11 EdgeHD', 'ZWO ASI676MC', true]);
     expect(i.variants.map((v) => [v.name, v.nominal, Number(v.scaleArcsecPx.toFixed(3))])).toEqual([
-      ['C11 + ASI676MC (planets)', false, 0.147],
-      ['C11 + 2.5x Powermate + ASI676MC (planets)', true, 0.059],
+      ['C11 + ASI676MC (solar system)', false, 0.147],
+      ['C11 + 2.5x Powermate + ASI676MC (solar system)', true, 0.059],
     ]);
   });
   it('the Powermate train as selected gives the nominal scale too', () => {
