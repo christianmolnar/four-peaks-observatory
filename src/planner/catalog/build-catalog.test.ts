@@ -6,7 +6,7 @@ import { gzipSync } from 'node:zlib';
 
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, 'scripts', 'build-catalog.mjs');
-const ASSET = join(ROOT, 'public', 'catalog', 'openngc-v20260501-r2.json');
+const ASSET = join(ROOT, 'public', 'catalog', 'openngc-v20260501-r3.json');
 
 const HEAD =
   'Name;Type;RA;Dec;Const;MajAx;MinAx;PosAng;B-Mag;V-Mag;J-Mag;H-Mag;K-Mag;SurfBr;Hubble;Pax;Pm-RA;Pm-Dec;RadVel;Redshift;Cstar U-Mag;Cstar B-Mag;Cstar V-Mag;M;NGC;IC;Cstar Names;Identifiers;Common names;NED notes;OpenNGC notes;Sources';
@@ -103,6 +103,10 @@ describe('cross-references and Dup rows (fixture input)', () => {
     row({ Name: 'IC0547', Type: 'Dup', RA: '09:36:05.79', Dec: '-12:26:12.2', NGC: '2947' }),
     row({ Name: 'IC0843', Type: 'Dup', RA: '13:02:00', Dec: '+29:00:00', NGC: '4913', IC: '4088' }),
     row({ Name: 'IC3543', Type: 'Dup', RA: '12:35:41.42', Dec: '+26:17:09.0', NGC: '4565C' }),
+    // Two rows that wrongly cross-reference IC 1459, which has its own row
+    row({ ...g, Name: 'NGC7368', Type: 'G', RA: '22:45:30.9', Dec: '-39:20:30', IC: '1459' }),
+    row({ ...g, Name: 'NGC7418', Type: 'G', RA: '22:56:36.2', Dec: '-37:01:48', IC: '1459,5000' }),
+    row({ ...g, Name: 'IC1459', Type: 'G', RA: '22:57:10.6', Dec: '-36:27:44' }),
   ];
   const built = build(ngc, [row({ Name: 'M102', Type: 'Dup', RA: '14:03:12.54', Dec: '+54:20:56.2', M: '101' })]);
   const byId = Object.fromEntries(built.objects.map((o) => [o.id as string, o]));
@@ -136,6 +140,12 @@ describe('cross-references and Dup rows (fixture input)', () => {
     expect(aliases('ngc5457')).toEqual(['M102']);
   });
 
+  it('drops a cross-reference that is another kept row\'s own designation, and lists it', () => {
+    expect(aliases('ngc7368')).toEqual([]);
+    expect(aliases('ngc7418')).toEqual(['IC 5000']);
+    expect(built.report.crossRefConflicts).toEqual(['NGC 7368 -> IC 1459', 'NGC 7418 -> IC 1459']);
+  });
+
   it('lists the Dup rows whose primary is not in the extract', () => {
     expect(built.report).toMatchObject({ dupFolded: 4, dupUnresolved: ['IC 3543'] });
   });
@@ -166,7 +176,7 @@ describe('the committed asset (pinned to OpenNGC v20260501)', () => {
   });
 
   it('stays near the measured size', () => {
-    // Measured: 1,059,983 bytes raw, 158,284 gzip -9.
+    // Measured: 1,059,939 bytes raw, 158,276 gzip -9.
     expect(text.length).toBeGreaterThan(1_050_000);
     expect(text.length).toBeLessThan(1_070_000);
     const gz = gzipSync(text, { level: 9 }).length;
@@ -205,7 +215,13 @@ describe('the committed asset (pinned to OpenNGC v20260501)', () => {
   it('holds the measured alias counts', () => {
     const withAliases = doc.objects.filter((o: { aliases?: string[] }) => (o.aliases?.length ?? 0) > 0).length;
     const total = doc.objects.reduce((n: number, o: { aliases?: string[] }) => n + (o.aliases?.length ?? 0), 0);
-    expect([withAliases, total]).toEqual([510, 562]);
+    expect([withAliases, total]).toEqual([508, 560]);
+  });
+
+  it('no longer lists IC 1459 on NGC 7368 or NGC 7418', () => {
+    expect(has('ngc7368', 'IC 1459')).toBe(false);
+    expect(has('ngc7418', 'IC 1459')).toBe(false);
+    expect(has('ic1459', 'IC 5265')).toBe(true);
   });
 
   it('records the input hashes and the licence', () => {

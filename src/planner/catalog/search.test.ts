@@ -4,9 +4,10 @@ import { TARGET_TYPES, normalizeName, starterTargets } from './index';
 import { createCatalogLoader } from './loader';
 import { CATALOG_URL, parseExtract } from './openngc';
 import { createCatalogIndex } from './search';
+import { applyPatches, catalogPatches } from './supplement';
 import type { CatalogIndex, SearchHit, SearchQuery, SearchTarget } from './search';
 
-const ASSET = join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r2.json');
+const ASSET = join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r3.json');
 const rawText = readFileSync(ASSET, 'utf8');
 const raw = JSON.parse(rawText);
 
@@ -559,5 +560,143 @@ describe('hits do not expose the index', () => {
     const t = index.search({ text: 'NGC 1291' }).hits[0].target as unknown as { aliases: string[] };
     expect(() => t.aliases.push('Mutated')).toThrow(TypeError);
     expect(Object.isFrozen(starterTargets[0].aliases)).toBe(false);
+  });
+});
+
+describe('one designation, one object', () => {
+  const DESIGNATION = /^[a-z]{1,4}\d+[a-z]{0,2}$/;
+  const objects = applyPatches(parseExtract(raw).objects, catalogPatches);
+  const owners = new Map<string, Set<string>>();
+  for (const o of objects) {
+    const own = [o.id, o.name, ...(o.aliases ?? [])];
+    if (o.m !== undefined) own.push(`M${o.m}`);
+    if (o.ngc !== undefined) own.push(`NGC ${o.ngc}`);
+    if (o.ic !== undefined) own.push(`IC ${o.ic}`);
+    if (o.c !== undefined) own.push(`C ${o.c}`);
+    for (const k of own.map(normalizeName).filter((x) => DESIGNATION.test(x))) owners.set(k, (owners.get(k) ?? new Set()).add(o.id));
+  }
+
+  it('no designation-shaped key belongs to two objects, except NED components of one group', () => {
+    const shared = [...owners].filter(([, ids]) => ids.size > 1 && ![...ids].every((id) => /^(ngc|ic)\d+-ned\d+$/.test(id) && id.split('-')[0] === [...ids][0].split('-')[0]));
+    expect(shared.map(([k, ids]) => `${k}: ${[...ids].join(', ')}`)).toEqual([]);
+  });
+
+  it('IC 1459 returns only ic1459, a designation hit', () => {
+    const r = index.search({ text: 'IC 1459' });
+    expect(r.hits.map((h) => [h.target.id, h.match])).toEqual([['ic1459', 'designation']]);
+  });
+});
+
+describe('Greek letters match whole words only', () => {
+  it.each([
+    ['Omega', ['ngc5139', 'ngc6618']],
+    ['Ω', ['ngc5139', 'ngc6618']],
+  ])('%s finds Omega Centauri and the Omega Nebula, nothing by substring', (text, want) => {
+    const r = index.search({ text, limit: 50 });
+    expect(r.hits.map((h) => h.target.id).sort()).toEqual(expect.arrayContaining(want));
+    expect(r.hits.map((h) => h.target.id)).not.toContain('m31');
+    for (const h of r.hits) expect(['substring', 'word-prefix']).not.toContain(h.match);
+  });
+
+  it.each([['theta'], ['delta'], ['Θ'], ['δ']])('%s never returns Seyfert\'s Sextet, Stephan\'s Quintet, Andromeda or M11 by substring', (text) => {
+    const found = index.search({ text, limit: 100 }).hits.map((h) => h.target.id);
+    for (const id of ['ngc6705', 'm31', 'ngc6027', 'ngc7317']) expect(found).not.toContain(id);
+    for (const h of index.search({ text, limit: 100 }).hits) expect(['substring', 'word-prefix']).not.toContain(h.match);
+  });
+
+  it('a half typed last word still works: "omega cen"', () => {
+    expect(ids({ text: 'omega cen' })[0]).toBe('ngc5139');
+  });
+});
+
+describe('Melotte and Collinder spelled out', () => {
+  it.each([
+    ['Melotte 111', 'mel111'],
+    ['Mel 111', 'mel111'],
+    ['Melotte 22', 'mel22'],
+    ['Collinder 399', 'cl399'],
+    ['Cr 399', 'cl399'],
+    ['Cl 399', 'cl399'],
+  ])('%s -> %s first, as a designation', (text, id) => {
+    const r = index.search({ text });
+    expect(r.hits[0].target.id).toBe(id);
+    expect(r.hits[0].match).toBe('designation');
+    expect(r.notFoundLocally).toBe(false);
+  });
+});
+
+describe('nicknames added in round 3', () => {
+  it.each([
+    ['Ghost of Jupiter', 'ngc3242'],
+    ["Jupiter's Ghost", 'ngc3242'],
+    ['Running Chicken', 'ic2944'],
+    ['Prawn', 'ic4628'],
+    ["Cat's Paw", 'ngc6334'],
+    ['Fish Head', 'ic1795'],
+    ["Pickering's Triangle", 'ngc6979'],
+    ['Subaru', 'mel22'],
+    ['Krittika', 'mel22'],
+    ['Wild Duck', 'ngc6705'],
+    ['Swan Nebula', 'ngc6618'],
+    ['Omega Nebula', 'ngc6618'],
+  ])('%s -> %s first', (text, id) => {
+    expect(ids({ text })[0]).toBe(id);
+  });
+
+  it('the objects that are not in the extract stay unfound (known gaps, not aliases)', () => {
+    for (const text of ['Cartwheel', 'Tulip Nebula', 'Spaghetti Nebula']) {
+      expect(index.search({ text })).toMatchObject({ hits: [], notFoundLocally: true });
+    }
+  });
+});
+
+describe('displayName', () => {
+  const show = (text: string): string | undefined => {
+    const t = index.search({ text }).hits[0].target;
+    return t.displayName ?? t.name;
+  };
+
+  it.each([
+    ['M11', 'Wild Duck Cluster'],
+    ['M17', 'Omega Nebula'],
+    ['NGC 253', 'Sculptor Galaxy'],
+    ['IC 1805', 'Heart Nebula'],
+    ['NGC 281', 'Pacman Nebula'],
+    ['NGC 6979', "Pickering's Triangle"],
+    ['NGC 3242', 'Ghost of Jupiter Nebula'],
+  ])('%s is shown as %s', (text, label) => {
+    expect(show(text)).toBe(label);
+  });
+
+  it('the upstream name stays searchable and in the aliases', () => {
+    const t = index.search({ text: 'Checkmark Nebula' }).hits[0].target;
+    expect(t.id).toBe('ngc6618');
+    expect(t.name).toBe('Checkmark Nebula');
+    expect(t.displayName).toBe('Omega Nebula');
+    expect(index.search({ text: 'Amas de l\'Ecu de Sobieski' }).hits[0].target.id).toBe('ngc6705');
+    expect(index.search({ text: 'Sculptor Filament' }).hits[0].target.id).toBe('ngc253');
+  });
+
+  it('an object with no display name carries none', () => {
+    expect(index.search({ text: 'NGC 7000' }).hits[0].target).not.toHaveProperty('displayName');
+  });
+
+  it('every displayName is searchable and finds its object first', () => {
+    const entries = JSON.parse(readFileSync(join(process.cwd(), 'src', 'planner', 'data', 'catalog-supplement.json'), 'utf8')).entries as { id: string; displayName?: string }[];
+    for (const e of entries.filter((x) => x.displayName !== undefined)) {
+      expect(ids({ text: e.displayName! })[0]).toBe(e.id);
+    }
+  });
+});
+
+describe('prefix queries', () => {
+  it('"Virgo Cluster" is a name-prefix hit on M99\'s alias "Virgo Cluster Pinwheel", never a name-exact: there is no Virgo Cluster object', () => {
+    const r = index.search({ text: 'Virgo Cluster' });
+    expect(r.hits[0]).toMatchObject({ match: 'name-prefix' });
+    expect(r.hits[0].target.id).toBe('ngc4254');
+  });
+
+  it.each(['NGC', 'ngc', 'IC', 'M', 'Mel', 'Cl'])('a bare catalog name "%s" returns no hits and is not a miss', (text) => {
+    expect(index.search({ text })).toMatchObject({ hits: [], total: 0, notFoundLocally: false });
   });
 });

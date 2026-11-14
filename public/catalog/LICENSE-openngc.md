@@ -1,4 +1,4 @@
-# Licence of openngc-v20260501-r2.json
+# Licence of openngc-v20260501-r3.json
 
 - This file is Adapted Material made from OpenNGC release v20260501 by Mattia Verga
   (https://github.com/mattiaverga/OpenNGC), licensed CC BY-SA 4.0.

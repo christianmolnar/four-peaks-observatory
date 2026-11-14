@@ -6,6 +6,8 @@ import type { CatalogObject } from './openngc';
 export interface SupplementEntry {
   id: string;
   names: string[];
+  /** The label the UI shows instead of the upstream name. Also searchable; the upstream name stays an alias. */
+  displayName?: string;
 }
 
 /** A correction to an upstream name (own work, CC0; see `data/catalog-overrides.json`). */
@@ -33,7 +35,8 @@ export function loadSupplement(raw: unknown): SupplementEntry[] {
   return entries.map((e: Record<string, unknown>, i) => {
     if (typeof e.id !== 'string' || e.id === '') fail('catalog-supplement.json', i, 'expected an id');
     if (!isStrings(e.names)) fail('catalog-supplement.json', i, 'expected a non-empty list of names');
-    return { id: e.id, names: e.names };
+    if (e.displayName !== undefined && (typeof e.displayName !== 'string' || e.displayName.trim() === '')) fail('catalog-supplement.json', i, 'expected a displayName');
+    return { id: e.id, names: e.names, ...(e.displayName === undefined ? {} : { displayName: e.displayName as string }) };
   });
 }
 
@@ -79,8 +82,9 @@ export function applyPatches(objects: readonly CatalogObject[], patches: Catalog
   }
   for (const sup of patches.supplement) {
     const o = get(sup.id, 'catalog-supplement.json');
+    if (sup.displayName !== undefined) o.displayName = sup.displayName;
     const have = new Set([o.name, ...(o.aliases ?? [])]);
-    const add = sup.names.filter((n) => !have.has(n));
+    const add = [...new Set([...sup.names, ...(sup.displayName === undefined ? [] : [sup.displayName])])].filter((n) => !have.has(n));
     if (add.length > 0) o.aliases = [...(o.aliases ?? []), ...add];
   }
   return objects.map((o) => byId.get(o.id) as CatalogObject);

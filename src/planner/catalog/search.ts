@@ -1,5 +1,5 @@
-import { TARGET_TYPES, nameWords, normalizeName } from './index';
-import type { CatalogTarget, TargetType } from './index';
+import { TARGET_TYPES, nameTokens, nameWords, normalizeName } from './index';
+import type { CatalogTarget, NameWord, TargetType } from './index';
 import type { CatalogObject } from './openngc';
 import { applyPatches } from './supplement';
 import type { CatalogPatches } from './supplement';
@@ -17,6 +17,8 @@ export interface SearchTarget {
   readonly decDeg: number;
   readonly type: TargetType;
   readonly sizeArcmin?: Readonly<{ major: number; minor: number }>;
+  /** The label to show when it differs from the upstream name ("Wild Duck Cluster" for M11); `name` otherwise. */
+  readonly displayName?: string;
   readonly positionAngleDeg?: number;
   readonly mag?: number;
   readonly surfaceBrightness?: number;
@@ -93,6 +95,7 @@ interface NameKey {
   key: string;
   /** Offsets in `key` where each word after the first starts. */
   wordStarts: number[];
+  words: string[];
 }
 
 interface Entry {
@@ -112,7 +115,7 @@ function nameKey(label: string): NameKey {
     if (i > 0) wordStarts.push(at);
     at += w.length;
   });
-  return { key: words.join(''), wordStarts };
+  return { key: words.join(''), wordStarts, words };
 }
 
 function addLabel(e: Entry, label: string, own: 0 | 1): void {
@@ -183,6 +186,7 @@ function fromObject(o: CatalogObject): Entry {
       ...(o.majorArcmin === undefined
         ? {}
         : { sizeArcmin: { major: o.majorArcmin, minor: o.minorArcmin ?? o.majorArcmin } }),
+      ...(o.displayName === undefined ? {} : { displayName: o.displayName }),
       ...(o.positionAngleDeg === undefined ? {} : { positionAngleDeg: o.positionAngleDeg }),
       ...(o.mag === undefined ? {} : { mag: o.mag }),
       ...(o.surfaceBrightness === undefined ? {} : { surfaceBrightness: o.surfaceBrightness }),
@@ -287,13 +291,28 @@ interface Match {
 }
 
 /**
+ * Where a query with a Greek letter in it starts in a name, as a word index, or null. "omega", "theta" and "delta"
+ * are the abbreviations ome, tet and del, which sit inside other words (andROMEda, sexTET, amas DE Lecu), so every
+ * word of the query must be a whole word of the name; only the last one, if it is not a Greek letter, may be half typed.
+ */
+function greekWordMatch(words: readonly string[], q: readonly NameWord[]): number | null {
+  for (let at = 0; at + q.length <= words.length; at++) {
+    const ok = q.every((t, i) => (i === q.length - 1 && !t.greek ? words[at + i].startsWith(t.word) : words[at + i] === t.word));
+    if (ok) return at;
+  }
+  return null;
+}
+
+/**
  * How a query matches an entry, or null.
  * - A designation-shaped query ("ngc651", "c14") is complete: it matches only that designation (or a name that is
  *   exactly that). There is no prefix match, so "NGC 651" never turns into "NGC 6514".
+ * - A query with a Greek letter in it ("omega", "ω Cen", "theta") matches whole words only: no substring and no
+ *   word-prefix inside a longer word.
  * - A number alone ("7000", "42") means that number in any catalog: M42, NGC 42, IC 42, C 42, ranked in that
  *   order; a name that starts with the digits ("47 Tucanae") also matches. It never matches inside a name.
  */
-function exactMatch(e: Entry, q: string): Match | null {
+function exactMatch(e: Entry, q: string, greek: NameWord[] | null): Match | null {
   const own = e.designations.get(q);
   if (own !== undefined) return { kind: 'designation', sub: own, dist: 0 };
   if (NUMBER_ONLY.test(q)) {
@@ -316,6 +335,10 @@ function exactMatch(e: Entry, q: string): Match | null {
   for (const n of e.names) {
     if (n.key === q) take('name-exact');
     else if (complete) continue;
+    else if (greek !== null) {
+      const at = greekWordMatch(n.words, greek);
+      if (at !== null) take(at === 0 ? 'name-prefix' : 'word-prefix');
+    }
     else if (n.key.startsWith(q)) take('name-prefix');
     else if (n.wordStarts.some((s) => n.key.startsWith(q, s))) take('word-prefix');
     else if (n.key.includes(q)) take('substring');
@@ -424,6 +447,12 @@ export function createCatalogIndex(
     else absorb(owner, entry);
   }
   const entries: Entry[] = [...curatedEntries, ...rest];
+  // The letters of every catalog designation ("ngc", "ic", "m", "mel"): typed alone they are the start of a number, not a name.
+  const catalogPrefixes = new Set<string>();
+  for (const e of entries) for (const k of e.designations.keys()) {
+    const prefix = /^([a-z]+)\d/.exec(k);
+    if (prefix !== null) catalogPrefixes.add(prefix[1]);
+  }
   for (const e of entries) deepFreeze(e.target);
   const ids = new Set<string>();
   for (const e of entries) {
@@ -440,6 +469,8 @@ export function createCatalogIndex(
       const q = normalizeName(text);
       // Something was typed but nothing searchable is left of it ("🔭", ".*"): a miss, not an empty box.
       if (text !== '' && q === '') return { text, hits: [], total: 0, notFoundLocally: true };
+      // "NGC" alone is a catalog waiting for its number: no hits, and not a miss for an online lookup either.
+      if (catalogPrefixes.has(q)) return { text, hits: [], total: 0, notFoundLocally: false };
       const filtered = (list: { e: Entry; m: Match | null }[]): SearchHit[] =>
         list
           .map(({ e, m }) => ({ e, m, f: passes(e.target, query) }))
@@ -457,8 +488,10 @@ export function createCatalogIndex(
         return { text, hits: all.slice(0, limit), total: all.length, notFoundLocally: false };
       }
 
+      const tokens = nameTokens(text);
+      const greek = tokens.some((t) => t.greek) && !DESIGNATION.test(q) ? tokens : null;
       let matched = entries.flatMap((e) => {
-        const m = exactMatch(e, q);
+        const m = exactMatch(e, q, greek);
         return m === null ? [] : [{ e, m }];
       });
       let found = matched.sort(compareEntries);

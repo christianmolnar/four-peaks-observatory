@@ -1,7 +1,7 @@
 # Planner catalog: bundled OpenNGC extract
 
 ## What it is
-- Static asset `public/catalog/openngc-v20260501-r2.json`, built from OpenNGC tag v20260501 (Mattia Verga).
+- Static asset `public/catalog/openngc-v20260501-r3.json`, built from OpenNGC tag v20260501 (Mattia Verga).
 - Loaded on first search by `src/planner/catalog/loader.ts`, validated by `openngc.ts`, indexed by `search.ts`.
 - Merged with the 25 curated targets in `src/planner/data/targets.json`: a catalog object that shares a designation
   with a curated target, or a common name and a place inside its footprint (NGC 2238 and the Rosette, IC 4703 and the
@@ -17,9 +17,10 @@
 - Output is deterministic; the file records the SHA-256 of both inputs.
 - The script exits non-zero if any Messier (other than M102) or any Caldwell object does not resolve.
 
-## Measured (v20260501, revision 2)
-- 4,920 objects; 510 of them with aliases (562 aliases); 363 Dup rows folded, 289 Dup rows without a primary in the extract.
-- 1,059,983 bytes raw, 158,284 bytes gzip -9. Search index over catalog and curated targets: 4,914 targets.
+## Measured (v20260501, revision 3)
+- 4,920 objects; 508 of them with aliases (560 aliases); 363 Dup rows folded, 289 Dup rows without a primary in the extract.
+- 2 cross-references dropped (`crossRefConflicts`): NGC 7368 and NGC 7418 both list IC 1459, which has its own row.
+- 1,059,939 bytes raw, 158,276 bytes gzip -9. Search index over catalog and curated targets: 4,914 targets.
 
 ## Filter rules
 - Types kept: galaxies, galaxy pairs/triplets/groups, open and globular clusters, planetary nebulae, nebulae
@@ -35,6 +36,10 @@
 - Cross-references: the NGC, IC and M columns are split on commas and keep letter suffixes and NED components
   (`0547,2494`, `1487NW`, `4656 NED02`); every number except the row's own becomes an alias (NGC 2244 on NGC 2239).
   The build throws on a value it cannot read; the loader rejects an alias that holds `NaN`.
+- One designation, one object: a cross-reference that is another kept row's own designation is dropped and listed in
+  the report as `crossRefConflicts` (IC 1459 on NGC 7368 and NGC 7418, 34 arcmin and 3 degrees from IC 1459 itself).
+  A test checks the whole designation map: no designation-shaped key belongs to two objects, except the NED
+  components of one group.
 - Dup rows are dropped as objects, but each one's number is folded into the aliases of the object its NGC, IC or M
   column names, when that object is in the extract (NGC 6533 on the Lagoon, M102 on M101). The build report lists the
   Dup rows whose primary is not in the extract (`dupUnresolved`): those numbers stay unfound. That includes IC 819,
@@ -59,7 +64,14 @@
   Sculptor Galaxy, 47 Tucanae, Clownface, Skull). Own work, CC0-1.0, kept apart from the OpenNGC file. Names OpenNGC
   already has (Pelican, Cocoon, Bubble, Crescent, Iris, Cave, Whale, Sunflower, Black Eye, Needle, Horsehead, Double
   Cluster; Monkey Head, Christmas Tree and Cone, Cigar, Leo Triplet, Markarian's Chain among the curated) are not repeated.
-- Not added: the Tulip (Sh2-101) and the Virgo Cluster have no catalog object to tie to.
+- Added in revision 3: Ghost of Jupiter (NGC 3242), Running Chicken (IC 2944), Prawn (IC 4628), Cat's Paw
+  (NGC 6334), Fish Head (IC 1795), Pickering's Triangle (NGC 6979), Subaru and Krittika (M45).
+- Known gaps, not aliases: the Tulip (Sh2-101), the Cartwheel, the Spaghetti Nebula and the Virgo Cluster have no
+  object in the extract to tie to. Their searches say `notFoundLocally`, which is the hook for the online lookup.
+- `displayName` (supplement entries): the label the planner shows instead of the upstream name, for example M11
+  "Wild Duck Cluster" (upstream "Amas de l'Ecu de Sobieski"), M17 "Omega Nebula" (upstream "Checkmark Nebula"),
+  NGC 253 "Sculptor Galaxy", IC 1805 "Heart Nebula". Search hits carry it as `target.displayName`; the UI shows
+  `displayName ?? name`. `name` stays upstream's and is still searchable; the display name is added as an alias.
 - `src/planner/data/catalog-overrides.json`: corrections to upstream names, each with its reason. Own work, CC0-1.0.
   - IC 434 is not the Flame Nebula (OpenNGC's own note says it is the strip behind the Horsehead). NGC 2024 is.
     IC 434 is named "IC 434" and NGC 2024 "Flame Nebula". No other upstream naming error was verified.
@@ -68,7 +80,15 @@
 ## Search rules
 - Name keys: NFKC (full-width digits and letters), lower case, apostrophes dropped, a leading "the" dropped, Greek
   letters (symbol or spelled out) as SIMBAD Bayer abbreviations (`ω`, `omega` -> `ome`; `θ` -> `tet`), Barnard -> B,
-  Sharpless (with or without the 2) -> Sh2.
+  Sharpless (with or without the 2) -> Sh2, Melotte -> Mel, Collinder and Cr -> Cl.
+- A query with a Greek letter in it matches whole words only (no substring, no word-prefix inside a longer word):
+  "omega" does not find Andromeda, "theta" not Seyfert's Sextet, "delta" not M11. Only the last word, if it is not a
+  Greek letter, may be half typed ("omega cen").
+- A bare catalog name ("NGC", "IC", "M", "Mel", "Cl"; any letters that start a designation in the index) returns no
+  hits and is not a miss: it is a catalog waiting for its number.
+- A name-prefix hit can sit on an alias: "Virgo Cluster" returns M99 as `name-prefix` of "Virgo Cluster Pinwheel". Kept
+  on purpose (the alias is real and the match kind says it is not exact); the UI should not treat `name-prefix` as a
+  confident answer.
 - A designation-shaped query (`ngc651`, `ic5`, `c14`) is complete: it matches that designation or an exact name,
   never a prefix. No hit means `notFoundLocally: true`.
 - A number alone (`42`, `7000`) means that number in every catalog (M, NGC, IC, Caldwell, in that order); a name

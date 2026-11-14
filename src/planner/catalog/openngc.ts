@@ -2,13 +2,15 @@ import { TARGET_TYPES } from './index';
 import type { TargetType } from './index';
 
 /** Where the bundled extract is served from (written by `scripts/build-catalog.mjs`). */
-export const CATALOG_URL = '/catalog/openngc-v20260501-r2.json';
+export const CATALOG_URL = '/catalog/openngc-v20260501-r3.json';
 
 /** One object of the bundled OpenNGC extract. Field names are the file's own. */
 export interface CatalogObject {
   /** Lower case OpenNGC name without leading zeros: "ngc224", "ic405", "mel22". */
   id: string;
   name: string;
+  /** Set by the name supplement, never in the file: the label people expect ("Wild Duck Cluster"); `name` stays upstream's. */
+  displayName?: string;
   type: TargetType;
   /** J2000 right ascension in hours, [0, 24). */
   raHours: number;

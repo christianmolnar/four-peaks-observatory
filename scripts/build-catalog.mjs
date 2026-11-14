@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds the bundled deep-sky extract public/catalog/openngc-v20260501-r2.json from OpenNGC.
+// Builds the bundled deep-sky extract public/catalog/openngc-v20260501-r3.json from OpenNGC.
 //
 //   node scripts/build-catalog.mjs                      fetch NGC.csv and addendum.csv at the pinned tag
 //   node scripts/build-catalog.mjs --src <dir>          read NGC.csv and addendum.csv from <dir> instead
@@ -16,7 +16,7 @@ import { gzipSync } from 'node:zlib';
 
 export const TAG = 'v20260501';
 // Bump when the build rules change the output for the same tag: the file is served `immutable`, so its name must change.
-export const REVISION = 2;
+export const REVISION = 3;
 const RAW = `https://raw.githubusercontent.com/mattiaverga/OpenNGC/${TAG}/database_files`;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_OUT = join(ROOT, 'public', 'catalog', `openngc-${TAG}-r${REVISION}.json`);
@@ -112,7 +112,7 @@ function sbFrom(mag, maj, min) {
 }
 
 /** One OpenNGC row -> extract record. Returns null for a row without usable coordinates. */
-function toRecord(row, type) {
+function toRecord(row, type, crossRefsOut) {
   if (row.RA === '' || row.Dec === '') return null;
   const maj = num(row.MajAx);
   const min = num(row.MinAx);
@@ -143,6 +143,8 @@ function toRecord(row, type) {
   const aliases = [...new Set([...common.slice(1), ...(own ? [own] : []), ...parentLabel, ...crossRefs, ...extra])].filter(
     (a) => a !== name,
   );
+  // Remembered so the build can drop the ones that are another kept row's own designation (see `buildExtract`).
+  crossRefsOut.set(idOf(row.Name), new Set(crossRefs));
 
   const rec = {
     id: idOf(row.Name),
@@ -184,6 +186,7 @@ export function buildExtract(ngcCsv, addendumCsv) {
   const droppedByType = {};
   const droppedNamed = []; // dropped by type although it has a common name, an M or a C number
   const dupRows = [];
+  const crossRefsByRow = new Map();
   let droppedByCut = 0;
 
   for (const row of rows) {
@@ -212,7 +215,7 @@ export function buildExtract(ngcCsv, addendumCsv) {
         continue;
       }
     }
-    const rec = toRecord(row, type);
+    const rec = toRecord(row, type, crossRefsByRow);
     if (rec === null) {
       droppedByCut += 1;
       continue;
@@ -221,6 +224,23 @@ export function buildExtract(ngcCsv, addendumCsv) {
   }
 
   objects.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  // A cross-reference that is another kept row's own designation is upstream's mistake (NGC 7368 and NGC 7418 both
+  // list IC 1459, which has its own row 34 arcmin and 3 degrees away): one designation, one object. Dropped, and listed.
+  const ownLabels = new Set(objects.flatMap((o) => [
+    ...(o.ngc === undefined ? [] : [`NGC ${o.ngc}`]),
+    ...(o.ic === undefined ? [] : [`IC ${o.ic}`]),
+    ...(o.m === undefined ? [] : [`M${o.m}`]),
+  ]));
+  const crossRefConflicts = [];
+  for (const o of objects) {
+    const refs = crossRefsByRow.get(o.id) ?? new Set();
+    const bad = (o.aliases ?? []).filter((a) => refs.has(a) && ownLabels.has(a));
+    if (bad.length === 0) continue;
+    o.aliases = o.aliases.filter((a) => !bad.includes(a));
+    if (o.aliases.length === 0) delete o.aliases;
+    for (const a of bad) crossRefConflicts.push(`${labelOf(o.id.toUpperCase())} -> ${a}`);
+  }
 
   // A Dup row is a second number of an object that has its own row; its NGC, IC or M column names that object.
   // The Dup's own number (and its M number, if any) becomes an alias of the object, so it can be searched.
@@ -260,6 +280,7 @@ export function buildExtract(ngcCsv, addendumCsv) {
       droppedNamed,
       dupFolded: dupFolded.length,
       dupUnresolved,
+      crossRefConflicts,
       missingMessier,
       missingCaldwell,
     },

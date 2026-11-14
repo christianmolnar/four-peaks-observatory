@@ -46,21 +46,29 @@ export interface CatalogTarget {
 // Greek letters as the Bayer abbreviations SIMBAD and OpenNGC use ("tet Car Cluster", "omi Per Cloud"), so a typed
 // "ω Cen" or "omega cen" and the catalog's "Omega Centauri" meet on the same letters.
 const GREEK: Record<string, string> = {
-  α: 'alp', β: 'bet', γ: 'gam', δ: 'del', ε: 'eps', ζ: 'zet', η: 'eta', θ: 'tet', ι: 'iot', κ: 'kap', λ: 'lam', μ: 'mu',
-  ν: 'nu', ξ: 'ksi', ο: 'omi', π: 'pi', ρ: 'rho', σ: 'sig', ς: 'sig', τ: 'tau', υ: 'ups', φ: 'phi', χ: 'chi', ψ: 'psi', ω: 'ome',
+  α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', ε: 'epsilon', ζ: 'zeta', η: 'eta', θ: 'theta', ι: 'iota', κ: 'kappa',
+  λ: 'lambda', μ: 'mu', ν: 'nu', ξ: 'xi', ο: 'omicron', π: 'pi', ρ: 'rho', σ: 'sigma', ς: 'sigma', τ: 'tau', υ: 'upsilon',
+  φ: 'phi', χ: 'chi', ψ: 'psi', ω: 'omega',
 };
 const GREEK_WORDS: Record<string, string> = {
-  alpha: 'alp', beta: 'bet', gamma: 'gam', delta: 'del', epsilon: 'eps', zeta: 'zet', theta: 'tet', iota: 'iot', kappa: 'kap',
-  lambda: 'lam', xi: 'ksi', omicron: 'omi', sigma: 'sig', upsilon: 'ups', omega: 'ome',
+  alpha: 'alp', beta: 'bet', gamma: 'gam', delta: 'del', epsilon: 'eps', zeta: 'zet', eta: 'eta', theta: 'tet', iota: 'iot',
+  kappa: 'kap', lambda: 'lam', mu: 'mu', nu: 'nu', xi: 'ksi', omicron: 'omi', pi: 'pi', rho: 'rho', sigma: 'sig', tau: 'tau',
+  upsilon: 'ups', phi: 'phi', chi: 'chi', psi: 'psi', omega: 'ome',
 };
 const GREEK_SYMBOLS = new RegExp(`[${Object.keys(GREEK).join('')}]`, 'g');
+
+/** A word of a name; `greek` when it is a Greek letter (symbol or spelled out) turned into its Bayer abbreviation. */
+export interface NameWord {
+  word: string;
+  greek: boolean;
+}
 
 /**
  * The words of a name: Unicode compatibility form (NFKC: full-width digits and letters), lower case, apostrophes
  * dropped, a leading "the" dropped, Greek letters (symbol or spelled out) as Bayer abbreviations, split on anything
  * that is not a letter or digit.
  */
-export function nameWords(name: string): string[] {
+export function nameTokens(name: string): NameWord[] {
   const text = name
     .normalize('NFKC')
     .toLowerCase()
@@ -70,13 +78,15 @@ export function nameWords(name: string): string[] {
   return text
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
-    .map((w) => GREEK_WORDS[w] ?? w);
+    .map((w) => (Object.hasOwn(GREEK_WORDS, w) ? { word: GREEK_WORDS[w], greek: true } : { word: w, greek: false }));
 }
+
+export const nameWords = (name: string): string[] => nameTokens(name).map((t) => t.word);
 
 /**
  * Lookup key: the words of the name joined, with leading zeros removed from a trailing catalog number ("NGC 0224",
  * "ngc224" and "N G C 224" agree). Catalog names collapse to their short form: "Messier 42" is "M42", "Caldwell 33" is
- * "C33", "Barnard 33" is "B33", "Sharpless 155" and "Sharpless 2-155" are "Sh2155" (as in "Sh 2-155").
+ * "C33", "Barnard 33" is "B33", "Sharpless 155" and "Sharpless 2-155" are "Sh2155" (as in "Sh 2-155"), "Melotte 111" is "Mel111", "Collinder 399" and "Cr 399" are "Cl399".
  */
 export function normalizeName(name: string): string {
   const words = nameWords(name);
@@ -86,7 +96,9 @@ export function normalizeName(name: string): string {
     .replace(/^messier(?=\d)/, 'm')
     .replace(/^caldwell(?=\d)/, 'c')
     .replace(/^barnard(?=\d)/, 'b')
-    .replace(/^sharpless(?=\d)/, 'sh2');
+    .replace(/^sharpless(?=\d)/, 'sh2')
+    .replace(/^melotte(?=\d)/, 'mel')
+    .replace(/^(collinder|cr)(?=\d)/, 'cl');
   return key.replace(/^([a-z]+)0+(\d)/, '$1$2');
 }
 
