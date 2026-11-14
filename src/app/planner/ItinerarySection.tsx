@@ -5,7 +5,7 @@ import type { MutableRefObject } from 'react';
 import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import { starterTargets } from '@/planner/catalog';
-import { DEFAULT_BORTLE, MODES, MODE_ORDER } from '@/planner/exposure';
+import { MODES, MODE_ORDER } from '@/planner/exposure';
 import type { ExposureMode } from '@/planner/exposure';
 import { usableWindowsOnTrack } from '@/planner/horizon';
 import type { HorizonPoint } from '@/planner/horizon';
@@ -47,6 +47,10 @@ export interface ItinerarySectionProps {
   night: AstronomicalNight;
   horizon: readonly HorizonPoint[] | null;
   minAltitude: number;
+  /** Sky darkness of the chosen site (Bortle 1 to 9); set once in the site editor. */
+  bortle: number;
+  /** False: the site has none and DEFAULT_BORTLE is an assumption, said so. */
+  bortleSet: boolean;
   formatTime: (d: Date) => string;
   /** IANA zone of the site (or the browser): the start time is a clock time in it. */
   timeZone?: string;
@@ -126,7 +130,7 @@ function Detail({
  * a train, a filter and a mode, scheduled one after the other with the changeover between them. Subs and counts come
  * from the exposure module; every time and number here is an estimate. Saved in this browser with a version.
  */
-export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, formatTime, timeZone, report }: ItinerarySectionProps) {
+export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, timeZone, report }: ItinerarySectionProps) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [startTime, setStartTime] = useState<string | null>(null);
   // What is being typed in the start box; null: show the saved start time.
@@ -136,7 +140,6 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   const [loaded, setLoaded] = useState(false);
   // A rejected saved itinerary is an alert; a storage that cannot be read or written is a status (the page already reports blocked storage).
   const [problem, setProblem] = useState<{ text: string; urgent: boolean } | null>(null);
-  const [bortle, setBortle] = useState<number>(DEFAULT_BORTLE);
   const [addId, setAddId] = useState<string>('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const focusNext = useRef<string | null>(null);
@@ -307,7 +310,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
         Slots run in the order below, one after the other. Each starts when the one before is done and the changeover is over, or when its target clears your horizon, whichever is later. Times, subs and overhead are estimates for tonight, not predictions. Setup (30 minutes) happens before the first slot and is not counted.
       </p>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[2fr_auto_1fr] items-end">
+      <div className="mt-4 grid gap-4 md:grid-cols-[2fr_auto] items-end">
         <div>
           <label htmlFor="it-add-target" className="block text-white/90 font-normal text-sm mb-1">Target to add</label>
           <WrapSelect id="it-add-target" className="w-full" value={addId || options[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={options.length === 0}>
@@ -321,17 +324,9 @@ export default function ItinerarySection({ profile, train, entries, site, night,
         <button type="button" className={btn44} onClick={add} disabled={addDisabledReason !== '' || options.length === 0}>
           Add to itinerary
         </button>
-        <div>
-          <label htmlFor="it-bortle" className="block text-white/90 font-normal text-sm mb-1">Bortle class for the itinerary</label>
-          <WrapSelect id="it-bortle" className="w-full" value={bortle} onChange={(e) => setBortle(Number(e.target.value))}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((b) => (
-              <option key={b} value={b}>Bortle {b}</option>
-            ))}
-          </WrapSelect>
-        </div>
       </div>
       <p className="mt-1 text-white/70 font-normal text-xs min-h-8" data-testid="itinerary-add-note">
-        {addDisabledReason || `New slots start on ${train.name}. Bortle ${DEFAULT_BORTLE} is assumed until you change it; not saved.`}
+        {addDisabledReason || `New slots start on ${train.name}. Bortle ${bortle}${bortleSet ? ' from the site' : ' assumed, the site has none'}; change it under Site and gear.`}
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div>
