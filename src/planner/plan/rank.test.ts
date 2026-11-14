@@ -9,10 +9,9 @@ import { opticalTrain } from '../optics';
 import { arcToHorizonPoints } from '../profile';
 import { moonSeparation, targetAltAz } from '../astro';
 import type { Site } from '../astro';
-import { BRIGHTNESS_REFERENCE, GALAXY_MAGNITUDE_REFERENCE } from './brightness';
-import { brightnessScore, framingScore, nightContext, planTonight } from './index';
+import { NOMINAL_FIELD_ARCMIN, fieldOf, framingScore, nightContext, percentOfFrame, planTonight, planTrainFor, sizeScore } from './index';
 import type { PlanTarget, PlanTrain, TonightInput } from './index';
-import { canReachAltitude, precessionMargin, rankTargets, screenTargets } from './rank';
+import { HIDDEN_LEADING, canReachAltitude, precessionMargin, rankTargets, screenTargets } from './rank';
 import type { RankInput } from './rank';
 
 const raw = JSON.parse(readFileSync(join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r3.json'), 'utf8'));
@@ -303,83 +302,58 @@ describe('the size band', () => {
     expect(r.entries[r.entries.length - 1].id).toBe('huge');
   });
 
-  it('reports the percent of the frame, from the long side, and nothing for an unknown size', () => {
+  it('reports the percent of the frame, the larger of the two sides\' shares, and nothing for an unknown size', () => {
     const r = rank({ ...base });
-    expect(r.entries.find((e) => e.id === 'mid')!.percentOfFrame).toBeCloseTo((10 / Math.max(narrow.optics!.fovWidthArcmin!, narrow.optics!.fovHeightArcmin!)) * 100, 9);
+    const o = narrow.optics!;
+    const long = Math.max(o.fovWidthArcmin!, o.fovHeightArcmin!);
+    const short = Math.min(o.fovWidthArcmin!, o.fovHeightArcmin!);
+    expect(r.entries.find((e) => e.id === 'mid')!.percentOfFrame).toBeCloseTo(Math.max(10 / long, 8 / short) * 100, 9);
     expect(r.entries.find((e) => e.id === 'nosize')!.percentOfFrame).toBeNull();
     expect(r.entries.find((e) => e.id === 'nosize')!.fit).toBe('unknown');
   });
 
-  it('applies no size band for a smart scope', () => {
-    expect(ids(rank({ ...base, train: smart }))).toEqual(['huge', 'mid', 'nosize', 'speck']);
+  it('judges a smart scope against the nominal field: no too-large screen, the speck is still too small', () => {
+    // 0.5 arcmin is 0.7 percent of the 76 arcmin nominal field, under the 3 percent floor; 80 arcmin is over it but fit is not computed.
+    expect(ids(rank({ ...base, train: smart }))).toEqual(['huge', 'mid', 'nosize']);
+    expect(ids(rank({ ...base, train: smart, minFramePercent: 0 }))).toEqual(['huge', 'mid', 'nosize', 'speck']);
+  });
+
+  it('reports what the band hid, with the brightest first: M31 at 540 mm, Omega Centauri at 2000 mm', () => {
+    const f540: PlanTrain = { kind: 'optical', name: '540', optics: opticalTrain({ focalLengthMm: 540, apertureMm: 80 }, { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176 }) };
+    const f2000: PlanTrain = { kind: 'optical', name: '2000', optics: opticalTrain({ focalLengthMm: 2000, apertureMm: 200 }, { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176 }) };
+    const a = rank({ train: f540, minAltitude: 30, limit: 1000 });
+    expect(a.counts.tooLarge).toBeGreaterThan(0);
+    expect(a.hidden.tooLarge.map((h) => h.id)).toContain('m31');
+    expect(a.hidden.tooLarge.length).toBeLessThanOrEqual(HIDDEN_LEADING);
+    expect(a.entries.some((e) => e.id === 'm31')).toBe(false);
+    expect(a.counts.tooSmall).toBeGreaterThan(0);
+    expect(a.hidden.tooSmall.length).toBe(HIDDEN_LEADING);
+    // With them asked for, nothing is hidden for size.
+    const all = rank({ train: f540, minAltitude: 30, limit: 1000, includeTooLarge: true, minFramePercent: 0 });
+    expect(all.counts).toMatchObject({ tooLarge: 0, tooSmall: 0 });
+    expect(all.hidden).toEqual({ tooLarge: [], tooSmall: [] });
+    // Omega Centauri is 27 arcmin on a 2000 mm frame of 40 x 27 arcmin: it does not fit.
+    const south = { site: { latitude: -40, longitude: 175 }, timeZone: 'Pacific/Auckland', date: '2027-06-15', train: f2000, minAltitude: 30, limit: 5000 };
+    const b = rank(south);
+    const withLarge = rank({ ...south, includeTooLarge: true });
+    const largeIds = withLarge.entries.filter((e) => e.fit === 'too-large').map((e) => e.id);
+    expect(largeIds).toContain('ngc5139');
+    // The count is of what the screen lets through (it may be up), so it can exceed the ones that turn out to have a usable window.
+    expect(b.counts.tooLarge).toBeGreaterThanOrEqual(largeIds.length);
+    expect(b.counts.tooLarge).toBeLessThanOrEqual(largeIds.length + 3);
+    expect(b.entries.some((e) => e.id === 'ngc5139')).toBe(false);
+    const mags = b.hidden.tooLarge.map((h) => catalog.find((t) => t.id === h.id)!.mag ?? Infinity);
+    expect(mags).toEqual([...mags].sort((x, y) => x - y));
   });
 });
 
-describe('brightness, per class', () => {
-  const ref = BRIGHTNESS_REFERENCE;
-
-  it('is neutral without data and reaches +10 at a class\'s first quartile, 0 at its median, -10 at its third', () => {
-    expect(brightnessScore({})).toBe(0);
-    expect(brightnessScore({ type: 'galaxy' })).toBe(0);
-    for (const [type, c] of [['nebula', 'nebula'], ['planetary-nebula', 'planetary-nebula']] as const) {
-      expect(brightnessScore({ type, surfaceBrightness: ref[c].q1 })).toBeCloseTo(10, 9);
-      expect(brightnessScore({ type, surfaceBrightness: ref[c].median })).toBeCloseTo(0, 9);
-      expect(brightnessScore({ type, surfaceBrightness: ref[c].q3 })).toBeCloseTo(-10, 9);
-      expect(brightnessScore({ type, surfaceBrightness: ref[c].q1 - 3 })).toBeCloseTo(10, 9);
-      expect(brightnessScore({ type, surfaceBrightness: ref[c].q3 + 3 })).toBeCloseTo(-10, 9);
-    }
-  });
-
-  it('scores the same "typical for its class" alike across classes: the median of each scores 0', () => {
-    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: ref.galaxy.median, mag: GALAXY_MAGNITUDE_REFERENCE.median })).toBeCloseTo(0, 9);
-    expect(brightnessScore({ type: 'open-cluster', surfaceBrightness: ref.cluster.median })).toBeCloseTo(0, 9);
-    expect(brightnessScore({ type: 'nebula', surfaceBrightness: ref.nebula.median })).toBeCloseTo(0, 9);
-    // The old shared scale gave a typical cluster (SB 21.2) +10 and a typical galaxy (23.2) -4.
-    expect(brightnessScore({ type: 'open-cluster', surfaceBrightness: 21.2 })).toBeLessThan(1);
-    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 23.2 })).toBeGreaterThan(-1);
-  });
-
-  it('scores a galaxy by the better of its surface brightness and its magnitude (NGC 891: faint on average, bright in total)', () => {
-    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 24.17, mag: 10.01 })).toBe(10);
-    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 24.17, mag: 15 })).toBe(-10);
-  });
-
-  it('uses magnitude, against the whole catalog\'s, when the surface brightness is not comparable: computed for a galaxy, or absent', () => {
-    expect(brightnessScore({ type: 'galaxy', surfaceBrightness: 20, sbComputed: true, mag: 12.53 })).toBeCloseTo(0, 9);
-    expect(brightnessScore({ type: 'double-star', mag: 8 })).toBe(10);
-    expect(brightnessScore({ type: 'nebula', mag: 8 })).toBe(10);
-  });
-
-  it('the reference ranges are the catalog\'s own quartiles (re-derive them when the extract changes)', () => {
-    const at = (xs: number[], p: number): number => [...xs].sort((a, b) => a - b)[Math.floor(p * (xs.length - 1))];
-    const objects = raw.objects as { type: string; mag?: number; surfaceBrightness?: number; sbComputed?: boolean }[];
-    const sb = (types: string[], computedOk: boolean): number[] =>
-      objects.filter((o) => types.includes(o.type) && o.surfaceBrightness !== undefined && (computedOk || !o.sbComputed)).map((o) => o.surfaceBrightness as number);
-    const groups: [string, number[]][] = [
-      ['galaxy', sb(['galaxy', 'galaxy-group'], false)],
-      ['cluster', sb(['open-cluster', 'globular-cluster', 'asterism'], true)],
-      ['nebula', sb(['nebula', 'dark-nebula', 'supernova-remnant'], true)],
-      ['planetary-nebula', sb(['planetary-nebula'], true)],
-      ['unknown', objects.filter((o) => o.mag !== undefined).map((o) => o.mag as number)],
-    ];
-    for (const [name, values] of groups) {
-      const r = ref[name as keyof typeof ref];
-      expect(r.q1).toBeCloseTo(at(values, 0.25), 1);
-      expect(r.median).toBeCloseTo(at(values, 0.5), 1);
-      expect(r.q3).toBeCloseTo(at(values, 0.75), 1);
-    }
-    const galaxyMags = objects.filter((o) => ['galaxy', 'galaxy-group'].includes(o.type) && o.surfaceBrightness !== undefined && !o.sbComputed && o.mag !== undefined).map((o) => o.mag as number);
-    expect(GALAXY_MAGNITUDE_REFERENCE.q1).toBeCloseTo(at(galaxyMags, 0.25), 1);
-    expect(GALAXY_MAGNITUDE_REFERENCE.median).toBeCloseTo(at(galaxyMags, 0.5), 1);
-    expect(GALAXY_MAGNITUDE_REFERENCE.q3).toBeCloseTo(at(galaxyMags, 0.75), 1);
-  });
-
+describe('brightness in the ranking', () => {
   it('ranks the brighter of two otherwise equal targets first, never hides the unknown, and says "computed"', () => {
     const at = { raHours: 4.5, decDeg: 33.5, type: 'nebula', sizeArcmin: { major: 10, minor: 8 } };
     const targets: PlanTarget[] = [
-      { id: 'faint', name: 'Faint', surfaceBrightness: 24, sbComputed: true, ...at },
+      { id: 'faint', name: 'Faint', mag: 12, surfaceBrightness: 24, sbComputed: true, ...at },
       { id: 'unknown', name: 'Unknown', ...at },
-      { id: 'bright', name: 'Bright', surfaceBrightness: 19, sbComputed: true, ...at },
+      { id: 'bright', name: 'Bright', mag: 4, surfaceBrightness: 19, sbComputed: true, ...at },
     ];
     const r = rank({ targets, includePlanets: false });
     expect(r.entries.map((e) => e.id)).toEqual(['bright', 'unknown', 'faint']);
@@ -422,6 +396,23 @@ describe('framing', () => {
     expect(framingScore(85)).toBeLessThan(10);
   });
 
+  it('stays inside its documented range -25..+10, also under the 3 percent floor', () => {
+    for (const p of [0, 0.5, 1, 2.9, 3, 10, 50, 100, 150, 1000]) {
+      expect(framingScore(p)).toBeGreaterThanOrEqual(-25);
+      expect(framingScore(p)).toBeLessThanOrEqual(10);
+    }
+    expect(framingScore(0)).toBe(-25);
+  });
+
+  it('is the larger of the major axis over the long side and the minor axis over the short side', () => {
+    // A round 95 arcmin object on a 150 x 100 frame is 63 percent of the long side but 95 percent of the short one.
+    const round = percentOfFrame(wide, { sizeArcmin: { major: 95, minor: 95 } })!;
+    const w = wide.optics!;
+    expect(round).toBeCloseTo((95 / Math.min(w.fovWidthArcmin!, w.fovHeightArcmin!)) * 100, 9);
+    expect(round).toBeGreaterThan((95 / Math.max(w.fovWidthArcmin!, w.fovHeightArcmin!)) * 100);
+    expect(percentOfFrame(wide, { sizeArcmin: { major: 30, minor: 5 } })).toBeCloseTo((30 / Math.max(w.fovWidthArcmin!, w.fovHeightArcmin!)) * 100, 9);
+  });
+
   it('a 6 arcmin cluster at 4 percent does not tie with M33 at 42 percent', () => {
     const at = { raHours: 1.56, decDeg: 33.5, type: 'open-cluster' };
     const targets: PlanTarget[] = [
@@ -432,5 +423,52 @@ describe('framing', () => {
     expect(r.entries.map((e) => e.id)).toEqual(['big', 'small']);
     expect(r.entries[0].score.total).toBeGreaterThan(r.entries[1].score.total);
     expect(r.entries[1].score.framing).toBeLessThan(-15);
+  });
+});
+
+describe('a train without a field of its own', () => {
+  it('is framed against the nominal smart-scope field, flagged nominal; a train with optics keeps its own', () => {
+    expect(NOMINAL_FIELD_ARCMIN).toEqual({ long: 76.2, short: 42.6 });
+    expect(fieldOf(smart)).toEqual({ long: 76.2, short: 42.6, nominal: true });
+    const noField: PlanTrain = { kind: 'optical', name: 'partial', optics: opticalTrain({ focalLengthMm: 500 }, {}) };
+    expect(fieldOf(noField).nominal).toBe(true);
+    const o = wide.optics!;
+    expect(fieldOf(wide)).toEqual({ long: Math.max(o.fovWidthArcmin!, o.fovHeightArcmin!), short: Math.min(o.fovWidthArcmin!, o.fovHeightArcmin!), nominal: false });
+    expect(percentOfFrame(smart, { sizeArcmin: { major: 38.1, minor: 10 } })).toBeCloseTo(50, 9);
+  });
+
+  it('a smart scope whose stored profile gives a field uses it, not the nominal one', () => {
+    const profile = {
+      equipment: { scopes: [], accessories: [], cameras: [], filters: [], smartScopes: [{ id: 'sm', name: 'Smart', mountMode: 'eq', focalLengthMm: 250, pixelSizeUm: 2.9, sensorWidthPx: 1920, sensorHeightPx: 1080 }] },
+    } as unknown as Parameters<typeof planTrainFor>[0];
+    const t = planTrainFor(profile, { kind: 'smart', id: 't', name: 'Smart', smartScopeId: 'sm' });
+    expect(t.kind).toBe('smart');
+    expect(fieldOf(t).nominal).toBe(false);
+    expect(fieldOf(t).long).toBeCloseTo((206.264806 * 2.9 * 1920) / 250 / 60, 6);
+    const bare = {
+      equipment: { scopes: [], accessories: [], cameras: [], filters: [], smartScopes: [{ id: 'sm', name: 'Smart', mountMode: 'eq' }] },
+    } as unknown as Parameters<typeof planTrainFor>[0];
+    expect(fieldOf(planTrainFor(bare, { kind: 'smart', id: 't', name: 'Smart', smartScopeId: 'sm' })).nominal).toBe(true);
+  });
+
+  it('adds a size term, from absolute size, only on a nominal field: 0 at 3 arcmin, 5 at 60, never on real optics', () => {
+    expect(sizeScore(3, true)).toBe(0);
+    expect(sizeScore(1, true)).toBe(0);
+    expect(sizeScore(60, true)).toBeCloseTo(5, 9);
+    expect(sizeScore(500, true)).toBeCloseTo(5, 9);
+    expect(sizeScore(10, true)).toBeLessThan(sizeScore(30, true));
+    expect(sizeScore(null, true)).toBe(0);
+    expect(sizeScore(60, false)).toBe(0);
+    const at = { raHours: 4.5, decDeg: 33.5, type: 'nebula', mag: 8 };
+    const targets: PlanTarget[] = [
+      { id: 'small', name: 'Small', sizeArcmin: { major: 4, minor: 4 }, ...at },
+      { id: 'big', name: 'Big', sizeArcmin: { major: 50, minor: 40 }, ...at },
+    ];
+    const s = rank({ targets, train: smart, includePlanets: false }).entries;
+    expect(s.map((e) => e.id)).toEqual(['big', 'small']);
+    expect(s[0].score.framing).toBe(0);
+    expect(s[0].score.size).toBeGreaterThan(s[1].score.size);
+    const w = rank({ targets, train: wide, includePlanets: false, minFramePercent: 0 }).entries;
+    expect(w.every((e) => e.score.size === 0)).toBe(true);
   });
 });

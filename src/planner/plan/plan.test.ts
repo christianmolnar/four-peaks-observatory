@@ -129,8 +129,8 @@ describe('planTonight', () => {
   it('score total is the sum of its parts, clamped to 0..100', () => {
     for (const e of plan.entries.filter((x) => x.usableMinutes > 0)) {
       const s = e.score;
-      const sum = s.usable + s.altitude + s.season + s.moon + s.fit + s.brightness + s.framing;
-      expect(s.total).toBe(Math.max(0, Math.min(100, Math.round(sum))));
+      const sum = s.usable + s.altitude + s.season + s.moon + s.fit + s.brightness + s.framing + s.size;
+      expect(s.total).toBe(Math.max(0, Math.min(100, Math.round(sum * 10) / 10)));
       expect(s.usable).toBeLessThanOrEqual(50);
       expect(s.altitude).toBeLessThanOrEqual(30);
       expect(s.moon).toBeLessThanOrEqual(0);

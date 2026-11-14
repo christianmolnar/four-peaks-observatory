@@ -28,9 +28,13 @@ export interface PlanTrain {
 
 /** Builds the plan's view of a train from the profile. Throws on an unresolved id. */
 export function planTrainFor(profile: Profile, train: TrainEntry): PlanTrain {
-  if (train.kind === 'smart') return { kind: 'smart', name: train.name, optics: null };
   const r = resolveTrain(profile, train);
-  return { kind: 'optical', name: train.name, optics: opticalTrain(r.scope, r.camera, r.accessory) };
+  const optics = opticalTrain(r.scope, r.camera, r.accessory);
+  if (train.kind === 'smart') {
+    // The stored field, when the profile holds enough to compute one (focal length, pixel size and sensor); else none, and the nominal field applies.
+    return { kind: 'smart', name: train.name, optics: optics.fovWidthArcmin !== undefined && optics.fovHeightArcmin !== undefined ? optics : null };
+  }
+  return { kind: 'optical', name: train.name, optics };
 }
 
 export type Fit = 'fits' | 'too-large' | 'unknown' | 'not-applicable';
@@ -48,9 +52,11 @@ export interface ScoreParts {
   fit: number;
   /** -10 to +10 against the object's own class (galaxy, cluster, nebula, planetary nebula, other); 0 when it has no photometry. */
   brightness: number;
-  /** -25 to +10 from the share of the frame it fills: best from 20 to 70 percent, worst at the 3 percent floor; 0 when unknown. */
+  /** -25 to +10 from the share of the frame it fills: best from 20 to 70 percent, worst at the 3 percent floor; 0 when unknown or when the field is nominal. */
   framing: number;
-  /** Sum of the parts, clamped to 0..100; 0 when there is no usable window. */
+  /** 0 to +5 from the target's absolute size, only when the train's field is nominal (a guess, not the user's optics); else 0. */
+  size: number;
+  /** Sum of the parts to one decimal (whole points left hundreds of a catalog's targets tied), clamped to 0..100; 0 when there is no usable window. */
   total: number;
 }
 
@@ -78,7 +84,7 @@ export interface PlanEntry {
   fit: Fit;
   /** Target size and field of view, arcminutes, when both are known. */
   fitDetail: string;
-  /** Major axis over the long side of the field, percent; null for planets, smart scopes and unknown sizes or fields. */
+  /** How much of the frame the target fills, percent (see `percentOfFrame`); null for planets and unknown sizes. Against the nominal field for a smart scope. */
   percentOfFrame: number | null;
   /** V magnitude from the catalog, else null. */
   magnitude: number | null;
@@ -276,24 +282,39 @@ export function fitLabel(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
   }
 }
 
-const SCORE_PARTS = ['usable', 'altitude', 'season', 'moon', 'fit', 'brightness', 'framing'] as const;
+const SCORE_PARTS = ['usable', 'altitude', 'season', 'moon', 'fit', 'brightness', 'framing', 'size'] as const;
 
 function scoreOf(parts: Omit<ScoreParts, 'total'>, usable: boolean): ScoreParts {
   const sum = SCORE_PARTS.reduce((s, k) => s + parts[k], 0);
-  return { ...parts, total: usable ? Math.max(0, Math.min(100, Math.round(sum))) : 0 };
+  return { ...parts, total: usable ? Math.max(0, Math.min(100, Math.round(sum * 10) / 10)) : 0 };
 }
 
-/** The train's field of view along its long side, arcminutes; null for a smart scope or an unknown field. */
-export function longFovArcmin(train: PlanTrain): number | null {
+/**
+ * The field a train without optics numbers is framed against: the ZWO Seestar S50, the most common smart scope,
+ * 1.27 x 0.71 degrees (ZWO's published specification; it agrees with 250 mm of focal length on a 1920 x 1080 sensor of
+ * 2.9 um pixels: 76.3 x 42.9 arcmin). A guess for any other smart scope, so it is flagged nominal.
+ */
+export const NOMINAL_FIELD_ARCMIN = { long: 76.2, short: 42.6 } as const;
+
+/** A train's field in arcminutes, long and short side; `nominal` when it is the guess above (a smart scope or a train with no field of its own). */
+export function fieldOf(train: PlanTrain): { long: number; short: number; nominal: boolean } {
   const o = train.optics;
-  if (train.kind === 'smart' || o === null || o.fovWidthArcmin === undefined || o.fovHeightArcmin === undefined) return null;
-  return Math.max(o.fovWidthArcmin, o.fovHeightArcmin);
+  if (o !== null && o.fovWidthArcmin !== undefined && o.fovHeightArcmin !== undefined) {
+    return { long: Math.max(o.fovWidthArcmin, o.fovHeightArcmin), short: Math.min(o.fovWidthArcmin, o.fovHeightArcmin), nominal: false };
+  }
+  return { ...NOMINAL_FIELD_ARCMIN, nominal: true };
 }
 
-/** Major axis over the long side of the field, percent; null when either is unknown. */
+/** The train's field of view along its long side, arcminutes (the nominal field's when it has none). */
+export function longFovArcmin(train: PlanTrain): number {
+  return fieldOf(train).long;
+}
+
+/** How much of the frame the target fills, percent: the larger of its major axis over the long side and its minor axis over the short side; null when the size is unknown. */
 export function percentOfFrame(train: PlanTrain, target: Pick<PlanTarget, 'sizeArcmin'>): number | null {
-  const fov = longFovArcmin(train);
-  return fov === null || !target.sizeArcmin ? null : (target.sizeArcmin.major / fov) * 100;
+  if (!target.sizeArcmin) return null;
+  const f = fieldOf(train);
+  return Math.max(target.sizeArcmin.major / f.long, target.sizeArcmin.minor / f.short) * 100;
 }
 
 /** Whether and how a target fits the train's frame, with the sentence for it. */
@@ -315,18 +336,36 @@ export function fitOf(train: PlanTrain, target: PlanTarget): { fit: Fit; detail:
 export { brightnessScore } from './brightness';
 
 /**
- * -25 to +10 from the share of the frame's long side the target fills: +10 from 20 to 70 percent, falling in a
+ * -25 to +10 from the share of the frame the target fills: +10 from 20 to 70 percent, falling in a
  * straight line to -25 at the 3 percent floor, and to 0 at 100 percent (one that is over the frame also takes the
- * too-large penalty). 0 when the share is unknown (a smart scope, no size, no field).
+ * too-large penalty). 0 when the size is unknown.
  */
 export function framingScore(percent: number | null): number {
   if (percent === null) return 0;
-  if (percent < FRAME_BEST_FROM) return -25 + ((percent - 3) / (FRAME_BEST_FROM - 3)) * 35;
+  if (percent < FRAME_BEST_FROM) return Math.max(-25, -25 + ((percent - 3) / (FRAME_BEST_FROM - 3)) * 35);
   if (percent <= FRAME_BEST_TO) return 10;
   return Math.max(0, ((100 - percent) / (100 - FRAME_BEST_TO)) * 10);
 }
 const FRAME_BEST_FROM = 20;
 const FRAME_BEST_TO = 70;
+
+/** Absolute size (major axis, arcmin) at which the size term starts, and at which it is full. */
+const SIZE_FROM_ARCMIN = 3;
+const SIZE_FULL_ARCMIN = 60;
+/** The most the size term adds: half of what brightness can swing either way, because the field it stands in for is a guess. */
+const SIZE_MAX = 5;
+
+/**
+ * 0 to +5 from a target's absolute size, on a log scale: nothing at 3 arcmin or less, full at 60 or more. Only used
+ * when the train's field is nominal (see `NOMINAL_FIELD_ARCMIN`), where the framing share is not scored: a speck is a
+ * speck in any smart scope, and a big nebula is worth the frame. Optical trains get 0: their framing score measures
+ * size against the real field.
+ */
+export function sizeScore(majorArcmin: number | null, nominal: boolean): number {
+  if (!nominal || majorArcmin === null) return 0;
+  const t = Math.log(majorArcmin / SIZE_FROM_ARCMIN) / Math.log(SIZE_FULL_ARCMIN / SIZE_FROM_ARCMIN);
+  return Math.max(0, Math.min(1, t)) * SIZE_MAX;
+}
 
 function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
   const text = describeSky(e, horizonSet, minAltitude);
@@ -477,6 +516,7 @@ function entryOf(ctx: NightContext, id: string, name: string, type: string, sour
   const inSeason = seasons.length > 0 ? seasons.includes(ctx.month) : null;
   const { fit, detail } = target ? fitOf(ctx.train, target) : { fit: 'not-applicable' as Fit, detail: '' };
   const percent = target ? percentOfFrame(ctx.train, target) : null;
+  const field = fieldOf(ctx.train);
   const score = scoreOf(
     {
       usable: Math.min(usableMinutes / 60 / 4, 1) * 50,
@@ -485,7 +525,9 @@ function entryOf(ctx: NightContext, id: string, name: string, type: string, sour
       moon: moonUp ? -20 * ctx.illumination * closeness : 0,
       fit: fit === 'too-large' ? -25 : 0,
       brightness: target ? brightnessScore(target) : 0,
-      framing: framingScore(percent),
+      // A share of a guessed (nominal) field says too little to reward or punish: those trains are scored on absolute size instead.
+      framing: field.nominal ? 0 : framingScore(percent),
+      size: sizeScore(target?.sizeArcmin?.major ?? null, field.nominal),
     },
     usableMinutes > 0,
   );

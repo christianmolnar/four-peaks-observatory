@@ -42,51 +42,81 @@ export interface RankResult {
   minAltitude: number;
   /** Best first, only targets with usable time, at most `limit`. */
   entries: PlanEntry[];
-  /** How many targets went in and how many were scored, so the screen is visible. */
-  counts: { input: number; scored: number; usable: number };
+  /**
+   * How many targets went in and how many were scored, so the screen is visible; and how many that could be up tonight
+   * the size band hid: `tooLarge` (does not fit the frame, only while `includeTooLarge` is off) and `tooSmall`
+   * (under the minimum share of the frame).
+   */
+  counts: { input: number; scored: number; usable: number; tooLarge: number; tooSmall: number };
+  /** The brightest of the hidden ones, up to `HIDDEN_LEADING` of each, so the page can say "M31 is larger than this frame". */
+  hidden: { tooLarge: HiddenTarget[]; tooSmall: HiddenTarget[] };
 }
+
+export interface HiddenTarget {
+  id: string;
+  name: string;
+}
+
+/** How many names `RankResult.hidden` lists per kind. */
+export const HIDDEN_LEADING = 5;
 
 /** The screen's verdict on one target, without any trigonometry: false when it cannot reach the minimum altitude at this latitude. */
 export function canReachAltitude(latitude: number, decDeg: number, minAltitude: number, marginDeg: number): boolean {
   return 90 - Math.abs(latitude - decDeg) + marginDeg >= minAltitude;
 }
 
-/** The train's size screen: false for a target too small for the frame, or too large unless `includeTooLarge`. */
-export function inSizeBand(
+/**
+ * The train's size screen: 'too-small' for a target under the minimum share of the frame, 'too-large' for one that
+ * does not fit it (unless `includeTooLarge`), else 'in'. A train without a field of its own is judged against the
+ * nominal one for size, and never 'too-large' (its fit is not computed). No size: 'in'.
+ */
+export function sizeBand(
   train: NightContext['train'],
   t: Pick<PlanTarget, 'sizeArcmin'>,
   options: { includeTooLarge: boolean; minFramePercent: number },
-): boolean {
-  // No size, no field, or a smart scope: nothing to compare, so nothing is hidden.
-  if (!t.sizeArcmin || train.kind === 'smart' || train.optics === null) return true;
+): 'in' | 'too-small' | 'too-large' {
   const percent = percentOfFrame(train, t);
-  if (percent === null) return true;
-  if (percent < options.minFramePercent) return false;
-  if (!options.includeTooLarge && fitOf(train, t as PlanTarget).fit === 'too-large') return false;
-  return true;
+  if (percent === null) return 'in';
+  if (percent < options.minFramePercent) return 'too-small';
+  if (!options.includeTooLarge && train.optics !== null && fitOf(train, t as PlanTarget).fit === 'too-large') return 'too-large';
+  return 'in';
+}
+
+/** False for a target the size screen hides. */
+export function inSizeBand(train: NightContext['train'], t: Pick<PlanTarget, 'sizeArcmin'>, options: { includeTooLarge: boolean; minFramePercent: number }): boolean {
+  return sizeBand(train, t, options) === 'in';
+}
+
+/** What the screen found: the targets that could still have usable time, and the ones only the size band hid. */
+export interface Screened {
+  kept: PlanTarget[];
+  /** Hidden for size alone: they would have reached the minimum altitude tonight. */
+  tooLarge: PlanTarget[];
+  tooSmall: PlanTarget[];
 }
 
 /**
  * Targets that could still have usable time: reaches the altitude at this latitude, is in the size band, and (on a
  * 15 minute sampling, widened by the most an altitude can move in half a gap) gets above the minimum during the night.
+ * The ones the size band alone hid are reported too, so the page can say what it left out.
  */
-export function screenTargets(
+export function screenTargetsDetailed(
   ctx: NightContext,
   targets: readonly PlanTarget[],
   options: { includeTooLarge: boolean; minFramePercent: number },
-): PlanTarget[] {
+): Screened {
   const { sky, minAltitude, site } = ctx;
   const stride = Math.max(1, Math.round(SCREEN_STRIDE_MINUTES / ctx.stepMinutes));
   const gapMinutes = stride * ctx.stepMinutes;
   const slack = (MAX_RATE_DEG_PER_MIN * gapMinutes) / 2;
   const last = sky.times.length - 1;
   const margin = precessionMargin(ctx.end);
-  const kept: PlanTarget[] = [];
+  const out: Screened = { kept: [], tooLarge: [], tooSmall: [] };
   for (const t of targets) {
     // The same checks, and the same error, as `planTonight` makes when it places the target.
     const p = skyPoint(t.raHours, t.decDeg);
     if (!canReachAltitude(site.latitude, t.decDeg, minAltitude, margin)) continue;
-    if (!inSizeBand(ctx.train, t, options)) continue;
+    const band = sizeBand(ctx.train, t, options);
     let reaches = false;
     for (let k = 0; ; k += stride) {
       const kk = Math.min(k, last);
@@ -94,9 +124,30 @@ export function screenTargets(
       if (sky.altitudeAt(p, kk) + slack >= minAltitude) { reaches = true; break; }
       if (kk === last) break;
     }
-    if (reaches) kept.push(t);
+    if (!reaches) continue;
+    if (band === 'in') out.kept.push(t);
+    else if (band === 'too-large') out.tooLarge.push(t);
+    else out.tooSmall.push(t);
   }
-  return kept;
+  return out;
+}
+
+/** The targets that survive the screen; see `screenTargetsDetailed`. */
+export function screenTargets(
+  ctx: NightContext,
+  targets: readonly PlanTarget[],
+  options: { includeTooLarge: boolean; minFramePercent: number },
+): PlanTarget[] {
+  return screenTargetsDetailed(ctx, targets, options).kept;
+}
+
+/** The brightest few of a hidden list (by magnitude, then the larger, then name), as `HiddenTarget`s. */
+function leading(hidden: readonly PlanTarget[]): HiddenTarget[] {
+  const mag = (t: PlanTarget): number => t.mag ?? Infinity;
+  return [...hidden]
+    .sort((a, b) => mag(a) - mag(b) || (b.sizeArcmin?.major ?? 0) - (a.sizeArcmin?.major ?? 0) || (a.id < b.id ? -1 : 1))
+    .slice(0, HIDDEN_LEADING)
+    .map((t) => ({ id: t.id, name: t.displayName ?? t.name }));
 }
 
 /**
@@ -122,10 +173,18 @@ export function prepareRanking(input: RankInput): Ranker {
       candidates: [],
       evaluate: () => { throw new Error('No astronomical night to evaluate against'); },
       planets: [],
-      finish: () => ({ night: ctx.night, horizonSet: ctx.horizonSet, minAltitude: input.minAltitude, entries: [], counts: { input: input.targets.length, scored: 0, usable: 0 } }),
+      finish: () => ({
+        night: ctx.night,
+        horizonSet: ctx.horizonSet,
+        minAltitude: input.minAltitude,
+        entries: [],
+        counts: { input: input.targets.length, scored: 0, usable: 0, tooLarge: 0, tooSmall: 0 },
+        hidden: { tooLarge: [], tooSmall: [] },
+      }),
     };
   }
-  const candidates = screenTargets(ctx, input.targets, { includeTooLarge: input.includeTooLarge ?? false, minFramePercent });
+  const screened = screenTargetsDetailed(ctx, input.targets, { includeTooLarge: input.includeTooLarge ?? false, minFramePercent });
+  const candidates = screened.kept;
   return {
     candidates,
     evaluate: (t) => evaluateTarget(ctx, t),
@@ -137,7 +196,8 @@ export function prepareRanking(input: RankInput): Ranker {
         horizonSet: ctx.horizonSet,
         minAltitude: input.minAltitude,
         entries: usable.slice(0, limit),
-        counts: { input: input.targets.length, scored: entries.length, usable: usable.length },
+        counts: { input: input.targets.length, scored: entries.length, usable: usable.length, tooLarge: screened.tooLarge.length, tooSmall: screened.tooSmall.length },
+        hidden: { tooLarge: leading(screened.tooLarge), tooSmall: leading(screened.tooSmall) },
       };
     },
   };

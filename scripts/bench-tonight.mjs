@@ -78,7 +78,7 @@ const variants = [
   { name: '540 mm, default size band', extra: {} },
   { name: '540 mm, no size screen', extra: { minFramePercent: 0, includeTooLarge: true } },
   { name: '2000 mm, default size band', extra: { train: longTrain } },
-  { name: 'smart scope (no size screen exists)', extra: { train: smartTrain } },
+  { name: 'smart scope (nominal field)', extra: { train: smartTrain } },
 ];
 for (const { label, site, timeZone, variant } of sites.flatMap((x) => variants.map((v) => ({ ...x, variant: v })))) {
   const input = { site, timeZone, horizon, minAltitude: 30, date: '2026-11-14', train, targets, limit: 100, ...variant.extra };
