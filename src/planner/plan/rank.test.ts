@@ -9,9 +9,9 @@ import { opticalTrain } from '../optics';
 import { arcToHorizonPoints } from '../profile';
 import { moonSeparation, targetAltAz } from '../astro';
 import type { Site } from '../astro';
-import { NOMINAL_FIELD_ARCMIN, fieldOf, framingScore, nightContext, percentOfFrame, planTonight, planTrainFor, sizeScore } from './index';
-import type { PlanTarget, PlanTrain, TonightInput } from './index';
-import { HIDDEN_LEADING, canReachAltitude, precessionMargin, rankTargets, screenTargets } from './rank';
+import { NOMINAL_FIELD_ARCMIN, compareEntries, fieldOf, framingScore, nightContext, percentOfFrame, planTonight, planTrainFor, sizeScore } from './index';
+import type { PlanEntry, PlanTarget, PlanTrain, TonightInput } from './index';
+import { CLASS_CAP_MIN_SCORE, CLASS_SHARE_CAP, HIDDEN_LEADING, canReachAltitude, capClassShare, precessionMargin, rankTargets, screenTargets } from './rank';
 import type { RankInput } from './rank';
 
 const raw = JSON.parse(readFileSync(join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r3.json'), 'utf8'));
@@ -59,10 +59,10 @@ const sample = (n: number, seed: number): PlanTarget[] => {
 describe('one scoring engine: the curated 25', () => {
   const input: TonightInput = { site: phoenix, horizon: null, minAltitude: 20, date: DATE, train: narrow, targets: starterTargets };
 
-  it('rankTargets over the curated 25 gives planTonight\'s entries, in its order, with nothing screened out', () => {
+  it('rankTargets over the curated 25 gives planTonight\'s entries (the list is mixed by class, so compared in score order), with nothing screened out', () => {
     const plan = planTonight(input);
     const ranked = rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true });
-    expect(ranked.entries).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
+    expect([...ranked.entries].sort(compareEntries)).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
     expect(ranked.night).toEqual(plan.night);
   });
 
@@ -142,9 +142,10 @@ describe('the screen against brute force', () => {
 
   it('over the whole catalog the ranked top matches a full plan\'s top', () => {
     const input = { site: phoenix, horizon, minAltitude: 25, date: DATE, train: wide, includePlanets: false };
-    const ranked = rankTargets({ ...input, targets: catalog, minFramePercent: 0, includeTooLarge: true, limit: 100 });
+    // Every usable entry comes back (the limit is above the pool), so the class mix does not cut anything: score order is the plan's.
+    const ranked = rankTargets({ ...input, targets: catalog, minFramePercent: 0, includeTooLarge: true, limit: 5000 });
     const full = planTonight({ ...input, targets: catalog });
-    expect(ranked.entries.map((e) => e.id)).toEqual(full.entries.slice(0, 100).map((e) => e.id));
+    expect([...ranked.entries].sort(compareEntries).slice(0, 100).map((e) => e.id)).toEqual(full.entries.slice(0, 100).map((e) => e.id));
   }, 120000);
 });
 
@@ -199,10 +200,12 @@ describe('the ranking', () => {
     expect(c.entries.map((e) => e.id)).toEqual(a.entries.map((e) => e.id));
   });
 
-  it('orders by score, never puts a target that does not fit above one that does, and lists only usable targets', () => {
-    const r = rank({ limit: 200, includeTooLarge: true });
-    for (let i = 1; i < r.entries.length; i++) {
-      const [p, q] = [r.entries[i - 1], r.entries[i]];
+  it('orders by score within each class, never puts a target that does not fit above one that does, and lists only usable targets', () => {
+    const r = rank({ limit: 5000, includeTooLarge: true });
+    const sorted = [...r.entries].sort(compareEntries);
+    expect(sorted).toHaveLength(r.entries.length);
+    for (let i = 1; i < sorted.length; i++) {
+      const [p, q] = [sorted[i - 1], sorted[i]];
       const missP = p.fit === 'too-large' ? 1 : 0;
       const missQ = q.fit === 'too-large' ? 1 : 0;
       expect(missP).toBeLessThanOrEqual(missQ);
@@ -379,7 +382,7 @@ describe('brightness in the ranking', () => {
     const input: TonightInput = { site: phoenix, horizon: null, minAltitude: 20, date: DATE, train: narrow, targets: index.targets.filter((t) => t.curated) };
     const plan = planTonight(input);
     expect(plan.entries.filter((e) => !e.isPlanet).some((e) => e.score.brightness !== 0)).toBe(true);
-    expect(rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true }).entries).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
+    expect([...rankTargets({ ...input, minFramePercent: 0, includeTooLarge: true }).entries].sort(compareEntries)).toEqual(plan.entries.filter((e) => e.usableMinutes > 0));
   });
 });
 
@@ -470,5 +473,52 @@ describe('a train without a field of its own', () => {
     expect(s[0].score.size).toBeGreaterThan(s[1].score.size);
     const w = rank({ targets, train: wide, includePlanets: false, minFramePercent: 0 }).entries;
     expect(w.every((e) => e.score.size === 0)).toBe(true);
+  });
+});
+
+describe('the class share cap', () => {
+  const entry = (id: string, type: string, total: number): PlanEntry => ({ id, type, score: { total } } as unknown as PlanEntry);
+  const ids = (es: readonly PlanEntry[]): string[] => es.map((e) => e.id);
+  const many = (type: string, prefix: string, n: number, top: number): PlanEntry[] => Array.from({ length: n }, (_, i) => entry(`${prefix}${i}`, type, top - i));
+
+  it('names its cap and its minimum score', () => {
+    expect(CLASS_SHARE_CAP).toBe(0.4);
+    expect(CLASS_CAP_MIN_SCORE).toBe(40);
+  });
+
+  it('holds a class that fills the top of the list to its cap while others have candidates, keeping score order within each class', () => {
+    const sorted = [...many('galaxy', 'g', 30, 100), ...many('open-cluster', 'c', 10, 60), ...many('nebula', 'n', 10, 55)].sort((a, b) => b.score.total - a.score.total);
+    const out = capClassShare(sorted, 20);
+    expect(out).toHaveLength(20);
+    const galaxies = out.filter((e) => e.type === 'galaxy');
+    expect(galaxies.length).toBeLessThanOrEqual(8);
+    for (const type of ['galaxy', 'open-cluster', 'nebula']) {
+      const mine = ids(out.filter((e) => e.type === type));
+      expect(mine).toEqual(ids(sorted.filter((e) => e.type === type)).slice(0, mine.length));
+    }
+    for (let m = 3; m <= out.length; m++) {
+      for (const type of ['galaxy', 'open-cluster', 'nebula']) expect(out.slice(0, m).filter((e) => e.type === type).length).toBeLessThanOrEqual(Math.max(1, Math.ceil(0.4 * m - 1e-9)));
+    }
+  });
+
+  it('leftover slots go to the best remaining of any class when the others are out of candidates at the minimum score', () => {
+    const sorted = [...many('galaxy', 'g', 30, 100), ...many('open-cluster', 'c', 5, CLASS_CAP_MIN_SCORE - 1)];
+    const out = capClassShare(sorted, 20);
+    expect(out).toHaveLength(20);
+    // The clusters score under the minimum: they do not claim places ahead of the galaxies, which take them all.
+    expect(out.every((e) => e.type === 'galaxy')).toBe(true);
+  });
+
+  it('a candidate of another class above the minimum score is not left out for a class over its cap', () => {
+    const sorted = [...many('galaxy', 'g', 30, 100), ...many('open-cluster', 'c', 2, CLASS_CAP_MIN_SCORE + 5)];
+    const out = capClassShare(sorted, 10);
+    expect(ids(out).filter((id) => id.startsWith('c'))).toEqual(['c0', 'c1']);
+    expect(out.filter((e) => e.type === 'galaxy')).toHaveLength(8);
+  });
+
+  it('returns what there is when the list is shorter than the limit', () => {
+    const sorted = [...many('galaxy', 'g', 3, 90), ...many('nebula', 'n', 1, 80)];
+    expect(capClassShare(sorted, 100)).toHaveLength(4);
+    expect(capClassShare([], 10)).toEqual([]);
   });
 });

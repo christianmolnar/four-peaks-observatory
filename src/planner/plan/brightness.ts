@@ -7,8 +7,13 @@
  * (by percentile, not by value). Every class therefore puts the same share of its objects at the top and at the bottom.
  *
  * The measure per class:
- *  - galaxy: surface brightness (OpenNGC's measured mean over the D25 outline; worked out from magnitude and size
- *    where the catalog has none), mag/arcsec2.
+ *  - galaxy: a blend of two shares: where its surface brightness stands among galaxies (OpenNGC's measured mean over
+ *    the D25 outline; worked out from magnitude and size where the catalog has none) and where its integrated
+ *    magnitude stands. The weight moves with size: a small galaxy is judged on surface brightness, a large one (10'
+ *    and up) on its magnitude. The D25 mean is diluted by the faint outer disc in proportion to how big the outline
+ *    is, and most of all for a thin edge-on one: NGC 891 (mag 10, 13 x 3') sits in the faintest tenth by surface
+ *    brightness and the brightest few percent by magnitude. A blend is not uniform, so it is ranked once more among
+ *    all galaxies' blends, and the top tenth still scores +10.
  *  - cluster (open, globular, asterism): integrated V magnitude.
  *  - nebula (emission and other nebulae, supernova remnants, planetary nebulae): integrated V magnitude. Not computed
  *    surface brightness: that spreads the light over the area, so it scores the big bright nebulae as the faintest.
@@ -22,13 +27,14 @@ import { BRIGHTNESS_PERCENTILES } from './brightness-percentiles';
 import type { PercentileTable } from './brightness-percentiles';
 
 /** The classes, by what the catalog's number means for them. */
-export type BrightnessClass = keyof typeof BRIGHTNESS_PERCENTILES;
+export type BrightnessClass = 'galaxy' | 'cluster' | 'nebula' | 'other';
 
 export interface Photometry {
   type?: string;
   mag?: number;
   surfaceBrightness?: number;
   sbComputed?: boolean;
+  sizeArcmin?: { major: number };
 }
 
 /** The score at the brightest and faintest end. */
@@ -40,10 +46,33 @@ const GALAXY_TYPES = ['galaxy', 'galaxy-group'];
 const CLUSTER_TYPES = ['open-cluster', 'globular-cluster', 'asterism'];
 const NEBULA_TYPES = ['nebula', 'supernova-remnant', 'planetary-nebula'];
 
-/** The class an object is scored in, and the one number of it that is ranked: null when it has none. */
+/** Below this major axis (arcmin) a galaxy is judged on its surface brightness alone; at `MAG_WEIGHT_FULL_ARCMIN` and above, on its magnitude alone; between, on a log-size mix. */
+const MAG_WEIGHT_FROM_ARCMIN = 2;
+const MAG_WEIGHT_FULL_ARCMIN = 10;
+
+/** The weight of the magnitude share in a galaxy's blend: 0 for a small one, 1 for a large one; 0.5 when its size is unknown. */
+export function magnitudeWeight(majorArcmin: number | undefined): number {
+  if (majorArcmin === undefined) return 0.5;
+  const t = Math.log(majorArcmin / MAG_WEIGHT_FROM_ARCMIN) / Math.log(MAG_WEIGHT_FULL_ARCMIN / MAG_WEIGHT_FROM_ARCMIN);
+  return Math.max(0, Math.min(1, t));
+}
+
+/**
+ * A galaxy's blend of its share-brighter in surface brightness and in magnitude, weighted by size (see the file
+ * comment); the one it has when it has only one. 0 = brighter than every galaxy, 1 = fainter than all; null with neither.
+ */
+export function galaxyBlend(t: Photometry): number | null {
+  const sb = t.surfaceBrightness === undefined ? undefined : fractionBrighter(t.surfaceBrightness, BRIGHTNESS_PERCENTILES.galaxySB);
+  const mag = t.mag === undefined ? undefined : fractionBrighter(t.mag, BRIGHTNESS_PERCENTILES.galaxyMag);
+  if (sb === undefined || mag === undefined) return sb ?? mag ?? null;
+  const w = magnitudeWeight(t.sizeArcmin?.major);
+  return (1 - w) * sb + w * mag;
+}
+
+/** The class an object is scored in, and the one number of it that is ranked (a galaxy's is its blend): null when it has none. */
 export function brightnessClass(t: Photometry): { class: BrightnessClass; value: number | null } {
   const type = t.type ?? '';
-  if (GALAXY_TYPES.includes(type)) return { class: 'galaxy', value: t.surfaceBrightness ?? null };
+  if (GALAXY_TYPES.includes(type)) return { class: 'galaxy', value: galaxyBlend(t) };
   if (CLUSTER_TYPES.includes(type)) return { class: 'cluster', value: t.mag ?? null };
   if (NEBULA_TYPES.includes(type)) return { class: 'nebula', value: t.mag ?? null };
   return { class: 'other', value: t.mag ?? null };

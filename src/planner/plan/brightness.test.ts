@@ -4,29 +4,36 @@ import { starterTargets } from '../catalog';
 import { parseExtract } from '../catalog/openngc';
 import { createCatalogIndex } from '../catalog/search';
 import { catalogPatches } from '../catalog/supplement';
-import { BRIGHTNESS_RANGE, brightnessClass, brightnessScore, fractionBrighter, scoreOfFraction } from './brightness';
+import { BRIGHTNESS_RANGE, brightnessClass, brightnessScore, fractionBrighter, galaxyBlend, magnitudeWeight, scoreOfFraction } from './brightness';
 import type { BrightnessClass, Photometry } from './brightness';
 import { BRIGHTNESS_PERCENTILES } from './brightness-percentiles';
 
 const raw = JSON.parse(readFileSync(join(process.cwd(), 'public', 'catalog', 'openngc-v20260501-r3.json'), 'utf8'));
-const objects = raw.objects as (Photometry & { id: string })[];
+type RawObject = Photometry & { id: string; majorArcmin?: number };
+const objects = raw.objects as RawObject[];
 const catalog = createCatalogIndex(parseExtract(raw).objects, starterTargets, catalogPatches).targets;
-const CLASSES = Object.keys(BRIGHTNESS_PERCENTILES) as BrightnessClass[];
+const TABLES = Object.keys(BRIGHTNESS_PERCENTILES) as (keyof typeof BRIGHTNESS_PERCENTILES)[];
+const CLASSES: BrightnessClass[] = ['galaxy', 'cluster', 'nebula', 'other'];
+const photometryOf = (o: RawObject): Photometry => ({ ...o, ...(o.majorArcmin === undefined ? {} : { sizeArcmin: { major: o.majorArcmin } }) });
 
-/** The values a class's table is built from: its one measure, for every catalog object that has it. */
-function measures(c: BrightnessClass): number[] {
-  return objects
-    .map((o) => {
-      // The galaxy table is the measured surface brightness only; a computed one is ranked against it, not part of it.
-      if (c === 'galaxy' && o.sbComputed === true) return null;
-      const m = brightnessClass(o);
-      return m.class === c || c === 'other' ? (c === 'other' ? (o.mag ?? null) : m.value) : null;
-    })
-    .filter((v): v is number => v !== null);
+/** The values a table is built from: for every catalog object that has it. */
+function measures(table: keyof typeof BRIGHTNESS_PERCENTILES): number[] {
+  const values = objects.map((o): number | null => {
+    const p = photometryOf(o);
+    switch (table) {
+      // The measured surface brightness only; a computed one is ranked against it, not part of it.
+      case 'galaxySB': return brightnessClass(p).class === 'galaxy' && o.sbComputed !== true ? (o.surfaceBrightness ?? null) : null;
+      case 'galaxyMag': return brightnessClass(p).class === 'galaxy' ? (o.mag ?? null) : null;
+      case 'galaxy': return brightnessClass(p).class === 'galaxy' ? galaxyBlend(p) : null;
+      case 'other': return o.mag ?? null;
+      default: return brightnessClass(p).class === table ? brightnessClass(p).value : null;
+    }
+  });
+  return values.filter((v): v is number => v !== null);
 }
 
 describe('the percentile tables', () => {
-  it.each(CLASSES)('%s: 101 cut points re-derived from the bundled catalog match the committed table', (c) => {
+  it.each(TABLES)('%s: 101 cut points re-derived from the bundled catalog match the committed table', (c) => {
     const sorted = [...measures(c)].sort((a, b) => a - b);
     const cuts = Array.from({ length: 101 }, (_, k) => sorted[Math.round((k * (sorted.length - 1)) / 100)]);
     expect(BRIGHTNESS_PERCENTILES[c].n).toBe(sorted.length);
@@ -34,7 +41,7 @@ describe('the percentile tables', () => {
   });
 
   it('every table is sorted brightest (smallest) first and big enough to rank in', () => {
-    for (const c of CLASSES) {
+    for (const c of TABLES) {
       const { cuts, n } = BRIGHTNESS_PERCENTILES[c];
       expect(cuts).toHaveLength(101);
       expect(n).toBeGreaterThan(100);
@@ -54,12 +61,12 @@ describe('scoring by percentile', () => {
     expect(scoreOfFraction(0.3)).toBeCloseTo(5, 9);
   });
 
-  it('is neutral for an object with no value for its class\'s measure, and brighter never scores lower', () => {
+  it('is neutral for an object with no value for its class\'s measure (a galaxy with a magnitude alone is scored on that), and brighter never scores lower', () => {
     expect(brightnessScore({})).toBe(0);
     expect(brightnessScore({ type: 'galaxy' })).toBe(0);
-    expect(brightnessScore({ type: 'galaxy', mag: 9 })).toBe(0);
+    expect(brightnessScore({ type: 'galaxy', mag: 9 })).toBe(10);
     expect(brightnessScore({ type: 'nebula', surfaceBrightness: 18 })).toBe(0);
-    for (const c of CLASSES) {
+    for (const c of TABLES) {
       const { cuts } = BRIGHTNESS_PERCENTILES[c];
       let last = Infinity;
       for (let v = cuts[0] - 1; v <= cuts[100] + 1; v += (cuts[100] - cuts[0] + 2) / 400) {
@@ -72,12 +79,38 @@ describe('scoring by percentile', () => {
     }
   });
 
-  it('reads one measure per class: surface brightness for a galaxy, magnitude for a cluster, a nebula or anything else', () => {
-    expect(brightnessClass({ type: 'galaxy', surfaceBrightness: 23, mag: 9 })).toEqual({ class: 'galaxy', value: 23 });
+  it('reads one measure per class: a galaxy\'s blend, magnitude for a cluster, a nebula or anything else', () => {
+    expect(brightnessClass({ type: 'galaxy', surfaceBrightness: 23, mag: 9 }).class).toBe('galaxy');
     expect(brightnessClass({ type: 'open-cluster', surfaceBrightness: 21, mag: 6 })).toEqual({ class: 'cluster', value: 6 });
     expect(brightnessClass({ type: 'supernova-remnant', surfaceBrightness: 21, mag: 7 })).toEqual({ class: 'nebula', value: 7 });
     expect(brightnessClass({ type: 'planetary-nebula', surfaceBrightness: 19, mag: 9 })).toEqual({ class: 'nebula', value: 9 });
     expect(brightnessClass({ type: 'double-star', mag: 8 })).toEqual({ class: 'other', value: 8 });
+  });
+
+  it('weighs a galaxy by size: a small one on its surface brightness, a large one on its magnitude, the mean when its size is unknown', () => {
+    expect(magnitudeWeight(1)).toBe(0);
+    expect(magnitudeWeight(2)).toBeCloseTo(0, 9);
+    expect(magnitudeWeight(10)).toBeCloseTo(1, 9);
+    expect(magnitudeWeight(60)).toBe(1);
+    expect(magnitudeWeight(undefined)).toBe(0.5);
+    const sb = fractionBrighter(23, BRIGHTNESS_PERCENTILES.galaxySB);
+    const mag = fractionBrighter(9, BRIGHTNESS_PERCENTILES.galaxyMag);
+    expect(galaxyBlend({ type: 'galaxy', surfaceBrightness: 23, mag: 9, sizeArcmin: { major: 1 } })).toBeCloseTo(sb, 9);
+    expect(galaxyBlend({ type: 'galaxy', surfaceBrightness: 23, mag: 9, sizeArcmin: { major: 20 } })).toBeCloseTo(mag, 9);
+    expect(galaxyBlend({ type: 'galaxy', surfaceBrightness: 23, mag: 9 })).toBeCloseTo((sb + mag) / 2, 9);
+    expect(galaxyBlend({ type: 'galaxy', surfaceBrightness: 23, sizeArcmin: { major: 20 } })).toBeCloseTo(sb, 9);
+    expect(galaxyBlend({ type: 'galaxy', mag: 9 })).toBeCloseTo(mag, 9);
+    expect(galaxyBlend({ type: 'galaxy' })).toBeNull();
+  });
+
+  it('scores a large, bright, thin galaxy by its light, not by its diluted surface brightness: NGC 891 +10 (was -10), M33 +10 (was -7.6)', () => {
+    for (const id of ['ngc891', 'm33']) {
+      const t = catalog.find((x) => x.id === id);
+      expect(t).toBeDefined();
+      expect(brightnessScore(t!)).toBeGreaterThanOrEqual(9);
+    }
+    // The same two numbers in a small outline are judged on the surface brightness, as before.
+    expect(brightnessScore({ type: 'galaxy', mag: 10.01, surfaceBrightness: 24.17, sizeArcmin: { major: 1 } })).toBeLessThanOrEqual(-9);
   });
 
   // The point of the method: the same share of every class lands at the top and at the bottom, by construction.
@@ -85,7 +118,8 @@ describe('scoring by percentile', () => {
   const TOLERANCE = 0.04;
   const scored = (c: BrightnessClass): number[] => {
     const type = { galaxy: 'galaxy', cluster: 'open-cluster', nebula: 'nebula', other: 'double-star' }[c];
-    return measures(c).map((v) => brightnessScore(c === 'galaxy' ? { type, surfaceBrightness: v } : { type, mag: v }));
+    if (c === 'galaxy') return objects.filter((o) => o.type === 'galaxy' || o.type === 'galaxy-group').map((o) => brightnessScore(photometryOf(o)));
+    return measures(c).map((v) => brightnessScore({ type, mag: v }));
   };
   const share = (xs: number[], keep: (s: number) => boolean): number => xs.filter(keep).length / xs.length;
 

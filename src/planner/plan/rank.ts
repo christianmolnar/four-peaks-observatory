@@ -1,4 +1,5 @@
 import type { AstronomicalNight } from '../astro';
+import { brightnessClass } from './brightness';
 import { PLANETS, compareEntries, evaluatePlanet, evaluateTarget, fitOf, nightContext, percentOfFrame } from './index';
 import { skyPoint } from './sky';
 import type { NightContext, PlanEntry, PlanTarget, TonightInput } from './index';
@@ -25,6 +26,54 @@ export function precessionMargin(when: Date): number {
   return MARGIN_FLOOR_DEG + (Math.abs(when.getTime() - J2000_MS) / MS_PER_YEAR) * PRECESSION_DEG_PER_YEAR;
 }
 
+/**
+ * No class (galaxy, cluster, nebula, other) takes more than this share of the list, at any length of it (the top 20 as
+ * well as the top 100), while other classes still have candidates at `CLASS_CAP_MIN_SCORE`. The list is "what to image
+ * tonight" for a person, not a census: scoring each class by its own percentile cannot fix the mix, because a class
+ * with many objects (3,800 galaxies, 650 clusters) puts many objects in its top tenth, so counts alone would decide
+ * the list. The cap is on the list, not the score.
+ */
+export const CLASS_SHARE_CAP = 0.4;
+/**
+ * A candidate only counts as "still available" to the cap at this total or better (of 100): a night's target that
+ * scores under it is a poor choice whatever its class. Below it the cap steps aside: a weak object of a rare class
+ * does not displace a strong one of a common class, and the slots the cap leaves open go to the best remaining,
+ * whatever the class.
+ */
+export const CLASS_CAP_MIN_SCORE = 40;
+
+/**
+ * The best `limit` of a best-first list, mixed by class: each place goes to the best remaining entry whose class is
+ * still under `CLASS_SHARE_CAP` of the list so far (rounded down, or up where that leaves no class to take the place) and scores at least `CLASS_CAP_MIN_SCORE`; when there is none, to the
+ * best remaining of any class. Within a class the order is the score order. The result is in the order picked.
+ */
+export function capClassShare(sorted: readonly PlanEntry[], limit: number): PlanEntry[] {
+  const queues = new Map<string, PlanEntry[]>();
+  for (const e of sorted) {
+    const c = brightnessClass({ type: e.type }).class;
+    const q = queues.get(c);
+    if (q) q.push(e);
+    else queues.set(c, [e]);
+  }
+  const heads = [...queues.keys()].map((c) => ({ queue: queues.get(c) as PlanEntry[], next: 0, taken: 0 }));
+  const out: PlanEntry[] = [];
+  while (out.length < limit) {
+    // A list of m entries holds at most floor(cap * m) of a class; where that leaves no class to take the next place
+    // (m = 4 with three classes), the rounding goes up to ceil(cap * m), and only then does the cap give way.
+    const m = out.length + 1;
+    const live = heads.filter((h) => h.next < h.queue.length);
+    if (live.length === 0) break;
+    const best = (hs: typeof live) => hs.reduce((a, b) => (compareEntries(b.queue[b.next], a.queue[a.next]) < 0 ? b : a));
+    const under = (allowed: number) => live.filter((h) => h.taken < allowed && h.queue[h.next].score.total >= CLASS_CAP_MIN_SCORE);
+    const floor = under(Math.max(1, Math.floor(CLASS_SHARE_CAP * m + 1e-9)));
+    const open = floor.length > 0 ? floor : under(Math.max(1, Math.ceil(CLASS_SHARE_CAP * m - 1e-9)));
+    const pick = best(open.length > 0 ? open : live);
+    out.push(pick.queue[pick.next++]);
+    pick.taken++;
+  }
+  return out;
+}
+
 export interface RankInput extends Omit<TonightInput, 'targets'> {
   /** Every candidate: the curated targets plus the catalog, one entry per object. */
   targets: readonly PlanTarget[];
@@ -40,7 +89,7 @@ export interface RankResult {
   night: AstronomicalNight;
   horizonSet: boolean;
   minAltitude: number;
-  /** Best first, only targets with usable time, at most `limit`. */
+  /** Only targets with usable time, at most `limit`: best first within each class and mixed across them (see `capClassShare`). */
   entries: PlanEntry[];
   /**
    * How many targets went in and how many were scored, so the screen is visible; and how many that could be up tonight
@@ -195,7 +244,7 @@ export function prepareRanking(input: RankInput): Ranker {
         night: ctx.night,
         horizonSet: ctx.horizonSet,
         minAltitude: input.minAltitude,
-        entries: usable.slice(0, limit),
+        entries: capClassShare(usable, limit),
         counts: { input: input.targets.length, scored: entries.length, usable: usable.length, tooLarge: screened.tooLarge.length, tooSmall: screened.tooSmall.length },
         hidden: { tooLarge: leading(screened.tooLarge), tooSmall: leading(screened.tooSmall) },
       };
