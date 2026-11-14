@@ -135,3 +135,9 @@ const rowOf = (b: HTMLElement): string => (b.textContent as string).replace(/^[â
 export const showAll = (): void => {
   for (let b = screen.queryByRole('button', { name: /^Show \d+ more$/ }); b !== null; b = screen.queryByRole('button', { name: /^Show \d+ more$/ })) fireEvent.click(b);
 };
+
+/** "Reset all" and its confirmation, pressed through. */
+export const resetAll = async (u: { click: (el: Element) => Promise<void> }): Promise<void> => {
+  await u.click(screen.getByRole('button', { name: 'Reset all' }));
+  await u.click(screen.getByRole('button', { name: 'Yes, reset everything' }));
+};

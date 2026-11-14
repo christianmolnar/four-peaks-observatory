@@ -29,7 +29,8 @@ describe('planner page', () => {
     expect(html).toContain('Search the catalog by name or number');
     expect(html).toContain('MY PLAN');
     expect(html).toContain('More');
-    expect(html).toContain('Replace profile with sample');
+    expect(html).toContain('Reset all');
+    expect(html).not.toContain('Replace profile with sample');
   });
 
   it('says only what is true about data leaving the browser', () => {
@@ -40,7 +41,7 @@ describe('planner page', () => {
   it('the empty-profile screen offers the import control it names', () => {
     const empty = render({ ...sampleProfile(), sites: [], plans: [] });
     expect(empty).toContain('for="profile-import"');
-    expect(empty).toContain('Replace profile with sample');
+    expect(empty).toContain('Reset all');
   });
 
   it('labels every control and gives both charts a text alternative', () => {

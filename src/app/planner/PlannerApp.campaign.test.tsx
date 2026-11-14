@@ -441,6 +441,9 @@ describe('nights without usable darkness', () => {
   });
 });
 
+// One run walks six changes and plans twice with the real engine in jsdom: about 12 s alone, but it timed out at the 30 s default under four busy workers.
+const STALE_MARKER_TIMEOUT_MS = 120_000;
+
 describe('stale marker', () => {
   const twoSites = (): Profile => {
     const p = sampleProfile();
@@ -483,7 +486,7 @@ describe('stale marker', () => {
     await planned();
     expect(screen.queryByTestId('campaign-stale')).toBeNull();
     expect(w.sent()).toMatchObject({ nights: 2, site: { latitude: 35.2 } });
-  });
+  }, STALE_MARKER_TIMEOUT_MS);
 
   it('My plan changes (a target removed, one moved) and a limit change are named; apply is off while out of date', async () => {
     const w = fakeCampaignWorker();
@@ -686,6 +689,27 @@ describe('Use night N as my itinerary', () => {
     // Back to the date the plan was made for: current again.
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: DATE } });
     expect(screen.queryByTestId('campaign-stale')).toBeNull();
+  });
+
+  it('after Evening of is changed by hand, the Done note stops saying it is that night and offers the night\'s date', async () => {
+    const w = fakeCampaignWorker();
+    mount(w, { plan: SIX });
+    await ready();
+    const user = await planned();
+    const night = planCampaign(w.sent()).nights[1];
+    openNight(2);
+    await user.click(screen.getByTestId('campaign-apply-2'));
+    await waitFor(() => expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).toBe(night.date));
+    expect(screen.getByTestId('campaign-apply-note-2').textContent).toContain(`Evening of at the top of the page is now ${nightDateText(night.date)}`);
+    expect(screen.queryByTestId('campaign-use-date-2')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: DATE } }); // back to the plan's first night: not out of date, so the note stays
+    openNight(2);
+    const text = screen.getByTestId('campaign-apply-note-2').textContent as string;
+    expect(text).not.toMatch(/is now/);
+    expect(text).toContain(`the itinerary is timed on that evening, not on ${nightDateText(night.date)}`);
+    await user.click(screen.getByTestId('campaign-use-date-2'));
+    await waitFor(() => expect((screen.getByLabelText('Evening of') as HTMLInputElement).value).toBe(night.date));
+    expect(screen.getByTestId('campaign-apply-note-2').textContent).toContain(`Evening of at the top of the page is now ${nightDateText(night.date)}`);
   });
 
   it('declined: the itinerary and Evening of both stay', async () => {

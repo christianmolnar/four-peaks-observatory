@@ -8,7 +8,7 @@ import { ITINERARY_KEY } from '@/planner/itinerary';
 import { createTonightRanker } from '@/planner/tonight';
 import { MY_PLAN_KEY, SELECTION_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, rowNames, showAll } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, ready, resetAll, rowName, rowNames, showAll } from './testkit';
 
 // The page over the whole catalog: tonight's list from the worker, the search, my plan, the itinerary that reads it.
 // The catalog is the curated 25 plus the objects below; the worker is a fake that runs the real ranking and answers when told to.
@@ -297,14 +297,13 @@ describe('my plan', () => {
     await waitFor(() => expect(planNames()).toEqual(['NGC 7331', 'NGC 891']));
   });
 
-  it('is cleared by "Replace profile with sample", like the site and train choice', async () => {
+  it('is cleared by "Reset all", like the site and train choice', async () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'smart-seestar-s50' }));
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['ngc891'] }));
-    jest.spyOn(window, 'confirm').mockReturnValue(true);
     mount();
     await ready();
     await waitFor(() => expect(planNames()).toEqual(['NGC 891']));
-    await userEvent.setup().click(screen.getAllByRole('button', { name: 'Replace profile with sample' })[0]);
+    await resetAll(userEvent.setup());
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
     expect(window.localStorage.getItem(SELECTION_KEY)).toBeNull();
     expect(planNames()).toEqual([]);

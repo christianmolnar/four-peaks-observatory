@@ -1,11 +1,12 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup, within } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { countHiddenBelow } from './ExposurePanel';
+import { Warnings, splitWarnings } from './ExposurePanel';
+import type { WarningCode } from '@/planner/exposure';
 import { CORE_FRAME_COUNT } from '@/planner/exposure';
 import { listRows, nameButton, pageProps, ready, rowName } from './testkit';
 
@@ -27,7 +28,8 @@ const app = async (profile = withTrain(HYPERSTAR)) => {
 };
 const panel = () => screen.getByRole('region', { name: /^EXPOSURE:/ });
 const radio = (name: RegExp) => within(panel()).getByRole('radio', { name }) as HTMLInputElement;
-const warnings = () => (screen.getByTestId('exposure-warnings').textContent ?? '');
+// The text of the warnings and the closed Notes together; empty when the area is not there.
+const warnings = () => (screen.queryByTestId('exposure-warnings')?.textContent ?? '');
 const filterSelect = () => screen.getByLabelText('Filter') as HTMLSelectElement;
 const trainSelect = () => screen.getByLabelText('Train') as HTMLSelectElement;
 
@@ -40,23 +42,26 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('Exposure panel', () => {
-  it('shows three mode cards with every value labelled estimate, a range, and Balanced chosen', async () => {
+  it('shows three mode cards with a range on every value, and Balanced chosen', async () => {
     await app();
     const p = panel();
     expect(within(p).getAllByRole('radio').map((r) => (r as HTMLInputElement).value)).toEqual(['quick', 'balanced', 'deep']);
     expect(radio(/Balanced/).checked).toBe(true);
     expect(radio(/Quick/).checked).toBe(false);
     for (const label of ['Sub length', 'Sub count', 'Total light', 'Overhead', 'Elapsed', 'Finish']) {
-      expect(within(p).getAllByText(`${label}, estimate`)).toHaveLength(3);
+      expect(within(p).getAllByText(label)).toHaveLength(3);
     }
     expect(p.textContent).toMatch(/range \d+ to \d+ s/);
     // every numeric row of every card carries a range, Sub count included
     for (const row of ['Sub length', 'Sub count', 'Total light', 'Overhead', 'Elapsed', 'Finish']) {
-      for (const dt of within(p).getAllByText(`${row}, estimate`)) expect(dt.nextElementSibling!.textContent).toMatch(/range|after lost frames/);
+      for (const dt of within(p).getAllByText(row)) expect(dt.nextElementSibling!.textContent).toMatch(/range|after lost frames/);
     }
     expect(within(p).getAllByText(/^\d+ \(range \d+ to \d+ subs\)$/)).toHaveLength(3);
     expect(p.textContent).toMatch(/setup 30, dithers/);
-    expect(p.textContent).toMatch(/Estimates for Tue 15 Dec, not predictions/);
+    expect(screen.getByTestId('exposure-estimate-line').textContent).toBe('These numbers are estimates; trust the range, not the single number.');
+    expect(p.textContent).toMatch(/Worked out for Tue 15 Dec\./);
+    // said once at the top, not again on every card and row
+    expect(p.textContent).not.toMatch(/All values are estimates|, estimate(?!\s*\()/);
   });
 
   it('the marginal rows give 30, 60, 90 and 120 minutes at x1.00, x1.41, x1.73 and x2.00 of the signal-to-noise', async () => {
@@ -197,7 +202,10 @@ describe('Filter selector and its warnings', () => {
     const p = sampleProfile();
     await app({ ...p, trains: p.trains.map((t) => (t.kind === 'optical' ? { ...t, filterId: undefined } : t)), equipment: { ...p.equipment, filters: [] } });
     expect(filterSelect().options).toHaveLength(1);
-    expect(document.getElementById('plan-filter-msg')!.textContent).toMatch(/^No filters\. Use Replace profile with sample\.$/);
+    const msg = document.getElementById('plan-filter-msg')!;
+    expect(msg.textContent).toBe('No filters yet. Add one in the profile editor.');
+    expect(msg.querySelector('a')!.getAttribute('href')).toBe('#gear-heading');
+    expect(document.getElementById('gear-heading')).toBeTruthy();
   });
 
   it('a train whose scope has no aperture says what is missing instead of guessing', async () => {
@@ -223,7 +231,7 @@ describe('meridian flip, through the whole page', () => {
     const user = userEvent.setup();
     await app();
     const quick = await pick(user, /North America Nebula/);
-    expect(quick).toMatch(/Overhead, estimate33\.7 min/);
+    expect(quick).toMatch(/Overhead33\.7 min/);
     expect(quick).toMatch(/meridian flip 0$|meridian flip 0Elapsed/);
     expect(warnings()).not.toMatch(/meridian flip/i);
   });
@@ -254,7 +262,7 @@ describe('Exposure panel for a planet', () => {
   });
 });
 
-describe('Gain column and the overflow cue', () => {
+describe('Gain column', () => {
   it('the Gain column says estimate in its heading and gives a range in each row', async () => {
     await app();
     const table = screen.getByTestId('marginal-table');
@@ -266,33 +274,6 @@ describe('Gain column and the overflow cue', () => {
     expect(rows[3]).toMatch(/\+15%range \+12% to \+15%/);
   });
 
-  it('the cue under the warnings box is empty when everything fits and names the hidden count when it does not', async () => {
-    const user = userEvent.setup();
-    const rect = (bottom: number) => ({ x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom, toJSON: () => ({}) }) as DOMRect;
-    const spy = jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      if (this.getAttribute('data-testid') === 'exposure-warnings') return rect(100);
-      if (this.tagName === 'LI') return rect(250); // every warning ends below the box
-      return rect(0);
-    });
-    try {
-      await app();
-      await user.selectOptions(filterSelect(), 'optolong-lextreme'); // warns at f/1.93
-      const items = screen.getByTestId('exposure-warnings').querySelectorAll('li').length;
-      expect(items).toBeGreaterThan(0);
-      expect(screen.getByTestId('exposure-warnings-cue').textContent).toBe(`${items} more below, scroll`);
-    } finally {
-      spy.mockRestore();
-    }
-    cleanup();
-    await app();
-    expect(screen.getByTestId('exposure-warnings-cue').textContent).toBe('');
-  });
-
-  it('counts only the items that reach below the box edge', () => {
-    expect(countHiddenBelow(100, [40, 99, 101, 103])).toBe(1);
-    expect(countHiddenBelow(100, [])).toBe(0);
-    expect(countHiddenBelow(100, [101])).toBe(0); // within 1 px: not hidden
-  });
   describe('core advice', () => {
     const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
       await user.click(nameButton(name));
@@ -355,5 +336,138 @@ describe('Gain column and the overflow cue', () => {
       expect(within(panel()).queryByTestId('core-advice')).toBeNull();
       expect(panel().textContent).not.toMatch(/for the core/);
     });
+  });
+});
+
+describe('warnings: act on it, and Notes', () => {
+  const fake = (code: WarningCode, severity: 'warning' | 'note' = 'note') => ({ code, severity, text: `Text of ${code}.` });
+  // Every code, so a new one cannot be added without saying where it goes (the Record is checked by tsc).
+  const WHERE: Record<WarningCode, 'act' | 'note'> = {
+    'filter-rated-slower': 'act',
+    'filter-uvir-missing': 'act',
+    'filter-visual-colour': 'act',
+    'moon-near': 'act',
+    'no-usable-time': 'act',
+    'limited-by-usable-time': 'act',
+    'meridian-flip': 'act',
+    'target-ou4': 'act',
+    sampling: 'note',
+    'sub-capped': 'note',
+    'inputs-assumed': 'note',
+    'below-mode-range': 'note',
+    'short-session-faint': 'note',
+    'short-session-unknown': 'note',
+    'filter-kind-unknown': 'note',
+  };
+
+  it.each(Object.entries(WHERE))('%s goes to %s', (code, where) => {
+    const { act, notes } = splitWarnings([fake(code as WarningCode, where === 'act' ? 'warning' : 'note')]);
+    expect(where === 'act' ? [act.length, notes.length] : [notes.length, act.length]).toEqual([1, 0]);
+  });
+
+  it('the warnings area has no fixed height, no scroll box and no overflow cue', async () => {
+    const user = userEvent.setup();
+    await app();
+    await user.selectOptions(filterSelect(), 'optolong-lextreme');
+    const area = screen.getByTestId('exposure-warnings');
+    expect(area.className).not.toMatch(/\bh-\[|overflow|min-h-\[/);
+    expect(area.getAttribute('tabindex')).toBeNull();
+    expect(screen.queryByTestId('exposure-warnings-cue')).toBeNull();
+    expect(panel().innerHTML).not.toMatch(/h-\[26rem\]|h-\[16\.5rem\]/);
+  });
+
+  it('a warning to act on shows the word Warning, what it means and what to change, with real controls', async () => {
+    const user = userEvent.setup();
+    await app();
+    await user.selectOptions(filterSelect(), 'optolong-lextreme');
+    const item = screen.getByTestId('warning-filter-rated-slower');
+    expect(item.textContent).toMatch(/^Warning/);
+    expect(item.textContent).toMatch(/has no published f-ratio rating/);
+    expect(item.textContent).toMatch(/What to change: Pick a filter rated for this speed, or another train\./);
+    expect(within(item).getAllByRole('button').map((b) => b.textContent)).toEqual(['Change the filter', 'Change the train']);
+    expect(screen.queryByTestId('exposure-notes')?.contains(item) ?? false).toBe(false);
+  });
+
+  it('"Change the filter" opens the strip when it is closed and puts focus on the Filter select', async () => {
+    const user = userEvent.setup();
+    await app();
+    await user.selectOptions(filterSelect(), 'optolong-lextreme');
+    const toggle = document.querySelector('[aria-controls="controls-panel"]') as HTMLElement;
+    await user.click(toggle); // close the strip
+    expect(document.getElementById('controls-panel')!.hidden).toBe(true);
+    await user.click(within(screen.getByTestId('warning-filter-rated-slower')).getByRole('button', { name: 'Change the filter' }));
+    expect(document.getElementById('controls-panel')!.hidden).toBe(false);
+    expect(document.activeElement).toBe(filterSelect());
+    await user.click(toggle);
+    await user.click(within(screen.getByTestId('warning-filter-rated-slower')).getByRole('button', { name: 'Change the train' }));
+    expect(document.activeElement).toBe(trainSelect());
+  });
+
+  it('context-only codes fold into one closed "Notes (N)" line, with the act-on warnings outside it', async () => {
+    const user = userEvent.setup();
+    await app();
+    await user.click(within(panel()).getByText('Quick & Beautiful')); // Quick adds the short-session note
+    const notes = screen.getByTestId('exposure-notes') as HTMLDetailsElement;
+    expect(notes.open).toBe(false);
+    const count = notes.querySelectorAll('li').length;
+    expect(count).toBeGreaterThan(0);
+    expect(notes.querySelector('summary')!.textContent).toBe(`▸Notes (${count})`);
+    expect(notes.querySelector('summary [data-disclosure-chevron]')).toBeTruthy();
+    expect(notes.textContent).toMatch(/Note/);
+  });
+
+  it('a warning with no control (meridian flip) says what to do in a sentence only', async () => {
+    const user = userEvent.setup();
+    await app();
+    await user.click(nameButton(/Thor's Helmet/));
+    await user.click(within(panel()).getByText('Quick & Beautiful'));
+    const item = screen.getByTestId('warning-meridian-flip');
+    expect(item.textContent).toMatch(/^Warning/);
+    expect(item.textContent).toMatch(/A meridian flip falls inside this session and adds 10 minutes/);
+    expect(within(item).queryAllByRole('button')).toHaveLength(0);
+    expect(item.textContent).toMatch(/What to change: Plan a pause to flip/);
+  });
+
+  it('"Change the date" asks the page for the date control', () => {
+    const onGo = jest.fn();
+    render(<Warnings warnings={[fake('moon-near', 'warning'), fake('no-usable-time', 'warning')]} onGoToControl={onGo} />);
+    for (const b of screen.getAllByRole('button', { name: 'Change the date' })) fireEvent.click(b);
+    expect(onGo.mock.calls).toEqual([['plan-date'], ['plan-date']]);
+  });
+
+  it('nothing to say: the area is not there', () => {
+    const { container } = render(<Warnings warnings={[]} onGoToControl={jest.fn()} />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('only notes: no Warning block, just the closed Notes line', () => {
+    render(<Warnings warnings={[fake('sampling'), fake('sub-capped')]} onGoToControl={jest.fn()} />);
+    expect(screen.queryByText('Warning')).toBeNull();
+    expect(screen.getByText('Notes (2)')).toBeTruthy();
+  });
+});
+
+describe('What more time buys and the inputs used', () => {
+  it('is one closed line by default, with the old heading and footnote gone from view', async () => {
+    await app();
+    const more = screen.getByTestId('exposure-more') as HTMLDetailsElement;
+    expect(more.open).toBe(false);
+    const summary = more.querySelector('summary')!;
+    expect(summary.textContent).toBe('▸What more time buys and the inputs used');
+    expect(summary.querySelector('[data-disclosure-chevron]')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /What more time buys/ })).toBeNull();
+    // the table and the audit trail live inside it, unchanged
+    expect(more.contains(screen.getByTestId('marginal-table'))).toBe(true);
+    expect(more.contains(screen.getByTestId('exposure-inputs'))).toBe(true);
+    expect(screen.getByTestId('exposure-inputs').textContent).toMatch(/^Inputs: f\/1\.93, .* Bortle \d, Moon \d+% lit and \d+ degrees away.* usable minutes\./);
+  });
+
+  it('opens on a click and then shows the table and the inputs', async () => {
+    const user = userEvent.setup();
+    await app();
+    const more = screen.getByTestId('exposure-more') as HTMLDetailsElement;
+    await user.click(more.querySelector('summary')!);
+    expect(more.open).toBe(true);
+    expect(within(screen.getByTestId('marginal-table')).getAllByRole('row')).toHaveLength(5);
   });
 });
