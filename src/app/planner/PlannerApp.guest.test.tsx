@@ -231,9 +231,9 @@ describe('print', () => {
     expect(screen.queryByTestId('print-sheet')).toBeNull();
   });
 
-  it('the print sheet lists exactly the rows of the list, in order (the planets group after the deep-sky list)', async () => {
+  it('the print sheet lists exactly the rows of the list, in order (the solar-system group after the deep-sky list)', async () => {
     await app();
-    fireEvent.click(screen.getByRole('button', { name: /^Planets up/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Solar system up/ }));
     showAll();
     const screenNames = [...listRows(), ...listRows('planet-list')].map(rowName);
     const names = (root: HTMLElement) => within(root).getAllByRole('row').map((r) => r.querySelector('th[scope="row"] strong, th[scope="row"] button')?.textContent).filter(Boolean);
@@ -256,7 +256,7 @@ describe('CSV', () => {
     chooseMore('Export CSV');
     const text = (await blobs[blobs.length - 1].text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');
-    fireEvent.click(screen.getByRole('button', { name: /^Planets up/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Solar system up/ }));
     showAll();
     const rowCount = listRows().length + listRows('planet-list').length;
     expect(lines).toHaveLength(rowCount + 1);

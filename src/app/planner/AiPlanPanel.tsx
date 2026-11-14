@@ -217,7 +217,7 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
         PLAN MY NIGHT WITH AI
       </h2>
       <p className="text-white/80 font-normal text-sm">
-        The AI picks the order, the times and how long each target gets, for the targets in My plan, in your order of priority. It uses the night, site, train, horizon and minimum altitude already chosen above; there is nothing to set again here. Planets are not included.
+        The AI picks the order, the times and how long each target gets, for the targets in My plan, in your order of priority. It uses the night, site, train, horizon and minimum altitude already chosen above; there is nothing to set again here. The Moon and planets (solar system) are not included.
       </p>
       {form !== null && (
         <p className="mt-2 text-white/70 font-normal text-sm" data-testid="ai-inputs">

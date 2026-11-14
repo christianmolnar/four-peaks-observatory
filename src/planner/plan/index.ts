@@ -278,7 +278,7 @@ export function fitLabel(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
     case 'unknown':
       return 'Fit unknown';
     default:
-      return e.isPlanet ? 'Planet' : 'Smart scope';
+      return e.isPlanet ? 'Solar system' : 'Smart scope';
   }
 }
 
@@ -380,7 +380,7 @@ function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude
   }
   const first = `Clear of ${limit} for ${fmt(e.usableMinutes / 60, 1)} h.`;
   const notes: string[] = [];
-  if (e.isPlanet) notes.push('planet');
+  if (e.isPlanet) notes.push('solar system');
   if (e.inSeason === true) notes.push('in season');
   if (e.inSeason === false) notes.push('out of season');
   if (e.fit === 'fits') notes.push(e.percentOfFrame === null ? 'fits the frame' : `fits the frame (${fmt(e.percentOfFrame)}%)`);

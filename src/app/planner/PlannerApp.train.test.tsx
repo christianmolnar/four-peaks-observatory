@@ -40,7 +40,7 @@ describe('default train', () => {
     mount({ initialProfile: sampleProfile() });
     await ready();
     expect(train().value).toBe('planet-c11-676');
-    expect(screen.getByTestId('planetary-note').textContent).toMatch(/^This train is set up for planets/);
+    expect(screen.getByTestId('planetary-note').textContent).toMatch(/^This train is set up for the solar system/);
   });
 });
 
@@ -103,7 +103,7 @@ describe('search says what it did', () => {
     const { catalog } = mount();
     await ready();
     const size = (await catalog.load()).size;
-    expect(screen.getByText(new RegExp(`^Searches the bundled catalog of ${size} objects, the planets and the Moon on this device`))).toBeTruthy();
+    expect(screen.getByText(new RegExp(`^Searches the bundled catalog of ${size} objects, the solar system \\(Moon and planets\\) on this device`))).toBeTruthy();
     expect(document.body.textContent).not.toContain('14,000');
   });
 

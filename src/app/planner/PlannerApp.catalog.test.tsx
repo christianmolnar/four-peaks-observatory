@@ -146,9 +146,9 @@ describe('tonight\'s list over the whole catalog', () => {
   it('the Type filter still narrows the list without asking the worker again', async () => {
     const { worker } = mount();
     await ready();
-    await userEvent.setup().selectOptions(screen.getByLabelText('Type'), 'planets');
-    expect(rowNames().length).toBeGreaterThan(0);
-    expect(rowNames().every((n) => /^(Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune)$/.test(n))).toBe(true);
+    await userEvent.setup().selectOptions(screen.getByLabelText('Type'), 'solar-system');
+    expect(rowNames('planet-list').length).toBeGreaterThan(0);
+    expect(rowNames('planet-list').every((n) => /^(Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Moon)$/.test(n))).toBe(true);
     expect(worker.requests).toHaveLength(1);
   });
 });
@@ -339,7 +339,7 @@ describe('the night itinerary reads my plan', () => {
     await ready();
     await waitFor(() => expect(select().value).toBe('ngc7331'));
     const groups = [...select().querySelectorAll('optgroup')].map((g) => g.label);
-    expect(groups).toEqual(['My plan', 'Planets and Moon']);
+    expect(groups).toEqual(['My plan', 'Solar system']);
     expect([...select().querySelectorAll('optgroup')[0].querySelectorAll('option')].map((o) => o.value)).toEqual(['ngc7331', 'ngc891']);
     await userEvent.setup().click(within(section()).getByRole('button', { name: 'Add to itinerary' }));
     const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string).items;

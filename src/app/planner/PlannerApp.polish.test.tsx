@@ -248,13 +248,14 @@ describe('the small should-fixes', () => {
     expect(screen.getByTestId('score-note').textContent).toMatch(/mixes types, so it is not strictly in score order/);
   });
 
-  it('My plan calls the Moon "Moon", not "Planet"', async () => {
+  it('My plan calls the Moon and planets "Solar system"', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-moon', 'planet-jupiter'] }));
     await app();
     const plan = screen.getByRole('region', { name: /^MY PLAN/ });
     const items = within(plan).getAllByRole('listitem');
-    expect(items[0].textContent).toMatch(/Moon[\s\S]*Moon/);
-    expect(items[0].textContent).not.toMatch(/Planet/);
-    expect(items[1].textContent).toMatch(/Planet/);
+    expect(items[0].textContent).toMatch(/Moon[\s\S]*Solar system/);
+    expect(items[0].textContent).toMatch(/Solar system/);
+    expect(items[1].textContent).toMatch(/Solar system/);
+    expect(plan.textContent).not.toMatch(/Planet/);
   });
 });

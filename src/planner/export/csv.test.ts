@@ -112,7 +112,7 @@ describe('CSV readability', () => {
     const text = planToCsv(smartPlan.entries, { formatTime: () => 't' });
     expect(text).not.toContain('not-applicable');
     const fit = parseCsv(text).slice(1).map((r) => r[CSV_HEADER.indexOf('Fit')]);
-    expect(new Set(fit)).toEqual(new Set(['Smart scope', 'Planet']));
+    expect(new Set(fit)).toEqual(new Set(['Smart scope', 'Solar system']));
     const optical = parseCsv(planToCsv(plan.entries, { formatTime: () => 't' })).slice(1).map((r) => r[CSV_HEADER.indexOf('Fit')]);
     expect(optical).toEqual(expect.arrayContaining(['Fits', 'Too large']));
   });

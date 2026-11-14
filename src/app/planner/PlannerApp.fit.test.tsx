@@ -93,11 +93,11 @@ describe('targets that do not fit the chosen train', () => {
     expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
   });
 
-  it('under Type = Planets the note and the group are not shown (nothing deep-sky listed there)', async () => {
+  it('under Type = Solar system the note and the group are not shown (nothing deep-sky listed there)', async () => {
     await app();
     fireEvent.click(toggle());
     await ready();
-    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'planets' } });
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'solar-system' } });
     expect(screen.queryByTestId('hidden-note')).toBeNull();
     expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
   });

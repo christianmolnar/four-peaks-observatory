@@ -101,7 +101,7 @@ const SEARCH_SLICE_MS = 10;
 const MOON_ID = planetIdOf('Moon');
 
 const optionText = (e: AddOption, nightWord: string): string =>
-  `${e.name}${e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: ${e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : `not clear ${nightWord}`}`;
+  `${e.name}${e.isPlanet && e.id !== MOON_ID ? ' (solar system)' : ''}: ${e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : `not clear ${nightWord}`}`;
 
 /** What the advice box says when the order is already the best the search found. */
 export const unchangedAdviceText = (exhaustive: boolean): string =>
@@ -403,7 +403,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
                 {choices.planned.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
               </optgroup>
             )}
-            <optgroup label="Planets and Moon">
+            <optgroup label="Solar system">
               {choices.rest.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
             </optgroup>
           </WrapSelect>
@@ -565,7 +565,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
                   {s.subSeconds !== null && s.subCount !== null
                     ? `Light: ${s.subSeconds} s x ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min (estimate).`
                     : timed
-                      ? `${s.name === 'Moon' ? 'Moon' : 'Planet'}: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the Planets checklist.`
+                      ? `${s.name === 'Moon' ? 'Moon' : 'Solar system'}: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the checklist in the Solar system row of the list.`
                       : 'No imaging is planned for this slot.'}{' '}
                   {k > 0 && timed ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
                 </p>

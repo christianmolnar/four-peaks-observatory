@@ -74,7 +74,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
   }, [typed]);
   const rows = useMemo((): Row[] => {
     if (typed === '') return [];
-    const planets = bodies.map((b): Row => ({ id: planetIdOf(b), name: b, aka: '', meta: b === 'Moon' ? 'Moon' : 'Planet', entry: scorer === null ? null : scorer.planet(b), type: null }));
+    const planets = bodies.map((b): Row => ({ id: planetIdOf(b), name: b, aka: '', meta: 'Solar system', entry: scorer === null ? null : scorer.planet(b), type: null }));
     const targets = (result?.hits ?? []).map(({ target }): Row => {
       const shown = target.displayName ?? target.name;
       const designation = designationOf(target.id);
@@ -136,7 +136,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
         </button>
       </form>
       <p id={hintId} className="mt-1 text-white/60 font-normal text-xs">
-        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}, the planets and the Moon on this device, as you type. Nothing is sent anywhere.
+        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}, the solar system (Moon and planets) on this device, as you type. Nothing is sent anywhere.
       </p>
 
       {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-white/80 font-normal text-sm">Loading the catalog…</p>}

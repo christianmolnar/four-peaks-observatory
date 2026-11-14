@@ -127,7 +127,7 @@ describe('empty My plan', () => {
     mount(f.fn, { plan: ['planet-jupiter'] });
     await ready();
     expect(go().disabled).toBe(true);
-    expect(screen.getByTestId('ai-plan-reason').textContent).toMatch(/not planets/);
+    expect(screen.getByTestId('ai-plan-reason').textContent).toMatch(/not the Moon and planets/);
   });
 });
 
@@ -167,7 +167,7 @@ describe('the request', () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { plan: ['m31', 'planet-jupiter', 'ic405'] });
     await ready();
-    expect(screen.getByTestId('ai-left-out-note').textContent).toMatch(/1 planet is left out/);
+    expect(screen.getByTestId('ai-left-out-note').textContent).toMatch(/1 solar-system body is left out/);
     await planned();
     expect(okInput(f.sent[0]).targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
   });

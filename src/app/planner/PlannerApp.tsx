@@ -62,7 +62,7 @@ import HorizonEditor, { describeOverlaps } from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
 import OverflowMenu from './OverflowMenu';
-import PlanetsSection from './PlanetsSection';
+import SolarSystemDetail from './SolarSystemDetail';
 import PrintSheet from './PrintSheet';
 import { download } from './download';
 import type { IncomingItinerary, ItineraryReport } from './ItinerarySection';
@@ -88,12 +88,12 @@ const clockIn = (timeZone?: string): ((d: Date) => string) => {
   return (d) => f.format(d);
 };
 
-type TypeFilter = 'all' | 'deep-sky' | 'planets';
+type TypeFilter = 'all' | 'deep-sky' | 'solar-system';
 
 const TYPE_LABELS: Record<TypeFilter, string> = {
   all: 'All',
   'deep-sky': 'Deep-sky',
-  planets: 'Planets',
+  'solar-system': 'Solar system',
 };
 
 type RankedEntry = PlanEntry;
@@ -202,6 +202,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [openId, setOpenId] = useState<string>('');
   // The two groups under the list: the user's own open or close, else the default for the situation.
   const [planetsOpen, setPlanetsOpen] = useState<boolean | null>(null);
+  // The solar-system checklist ticks, "Body:item"; not saved.
+  const [solarChecked, setSolarChecked] = useState<ReadonlySet<string>>(new Set());
+  const toggleSolar = useCallback(
+    (key: string) =>
+      setSolarChecked((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      }),
+    [],
+  );
   const [noFitOpen, setNoFitOpen] = useState(false);
   // The target just added, for a few seconds: said next to its button, and to a screen reader in the status line.
   const [added, setAdded] = useState<{ id: string; text: string; say: string } | null>(null);
@@ -478,10 +490,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const catalogById = useMemo(() => (catalog.status === 'ready' ? new Map(catalog.index.targets.map((t) => [t.id, t])) : null), [catalog]);
 
   const ranked = useMemo(() => (tonight.status === 'ready' ? tonight.result : null), [tonight]);
-  // The planets that are up sit beside the best 100, so Type = Planets lists them and All shows them as a group of their own.
-  const mainList = useMemo((): readonly PlanEntry[] => (ranked === null ? [] : type === 'planets' ? ranked.planets : ranked.entries), [ranked, type]);
-  const planetGroup = useMemo((): readonly PlanEntry[] => (ranked !== null && type === 'all' ? ranked.planets : []), [ranked, type]);
-  const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && type !== 'planets' ? ranked.noFit : []), [ranked, showNoFit, type]);
+  // The Moon and planets that are up sit beside the best 100 as the "Solar system" group: Type = Solar system shows only that group, All shows it above the targets.
+  const mainList = useMemo((): readonly PlanEntry[] => (ranked === null || type === 'solar-system' ? [] : ranked.entries), [ranked, type]);
+  // The ranker lists the planets; the Moon is scored by the same single-target path as the search and joins them when it is up.
+  const moonEntry = useMemo(() => scorer?.planet('Moon') ?? null, [scorer]);
+  const planetGroup = useMemo((): readonly PlanEntry[] => {
+    if (ranked === null || type === 'deep-sky') return [];
+    const bodies = moonEntry !== null && moonEntry.usableMinutes > 0 ? [...ranked.planets, moonEntry] : ranked.planets;
+    return [...bodies].sort((x, y) => y.score.total - x.score.total);
+  }, [ranked, type, moonEntry]);
+  const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && type !== 'solar-system' ? ranked.noFit : []), [ranked, showNoFit, type]);
   // Everything the Type filter lets through, in reading order: what Export and Print carry.
   const filtered = useMemo(() => [...mainList, ...planetGroup], [mainList, planetGroup]);
   const openEntry = useMemo(() => [...mainList, ...planetGroup, ...noFitList].find((e) => e.id === openId), [mainList, planetGroup, noFitList, openId]);
@@ -489,7 +507,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const listedAs = (id: string): string | undefined => {
     const place = mainList.findIndex((e) => e.id === id);
     if (place >= 0) return `#${place + 1} in the list below.`;
-    if (planetGroup.some((e) => e.id === id)) return 'Listed under Planets below.';
+    if (planetGroup.some((e) => e.id === id)) return 'Listed under Solar system below.';
     if (noFitList.some((e) => e.id === id)) return 'Listed under “Does not fit this frame” below.';
     return undefined;
   };
@@ -712,7 +730,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const name = body ?? target?.displayName ?? target?.name ?? id;
     const detail =
       body !== undefined
-        ? (body === 'Moon' ? 'Moon' : 'Planet')
+        ? 'Solar system'
         : target !== undefined
           ? [designationOf(target.id) === name ? '' : designationOf(target.id), typeLabel(target.type), sizeText(target.sizeArcmin)].filter((x) => x !== '').join(' · ')
           : catalog.status === 'loading'
@@ -749,12 +767,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         : catalog.status === 'loading'
           ? 'The catalog is still loading.'
           : aiTargets.length === 0
-            ? 'My plan has no deep-sky targets the AI planner can use. It plans fixed objects, not planets.'
+            ? 'My plan has no deep-sky targets the AI planner can use. It plans fixed objects, not the Moon and planets.'
             : aiBase === null
               ? 'The site or train is not ready.'
               : null;
   const aiLeftOut = [
-    planets > 0 ? `${planets} ${planets === 1 ? 'planet is' : 'planets are'} left out: the AI plans fixed objects.` : '',
+    planets > 0 ? `${planets} solar-system ${planets === 1 ? 'body is' : 'bodies are'} left out: the AI plans fixed objects.` : '',
     unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
     aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of My plan are sent.` : '',
   ].filter((x) => x !== '').join(' ');
@@ -769,12 +787,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       : catalog.status === 'loading'
         ? 'The catalog is still loading.'
         : campaignTargets.length === 0
-          ? 'My plan has no deep-sky targets to plan. This plans fixed objects, not planets.'
+          ? 'My plan has no deep-sky targets to plan. This plans fixed objects, not the Moon and planets.'
           : aiBase === null
             ? 'The site or train is not ready.'
             : null;
   const campaignLeftOut = [
-    planets > 0 ? `${planets} ${planets === 1 ? 'planet is' : 'planets are'} left out: planets move across the sky from night to night, and this plan places fixed objects.` : '',
+    planets > 0 ? `${planets} solar-system ${planets === 1 ? 'body is' : 'bodies are'} left out: the Moon and planets move across the sky from night to night, and this plan places fixed objects.` : '',
     unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
   ].filter((x) => x !== '').join(' ');
   /** Gives the plan to the itinerary section and waits for its answer (it asks before replacing a plan that is there). */
@@ -844,17 +862,25 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
           : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
   const planetary = train.kind === 'optical' && train.tag === 'planetary';
+  // The plan mixes kinds when the train is for one and My plan holds the other (adding is never blocked, the train never switches by itself).
+  const trainNote =
+    planetary && planItems.some((p) => p.body === undefined)
+      ? 'My plan mixes a solar-system train and deep-sky targets.'
+      : !planetary && planets > 0
+        ? 'My plan mixes a deep-sky train and solar-system bodies.'
+        : null;
   // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
   const deepTrain = planetary ? (profile.trains.find((t) => t.kind === 'optical' && t.tag !== 'planetary') ?? profile.trains.find((t) => t.kind === 'smart')) : undefined;
   const frame = planTrain === null ? null : fieldOf(planTrain);
   const noFitFit = (e: PlanEntry): string => (frame === null ? e.fit : fitReason(e, catalogById?.get(e.id)?.sizeArcmin, frame));
   const describeRow = (e: PlanEntry): RowDescription => {
-    if (e.isPlanet) return { aka: '', meta: e.name === 'Moon' ? 'Moon' : 'Planet' };
+    if (e.isPlanet) return { aka: '', meta: 'Solar system' };
     const t = catalogById?.get(e.id);
     if (t === undefined) return { aka: '', meta: typeLabel(e.type) };
     const d = designationOf(t.id);
     return { aka: d !== '' && d !== e.name ? d : '', meta: [typeLabel(t.type), sizeText(t.sizeArcmin), t.constellation].filter((x) => x !== undefined && x !== '').join(' · ') };
   };
+  const solarBody = (id: string) => SLOT_BODIES.find((b) => planetIdOf(b) === id);
   const renderDetail = (e: PlanEntry) => {
     const t = detailText(e, formatTime);
     return (
@@ -872,6 +898,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </label>
         {track && stableNight && e.id === openId && (
           <AltitudeChart entry={e} night={stableNight} track={track} horizonSet={horizon !== null} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
+        )}
+        {e.isPlanet && solarBody(e.id) !== undefined && stableNight && astroSite && (
+          <SolarSystemDetail
+            body={solarBody(e.id)!}
+            profile={profile}
+            train={train}
+            site={astroSite}
+            night={stableNight}
+            horizon={horizon}
+            minAltitude={minAltitude}
+            formatTime={formatTime}
+            nightWord={nightWord}
+            checked={solarChecked}
+            onToggle={toggleSolar}
+          />
         )}
       </div>
     );
@@ -1068,7 +1109,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </p>
       </div>
 
-      <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
+      <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} trainNote={trainNote} onChangeTrain={() => goToControl('plan-train')} />
 
       <AiPlanPanel
         base={aiBase}
@@ -1120,7 +1161,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label htmlFor="f-type" className="block text-white/90 font-normal text-sm mb-1">Type</label>
-              <WrapSelect id="f-type" className="w-full" value={type} onChange={(e) => setType(e.target.value as TypeFilter)}>
+              <WrapSelect id="f-type" className="w-full" value={type} onChange={(e) => {
+                const next = e.target.value as TypeFilter;
+                setType(next);
+                if (next === 'solar-system') setPlanetsOpen(true); // the group is the whole view: show it open
+              }}>
                 {(Object.keys(TYPE_LABELS) as TypeFilter[]).map((k) => (
                   <option key={k} value={k}>{TYPE_LABELS[k]}</option>
                 ))}
@@ -1150,7 +1195,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
         {planetary && (
           <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="planetary-note">
-            <span>This train is set up for planets, so most deep-sky targets are too large or too small for its frame.</span>
+            <span>This train is set up for the solar system, so most deep-sky targets are too large or too small for its frame.</span>
             {deepTrain && (
               <button type="button" className={`${btn} min-h-11`} onClick={() => chooseTrain(deepTrain.id)}>
                 Use {deepTrain.name}
@@ -1174,14 +1219,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           )
         ) : (
           <>
-            {type !== 'planets' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
+            {type !== 'solar-system' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
             {planetGroup.length > 0 && (
-              <Group id="planets-group" title={`Planets up ${nightWord} (${planetGroup.length})`} open={planetsOpen ?? planetary} onToggle={() => setPlanetsOpen(!(planetsOpen ?? planetary))}>
-                <TargetList {...listProps} entries={planetGroup} label={`Planets up ${nightWord}`} idPrefix="planet" />
+              <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={planetsOpen ?? planetary} onToggle={() => setPlanetsOpen(!(planetsOpen ?? planetary))}>
+                <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" />
               </Group>
             )}
-            {mainList.length === 0 ? (
-              <p className="text-white/90 font-normal">{type === 'planets' ? `No planet is up ${nightWord} above your horizon and minimum altitude.` : 'No targets match these filters.'}</p>
+            {type === 'solar-system' ? (
+              planetGroup.length === 0 && <p className="text-white/90 font-normal">{`No Moon or planet is up ${nightWord} above your horizon and minimum altitude.`}</p>
+            ) : mainList.length === 0 ? (
+              <p className="text-white/90 font-normal">No targets match these filters.</p>
             ) : (
               <>
                 {planetGroup.length > 0 && <h3 className="mt-4 text-base font-medium text-white">Best deep-sky targets</h3>}
@@ -1237,19 +1284,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             incomingAnswer.current?.(applied);
             incomingAnswer.current = null;
           }}
-        />
-      )}
-
-      {stableNight && astroSite && (
-        <PlanetsSection
-          profile={profile}
-          train={train}
-          site={astroSite}
-          night={stableNight}
-          horizon={horizon}
-          minAltitude={minAltitude}
-          formatTime={formatTime}
-          nightWord={nightWord}
         />
       )}
 

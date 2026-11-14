@@ -5,7 +5,7 @@ export const CSV_HEADER = [
   'Rank',
   'Name',
   'Type',
-  'Planet',
+  'Solar system',
   'Season',
   'In season',
   'Fit',

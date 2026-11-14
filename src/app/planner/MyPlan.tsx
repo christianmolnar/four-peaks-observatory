@@ -16,6 +16,10 @@ export interface MyPlanProps {
   nightWord: string;
   onMove: (id: string, direction: 'up' | 'down') => void;
   onRemove: (id: string) => void;
+  /** One plain line when the plan mixes a deep-sky train and solar-system bodies (or the reverse), else null. */
+  trainNote: string | null;
+  /** Focuses the Train select. */
+  onChangeTrain: () => void;
 }
 
 const btn =
@@ -26,7 +30,7 @@ const btn =
  * re-sorted by score. It sits above the list so it is seen while adding; closed it is one line with the count, and it opens
  * by itself once it holds something (until the user opens or closes it). The itinerary takes its targets from this list.
  */
-export default function MyPlan({ rows, nightWord, onMove, onRemove }: MyPlanProps) {
+export default function MyPlan({ rows, nightWord, onMove, onRemove, trainNote, onChangeTrain }: MyPlanProps) {
   const [chosen, setChosen] = useState<boolean | null>(null);
   const open = chosen ?? rows.length > 0;
   const headerRef = useRef<HTMLButtonElement>(null);
@@ -82,6 +86,12 @@ export default function MyPlan({ rows, nightWord, onMove, onRemove }: MyPlanProp
             <p className="text-white/70 font-normal text-sm mb-3">
               Your targets for {nightWord}, in your order of priority. Add them from the list or the search; the night itinerary takes its targets from here.
             </p>
+            {trainNote !== null && (
+              <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-train-note">
+                <span>{trainNote}</span>
+                <button type="button" className={btn} onClick={onChangeTrain}>Change train</button>
+              </p>
+            )}
             {rows.length === 0 ? (
               <p className="text-white/90 font-normal text-sm">Nothing in your plan yet. Use Add on a target.</p>
             ) : (

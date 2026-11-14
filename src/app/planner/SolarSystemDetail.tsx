@@ -1,17 +1,18 @@
 'use client';
 
-import { memo, useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { HorizonPoint } from '@/planner/horizon';
-import { CARD_BODIES, clipPlanet, planetSkies, samplingFor } from '@/planner/planets';
+import { clipPlanet, planetSky, samplingFor } from '@/planner/planets';
 import type { CardBody, PlanetCard } from '@/planner/planets';
 import { buildGuide } from '@/planner/planets/guide';
 import type { GuideBasis } from '@/planner/planets/guide';
 import { planetTrainInfo } from '@/planner/planets/train';
 import type { Profile, TrainEntry } from '@/planner/profile';
-import AltitudeChart from './AltitudeChart';
 
-export interface PlanetsSectionProps {
+export interface SolarSystemDetailProps {
+  /** The Moon or a planet. */
+  body: CardBody;
   profile: Profile;
   train: TrainEntry;
   site: Site;
@@ -22,6 +23,9 @@ export interface PlanetsSectionProps {
   formatTime: (d: Date) => string;
   /** "tonight" or "that night (date)", from the page. */
   nightWord: string;
+  /** Checklist ticks, "Body:item"; kept by the page so they survive closing the row. */
+  checked: ReadonlySet<string>;
+  onToggle: (key: string) => void;
 }
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -61,22 +65,16 @@ function Row({ label, basis, children }: { label: string; basis: string; childre
   );
 }
 
-const PlanetPanel = memo(function PlanetPanel({
+function SolarSystemPanel({
   card,
   info,
-  minAltitude,
-  horizonSet,
-  night,
-  formatTime,
   nightWord,
+  formatTime,
   checked,
   onToggle,
 }: {
   card: PlanetCard;
   info: ReturnType<typeof planetTrainInfo>;
-  minAltitude: number;
-  horizonSet: boolean;
-  night: AstronomicalNight;
   formatTime: (d: Date) => string;
   nightWord: string;
   checked: ReadonlySet<string>;
@@ -91,11 +89,10 @@ const PlanetPanel = memo(function PlanetPanel({
         : null,
     [card, info, formatTime],
   );
-  const entry = { name: body, windows: card.windows, usableMinutes: card.usableMinutes, peakAltitude: card.peak.altitude, peakAzimuth: card.peak.azimuth, peakTime: card.peak.time };
   const sampling = info.apertureMm !== undefined && info.scaleArcsecPx !== undefined ? samplingFor(info.scaleArcsecPx, info.apertureMm) : null;
   return (
     <div>
-      <h3 className="text-white font-normal text-base mb-2">{body}: {nightWord}</h3>
+      <h4 className="text-white font-normal text-base mb-2">{body}: {nightWord}</h4>
       <dl className="grid gap-x-6 md:grid-cols-2">
         <Row label="Apparent diameter" basis="computed">
           {f1(card.apparentDiameterArcsec)} arcsec{card.diameterPx !== null ? `, about ${r0(card.diameterPx)} pixels across on ${info.trainName}` : ''}.
@@ -128,22 +125,7 @@ const PlanetPanel = memo(function PlanetPanel({
         <p className="text-white/80 font-normal text-sm mt-2">Mosaic at this field: about {card.mosaicPanelsPerSide} by {card.mosaicPanelsPerSide} panels (computed).</p>
       )}
 
-      <div className="mt-4">
-        {card.track.length > 1 && (
-          <AltitudeChart
-            entry={entry}
-            night={night}
-            track={card.track}
-            horizonSet={horizonSet}
-            minAltitude={minAltitude}
-            formatTime={formatTime}
-            nightWord={nightWord}
-            idPrefix={`planet-${body.toLowerCase()}`}
-          />
-        )}
-      </div>
-
-      <h3 className="text-white font-normal text-base mt-6 mb-2">Lucky-imaging checklist: {body}</h3>
+      <h4 className="text-white font-normal text-base mt-6 mb-2">Lucky-imaging checklist: {body}</h4>
       {guide === null ? (
         <p className="text-white/90 font-normal text-sm">{info.missing ?? 'The guide needs an optical train with a telescope aperture.'}</p>
       ) : (
@@ -171,117 +153,36 @@ const PlanetPanel = memo(function PlanetPanel({
       )}
     </div>
   );
-});
+}
 
 /**
- * The Planets section: a card for each of Jupiter, Saturn, Mars, Venus, Mercury, Uranus, Neptune and the Moon, one
- * selected planet's detail with its altitude chart and the lucky-imaging checklist. Every number says whether it is
- * computed, estimated, sourced or assumed. The eight detail panels sit in one grid cell, only the selected one visible,
- * so the section is as tall as the tallest and choosing another planet moves nothing.
+ * What a solar-system row shows when it opens, besides the list's own detail (why, window, peak, Moon, the altitude chart):
+ * the body's size, phase, event, culmination, usable time, ring tilt, clip limit, image scale, and the lucky-imaging checklist.
+ * Every number says whether it is computed, estimated, sourced or assumed. Computed for the open row only.
  */
-export default function PlanetsSection({ profile, train, site, night, horizon, minAltitude, formatTime, nightWord }: PlanetsSectionProps) {
+export default function SolarSystemDetail({ body, profile, train, site, night, horizon, minAltitude, formatTime, nightWord, checked, onToggle }: SolarSystemDetailProps) {
   // The train's numbers as one stable object: a filter change makes a new profile but leaves these as they were.
   const fresh = planetTrainInfo(profile, train);
   const infoKey = JSON.stringify(fresh);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- infoKey names exactly what `fresh` holds
   const info = useMemo(() => fresh, [infoKey]);
-  // The slow part (positions, sizes, events) does not depend on the minimum altitude or the horizon, so typing a new
+  // The slow part (position, size, events) does not depend on the minimum altitude or the horizon, so typing a new
   // minimum only redoes the clipping.
-  const skies = useMemo(() => {
-    if (night.kind !== 'normal') return null;
-    return planetSkies({ site, night, apertureMm: info.apertureMm, imageScaleArcsecPx: info.scaleArcsecPx, fieldArcmin: info.fieldArcmin });
-  }, [site, night, info]);
-  const cards = useMemo(() => (skies ? skies.map((sky) => clipPlanet(sky, horizon, minAltitude)) : null), [skies, horizon, minAltitude]);
-
-  const [picked, setPicked] = useState<CardBody | null>(null);
-  const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
-  const toggle = useCallback(
-    (key: string) =>
-      setChecked((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      }),
-    [],
+  const sky = useMemo(
+    () => (night.kind === 'normal' ? planetSky({ body, site, night, apertureMm: info.apertureMm, imageScaleArcsecPx: info.scaleArcsecPx, fieldArcmin: info.fieldArcmin }) : null),
+    [body, site, night, info],
   );
-
-  const frame = 'bg-black/70 rounded-lg border border-white/10 p-6';
-  const heading = <h2 id="planets-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">PLANETS</h2>;
-  if (cards === null) {
-    return (
-      <section aria-labelledby="planets-heading" className={frame}>
-        {heading}
-        <p className="text-white/90 font-normal text-sm">There is no astronomical night on this date, so the planet cards (which use it) are not shown.</p>
-      </section>
-    );
-  }
-  // Default: the first planet that is clear of the horizon on the chosen night, else the first card.
-  const selectedBody: CardBody = picked ?? cards.find((c) => c.usableMinutes > 0)?.body ?? CARD_BODIES[0];
-  const horizonSet = horizon !== null && horizon.length > 0;
-
+  const card = useMemo(() => (sky ? clipPlanet(sky, horizon, minAltitude) : null), [sky, horizon, minAltitude]);
+  if (card === null) return <p className="text-white/90 font-normal text-sm">There is no astronomical night on this date, so the detail (which uses it) is not shown.</p>;
   return (
-    <section aria-labelledby="planets-heading" className={frame}>
-      {heading}
-      <p className="text-white/80 font-normal text-sm">
+    <div data-testid={`solar-detail-${body}`}>
+      <p className="text-white/80 font-normal text-sm mb-3">
         Computed for {nightWord}, at the middle of the astronomical night, the same night as the target list (so Mercury, Venus and the early Moon, which are twilight objects, may show as not clear when they could be imaged earlier; that is not computed). Usable time counts your saved horizon and the minimum altitude. Jupiter&apos;s Great Red Spot transits are not shown: there is no verified longitude model.
       </p>
-
-      <fieldset className="mt-4">
-        <legend className="text-white/90 font-normal text-sm mb-2">Planet</legend>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {cards.map((c) => {
-            const on = c.body === selectedBody;
-            return (
-              <label key={c.body} className="relative block cursor-pointer">
-                <input type="radio" name="planet" value={c.body} checked={on} onChange={() => setPicked(c.body)} className="peer sr-only" />
-                <div className="h-full rounded-lg border-2 border-white/15 bg-black/50 p-3 peer-checked:border-sky-300 peer-checked:bg-sky-400/10 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-black">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="text-white font-normal text-base">{c.body}</h3>
-                    <span aria-hidden={!on} className={`text-xs text-sky-200 ${on ? '' : 'invisible'}`}>Selected</span>
-                  </div>
-                  <p className="text-white text-sm min-h-10 max-md:min-h-[3.75rem]">
-                    {c.usableMinutes > 0 ? `Clear of your horizon ${r0(c.usableMinutes)} min` : `Not clear of your horizon ${nightWord}`}
-                  </p>
-                  <p className="text-white/90 text-sm min-h-10">{c.usableMinutes === 0 && c.peak.altitude < 0 ? 'Below the horizon all night' : `Peak ${r0(c.peak.altitude)}° at ${formatTime(c.peak.time)}`}</p>
-                  <p className="text-white/90 text-sm min-h-10 max-md:min-h-[3.75rem]">{f1(c.apparentDiameterArcsec)} arcsec, {f1(c.illuminatedFraction * 100)}% lit</p>
-                  <p className="text-white/70 text-xs">all computed</p>
-                </div>
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <div className="mt-6 grid">
-        {cards.map((c) => {
-          const on = c.body === selectedBody;
-          return (
-            <div
-              key={c.body}
-              className={`[grid-area:1/1] min-w-0 ${on ? '' : 'invisible'}`}
-              aria-hidden={on ? undefined : true}
-              inert={!on}
-              data-testid={`planet-panel-${c.body}`}
-            >
-              <PlanetPanel
-                card={c}
-                info={info}
-                minAltitude={minAltitude}
-                horizonSet={horizonSet}
-                night={night}
-                formatTime={formatTime}
-                nightWord={nightWord}
-                checked={checked}
-                onToggle={toggle}
-              />
-            </div>
-          );
-        })}
-      </div>
+      <SolarSystemPanel card={card} info={info} formatTime={formatTime} nightWord={nightWord} checked={checked} onToggle={onToggle} />
       <p className="text-white/60 font-normal text-xs mt-4">
         The checklist ticks are not saved. computed: from the ephemeris or a formula. sourced: a cited figure. assumption: a starting value chosen here, not measured. practice: common amateur practice, no source for this build. not verified: not checked.
       </p>
-    </section>
+    </div>
   );
 }
