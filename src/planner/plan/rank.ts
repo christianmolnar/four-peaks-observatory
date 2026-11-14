@@ -97,6 +97,13 @@ export function capClassShare(sorted: readonly PlanEntry[], limit: number): Plan
   return out;
 }
 
+/**
+ * THE RULE for non-imaging objects: a double star (M40 is one) is not an imaging target, so tonight's list leaves the
+ * types in this list out unless `includeNonImaging` is set. They stay in the catalog and in search; a person can still
+ * add one to their plan. Every other type, asterisms and dark nebulae included, can be imaged and is ranked.
+ */
+export const NON_IMAGING_TYPES: readonly string[] = ['double-star'];
+
 export interface RankInput extends Omit<TonightInput, 'targets'> {
   /** Every candidate: the curated targets plus the catalog, one entry per object. */
   targets: readonly PlanTarget[];
@@ -104,6 +111,8 @@ export interface RankInput extends Omit<TonightInput, 'targets'> {
   limit?: number;
   /** Keep targets that do not fit the train's frame (the page's "show targets that do not fit"). Default false. */
   includeTooLarge?: boolean;
+  /** Rank the types in `NON_IMAGING_TYPES` too. Default false. */
+  includeNonImaging?: boolean;
   /** Drop targets under this percent of the frame; 0 keeps all. Default 3. */
   minFramePercent?: number;
 }
@@ -255,7 +264,8 @@ export function prepareRanking(input: RankInput): Ranker {
       }),
     };
   }
-  const screened = screenTargetsDetailed(ctx, input.targets, { includeTooLarge: input.includeTooLarge ?? false, minFramePercent });
+  const imageable = input.includeNonImaging === true ? input.targets : input.targets.filter((t) => !NON_IMAGING_TYPES.includes(t.type));
+  const screened = screenTargetsDetailed(ctx, imageable, { includeTooLarge: input.includeTooLarge ?? false, minFramePercent });
   const candidates = screened.kept;
   return {
     candidates,

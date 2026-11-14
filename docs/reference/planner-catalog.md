@@ -72,9 +72,15 @@
   "Wild Duck Cluster" (upstream "Amas de l'Ecu de Sobieski"), M17 "Omega Nebula" (upstream "Checkmark Nebula"),
   NGC 253 "Sculptor Galaxy", IC 1805 "Heart Nebula". Search hits carry it as `target.displayName`; the UI shows
   `displayName ?? name`. `name` stays upstream's and is still searchable; the display name is added as an alias.
-- `src/planner/data/catalog-overrides.json`: corrections to upstream names, each with its reason. Own work, CC0-1.0.
+- `src/planner/data/catalog-overrides.json`: corrections to upstream names and surface brightness, each with its reason. Own work, CC0-1.0.
   - IC 434 is not the Flame Nebula (OpenNGC's own note says it is the strip behind the Horsehead). NGC 2024 is.
     IC 434 is named "IC 434" and NGC 2024 "Flame Nebula". No other upstream naming error was verified.
+  - `surfaceBrightness` replaces the value (and drops `sbComputed`). Sculptor dwarf spheroidal (`eso351-030`): OpenNGC says
+    19.51, brighter than any real galaxy in the file; a dwarf spheroidal's mean V-band value is about 23.5 (McConnachie
+    2012), which is what the override sets. The raw asset and the brightness percentile tables (built from the raw asset)
+    keep 19.51; only the index built for the planner carries the correction. Its magnitude (8.6) and size (15.3') were not
+    touched, so it can still score well on magnitude alone: a scoring question, not a data one.
+  - A test (`brightness.test.ts`) fails if any dwarf spheroidal/elliptical has a surface brightness brighter than 22.
 - Both files are applied when the index is built, and the build of the index throws when an id is no longer in the catalog.
 
 ## Search rules
@@ -96,3 +102,12 @@
 - Text that normalises to nothing (`🔭`, `.*`) is a miss (`notFoundLocally: true`), not an empty box. Empty text is
   not a miss.
 - Filter values must be finite numbers (NaN and Infinity throw), `fovArcmin` positive, `types` known.
+
+## What tonight's list leaves out
+- Double stars (`double-star`, for example M40) are not imaging targets: `rankTargets` leaves the types in
+  `NON_IMAGING_TYPES` (`src/planner/plan/rank.ts`) out of the list unless `includeNonImaging` is set. They stay in the
+  catalog and in search, and can be added to my plan. Asterisms and dark nebulae are ranked.
+- The size screen reports what it hid: `counts.tooLarge` / `counts.tooSmall` with the leading names in `hidden`; the
+  page says them in words ("M31 is larger than this frame (3 hidden): show anyway").
+- Seam for an online lookup (SIMBAD): `TargetSearch` takes `renderNotFound(text)`, called when the bundled catalog has no
+  such object. Nothing is built behind it.

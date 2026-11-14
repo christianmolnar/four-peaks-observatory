@@ -180,3 +180,24 @@ describe('the showpiece nebulae score at least their class median (computed surf
     expect(brightnessScore(t!)).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('dwarf spheroidals and catalog errors', () => {
+  const dwarfs = catalog.filter((t) => /dwarf (spheroidal|elliptical)|\bdsph\b/i.test([t.name, ...t.aliases].join(' ')));
+
+  it('finds the dwarf spheroidals of the catalog (Sculptor, Fornax, Sextans) so the check below is not empty', () => {
+    expect(dwarfs.map((t) => t.id)).toEqual(expect.arrayContaining(['eso351-030', 'eso356-004', 'pgc88608']));
+  });
+
+  // A dwarf spheroidal's mean V-band surface brightness is about 23.5 (McConnachie 2012) or fainter. A value far brighter is a data
+  // error, and it would take the top brightness mark through the surface brightness share alone.
+  it('no dwarf spheroidal has a surface brightness brighter than 22: a catalog error cannot give one the +10', () => {
+    for (const t of dwarfs) {
+      expect({ id: t.id, brighterThan22: (t.surfaceBrightness ?? 99) < 22 }).toEqual({ id: t.id, brighterThan22: false });
+    }
+  });
+
+  it('Sculptor dSph carries the corrected 23.5 (the build file says 19.51), set by the overrides file, not in the raw asset', () => {
+    expect(objects.find((o) => o.id === 'eso351-030')?.surfaceBrightness).toBe(19.51);
+    expect(catalog.find((t) => t.id === 'eso351-030')?.surfaceBrightness).toBe(23.5);
+  });
+});

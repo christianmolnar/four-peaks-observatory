@@ -10,11 +10,13 @@ export interface SupplementEntry {
   displayName?: string;
 }
 
-/** A correction to an upstream name (own work, CC0; see `data/catalog-overrides.json`). */
+/** A correction to an upstream name or surface brightness (own work, CC0; see `data/catalog-overrides.json`). */
 export interface OverrideEntry {
   id: string;
   name?: string;
   dropNames?: string[];
+  /** Replaces the object's surface brightness (mag per square arcsecond); the value is then a measured one, not `sbComputed`. */
+  surfaceBrightness?: number;
   reason: string;
 }
 
@@ -48,8 +50,9 @@ export function loadOverrides(raw: unknown): OverrideEntry[] {
     if (typeof e.reason !== 'string' || e.reason === '') fail('catalog-overrides.json', i, 'expected a reason');
     if (e.name !== undefined && (typeof e.name !== 'string' || e.name === '')) fail('catalog-overrides.json', i, 'expected a name');
     if (e.dropNames !== undefined && !isStrings(e.dropNames)) fail('catalog-overrides.json', i, 'expected dropNames as a list of names');
-    if (e.name === undefined && e.dropNames === undefined) fail('catalog-overrides.json', i, 'changes nothing');
-    return { id: e.id, reason: e.reason, ...(e.name === undefined ? {} : { name: e.name }), ...(e.dropNames === undefined ? {} : { dropNames: e.dropNames }) };
+    if (e.surfaceBrightness !== undefined && !(typeof e.surfaceBrightness === 'number' && Number.isFinite(e.surfaceBrightness) && e.surfaceBrightness > 0)) fail('catalog-overrides.json', i, 'expected a positive surfaceBrightness');
+    if (e.name === undefined && e.dropNames === undefined && e.surfaceBrightness === undefined) fail('catalog-overrides.json', i, 'changes nothing');
+    return { id: e.id, reason: e.reason, ...(e.surfaceBrightness === undefined ? {} : { surfaceBrightness: e.surfaceBrightness }), ...(e.name === undefined ? {} : { name: e.name }), ...(e.dropNames === undefined ? {} : { dropNames: e.dropNames }) };
   });
 }
 
@@ -72,6 +75,10 @@ export function applyPatches(objects: readonly CatalogObject[], patches: Catalog
   };
   for (const ov of patches.overrides) {
     const o = get(ov.id, 'catalog-overrides.json');
+    if (ov.surfaceBrightness !== undefined) {
+      o.surfaceBrightness = ov.surfaceBrightness;
+      delete o.sbComputed;
+    }
     const drop = new Set(ov.dropNames ?? []);
     const oldName = o.name;
     if (ov.name !== undefined) o.name = ov.name;

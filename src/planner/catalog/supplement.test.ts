@@ -59,3 +59,19 @@ describe('applyPatches', () => {
     expect(() => applyPatches(base, { supplement: [], overrides: [{ id: 'b', dropNames: ['Wrong Name'], reason: 'test' }] })).toThrow('without a replacement');
   });
 });
+
+describe('surface brightness corrections', () => {
+  const base = [{ ...obj('a', 'A'), type: 'galaxy' as const, surfaceBrightness: 19.5, sbComputed: true as const }];
+
+  it('replace the value, and it is no longer flagged as computed; the input is left alone', () => {
+    const out = applyPatches(base, { supplement: [], overrides: [{ id: 'a', surfaceBrightness: 23.5, reason: 'a test reason' }] });
+    expect(out[0].surfaceBrightness).toBe(23.5);
+    expect(out[0].sbComputed).toBeUndefined();
+    expect(base[0].surfaceBrightness).toBe(19.5);
+  });
+
+  it('are validated', () => {
+    expect(() => loadOverrides({ entries: [{ id: 'a', reason: 'long enough reason', surfaceBrightness: -1 }] })).toThrow('surfaceBrightness');
+    expect(loadOverrides({ entries: [{ id: 'a', reason: 'long enough reason', surfaceBrightness: 23.5 }] })[0].surfaceBrightness).toBe(23.5);
+  });
+});

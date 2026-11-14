@@ -558,3 +558,26 @@ describe('the class share cap', () => {
     expect(capClassShare([], 10)).toEqual([]);
   });
 });
+
+describe('non-imaging objects (double stars) are not ranked unless asked', () => {
+  const m40 = catalog.find((t) => t.id === 'm40') as PlanTarget;
+  const bright: PlanTarget = { ...m40, id: 'dbl', name: 'Bright double', type: 'double-star', raHours: 21, decDeg: 34 };
+  const opts = { targets: [bright], minFramePercent: 0, minAltitude: 20, includePlanets: false, limit: 100 } as const;
+
+  it('M40 is a double star in the catalog, and it stays searchable', () => {
+    expect(m40.type).toBe('double-star');
+    expect(index.search({ text: 'M40' }).hits[0].target.id).toBe('m40');
+  });
+
+  it('a double star up tonight is left out of the list by default and comes back with includeNonImaging', () => {
+    expect(rank({ ...opts, date: '2026-09-20' }).entries.map((e) => e.id)).toEqual([]);
+    expect(rank({ ...opts, date: '2026-09-20', includeNonImaging: true }).entries.map((e) => e.id)).toEqual(['dbl']);
+  });
+
+  it('over the whole catalog no double star is in the list on any of 6 dates', () => {
+    for (const date of ['2026-11-14', '2027-02-05', '2027-04-15', '2027-07-10', '2027-09-04', '2027-12-10']) {
+      const types = rank({ date, train: smart }).entries.map((e) => e.type);
+      expect(types).not.toContain('double-star');
+    }
+  });
+});
