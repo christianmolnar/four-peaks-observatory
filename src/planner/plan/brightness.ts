@@ -1,0 +1,134 @@
+/**
+ * Brightness scoring by percentile rank within the object's class, so the classes are scored alike by construction.
+ *
+ * A galaxy's surface brightness and a nebula's magnitude are not comparable numbers, and no hand-set range makes them
+ * so. Instead each class has ONE measure, and an object is scored by where it stands among the catalog's objects of its
+ * class: the brightest tenth of any class scores +10, the faintest tenth -10, the median 0, in a straight line between
+ * (by percentile, not by value). Every class therefore puts the same share of its objects at the top and at the bottom.
+ *
+ * The measure per class:
+ *  - galaxy: a blend of two shares: where its surface brightness stands among galaxies (OpenNGC's measured mean over
+ *    the D25 outline; worked out from magnitude and size where the catalog has none) and where its integrated
+ *    magnitude stands. The weight moves with size: a small galaxy is judged on surface brightness, a large one (10'
+ *    and up) on its magnitude, less so when its surface brightness is beyond the catalog's 98th percentile (ultra-diffuse dwarfs). The D25 mean is diluted by the faint outer disc in proportion to how big the outline
+ *    is, and most of all for a thin edge-on one: NGC 891 (mag 10, 13 x 3') sits in the faintest tenth by surface
+ *    brightness and the brightest few percent by magnitude. A blend is not uniform, so it is ranked once more among
+ *    all galaxies' blends, and the top tenth still scores +10.
+ *  - cluster (open, globular, asterism): integrated V magnitude.
+ *  - nebula (emission and other nebulae, supernova remnants, planetary nebulae): integrated V magnitude. Not computed
+ *    surface brightness: that spreads the light over the area, so it scores the big bright nebulae as the faintest.
+ *  - other: V magnitude, against every object that has one.
+ * An object with no value for its class's measure scores 0: never penalised, never hidden.
+ *
+ * The percentile tables are derived from the bundled catalog (`brightness-percentiles.ts`, built by
+ * `scripts/build-brightness-percentiles.mjs`, and re-derived in a test), not worked out per request.
+ */
+import { BRIGHTNESS_PERCENTILES } from './brightness-percentiles';
+import type { PercentileTable } from './brightness-percentiles';
+
+/** The classes, by what the catalog's number means for them. */
+export type BrightnessClass = 'galaxy' | 'cluster' | 'nebula' | 'other';
+
+export interface Photometry {
+  type?: string;
+  mag?: number;
+  surfaceBrightness?: number;
+  sbComputed?: boolean;
+  sizeArcmin?: { major: number };
+}
+
+/** The score at the brightest and faintest end. */
+export const BRIGHTNESS_RANGE = 10;
+/** The brightest this share of a class scores the top, the faintest this share the bottom. */
+export const BRIGHTNESS_TAIL = 0.1;
+
+const GALAXY_TYPES = ['galaxy', 'galaxy-group'];
+const CLUSTER_TYPES = ['open-cluster', 'globular-cluster', 'asterism'];
+const NEBULA_TYPES = ['nebula', 'supernova-remnant', 'planetary-nebula'];
+
+/** Below this major axis (arcmin) a galaxy is judged on its surface brightness alone; at `MAG_WEIGHT_FULL_ARCMIN` and above, on its magnitude alone; between, on a log-size mix. */
+const MAG_WEIGHT_FROM_ARCMIN = 2;
+const MAG_WEIGHT_FULL_ARCMIN = 10;
+
+/**
+ * Past this share-fainter in surface brightness (the catalog's 98th percentile, worked out by the percentile build) a
+ * galaxy is ultra-diffuse, and the magnitude share loses weight (see `magnitudeWeight`): a dwarf spheroidal 30' across
+ * (Sextans, SB 28.07, the faintest in the catalog) has a fair magnitude only because it is spread over half a degree.
+ * It is not a target a large bright galaxy is.
+ */
+export const DIFFUSE_SB_FRACTION = 0.98;
+/** How much of the magnitude weight an ultra-diffuse galaxy at the very faint end of the surface brightness loses: half, so it keeps half of its surface brightness share. */
+export const DIFFUSE_WEIGHT_LOSS = 0.5;
+
+/**
+ * The weight of the magnitude share in a galaxy's blend: 0 for a small one, 1 for a large one; 0.5 when its size is
+ * unknown. `sbFraction` (its share-fainter in surface brightness, if known) takes the weight down linearly by up to
+ * `DIFFUSE_WEIGHT_LOSS` from `DIFFUSE_SB_FRACTION` (0.98) to 1, so the faintest-surfaced galaxies are never judged on magnitude alone.
+ */
+export function magnitudeWeight(majorArcmin: number | undefined, sbFraction?: number): number {
+  const bySize = (() => {
+    if (majorArcmin === undefined) return 0.5;
+    const t = Math.log(majorArcmin / MAG_WEIGHT_FROM_ARCMIN) / Math.log(MAG_WEIGHT_FULL_ARCMIN / MAG_WEIGHT_FROM_ARCMIN);
+    return Math.max(0, Math.min(1, t));
+  })();
+  if (sbFraction === undefined) return bySize;
+  const diffuse = Math.max(0, Math.min(1, (sbFraction - DIFFUSE_SB_FRACTION) / (1 - DIFFUSE_SB_FRACTION)));
+  return bySize * (1 - DIFFUSE_WEIGHT_LOSS * diffuse);
+}
+
+/**
+ * A galaxy's blend of its share-brighter in surface brightness and in magnitude, weighted by size (see the file
+ * comment); the one it has when it has only one. 0 = brighter than every galaxy, 1 = fainter than all; null with neither.
+ */
+export function galaxyBlend(t: Photometry): number | null {
+  const sb = t.surfaceBrightness === undefined ? undefined : fractionBrighter(t.surfaceBrightness, BRIGHTNESS_PERCENTILES.galaxySB);
+  const mag = t.mag === undefined ? undefined : fractionBrighter(t.mag, BRIGHTNESS_PERCENTILES.galaxyMag);
+  if (sb === undefined || mag === undefined) return sb ?? mag ?? null;
+  const w = magnitudeWeight(t.sizeArcmin?.major, sb);
+  return (1 - w) * sb + w * mag;
+}
+
+/** The class an object is scored in, and the one number of it that is ranked (a galaxy's is its blend): null when it has none. */
+export function brightnessClass(t: Photometry): { class: BrightnessClass; value: number | null } {
+  const type = t.type ?? '';
+  if (GALAXY_TYPES.includes(type)) return { class: 'galaxy', value: galaxyBlend(t) };
+  if (CLUSTER_TYPES.includes(type)) return { class: 'cluster', value: t.mag ?? null };
+  if (NEBULA_TYPES.includes(type)) return { class: 'nebula', value: t.mag ?? null };
+  return { class: 'other', value: t.mag ?? null };
+}
+
+/**
+ * The share of the class that is brighter than `value` (0 = the brightest there is, 1 = the faintest), read from the
+ * table's 101 cut points. A value that sits on a run of equal cut points takes the middle of the run, so ties in the
+ * catalog's rounded numbers do not push a class's top share above its tail.
+ */
+export function fractionBrighter(value: number, { cuts }: PercentileTable): number {
+  const last = cuts.length - 1;
+  let lo = 0;
+  while (lo <= last && cuts[lo] < value) lo++;
+  if (lo === 0) return 0;
+  if (lo > last) return 1;
+  if (cuts[lo] === value) {
+    let hi = lo;
+    while (hi < last && cuts[hi + 1] === value) hi++;
+    return (lo + hi) / (2 * last);
+  }
+  return (lo - 1 + (value - cuts[lo - 1]) / (cuts[lo] - cuts[lo - 1])) / last;
+}
+
+/** The score for a share-brighter: +10 at or inside the brightest tenth, -10 at or beyond the faintest tenth, a straight line between. */
+export function scoreOfFraction(fraction: number): number {
+  const percentile = 1 - fraction;
+  const s = ((percentile - 0.5) / (0.5 - BRIGHTNESS_TAIL)) * BRIGHTNESS_RANGE;
+  return Math.max(-BRIGHTNESS_RANGE, Math.min(BRIGHTNESS_RANGE, s));
+}
+
+/**
+ * -10 to +10 by the object's percentile rank within its class (see the file comment). An object with no value for its
+ * class's measure is neutral (0).
+ */
+export function brightnessScore(t: Photometry): number {
+  const { class: c, value } = brightnessClass(t);
+  if (value === null) return 0;
+  return scoreOfFraction(fractionBrighter(value, BRIGHTNESS_PERCENTILES[c]));
+}

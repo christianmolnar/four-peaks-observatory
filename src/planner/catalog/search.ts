@@ -213,7 +213,9 @@ function designationLabel(key: string): string {
 
 /**
  * A curated target stands for the catalog object it matches: it also answers to that object's numbers and
- * names ("C 20" finds the curated North America Nebula). The curated fields themselves are not touched.
+ * names ("C 20" finds the curated North America Nebula). The curated fields are not touched, except that a curated
+ * target with no photometry takes the magnitude and surface brightness of the first object it stands for, so the
+ * showpieces are scored for brightness like everything else.
  */
 function absorb(curated: Entry, object: Entry): void {
   for (const [k, own] of object.designations) if (!curated.designations.has(k)) curated.designations.set(k, own);
@@ -224,6 +226,15 @@ function absorb(curated: Entry, object: Entry): void {
     curated.target = { ...curated.target, aliases: [...curated.target.aliases, ...extra] };
   }
   if (object.messier === 0) curated.messier = 0;
+  const { mag, surfaceBrightness, sbComputed } = object.target;
+  if (curated.target.mag === undefined && curated.target.surfaceBrightness === undefined && (mag !== undefined || surfaceBrightness !== undefined)) {
+    curated.target = {
+      ...curated.target,
+      ...(mag === undefined ? {} : { mag }),
+      ...(surfaceBrightness === undefined ? {} : { surfaceBrightness }),
+      ...(sbComputed === undefined ? {} : { sbComputed }),
+    };
+  }
 }
 
 const DEG = Math.PI / 180;
@@ -420,6 +431,8 @@ function checkQuery(q: SearchQuery): void {
 export interface CatalogIndex {
   /** Number of distinct targets (curated plus catalog objects not claimed by a curated one). */
   readonly size: number;
+  /** Every distinct target, curated first then catalog order; frozen, shared with every search. */
+  readonly targets: readonly SearchTarget[];
   search(query: SearchQuery): SearchResult;
 }
 
@@ -462,6 +475,7 @@ export function createCatalogIndex(
 
   return {
     size: entries.length,
+    targets: entries.map((e) => e.target),
     search(query: SearchQuery): SearchResult {
       checkQuery(query);
       const limit = query.limit ?? DEFAULT_LIMIT;

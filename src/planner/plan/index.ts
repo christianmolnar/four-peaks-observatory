@@ -1,13 +1,15 @@
-import { astronomicalNight, bodyAltAz, moonIllumination, moonSeparation, targetAltAz } from '../astro';
+import { astronomicalNight, bodyAltAz, moonIllumination, targetAltAz } from '../astro';
 import type { AltAz, AstronomicalNight, PlanetName, Site } from '../astro';
 import type { CardBody } from '../astro/bodies';
-import { limitAltitudeAt, usableWindows, usableWindowsOnTrack } from '../horizon';
+import { limitAltitudeAt, usableWindowsOnTrack } from '../horizon';
 import type { HorizonPoint, TimeWindow } from '../horizon';
 import { opticalTrain, targetFitsFrame } from '../optics';
 import type { OpticalTrain } from '../optics';
 import { resolveTrain } from '../profile';
 import type { Profile, TrainEntry } from '../profile';
-import type { CatalogTarget } from '../catalog';
+import { brightnessScore } from './brightness';
+import { createNightSky, skyPoint } from './sky';
+import type { NightSky } from './sky';
 
 export const PLANETS: readonly Exclude<PlanetName, 'Pluto'>[] = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
 
@@ -26,9 +28,13 @@ export interface PlanTrain {
 
 /** Builds the plan's view of a train from the profile. Throws on an unresolved id. */
 export function planTrainFor(profile: Profile, train: TrainEntry): PlanTrain {
-  if (train.kind === 'smart') return { kind: 'smart', name: train.name, optics: null };
   const r = resolveTrain(profile, train);
-  return { kind: 'optical', name: train.name, optics: opticalTrain(r.scope, r.camera, r.accessory) };
+  const optics = opticalTrain(r.scope, r.camera, r.accessory);
+  if (train.kind === 'smart') {
+    // The stored field, when the profile holds enough to compute one (focal length, pixel size and sensor); else none, and the nominal field applies.
+    return { kind: 'smart', name: train.name, optics: optics.fovWidthArcmin !== undefined && optics.fovHeightArcmin !== undefined ? optics : null };
+  }
+  return { kind: 'optical', name: train.name, optics };
 }
 
 export type Fit = 'fits' | 'too-large' | 'unknown' | 'not-applicable';
@@ -44,7 +50,13 @@ export interface ScoreParts {
   moon: number;
   /** 0 or -25: the target does not fit the train's frame. */
   fit: number;
-  /** Sum of the parts, clamped to 0..100; 0 when there is no usable window. */
+  /** -10 to +10 against the object's own class (galaxy, cluster, nebula, planetary nebula, other); 0 when it has no photometry. */
+  brightness: number;
+  /** -25 to +10 from the share of the frame it fills: best from 20 to 70 percent, worst at the 3 percent floor; 0 when unknown or when the field is nominal. */
+  framing: number;
+  /** 0 to +5 from the target's absolute size, only when the train's field is nominal (a guess, not the user's optics); else 0. */
+  size: number;
+  /** Sum of the parts to one decimal (whole points left hundreds of a catalog's targets tied), clamped to 0..100; 0 when there is no usable window. */
   total: number;
 }
 
@@ -72,6 +84,13 @@ export interface PlanEntry {
   fit: Fit;
   /** Target size and field of view, arcminutes, when both are known. */
   fitDetail: string;
+  /** How much of the frame the target fills, percent (see `percentOfFrame`); null for planets and unknown sizes. Against the nominal field for a smart scope. */
+  percentOfFrame: number | null;
+  /** V magnitude from the catalog, else null. */
+  magnitude: number | null;
+  /** Mag per square arcsecond from the catalog, else null. `sbComputed`: it was worked out from magnitude and size, not measured. */
+  surfaceBrightness: number | null;
+  sbComputed: boolean;
   score: ScoreParts;
   /** Plain sentence built from the numbers above. */
   why: string;
@@ -85,6 +104,23 @@ export interface TonightPlan {
   entries: PlanEntry[];
 }
 
+/** What the plan reads of a target: a curated target and a catalog search target both fit. */
+export interface PlanTarget {
+  id: string;
+  name: string;
+  /** The label to show when it differs from the catalog name; `name` otherwise. */
+  displayName?: string;
+  type: string;
+  raHours: number;
+  decDeg: number;
+  sizeArcmin?: { major: number; minor: number };
+  /** Curated only; absent means the season is not known, which is neither in nor out of season. */
+  seasonMonths?: readonly number[];
+  mag?: number;
+  surfaceBrightness?: number;
+  sbComputed?: true;
+}
+
 export interface TonightInput {
   site: Site;
   /** Horizon points, or null/empty when the horizon is not set. */
@@ -95,7 +131,7 @@ export interface TonightInput {
   /** The site's IANA time zone; absent: the date is read at the site's mean solar time. */
   timeZone?: string;
   train: PlanTrain;
-  targets: readonly CatalogTarget[];
+  targets: readonly PlanTarget[];
   includePlanets?: boolean;
   stepMinutes?: number;
 }
@@ -246,12 +282,43 @@ export function fitLabel(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
   }
 }
 
+const SCORE_PARTS = ['usable', 'altitude', 'season', 'moon', 'fit', 'brightness', 'framing', 'size'] as const;
+
 function scoreOf(parts: Omit<ScoreParts, 'total'>, usable: boolean): ScoreParts {
-  const sum = parts.usable + parts.altitude + parts.season + parts.moon + parts.fit;
-  return { ...parts, total: usable ? Math.max(0, Math.min(100, Math.round(sum))) : 0 };
+  const sum = SCORE_PARTS.reduce((s, k) => s + parts[k], 0);
+  return { ...parts, total: usable ? Math.max(0, Math.min(100, Math.round(sum * 10) / 10)) : 0 };
 }
 
-function fitOf(train: PlanTrain, target: CatalogTarget): { fit: Fit; detail: string } {
+/**
+ * The field a train without optics numbers is framed against: the ZWO Seestar S50, the most common smart scope,
+ * 1.27 x 0.71 degrees (ZWO's published specification; it agrees with 250 mm of focal length on a 1920 x 1080 sensor of
+ * 2.9 um pixels: 76.3 x 42.9 arcmin). A guess for any other smart scope, so it is flagged nominal.
+ */
+export const NOMINAL_FIELD_ARCMIN = { long: 76.2, short: 42.6 } as const;
+
+/** A train's field in arcminutes, long and short side; `nominal` when it is the guess above (a smart scope or a train with no field of its own). */
+export function fieldOf(train: PlanTrain): { long: number; short: number; nominal: boolean } {
+  const o = train.optics;
+  if (o !== null && o.fovWidthArcmin !== undefined && o.fovHeightArcmin !== undefined) {
+    return { long: Math.max(o.fovWidthArcmin, o.fovHeightArcmin), short: Math.min(o.fovWidthArcmin, o.fovHeightArcmin), nominal: false };
+  }
+  return { ...NOMINAL_FIELD_ARCMIN, nominal: true };
+}
+
+/** The train's field of view along its long side, arcminutes (the nominal field's when it has none). */
+export function longFovArcmin(train: PlanTrain): number {
+  return fieldOf(train).long;
+}
+
+/** How much of the frame the target fills, percent: the larger of its major axis over the long side and its minor axis over the short side; null when the size is unknown. */
+export function percentOfFrame(train: PlanTrain, target: Pick<PlanTarget, 'sizeArcmin'>): number | null {
+  if (!target.sizeArcmin) return null;
+  const f = fieldOf(train);
+  return Math.max(target.sizeArcmin.major / f.long, target.sizeArcmin.minor / f.short) * 100;
+}
+
+/** Whether and how a target fits the train's frame, with the sentence for it. */
+export function fitOf(train: PlanTrain, target: PlanTarget): { fit: Fit; detail: string } {
   if (train.kind === 'smart') return { fit: 'not-applicable', detail: 'Smart scope: field of view not computed' };
   const o = train.optics as OpticalTrain;
   if (o.fovWidthArcmin === undefined || o.fovHeightArcmin === undefined) {
@@ -266,12 +333,46 @@ function fitOf(train: PlanTrain, target: CatalogTarget): { fit: Fit; detail: str
     : { fit: 'too-large', detail: `Target ${size} does not fit the ${fov} field` };
 }
 
+export { brightnessScore } from './brightness';
+
+/**
+ * -25 to +10 from the share of the frame the target fills: +10 from 20 to 70 percent, falling in a
+ * straight line to -25 at the 3 percent floor, and to 0 at 100 percent (one that is over the frame also takes the
+ * too-large penalty). 0 when the size is unknown.
+ */
+export function framingScore(percent: number | null): number {
+  if (percent === null) return 0;
+  if (percent < FRAME_BEST_FROM) return Math.max(-25, -25 + ((percent - 3) / (FRAME_BEST_FROM - 3)) * 35);
+  if (percent <= FRAME_BEST_TO) return 10;
+  return Math.max(0, ((100 - percent) / (100 - FRAME_BEST_TO)) * 10);
+}
+const FRAME_BEST_FROM = 20;
+const FRAME_BEST_TO = 70;
+
+/** Absolute size (major axis, arcmin) at which the size term starts, and at which it is full. */
+const SIZE_FROM_ARCMIN = 3;
+const SIZE_FULL_ARCMIN = 60;
+/** The most the size term adds: half of what brightness can swing either way, because the field it stands in for is a guess. */
+const SIZE_MAX = 5;
+
+/**
+ * 0 to +5 from a target's absolute size, on a log scale: nothing at 3 arcmin or less, full at 60 or more. Only used
+ * when the train's field is nominal (see `NOMINAL_FIELD_ARCMIN`), where the framing share is not scored: a speck is a
+ * speck in any smart scope, and a big nebula is worth the frame. Optical trains get 0: their framing score measures
+ * size against the real field.
+ */
+export function sizeScore(majorArcmin: number | null, nominal: boolean): number {
+  if (!nominal || majorArcmin === null) return 0;
+  const t = Math.log(majorArcmin / SIZE_FROM_ARCMIN) / Math.log(SIZE_FULL_ARCMIN / SIZE_FROM_ARCMIN);
+  return Math.max(0, Math.min(1, t)) * SIZE_MAX;
+}
+
 function describe(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
   const text = describeSky(e, horizonSet, minAltitude);
   return e.fit === 'too-large' ? `Does not fit this setup. ${text}` : text;
 }
 
-/** One or two short sentences: the decision facts only (horizon, season, fit, Moon). Peak, window and Moon numbers are shown beside it. */
+/** One or two short sentences: the decision facts only (horizon, season, fit, brightness, Moon). Peak, window and Moon numbers are shown beside it. */
 function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude: number): string {
   const limit = horizonSet ? 'the horizon and minimum altitude' : `the flat ${minAltitude} deg minimum (horizon not set)`;
   if (e.usableMinutes <= 0) {
@@ -282,109 +383,213 @@ function describeSky(e: Omit<PlanEntry, 'why'>, horizonSet: boolean, minAltitude
   if (e.isPlanet) notes.push('planet');
   if (e.inSeason === true) notes.push('in season');
   if (e.inSeason === false) notes.push('out of season');
-  if (e.fit === 'fits') notes.push('fits the frame');
+  if (e.fit === 'fits') notes.push(e.percentOfFrame === null ? 'fits the frame' : `fits the frame (${fmt(e.percentOfFrame)}%)`);
   if (e.fit === 'unknown') notes.push('fit unknown');
+  if (e.surfaceBrightness !== null) notes.push(`SB ${fmt(e.surfaceBrightness, 1)}${e.sbComputed ? ' (computed)' : ''}`);
+  else if (e.magnitude !== null) notes.push(`mag ${fmt(e.magnitude, 1)}`);
   notes.push(e.moonUp ? 'Moon up at the peak' : 'Moon down at the peak');
   const second = notes.join(', ');
   return `${first} ${second.charAt(0).toUpperCase()}${second.slice(1)}.`;
+}
+
+/** Everything one night's scoring shares across targets: built once, then each target is evaluated against it. */
+export interface NightContext {
+  night: AstronomicalNight & { kind: 'normal' };
+  site: Site;
+  horizon: readonly HorizonPoint[] | null;
+  horizonSet: boolean;
+  minAltitude: number;
+  month: number;
+  start: Date;
+  end: Date;
+  stepMinutes: number;
+  /** Illuminated fraction 0..1 at the night's midpoint. */
+  illumination: number;
+  train: PlanTrain;
+  sky: NightSky;
+}
+
+/** The night's context, or the non-normal night itself (polar day or night) when there is nothing to plan. */
+export function nightContext(input: Omit<TonightInput, 'targets' | 'includePlanets'>): NightContext | { night: AstronomicalNight; horizonSet: boolean } {
+  const { site, minAltitude, train } = input;
+  const horizon = input.horizon && input.horizon.length > 0 ? input.horizon : null;
+  const horizonSet = horizon !== null;
+  const month = parseLocalDate(input.date).month;
+  const night = tonightsNight(site, input.date, input.timeZone);
+  if (night.kind !== 'normal') return { night, horizonSet };
+  const start = night.start as Date;
+  const end = night.end as Date;
+  const stepMinutes = input.stepMinutes ?? 5;
+  return {
+    night: night as NightContext['night'],
+    site,
+    horizon,
+    horizonSet,
+    minAltitude,
+    month,
+    start,
+    end,
+    stepMinutes,
+    illumination: moonIllumination(new Date((start.getTime() + end.getTime()) / 2)),
+    train,
+    sky: createNightSky(site, start, end, stepMinutes),
+  };
+}
+
+/** What the sampling of one target found: the usable windows and the sample where it peaks. */
+interface Sampled {
+  windows: TimeWindow[];
+  peakAltitude: number;
+  peakAzimuth: number;
+  /** Index of the peak sample in `ctx.sky.times`. */
+  peakIndex: number;
+  /** Degrees from the Moon at the peak. */
+  moonSeparation: number;
+}
+
+function sampleFixed(ctx: NightContext, raHours: number, decDeg: number): Sampled {
+  const { sky, horizon, minAltitude } = ctx;
+  const p = skyPoint(raHours, decDeg);
+  const n = sky.times.length;
+  const alts = new Float64Array(n);
+  const azs = new Float64Array(n);
+  sky.fill(p, alts, azs);
+  // Peak: highest sample while usable, else highest of the night; the first of equals.
+  let usable = -1;
+  let usableAlt = -Infinity;
+  let any = -1;
+  let anyAlt = -Infinity;
+  for (let k = 0; k < n; k++) {
+    const alt = alts[k];
+    if (alt > anyAlt) { any = k; anyAlt = alt; }
+    if (alt > usableAlt && alt >= minAltitude && alt >= limitAltitudeAt(horizon, azs[k], minAltitude)) {
+      usable = k;
+      usableAlt = alt;
+    }
+  }
+  const t0 = sky.times[0];
+  const stepMs = ctx.stepMinutes * 60000;
+  const { windows } = usableWindowsOnTrack({
+    horizon,
+    minAltitude,
+    start: ctx.start,
+    end: ctx.end,
+    stepMinutes: ctx.stepMinutes,
+    // The window scan reads the samples just taken; only its edge refinement needs a time between them.
+    altAzAt: (d) => {
+      const ms = d.getTime();
+      const k = Math.min(Math.round((ms - t0) / stepMs), n - 1);
+      return k >= 0 && sky.times[k] === ms ? { altitude: alts[k], azimuth: azs[k] } : sky.altAzAtMs(p, ms);
+    },
+  });
+  const peak = usable >= 0 ? usable : any;
+  return { windows, peakAltitude: alts[peak], peakAzimuth: azs[peak], peakIndex: peak, moonSeparation: sky.moonSeparationAt(p, peak) };
+}
+
+function sampleBody(ctx: NightContext, source: TargetSource): Sampled {
+  const { site, horizon, minAltitude } = ctx;
+  const altAzAt = (d: Date): AltAz => altAzOf(source, site, d);
+  const { windows } = usableWindowsOnTrack({ horizon, minAltitude, start: ctx.start, end: ctx.end, stepMinutes: ctx.stepMinutes, altAzAt });
+  const track = altitudeTrack(source, site, horizon, minAltitude, ctx.start, ctx.end, ctx.stepMinutes);
+  const usableSamples = track.filter((p) => p.altitude >= p.limit);
+  const pool = usableSamples.length > 0 ? usableSamples : track;
+  const peak = pool.reduce((b, p) => (p.altitude > b.altitude ? p : b), pool[0]);
+  const moon = bodyAltAz('Moon', peak.time, site);
+  return {
+    windows,
+    peakAltitude: peak.altitude,
+    peakAzimuth: peak.azimuth,
+    peakIndex: ctx.sky.times.indexOf(peak.time.getTime()),
+    moonSeparation: angularSeparation(moon, altAzAt(peak.time)),
+  };
+}
+
+/**
+ * The one scoring: turns what the sampling found into a `PlanEntry`, for a catalog target or a planet alike.
+ * `target` is absent for a planet.
+ */
+function entryOf(ctx: NightContext, id: string, name: string, type: string, source: TargetSource, target: PlanTarget | undefined, s: Sampled): PlanEntry {
+  const usableMinutes = s.windows.reduce((sum, w) => sum + (w.end.getTime() - w.start.getTime()), 0) / 60000;
+  const moonUp = ctx.sky.moonUp[s.peakIndex];
+  const closeness = Math.max(0, Math.min(1, (60 - s.moonSeparation) / 60));
+  const seasons = target?.seasonMonths ?? [];
+  const inSeason = seasons.length > 0 ? seasons.includes(ctx.month) : null;
+  const { fit, detail } = target ? fitOf(ctx.train, target) : { fit: 'not-applicable' as Fit, detail: '' };
+  const percent = target ? percentOfFrame(ctx.train, target) : null;
+  const field = fieldOf(ctx.train);
+  const score = scoreOf(
+    {
+      usable: Math.min(usableMinutes / 60 / 4, 1) * 50,
+      altitude: Math.max(0, Math.min((s.peakAltitude - 30) / 50, 1)) * 30,
+      season: inSeason ? 10 : 0,
+      moon: moonUp ? -20 * ctx.illumination * closeness : 0,
+      fit: fit === 'too-large' ? -25 : 0,
+      brightness: target ? brightnessScore(target) : 0,
+      // A share of a guessed (nominal) field says too little to reward or punish: those trains are scored on absolute size instead.
+      framing: field.nominal ? 0 : framingScore(percent),
+      size: sizeScore(target?.sizeArcmin?.major ?? null, field.nominal),
+    },
+    usableMinutes > 0,
+  );
+  const partial = {
+    id,
+    name,
+    type,
+    isPlanet: source.kind === 'planet',
+    source,
+    windows: s.windows,
+    usableMinutes,
+    peakAltitude: s.peakAltitude,
+    peakAzimuth: s.peakAzimuth,
+    peakTime: new Date(ctx.sky.times[s.peakIndex]),
+    moonIllumination: ctx.illumination,
+    moonSeparation: s.moonSeparation,
+    moonUp,
+    inSeason,
+    seasonMonths: [...seasons],
+    fit,
+    fitDetail: detail,
+    percentOfFrame: percent,
+    magnitude: target?.mag ?? null,
+    surfaceBrightness: target?.surfaceBrightness ?? null,
+    sbComputed: target?.surfaceBrightness !== undefined && target.sbComputed === true,
+    score,
+  };
+  return { ...partial, why: describe(partial, ctx.horizonSet, ctx.minAltitude) };
+}
+
+/** Scores one catalog target against the night. */
+export function evaluateTarget(ctx: NightContext, t: PlanTarget): PlanEntry {
+  const source: TargetSource = { kind: 'fixed', raHours: t.raHours, decDeg: t.decDeg };
+  return entryOf(ctx, t.id, t.displayName ?? t.name, t.type, source, t, sampleFixed(ctx, t.raHours, t.decDeg));
+}
+
+/** Scores one planet against the night. */
+export function evaluatePlanet(ctx: NightContext, body: CardBody): PlanEntry {
+  const source: TargetSource = { kind: 'planet', body };
+  return entryOf(ctx, `planet-${body.toLowerCase()}`, body, 'planet', source, undefined, sampleBody(ctx, source));
+}
+
+/**
+ * The ranking order: a target that does not fit the train is never above one that does, then score, usable time,
+ * name, id (so equal names still order the same way every time).
+ */
+export function compareEntries(a: PlanEntry, b: PlanEntry): number {
+  const misses = (e: PlanEntry): number => (e.fit === 'too-large' ? 1 : 0);
+  return misses(a) - misses(b) || b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 /**
  * Tonight's ranked target list for a site, date and train. Pure: the same
  * inputs give the same list. Score parts are in each entry so the ranking can
  * be read, not trusted. Targets that never clear the limit stay in the list
- * with a score of 0.
+ * with a score of 0. For a whole catalog use `rankTargets`, which screens first and is the same scoring.
  */
 export function planTonight(input: TonightInput): TonightPlan {
-  const { site, minAltitude, train, targets } = input;
-  const horizon = input.horizon && input.horizon.length > 0 ? input.horizon : null;
-  const horizonSet = horizon !== null;
-  const month = parseLocalDate(input.date).month;
-  const night = tonightsNight(site, input.date, input.timeZone);
-  if (night.kind !== 'normal') return { night, horizonSet, minAltitude, entries: [] };
-
-  const start = night.start as Date;
-  const end = night.end as Date;
-  const mid = new Date((start.getTime() + end.getTime()) / 2);
-  const illumination = moonIllumination(mid);
-  const step = input.stepMinutes ?? 5;
-
-  const sources: { id: string; name: string; type: string; source: TargetSource; target?: CatalogTarget }[] = targets.map((t) => ({
-    id: t.id,
-    name: t.name,
-    type: t.type,
-    source: { kind: 'fixed', raHours: t.raHours, decDeg: t.decDeg },
-    target: t,
-  }));
-  if (input.includePlanets !== false) {
-    for (const body of PLANETS) {
-      sources.push({ id: `planet-${body.toLowerCase()}`, name: body, type: 'planet', source: { kind: 'planet', body } });
-    }
-  }
-
-  const entries = sources.map(({ id, name, type, source, target }): PlanEntry => {
-    const altAzAt = (d: Date): AltAz => altAzOf(source, site, d);
-    const common = { horizon, minAltitude, start, end, stepMinutes: step };
-    const { windows } =
-      source.kind === 'fixed'
-        ? usableWindows({ ...common, raHours: source.raHours, decDeg: source.decDeg, site })
-        : usableWindowsOnTrack({ ...common, altAzAt });
-    const usableMs = windows.reduce((s, w) => s + (w.end.getTime() - w.start.getTime()), 0);
-    const usableMinutes = usableMs / 60000;
-
-    // Peak: highest sample while usable, else highest of the night.
-    const track = altitudeTrack(source, site, horizon, minAltitude, start, end, step);
-    const usableSamples = track.filter((p) => p.altitude >= p.limit);
-    const pool = usableSamples.length > 0 ? usableSamples : track;
-    const peak = pool.reduce((b, p) => (p.altitude > b.altitude ? p : b), pool[0]);
-
-    const moon = bodyAltAz('Moon', peak.time, site);
-    const moonUp = moon.altitude > 0;
-    const sep =
-      source.kind === 'fixed'
-        ? moonSeparation(source.raHours, source.decDeg, peak.time, site)
-        : angularSeparation(moon, altAzAt(peak.time));
-    const closeness = Math.max(0, Math.min(1, (60 - sep) / 60));
-
-    const inSeason = target ? target.seasonMonths.includes(month) : null;
-    const { fit, detail } = target ? fitOf(train, target) : { fit: 'not-applicable' as Fit, detail: '' };
-
-    const usableOk = usableMinutes > 0;
-    const score = scoreOf(
-      {
-        usable: Math.min(usableMinutes / 60 / 4, 1) * 50,
-        altitude: Math.max(0, Math.min((peak.altitude - 30) / 50, 1)) * 30,
-        season: inSeason ? 10 : 0,
-        moon: moonUp ? -20 * illumination * closeness : 0,
-        fit: fit === 'too-large' ? -25 : 0,
-      },
-      usableOk,
-    );
-    const partial = {
-      id,
-      name,
-      type,
-      isPlanet: source.kind === 'planet',
-      source,
-      windows,
-      usableMinutes,
-      peakAltitude: peak.altitude,
-      peakAzimuth: peak.azimuth,
-      peakTime: peak.time,
-      moonIllumination: illumination,
-      moonSeparation: sep,
-      moonUp,
-      inSeason,
-      seasonMonths: target ? target.seasonMonths : [],
-      fit,
-      fitDetail: detail,
-      score,
-    };
-    return { ...partial, why: describe(partial, horizonSet, minAltitude) };
-  });
-
-  // A target that does not fit the train is never ranked above one that does.
-  const misses = (e: PlanEntry): number => (e.fit === 'too-large' ? 1 : 0);
-  entries.sort((a, b) => misses(a) - misses(b) || b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || a.name.localeCompare(b.name));
-  return { night, horizonSet, minAltitude, entries };
+  const ctx = nightContext(input);
+  if (!('sky' in ctx)) return { night: ctx.night, horizonSet: ctx.horizonSet, minAltitude: input.minAltitude, entries: [] };
+  const entries = input.targets.map((t) => evaluateTarget(ctx, t));
+  if (input.includePlanets !== false) for (const body of PLANETS) entries.push(evaluatePlanet(ctx, body));
+  entries.sort(compareEntries);
+  return { night: ctx.night, horizonSet: ctx.horizonSet, minAltitude: input.minAltitude, entries };
 }

@@ -41,6 +41,23 @@ export function normalizeHorizon(points: readonly HorizonPoint[]): HorizonPoint[
   return sorted;
 }
 
+// Normalising sorts and validates the points; a plan asks for the limit at every sample of every target, so the
+// result is kept per points array. The copy of the raw values is compared on every call, so a changed array is
+// re-normalised rather than served stale.
+const normalizedCache = new WeakMap<readonly HorizonPoint[], { raw: number[]; sorted: HorizonPoint[] }>();
+
+function normalizedOf(points: readonly HorizonPoint[]): HorizonPoint[] {
+  const hit = normalizedCache.get(points);
+  if (hit !== undefined && hit.raw.length === points.length * 2) {
+    let same = true;
+    for (let i = 0; i < points.length && same; i++) same = hit.raw[2 * i] === points[i].az && hit.raw[2 * i + 1] === points[i].alt;
+    if (same) return hit.sorted;
+  }
+  const sorted = normalizeHorizon(points);
+  normalizedCache.set(points, { raw: points.flatMap((p) => [p.az, p.alt]), sorted });
+  return sorted;
+}
+
 /**
  * Horizon altitude at `az`, linearly interpolated between neighbouring points
  * and wrapping across 0/360. One point gives a constant horizon. Returns null
@@ -52,7 +69,7 @@ export function horizonAltitudeAt(
 ): number | null {
   if (!points || points.length === 0) return null;
   if (!Number.isFinite(az)) throw new RangeError(`Invalid azimuth: ${az}`);
-  const sorted = normalizeHorizon(points);
+  const sorted = normalizedOf(points);
   if (sorted.length === 1) return sorted[0].alt;
 
   const a = ((az % 360) + 360) % 360;
@@ -122,6 +139,8 @@ export function usableWindowsOnTrack(input: TrackWindowsInput): UsableWindows {
 
   const margin = (t: number): number => {
     const r = altAzAt(new Date(t));
+    // The limit is never below the minimum, so below it the margin is negative whatever the horizon says.
+    if (r.altitude < minAltitude) return r.altitude - minAltitude;
     return r.altitude - limitAltitudeAt(points, r.azimuth, minAltitude);
   };
   const refine = (inside: number, outside: number): number => {
