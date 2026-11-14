@@ -27,15 +27,27 @@ export function buildUserPrompt(facts: NightFacts): string {
 ${JSON.stringify(facts)}`;
 }
 
+/** Hard limits on what one message may carry back to the model. Every echoed or listed text is clipped to these, so a call has a maximum length whatever the model replied. */
+export const MAX_LISTED_VIOLATIONS = 30;
+export const MAX_VIOLATION_CHARS = 300;
+export const MAX_ECHO_CHARS = 12_000;
+export const MAX_ERROR_CHARS = 300;
+
+export const clip = (s: string, max: number): string => (s.length <= max ? s : `${s.slice(0, max - 3)}...`);
+
+/** The first MAX_LISTED_VIOLATIONS violations (the check reports them in slot order, then the whole-plan ones), each clipped, then "and N more". */
 export function buildRepairPrompt(violations: readonly Violation[]): string {
+  const listed = violations.slice(0, MAX_LISTED_VIOLATIONS).map((v, i) => `${i + 1}. ${clip(v.message, MAX_VIOLATION_CHARS)}`);
+  const more = violations.length - listed.length;
+  if (more > 0) listed.push(`and ${more} more.`);
   return `The code checked your plan against the facts and found these violations:
-${violations.map((v, i) => `${i + 1}. ${v.message}`).join('\n')}
+${listed.join('\n')}
 
 Fix them. Change only what is needed, keep the rest of the plan, and use only the facts table. Reply with the full corrected plan as one JSON object, same schema, nothing else.`;
 }
 
 export function buildRetryPrompt(error: string): string {
-  return `Your reply could not be used: ${error}. Reply again with one JSON object matching the schema, and nothing else.`;
+  return `Your reply could not be used: ${clip(error, MAX_ERROR_CHARS)}. Reply again with one JSON object matching the schema, and nothing else.`;
 }
 
 export function buildQualityPrompt(): string {
@@ -49,4 +61,7 @@ export function buildQualityRepairPrompt(issue: string, fix: string | undefined)
 Fix it. Keep every rule, use only the facts table, and reply with the full corrected plan as one JSON object, same schema, nothing else.`;
 }
 
-export const planAsReply = (plan: ModelPlan): string => JSON.stringify(plan);
+/** A previous reply sent back as the assistant turn, clipped to MAX_ECHO_CHARS (the reply cap, 3000 tokens at 4 characters). */
+export const planAsReply = (plan: ModelPlan): string => clip(JSON.stringify(plan), MAX_ECHO_CHARS);
+
+export const echoReply = (reply: string): string => clip(reply, MAX_ECHO_CHARS);

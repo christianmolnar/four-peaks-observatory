@@ -253,27 +253,62 @@ describe('facts for the model', () => {
     p.notes = 'n'.repeat(chars - JSON.stringify(p).length);
     return p;
   };
-  it('token budget: the worst message list of one call (base + plan reply + repair + resent reply + retry) stays under 55,000 characters; six calls under 330,000', () => {
-    const { facts, night } = buildFacts(worstInput);
-    const base: ModelMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: buildUserPrompt(facts) }];
-    const first = base.reduce((n, m) => n + m.content.length, 0);
-    expect(first).toBeLessThan(28_000);
-    // The previous plan, as large as one reply may be (capped by MAX_TOKENS).
-    const planReply = planAsReply(paddedPlan(CAP_CHARS));
-    expect(planReply.length).toBe(CAP_CHARS);
-    // The longest realistic repair message: all 12 targets in one slot at the same time (altitude, horizon, overlap, slew, verdict).
-    const start = night.start.getTime();
-    const crowded = { ...paddedPlan(2000), plan: worstInput.targets.map((t) => ({ id: t.id, start: clock(start, TZ), end: clock(start + 120 * MIN, TZ) })), cut: [] as string[], fitsAll: true };
-    const violations = checkPlan(worstInput, night, crowded);
-    expect(violations.length).toBeGreaterThan(12);
-    const repair = buildRepairPrompt(violations);
-    // That repair reply is malformed and capped by MAX_TOKENS; it is resent with the retry message.
-    const resent = 'x'.repeat(CAP_CHARS);
-    const retry = buildRetryPrompt('y'.repeat(300));
-    const worst: ModelMessage[] = [...base, { role: 'assistant', content: planReply }, { role: 'user', content: repair }, { role: 'assistant', content: resent }, { role: 'user', content: retry }];
-    const perCall = worst.reduce((n, m) => n + m.content.length, 0);
-    expect(perCall).toBeLessThan(55_000);
-    expect(perCall * 6).toBeLessThan(330_000);
+  /** The adversarial reply of the evaluator: 114 overlapping slots, exposureMinutes 9999, under the token cap. */
+  const adversarial = (): string => {
+    const { night } = buildFacts(worstInput);
+    const s = night.start.getTime();
+    const p = { exposures: worstInput.targets.map((t) => ({ id: t.id, minutes: 60, subSeconds: 120 })), plan: [] as { id: string; start: string; end: string; exposureMinutes: number }[], cut: [] as string[], fitsAll: true };
+    let i = 0;
+    while (JSON.stringify(p).length < 11_900) {
+      p.plan.push({ id: `x${i % 12}`, start: clock(s + (i % 50) * MIN, TZ), end: clock(s + ((i % 50) + 600) * MIN, TZ), exposureMinutes: 9999 });
+      i++;
+    }
+    p.plan.pop();
+    return JSON.stringify(p);
+  };
+  // Measured by running the adversarial input below (see the guide). The asserts are the proved numbers, with the sums computed here.
+  const MAX_CALL_CHARS = 50_224;
+  const MAX_SIX_CALL_CHARS = 240_431;
+  // The ceiling by construction, from the real builders: base, a plan echo at its clip, 30 violations at their clip, a resent reply at its clip, a retry with a clipped error.
+  const CEILING_CALL_CHARS = 59_644;
+  it('token budget: the adversarial 114-slot reply is cut to a slot-count violation; no call exceeds the proved per-call bound, six calls the proved sum', async () => {
+    const raw = adversarial();
+    expect(raw.length).toBeLessThan(MAX_TOKENS * 4);
+    const sizes: number[] = [];
+    let n = 0;
+    // Reply 1: the adversarial plan. Replies 2 and 4: a malformed reply at the cap (resent with the retry message). Reply 3: the adversarial plan again.
+    const call: CallModel = async (messages) => {
+      sizes.push(messages.reduce((s, m) => s + m.content.length, 0));
+      n++;
+      return n === 2 || n === 4 ? 'x'.repeat(MAX_TOKENS * 4) : raw;
+    };
+    const r = await planNightWithAi(worstInput, { callModel: call });
+    expect(r.modelCalls).toBe(6);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(MAX_CALL_CHARS);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(MAX_SIX_CALL_CHARS);
+  });
+  it('token budget ceiling: whatever the replies and violations, one call is at most the ceiling and six calls six times it', () => {
+    const { facts } = buildFacts(worstInput);
+    const base = SYSTEM_PROMPT.length + buildUserPrompt(facts).length;
+    const many = Array.from({ length: 500 }, (_, i) => ({ kind: 'overlap' as const, message: `v${i} ${'m'.repeat(5000)}` }));
+    const perCall = base + planAsReply({ ...paddedPlan(1000), notes: 'n'.repeat(80_000) }).length + buildRepairPrompt(many).length + MAX_TOKENS * 4 + buildRetryPrompt('e'.repeat(9000)).length;
+    expect(perCall).toBeLessThanOrEqual(CEILING_CALL_CHARS);
+    expect(perCall * 6).toBe(357_864);
+  });
+  it('a plan with more than 3 x targets + 5 slots is one too-many-slots violation; a repair message lists at most 30 violations and says how many more', () => {
+    const { night } = buildFacts(worstInput);
+    const parsed = parsePlanReply(adversarial());
+    expect(parsed.ok).toBe(true);
+    const v = checkPlan(worstInput, night, (parsed as { value: ModelPlan }).value);
+    expect(v.map((x) => x.kind)).toEqual(['too-many-slots']);
+    const many = Array.from({ length: 100 }, (_, i) => ({ kind: 'overlap' as const, message: `v${i} ${'m'.repeat(1000)}` }));
+    const text = buildRepairPrompt(many);
+    expect(text).toContain('30. v29');
+    expect(text).not.toContain('31. ');
+    expect(text).toContain('and 70 more.');
+    expect(text.length).toBeLessThan(30 * 310 + 400);
+    expect(buildRetryPrompt('e'.repeat(5000)).length).toBeLessThan(450);
+    expect(planAsReply({ ...paddedPlan(1000), notes: 'n'.repeat(50_000) }).length).toBe(MAX_TOKENS * 4);
   });
   it('R3: a runaway reply cut at the MAX_TOKENS cap is malformed JSON and gets the retry; a full 12-target plan with long notes is far under the cap', async () => {
     expect(MAX_TOKENS).toBe(3000);

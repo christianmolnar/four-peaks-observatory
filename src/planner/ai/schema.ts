@@ -5,7 +5,7 @@ export interface PlanSlot {
   id: string;
   start: string;
   end: string;
-  /** Optional: the imaging minutes the model plans in this slot. At most the slot length, minus the flip time when the slot spans the transit. */
+  /** Optional: the minutes the model plans to expose in this slot. At most the slot length, minus the flip time when the slot spans the transit. */
   exposureMinutes?: number;
 }
 

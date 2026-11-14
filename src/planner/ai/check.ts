@@ -7,6 +7,7 @@ import { isoOf, parseIso } from './instant';
 import type { ModelPlan } from './schema';
 
 export type ViolationKind =
+  | 'too-many-slots'
   | 'unknown-target'
   | 'bad-time'
   | 'outside-night'
@@ -45,6 +46,9 @@ export interface Violation {
   message: string;
 }
 
+/** A plan with more than 3 x targets + 5 slots is malformed. */
+const MAX_SLOTS_PER_TARGET = 3;
+const MAX_SLOTS_EXTRA = 5;
 const MIN = 60000;
 /** Tolerance for float division of seconds by a sub length (1980 / 1.1 is 1799.9999999999998). */
 const EPS = 1e-9;
@@ -62,6 +66,13 @@ export function checkPlan(input: AiPlanInput, night: Night, plan: ModelPlan): Vi
   const clock = (d: Date): string => isoOf(d, tz);
   const byId = new Map(input.targets.map((t) => [t.id, t]));
   const add = (kind: ViolationKind, message: string, id?: string): void => void out.push({ kind, id, message });
+
+  // More slots than this is malformed, whatever else is true: stop here so the check output stays bounded.
+  const maxSlots = MAX_SLOTS_PER_TARGET * input.targets.length + MAX_SLOTS_EXTRA;
+  if (plan.plan.length > maxSlots) {
+    add('too-many-slots', `The plan has ${plan.plan.length} slots; at most ${maxSlots} are accepted (each target has one slot). Send one slot per target.`);
+    return out;
+  }
 
   const timed: { id: string; start: Date; end: Date }[] = [];
   for (const slot of plan.plan) {
@@ -286,7 +297,7 @@ export function planWarnings(input: AiPlanInput, night: Night, plan: ModelPlan):
 }
 
 /**
- * A last slot that ends at or before its transit leaves the time after the flip unused. From the transit, find the first
+ * A last slot that ends at or before its transit leaves the time after the transit unused. From the transit, find the first
  * usable minute (the transit itself may be blocked, for example by a horizon zone on the meridian), then the usable run
  * from there to the night end or the next unusable minute. When that run is longer than the slot by at least
  * MIN_USEFUL_SLOT_MIN (a smaller gain is not worth a warning), the message says to start the slot there; otherwise null.
@@ -307,5 +318,5 @@ function afterTransitWarning(input: AiPlanInput, t: AiTarget, last: Timed, trans
   if (run - slotMin < MIN_USEFUL_SLOT_MIN) return null;
   const tz = input.timeZone;
   const where = from === transit ? 'start at the transit' : `the transit is unusable until ${isoOf(new Date(from), tz)}; start there`;
-  return `${last.id} is the last slot (${slotMin} min) and ends at or before its transit ${isoOf(new Date(transit), tz)}, but it is usable ${run} min after the transit (${isoOf(new Date(from), tz)} to ${isoOf(new Date(to), tz)}); ${where} to take the time after the flip.`;
+  return `${last.id} is the last slot (${slotMin} min) and ends at or before its transit ${isoOf(new Date(transit), tz)}, but it is usable ${run} min after the transit (${isoOf(new Date(from), tz)} to ${isoOf(new Date(to), tz)}); ${where} to take the time after the transit.`;
 }

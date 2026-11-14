@@ -2,7 +2,7 @@ import { checkPlan, countFlips, planWarnings } from './check';
 import type { PlanWarning, Violation } from './check';
 import { buildFacts } from './facts';
 import type { AiPlanInput, NightFacts } from './facts';
-import { buildQualityPrompt, buildQualityRepairPrompt, buildRepairPrompt, buildRetryPrompt, buildUserPrompt, planAsReply, SYSTEM_PROMPT } from './prompt';
+import { echoReply, buildQualityPrompt, buildQualityRepairPrompt, buildRepairPrompt, buildRetryPrompt, buildUserPrompt, planAsReply, SYSTEM_PROMPT } from './prompt';
 import { parsePlanReply, parseQualityReply } from './schema';
 import type { LastTargetVerdict, ModelPlan, Parsed, QualityVerdict } from './schema';
 
@@ -77,7 +77,7 @@ async function ask<T>(callModel: CallModel, messages: ModelMessage[], parse: (t:
   const a = parse(first);
   if (a.ok) return a.value;
   budget.take();
-  const second = await callModel([...messages, { role: 'assistant', content: first }, { role: 'user', content: buildRetryPrompt(a.error) }]);
+  const second = await callModel([...messages, { role: 'assistant', content: echoReply(first) }, { role: 'user', content: buildRetryPrompt(a.error) }]);
   const b = parse(second);
   if (b.ok) return b.value;
   throw new ModelReplyError(`The model's reply was malformed twice: ${b.error}`);

@@ -309,6 +309,8 @@ describe('last-target verdict', () => {
     expect(w).toHaveLength(1);
     expect(w[0].id).toBe('t2');
     expect(w[0].message).toContain('start at the transit');
+    expect(w[0].message).toContain('to take the time after the transit.');
+    expect(w[0].message).not.toContain('flip');
     expect(w[0].message).toMatch(/usable (\d+) min after the transit/);
     const run = Number(/usable (\d+) min after the transit/.exec(w[0].message)![1]);
     expect(run).toBeGreaterThan(200);
