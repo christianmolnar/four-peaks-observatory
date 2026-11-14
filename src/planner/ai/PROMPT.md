@@ -26,7 +26,7 @@ RULES
 ## First user message
 
 ```text
-Plan this night. FACTS (JSON). For each target, "samples" has one row per entry of "sampleTimes": [altitude deg, azimuth deg, flag, moon separation deg]; flag is "ok", "low" (under minAltitudeDeg) or "blocked" (behind a horizon zone). "windows" are the spans where the target is usable, from a 5 minute scan (the check is finer). "transit" is when it crosses the meridian (the flip), to the whole minute, or null when that is outside the night. "meridianFlips" says whether a slot may span the transit and what a flip costs. "object", "rig" and "bortle" are what is known about the target, the equipment and the sky; they may be absent.
+Plan this night. FACTS (JSON). For each target, "samples" has one row per entry of "sampleTimes": [altitude deg, azimuth deg, flag, moon separation deg]; flag is "ok", "low" (under minAltitudeDeg) or "blocked" (behind a horizon zone). "windows" are the spans where the target is usable, from a 5 minute scan (the check is finer); "sampleTimes" show the sampling step, and "windowsOmitted", when present, counts the shorter windows left out of the list. "transit" is when it crosses the meridian (the flip), to the whole minute, or null when that is outside the night. "meridianFlips" says whether a slot may span the transit and what a flip costs. "object", "rig" and "bortle" are what is known about the target, the equipment and the sky; they may be absent.
 
 <FACTS JSON>
 ```

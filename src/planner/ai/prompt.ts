@@ -1,7 +1,8 @@
 import type { Violation } from './check';
 import type { NightFacts } from './facts';
 import type { ModelPlan } from './schema';
-import { PLAN_JSON_SCHEMA, QUALITY_JSON_SCHEMA } from './schema';
+import { clip, MAX_QUALITY_TEXT_CHARS, PLAN_JSON_SCHEMA, QUALITY_JSON_SCHEMA } from './schema';
+export { clip };
 
 /** The exact text is mirrored in PROMPT.md for review; a test keeps them equal. */
 export const SYSTEM_PROMPT = `You plan one night of deep-sky imaging for a fixed observatory. You get a list of targets and a FACTS table computed by code. You decide; the code only supplies facts and checks your answer.
@@ -22,7 +23,7 @@ RULES
 ${JSON.stringify(PLAN_JSON_SCHEMA)}`;
 
 export function buildUserPrompt(facts: NightFacts): string {
-  return `Plan this night. FACTS (JSON). For each target, "samples" has one row per entry of "sampleTimes": [altitude deg, azimuth deg, flag, moon separation deg]; flag is "ok", "low" (under minAltitudeDeg) or "blocked" (behind a horizon zone). "windows" are the spans where the target is usable, from a 5 minute scan (the check is finer). "transit" is when it crosses the meridian (the flip), to the whole minute, or null when that is outside the night. "meridianFlips" says whether a slot may span the transit and what a flip costs. "object", "rig" and "bortle" are what is known about the target, the equipment and the sky; they may be absent.
+  return `Plan this night. FACTS (JSON). For each target, "samples" has one row per entry of "sampleTimes": [altitude deg, azimuth deg, flag, moon separation deg]; flag is "ok", "low" (under minAltitudeDeg) or "blocked" (behind a horizon zone). "windows" are the spans where the target is usable, from a 5 minute scan (the check is finer); "sampleTimes" show the sampling step, and "windowsOmitted", when present, counts the shorter windows left out of the list. "transit" is when it crosses the meridian (the flip), to the whole minute, or null when that is outside the night. "meridianFlips" says whether a slot may span the transit and what a flip costs. "object", "rig" and "bortle" are what is known about the target, the equipment and the sky; they may be absent.
 
 ${JSON.stringify(facts)}`;
 }
@@ -33,11 +34,9 @@ export const MAX_VIOLATION_CHARS = 300;
 export const MAX_ECHO_CHARS = 12_000;
 export const MAX_ERROR_CHARS = 300;
 
-export const clip = (s: string, max: number): string => (s.length <= max ? s : `${s.slice(0, max - 3)}...`);
-
 /** The first MAX_LISTED_VIOLATIONS violations (the check reports them in slot order, then the whole-plan ones), each clipped, then "and N more". */
-export function buildRepairPrompt(violations: readonly Violation[]): string {
-  const listed = violations.slice(0, MAX_LISTED_VIOLATIONS).map((v, i) => `${i + 1}. ${clip(v.message, MAX_VIOLATION_CHARS)}`);
+export function buildRepairPrompt(violations: readonly Violation[], maxListed = MAX_LISTED_VIOLATIONS): string {
+  const listed = violations.slice(0, Math.min(maxListed, MAX_LISTED_VIOLATIONS)).map((v, i) => `${i + 1}. ${clip(v.message, MAX_VIOLATION_CHARS)}`);
   const more = violations.length - listed.length;
   if (more > 0) listed.push(`and ${more} more.`);
   return `The code checked your plan against the facts and found these violations:
@@ -56,7 +55,7 @@ ${JSON.stringify(QUALITY_JSON_SCHEMA)}`;
 }
 
 export function buildQualityRepairPrompt(issue: string, fix: string | undefined): string {
-  return `Your review of the plan found this issue: ${issue}${fix ? ` Suggested fix: ${fix}` : ''}
+  return `Your review of the plan found this issue: ${clip(issue, MAX_QUALITY_TEXT_CHARS)}${fix ? ` Suggested fix: ${clip(fix, MAX_QUALITY_TEXT_CHARS)}` : ''}
 
 Fix it. Keep every rule, use only the facts table, and reply with the full corrected plan as one JSON object, same schema, nothing else.`;
 }
@@ -64,4 +63,3 @@ Fix it. Keep every rule, use only the facts table, and reply with the full corre
 /** A previous reply sent back as the assistant turn, clipped to MAX_ECHO_CHARS (the reply cap, 3000 tokens at 4 characters). */
 export const planAsReply = (plan: ModelPlan): string => clip(JSON.stringify(plan), MAX_ECHO_CHARS);
 
-export const echoReply = (reply: string): string => clip(reply, MAX_ECHO_CHARS);

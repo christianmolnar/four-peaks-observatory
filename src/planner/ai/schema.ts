@@ -1,5 +1,9 @@
 import { ISO_PATTERN, ISO_RE } from './instant';
 
+export const clip = (s: string, max: number): string => (s.length <= max ? s : `${s.slice(0, max - 3)}...`);
+/** The review's `issue` and `fix` are kept to this many characters each: they are sent back to the model. */
+export const MAX_QUALITY_TEXT_CHARS = 300;
+
 /** One imaging slot. Times are ISO local instants with the UTC offset ("2026-10-31T01:30-06:00"), as in the facts. */
 export interface PlanSlot {
   id: string;
@@ -199,7 +203,7 @@ export function parseQualityReply(text: string): Parsed<QualityVerdict> {
   if (typeof o.verdict !== 'string') return { ok: false, error: 'verdict must be a string' };
   for (const k of ['issue', 'fix'] as const) if (o[k] !== undefined && typeof o[k] !== 'string') return { ok: false, error: `${k} must be a string` };
   const v: QualityVerdict = { good: o.good, verdict: o.verdict };
-  if (typeof o.issue === 'string') v.issue = o.issue;
-  if (typeof o.fix === 'string') v.fix = o.fix;
+  if (typeof o.issue === 'string') v.issue = clip(o.issue, MAX_QUALITY_TEXT_CHARS);
+  if (typeof o.fix === 'string') v.fix = clip(o.fix, MAX_QUALITY_TEXT_CHARS);
   return { ok: true, value: v };
 }

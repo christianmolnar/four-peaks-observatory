@@ -1,11 +1,13 @@
 import { createAnthropicCaller, DEFAULT_MODEL, MAX_TOKENS, MissingKeyError, redactKey } from './anthropic';
-import { planNightWithAi, ModelReplyError } from './plan';
+import { planNightWithAi, ModelReplyError, MAX_BASE_CHARS, MAX_CALL_CHARS, MAX_REQUEST_CHARS, PromptTooLargeError } from './plan';
 import type { CallModel, ModelMessage } from './plan';
 import type { ModelPlan } from './schema';
+import type { AiPlanInput } from './facts';
 import { checkPlan } from './check';
-import { buildFacts, nightOf } from './facts';
-import { parsePlanReply } from './schema';
-import { buildRepairPrompt, buildRetryPrompt, buildUserPrompt, planAsReply, SYSTEM_PROMPT } from './prompt';
+import { buildFacts, coarsenFacts, FACTS_LEVELS, nightOf } from './facts';
+import { parseBody } from './request';
+import { MAX_QUALITY_TEXT_CHARS, parsePlanReply, parseQualityReply } from './schema';
+import { buildQualityRepairPrompt, buildRepairPrompt, buildRetryPrompt, buildUserPrompt, planAsReply, SYSTEM_PROMPT } from './prompt';
 import { INPUT, clock, lowMinute, MIN, planOf, transitOf, TZ, validSlots } from './testkit';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -266,12 +268,7 @@ describe('facts for the model', () => {
     p.plan.pop();
     return JSON.stringify(p);
   };
-  // Measured by running the adversarial input below (see the guide). The asserts are the proved numbers, with the sums computed here.
-  const MAX_CALL_CHARS = 50_224;
-  const MAX_SIX_CALL_CHARS = 240_431;
-  // The ceiling by construction, from the real builders: base, a plan echo at its clip, 30 violations at their clip, a resent reply at its clip, a retry with a clipped error.
-  const CEILING_CALL_CHARS = 59_644;
-  it('token budget: the adversarial 114-slot reply is cut to a slot-count violation; no call exceeds the proved per-call bound, six calls the proved sum', async () => {
+  it('token budget: the adversarial 114-slot reply is cut to a slot-count violation; no call exceeds MAX_CALL_CHARS, six calls MAX_REQUEST_CHARS', async () => {
     const raw = adversarial();
     expect(raw.length).toBeLessThan(MAX_TOKENS * 4);
     const sizes: number[] = [];
@@ -285,15 +282,7 @@ describe('facts for the model', () => {
     const r = await planNightWithAi(worstInput, { callModel: call });
     expect(r.modelCalls).toBe(6);
     expect(Math.max(...sizes)).toBeLessThanOrEqual(MAX_CALL_CHARS);
-    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(MAX_SIX_CALL_CHARS);
-  });
-  it('token budget ceiling: whatever the replies and violations, one call is at most the ceiling and six calls six times it', () => {
-    const { facts } = buildFacts(worstInput);
-    const base = SYSTEM_PROMPT.length + buildUserPrompt(facts).length;
-    const many = Array.from({ length: 500 }, (_, i) => ({ kind: 'overlap' as const, message: `v${i} ${'m'.repeat(5000)}` }));
-    const perCall = base + planAsReply({ ...paddedPlan(1000), notes: 'n'.repeat(80_000) }).length + buildRepairPrompt(many).length + MAX_TOKENS * 4 + buildRetryPrompt('e'.repeat(9000)).length;
-    expect(perCall).toBeLessThanOrEqual(CEILING_CALL_CHARS);
-    expect(perCall * 6).toBe(357_864);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(MAX_REQUEST_CHARS);
   });
   it('a plan with more than 3 x targets + 5 slots is one too-many-slots violation; a repair message lists at most 30 violations and says how many more', () => {
     const { night } = buildFacts(worstInput);
@@ -433,5 +422,144 @@ describe('anthropic caller', () => {
     for (const f of ['facts.ts', 'check.ts', 'prompt.ts', 'plan.ts', 'schema.ts', 'anthropic.ts', 'request.ts']) {
       expect(readFileSync(join(__dirname, f), 'utf8')).not.toMatch(/\bM ?\d{1,3}\b|\bNGC ?\d|Orion|Andromeda|Pleiades/i);
     }
+  });
+});
+
+describe('one enforced call limit', () => {
+  const sum = (m: readonly ModelMessage[]): number => m.reduce((n, x) => n + x.content.length, 0);
+  const junk = 'x'.repeat(MAX_TOKENS * 4);
+  const rig = { focalLengthMm: 1234.56789, apertureMm: 200.123456, pixelSizeUm: 3.76543, camera: 'C'.repeat(80), filter: 'F'.repeat(80), filterKind: 'K'.repeat(80), colourCamera: true };
+  const targetsOf = (n: number, dec: number): unknown[] => Array.from({ length: n }, (_, i) => ({ id: `x${i}`.padEnd(40, 'i'), name: 'N'.repeat(120), raHours: i * 2 + 0.123456789, decDeg: dec + 0.98765 }));
+  const body = (extra: Record<string, unknown>): unknown => ({ site: { latitude: 60, longitude: INPUT.site.longitude }, timeZone: INPUT.timeZone, minAltitude: 0, date: '2026-12-21', rig, bortle: 9, qualityReview: true, allowFlips: true, targets: targetsOf(12, 20), ...extra });
+  const squareWave = (period: number): { az: number; alt: number }[] => Array.from({ length: 360 }, (_, i) => ({ az: i, alt: i % period < period / 2 ? 0 : 90 }));
+  const parsed = (b: unknown): { input: AiPlanInput; qualityReview: boolean } => {
+    const p = parseBody(b);
+    if (typeof p === 'string') throw new Error(`the generated request is invalid: ${p}`);
+    return p;
+  };
+
+  /** Run a request against a model that answers from `replyOf(callIndex, messages)`; returns every call's size and how the run ended. */
+  async function run(input: AiPlanInput, qualityReview: boolean, replyOf: (n: number, m: ModelMessage[]) => string): Promise<{ sizes: number[]; error?: unknown }> {
+    const sizes: number[] = [];
+    try {
+      await planNightWithAi(input, { qualityReview, callModel: async (m) => { sizes.push(sum(m)); return replyOf(sizes.length - 1, m); } });
+      return { sizes };
+    } catch (error) {
+      return { sizes, error };
+    }
+  }
+  const allCut = (input: AiPlanInput, noteChars: number): string => {
+    const p: ModelPlan = { exposures: input.targets.map((t) => ({ id: t.id, minutes: 60, subSeconds: 120 })), plan: [], cut: input.targets.map((t) => t.id), fitsAll: false, notes: '' };
+    p.notes = 'n'.repeat(Math.max(0, noteChars - JSON.stringify(p).length));
+    return JSON.stringify(p);
+  };
+  const qualityBad = JSON.stringify({ good: false, verdict: 'v', issue: 'i'.repeat(5900), fix: 'f'.repeat(5900) });
+
+  it('the evaluator break.test.ts request (60 deg, 360 horizon points, 12 long ids, flips + review, junk/verified/junk/review/junk/junk) never exceeds the limit', async () => {
+    const input = parsed(body({ horizon: Array.from({ length: 360 }, (_, i) => ({ az: i, alt: [0, 40, 0, 90][i % 4] })) })).input;
+    const replies = [junk, allCut(input, 11_990), junk, qualityBad, junk, junk];
+    const r = await run(input, true, (n) => replies[n]);
+    expect(r.sizes.length).toBeGreaterThan(0);
+    expect(Math.max(...r.sizes)).toBeLessThanOrEqual(MAX_CALL_CHARS);
+    expect(r.sizes.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(MAX_REQUEST_CHARS);
+  });
+  it('the evaluator base2.test.ts requests (lat 60 to 80, square-wave horizons, dec 20 and 60): the first call and every later call stay under the limit or the request is refused before any call', async () => {
+    for (const lat of [60, 80]) for (const period of [2, 6]) for (const dec of [20, 60]) {
+      const input = parsed(body({ site: { latitude: lat, longitude: INPUT.site.longitude }, horizon: squareWave(period), targets: targetsOf(12, dec), qualityReview: false })).input;
+      const r = await run(input, false, () => junk);
+      expect(Math.max(0, ...r.sizes)).toBeLessThanOrEqual(MAX_CALL_CHARS);
+      if (r.error !== undefined) expect(r.error).toBeInstanceOf(Error);
+    }
+  });
+  it('the facts of the largest request the route accepts fit MAX_BASE_CHARS at the coarsest level, whatever the horizon', () => {
+    for (const [lat, date] of [[-80, '2026-06-21'], [60, '2026-12-21'], [80, '2026-12-21']] as const) for (const period of [2, 6]) {
+      const input = parsed(body({ site: { latitude: lat, longitude: INPUT.site.longitude }, horizon: squareWave(period), date })).input;
+      const facts = coarsenFacts(buildFacts(input).facts, FACTS_LEVELS[FACTS_LEVELS.length - 1]);
+      expect(SYSTEM_PROMPT.length + buildUserPrompt(facts).length).toBeLessThanOrEqual(MAX_BASE_CHARS);
+    }
+  });
+  it('property: random requests up to every request limit, adversarial replies, flips and review on: no call is ever over the limit', async () => {
+    let seed = 20261113;
+    const rnd = (): number => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const int = (lo: number, hi: number): number => lo + Math.floor(rnd() * (hi - lo + 1));
+    const pick = <T,>(xs: readonly T[]): T => xs[int(0, xs.length - 1)];
+    let called = 0;
+    let sixCalls = 0;
+    for (let i = 0; i < 25; i++) {
+      const n = int(1, 12);
+      const hz = rnd() < 0.8 ? Array.from({ length: int(0, 360) }, (_, k) => ({ az: k, alt: pick([0, 0, 40, 90, int(0, 89)]) })) : null;
+      const b = body({
+        site: { latitude: int(-80, 80) + rnd(), longitude: int(-180, 180) },
+        date: pick(['2026-12-21', '2026-06-21', '2026-03-20', '2026-10-31']),
+        minAltitude: pick([0, 20, 60, 89]),
+        horizon: hz,
+        targets: Array.from({ length: n }, (_, k) => ({ id: `t${k}`.padEnd(int(2, 40), 'i'), name: 'N'.repeat(int(1, 120)), raHours: rnd() * 23.9, decDeg: int(-90, 90) })),
+        allowFlips: rnd() < 0.5,
+        qualityReview: true,
+        rig: rnd() < 0.5 ? rig : undefined,
+        bortle: rnd() < 0.5 ? int(1, 9) : undefined,
+      });
+      const { input, qualityReview } = parsed(b);
+      const big = (): string => {
+        const slots = Array.from({ length: 3 * n + int(1, 120) }, (_, k) => ({ id: input.targets[k % n].id, start: '2026-12-21T20:00-07:00', end: '2026-12-21T21:00-07:00', exposureMinutes: 9999 }));
+        return JSON.stringify({ exposures: input.targets.map((t) => ({ id: t.id, minutes: 60, subSeconds: 120 })), plan: slots, cut: [], fitsAll: true, notes: 'n'.repeat(int(0, 3000)) });
+      };
+      const replyOf = (): string => pick([junk, junk, big(), allCut(input, int(500, 11_990)), qualityBad, 'not json']);
+      const r = await run(input, qualityReview, replyOf);
+      // Every call that was made is under the limit. A request that cannot be fitted makes no call at all.
+      for (const size of r.sizes) expect(size).toBeLessThanOrEqual(MAX_CALL_CHARS);
+      if (r.error instanceof PromptTooLargeError) expect(r.sizes).toEqual([]);
+      if (r.sizes.length > 0) called++;
+      if (r.sizes.length === 6) sixCalls++;
+      expect(r.sizes.reduce((a, c) => a + c, 0)).toBeLessThanOrEqual(MAX_REQUEST_CHARS);
+    }
+    expect(called).toBeGreaterThan(12);
+    expect(sixCalls).toBeGreaterThan(0);
+  });
+  it('a request whose facts cannot be fitted is refused before any call', async () => {
+    const input = parsed(body({})).input;
+    const huge: AiPlanInput = { ...input, rig: { ...rig, camera: 'C'.repeat(40_000) } };
+    const m = fake([good()]);
+    await expect(planNightWithAi(huge, { callModel: m.call })).rejects.toBeInstanceOf(PromptTooLargeError);
+    expect(m.seen).toHaveLength(0);
+    expect(new PromptTooLargeError('x')).toBeInstanceOf(RangeError); // the route answers RangeError with 422
+  });
+  it('coarsened facts: 60 minute samples, at most 8 longest windows, and a plan built on the testkit night still verifies', () => {
+    const level = FACTS_LEVELS[FACTS_LEVELS.length - 1];
+    const { facts: fullFacts, night } = buildFacts(INPUT);
+    const facts = coarsenFacts(fullFacts, level);
+    expect(Date.parse(facts.sampleTimes[1]) - Date.parse(facts.sampleTimes[0])).toBe(60 * MIN);
+    expect(facts.sampleTimes.at(-1)).toBe(fullFacts.sampleTimes.at(-1));
+    expect(facts.targets.every((t) => t.windows.length <= 8 && t.samples.length === facts.sampleTimes.length)).toBe(true);
+    const wave = coarsenFacts(buildFacts({ ...INPUT, horizon: squareWave(4) }).facts, level).targets[0];
+    expect(wave.windows.length).toBeLessThanOrEqual(8);
+    expect(wave.windowsOmitted).toBeGreaterThan(0);
+    expect(checkPlan(INPUT, night, planOf(INPUT, validSlots()))).toEqual([]);
+    const text = buildUserPrompt(facts);
+    expect(text.length).toBeLessThan(buildUserPrompt(fullFacts).length);
+  });
+  it('M2: the quality repair message clips issue and fix to 300 characters, and the reply parser caps them', () => {
+    const text = buildQualityRepairPrompt('i'.repeat(5900), 'f'.repeat(5900));
+    expect(text.length).toBeLessThan(2 * MAX_QUALITY_TEXT_CHARS + 400);
+    const q = parseQualityReply(qualityBad);
+    expect(q.ok).toBe(true);
+    if (q.ok) {
+      expect(q.value.issue!.length).toBe(MAX_QUALITY_TEXT_CHARS);
+      expect(q.value.fix!.length).toBe(MAX_QUALITY_TEXT_CHARS);
+    }
+  });
+  it('S1: a too-many-slots reply never replaces a plan with real violations as the best plan', async () => {
+    const { night } = buildFacts(INPUT);
+    const two = planOf(INPUT, [['t1', clock(lowStart), clock(lowStart + 40 * MIN)], ...validSlots().slice(1)]);
+    two.plan[0].exposureMinutes = 999;
+    const expected = checkPlan(INPUT, night, two);
+    expect(expected.length).toBeGreaterThanOrEqual(2);
+    const s = night.start.getTime();
+    const spam = { ...two, plan: Array.from({ length: 3 * INPUT.targets.length + 6 }, (_, i) => ({ id: INPUT.targets[i % 3].id, start: clock(s), end: clock(s + 600 * MIN) })) };
+    const m = fake([JSON.stringify(two), JSON.stringify(spam)]);
+    const r = await planNightWithAi(INPUT, { callModel: m.call });
+    expect(r.plan.plan).toHaveLength(two.plan.length);
+    expect(r.violations.map((v) => v.kind)).not.toContain('too-many-slots');
+    expect(r.violations).toHaveLength(expected.length);
   });
 });
