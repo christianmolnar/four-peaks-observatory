@@ -5,6 +5,7 @@ import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { describeArcs, describeOverlaps } from './HorizonEditor';
 import { pageProps, ready } from './testkit';
 
 // Real keystrokes, one key at a time, through the whole page. The expected values are the rows of the
@@ -1116,5 +1117,71 @@ describe('layout: zone cards above the chart in at most 2 columns', () => {
     expect(order.indexOf('Add another zone')).toBeLessThan(order.indexOf('Save horizon'));
     expect(order.indexOf('Use sample horizon')).toBeLessThan(order.indexOf('Horizon as a table'));
     expect(order.at(-2)).toBe('Clear horizon');
+  });
+  const zbox = (zone: number, id: string) => document.getElementById(`${zone === 0 ? id : `${id}-${zone + 1}`}-number`) as HTMLInputElement;
+  const zoneCount = () => document.querySelectorAll('#horizon [role=group]').length;
+
+  it('focus: Add moves to the new zone Start box, also when Add becomes disabled at four zones', async () => {
+    await app();
+    const u = user();
+    for (let n = 1; n <= 3; n++) {
+      await u.click(button('Add another zone'));
+      expect(document.activeElement).toBe(zbox(n, 'arc-start'));
+    }
+    expect(button('Add another zone').disabled).toBe(true);
+    expect(document.activeElement).toBe(zbox(3, 'arc-start'));
+  });
+
+  it('focus: Remove moves to a neighbouring Start box, or to Add when none is left; a second Enter cannot delete another zone', async () => {
+    const p = sampleProfile();
+    const three = { ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 10, endAz: 40, heightDeg: 15 }, { startAz: 100, endAz: 160, heightDeg: 60 }, { startAz: 220, endAz: 300, heightDeg: 20 }] }] };
+    await app(three);
+    const u = user();
+    await u.click(button('Remove zone 2'));
+    expect(document.activeElement).toBe(zbox(1, 'arc-start'));
+    expect(zbox(1, 'arc-start').value).toBe('220');
+    await u.click(button('Remove zone 2')); // the last one: the neighbour is the one before it
+    expect(document.activeElement).toBe(zbox(0, 'arc-start'));
+    await u.click(button('Remove zone 1'));
+    expect(zoneCount()).toBe(0);
+    expect(document.activeElement).toBe(button('Add a zone'));
+  });
+
+  it('a full circle does not end "Nothing is blocked elsewhere."; a partial one does', () => {
+    expect(describeArcs([{ startAz: 0, endAz: 180, heightDeg: 20 }, { startAz: 180, endAz: 0, heightDeg: 30 }])).not.toContain('elsewhere');
+    expect(describeArcs([{ startAz: 0, endAz: 180, heightDeg: 20 }, { startAz: 180, endAz: 350, heightDeg: 30 }])).toContain('Nothing is blocked elsewhere.');
+  });
+
+  it('the Tonight Horizon line says when zones overlap and that the highest applies, in the editor wording', async () => {
+    const p = sampleProfile();
+    const two = { ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 55 }] }] };
+    await app(two);
+    const line = summary() as string;
+    expect(line).toContain(describeOverlaps([{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 55 }]));
+    expect(line).toContain('there the highest applies, 55 deg.');
+    cleanup();
+    await app();
+    expect(summary()).not.toContain('overlap');
+  });
+
+  it('the compass follows the cards and comes before the buttons and the summary (phone order)', async () => {
+    await app();
+    await user().click(button('Add another zone'));
+    const grid = screen.getByTestId('zone-grid');
+    const compass = screen.getByTestId('compass');
+    const add = button('Add another zone');
+    expect(grid.compareDocumentPosition(compass) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(compass.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(compass.compareDocumentPosition(screen.getByText(/^Azimuth is degrees clockwise/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('the message slot takes no room at xl while there is no message, and two lines while there is one', async () => {
+    await app();
+    const slot = () => document.getElementById('arc-start-msg') as HTMLElement;
+    expect(slot().className).toContain('xl:h-0');
+    const u = user();
+    await u.clear(zbox(0, 'arc-start'));
+    await u.type(zbox(0, 'arc-start'), '361');
+    expect(slot().className).toContain('xl:h-10');
   });
 });

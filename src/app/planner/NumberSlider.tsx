@@ -20,15 +20,15 @@ export interface NumberSliderProps {
   onEnter?: () => void;
   /** Lines the message slot reserves. Two for a long message in a narrow column. */
   lines?: 1 | 2;
-  /** From xl up, the box sits above the slider and both fill the column, so three of these fit in a row; the message gets two lines there. */
+  /** From xl up, the box sits above the slider and both fill the column, so three of these fit in a row; the message gets two lines there, and no room at all while there is no message. */
   stackedAtXl?: boolean;
 }
 
 /**
  * A number box and a range slider for one text value. No state, no timers, no
  * blur handling: it shows what it is given and reports what the user types.
- * The message line is always in the page, with a fixed height, so showing or
- * clearing a message never moves anything below it.
+ * The message line is always in the page (so a screen reader hears it), at a fixed height while it
+ * is in use; in the stacked layout it takes no room while there is no message.
  */
 export default function NumberSlider({ id, label, unit, min, max, text, sliderValue, onText, error, onFocus, onEnter, lines = 1, stackedAtXl = false }: NumberSliderProps) {
   const msgId = `${id}-msg`;
@@ -67,7 +67,7 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
           className={`h-11 min-w-0 flex-1 ${stackedAtXl ? 'xl:flex-none' : ''} accent-sky-400`}
         />
       </div>
-      <p id={msgId} aria-live="polite" className={`${lines === 2 ? 'h-10' : stackedAtXl ? 'h-5 xl:h-10' : 'h-5'} text-sm leading-5 text-orange-300 font-normal overflow-hidden`}>
+      <p id={msgId} aria-live="polite" className={`${lines === 2 ? 'h-10' : stackedAtXl ? (error ? 'h-5 xl:h-10' : 'h-5 xl:h-0') : 'h-5'} text-sm leading-5 text-orange-300 font-normal overflow-hidden`}>
         {error && (
           <>
             <span aria-hidden="true">! </span>

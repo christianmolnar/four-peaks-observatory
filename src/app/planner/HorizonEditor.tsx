@@ -51,9 +51,12 @@ export function describeArcs(arcs: readonly BlockedArc[]): string {
   if (arcs.length === 0) return 'Horizon not set: nothing is blocked and only the flat minimum altitude applies.';
   const one = (a: BlockedArc) => `from ${a.startAz} deg (${compass(a.startAz)}) clockwise to ${a.endAz} deg (${compass(a.endAz)}), up to ${a.heightDeg} deg high`;
   const overlaps = describeOverlaps(arcs);
-  const tail = overlaps === '' ? 'Nothing is blocked elsewhere.' : `${overlaps} Nothing is blocked elsewhere.`;
-  if (arcs.length === 1) return `Blocked ${one(arcs[0])}. ${tail}`;
-  return `${arcs.length} blocked zones: ${arcs.map((a, i) => `${i + 1}, ${one(a)}`).join('; ')}. ${tail}`;
+  // Every direction is covered when the stretches add up to the full circle: then there is no "elsewhere".
+  const covered = zoneSpans(arcs).reduce((sum, s) => sum + (((s.to - s.from + 360) % 360) || 360), 0);
+  const elsewhere = covered >= 360 ? '' : 'Nothing is blocked elsewhere.';
+  const tail = [overlaps, elsewhere].filter(Boolean).join(' ');
+  if (arcs.length === 1) return `Blocked ${one(arcs[0])}.${tail && ` ${tail}`}`;
+  return `${arcs.length} blocked zones: ${arcs.map((a, i) => `${i + 1}, ${one(a)}`).join('; ')}.${tail && ` ${tail}`}`;
 }
 
 export interface HorizonEditorProps {
@@ -124,6 +127,23 @@ export default function HorizonEditor({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Focus after Add and Remove: the new zone's Start box, a neighbour's Start box, or Add when no zone is left.
+  const addRef = useRef<HTMLButtonElement>(null);
+  const focusAfter = useRef<{ zone: number } | 'add' | null>(null);
+  useLayoutEffect(() => {
+    const target = focusAfter.current;
+    focusAfter.current = null;
+    if (target === 'add') addRef.current?.focus();
+    else if (target) document.getElementById(`${fieldId('arc-start', target.zone)}-number`)?.focus();
+  }, [fields.length]);
+  const add = () => {
+    focusAfter.current = { zone: fields.length };
+    onAdd();
+  };
+  const remove = (zone: number) => {
+    focusAfter.current = fields.length === 1 ? 'add' : { zone: Math.min(zone, fields.length - 2) };
+    onRemove(zone);
+  };
   const font = Math.min(20, Math.ceil((MIN_TEXT_PX / scale) * 10) / 10);
   const status = invalid ? 'Fix the highlighted box to save' : dirty ? 'Unsaved changes' : saved ? 'Saved' : '';
 
@@ -158,7 +178,10 @@ export default function HorizonEditor({
             if (canSave) onSave();
           }}
         >
-          <div>
+          {/* Phone: cards, compass, then the controls and text. From lg: the cards (2 by 2) and the buttons on the left, the compass in a sticky column on the right,
+              so the whole chart stays in view while any card is edited (at xl the whole 2 by 2 fits beside it in one screen). Tab order is the document order: cards, Add, Save, Discard, Use sample, Clear horizon. */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             {fields.length === 0 && (
               <p className="text-white/80 font-normal text-sm mb-3">
                 No obstruction is entered, so the planner uses the flat minimum altitude only. It does not guess a horizon.
@@ -174,7 +197,7 @@ export default function HorizonEditor({
                   </h3>
                   <button
                     type="button"
-                    onClick={() => onRemove(n)}
+                    onClick={() => remove(n)}
                     aria-label={`Remove zone ${n + 1}`}
                     className="h-11 px-3 text-sm font-normal text-white/90 underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
                   >
@@ -203,36 +226,13 @@ export default function HorizonEditor({
             ))}
             </div>
           </div>
-          {/* Add, Save, Discard and Use sample come right after the cards (tab order: zone cards, Add, Save, Discard, Use sample, Clear horizon);
-              the compass sits beside them from md up and below them on a phone. */}
-          <div className="flex flex-col items-center gap-4 md:flex-row-reverse md:items-start">
-            <div className="w-full min-w-0 md:flex-1">
-              <button type="button" className={btn} onClick={onAdd} disabled={fields.length >= MAX_ZONES}>
-                {fields.length === 0 ? 'Add a zone' : 'Add another zone'}
-              </button>
-              {fields.length >= MAX_ZONES && <p className="text-white/80 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                <button type="submit" className={btn} disabled={!canSave}>
-                  Save horizon
-                </button>
-                <button type="button" className={btn} onClick={onDiscard} disabled={!dirty}>
-                  Discard changes
-                </button>
-                <button type="button" className={btn} onClick={onUseSample}>
-                  Use sample horizon
-                </button>
-              </div>
-              <p className="text-white/80 font-normal text-sm leading-5 mt-3">{summary}</p>
-              <p className="text-white/75 font-normal text-[13px] leading-5 mt-3">
-                Azimuth is degrees clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone runs clockwise from start to end and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
-              </p>
-            </div>
           <svg
             ref={compassRef}
+            data-testid="compass"
             viewBox={`0 0 ${SIZE} ${SIZE}`}
             role="img"
             aria-labelledby="polar-title polar-desc"
-            className="w-full max-w-[300px] md:max-w-[260px] shrink-0"
+            className="mx-auto w-full max-w-[300px] lg:max-w-[260px] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[calc(var(--planner-top,0px)+8px)]"
           >
             <title id="polar-title">Horizon, seen from above</title>
             <desc id="polar-desc">{summary}</desc>
@@ -278,6 +278,29 @@ export default function HorizonEditor({
               60°
             </text>
           </svg>
+          <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+            <div>
+              <button ref={addRef} type="button" className={btn} onClick={add} disabled={fields.length >= MAX_ZONES}>
+                {fields.length === 0 ? 'Add a zone' : 'Add another zone'}
+              </button>
+              {fields.length >= MAX_ZONES && <p className="text-white/80 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <button type="submit" className={btn} disabled={!canSave}>
+                  Save horizon
+                </button>
+                <button type="button" className={btn} onClick={onDiscard} disabled={!dirty}>
+                  Discard changes
+                </button>
+                <button type="button" className={btn} onClick={onUseSample}>
+                  Use sample horizon
+                </button>
+              </div>
+              <p className="text-white/80 font-normal text-sm leading-5 mt-3">{summary}</p>
+              <p className="text-white/75 font-normal text-[13px] leading-5 mt-3">
+                Azimuth is degrees clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone runs clockwise from start to end and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
+              </p>
+            </div>
+          </div>
           </div>
         </form>
       </div>

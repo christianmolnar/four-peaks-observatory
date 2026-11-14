@@ -54,7 +54,7 @@ import AltitudeChart from './AltitudeChart';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
 import ExposurePanel from './ExposurePanel';
-import HorizonEditor from './HorizonEditor';
+import HorizonEditor, { describeOverlaps } from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
 import OverflowMenu from './OverflowMenu';
@@ -791,7 +791,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const horizonText =
     savedArcs.length === 0
       ? 'Horizon not set: only the flat minimum altitude applies.'
-      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.`;
+      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.${describeOverlaps(savedArcs) && ` ${describeOverlaps(savedArcs)}`}`;
   const midMoon = night?.kind === 'normal' ? moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) : null;
   const nightText =
     night === undefined
