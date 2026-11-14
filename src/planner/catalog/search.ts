@@ -420,6 +420,8 @@ function checkQuery(q: SearchQuery): void {
 export interface CatalogIndex {
   /** Number of distinct targets (curated plus catalog objects not claimed by a curated one). */
   readonly size: number;
+  /** Every distinct target, curated first then catalog order; frozen, shared with every search. */
+  readonly targets: readonly SearchTarget[];
   search(query: SearchQuery): SearchResult;
 }
 
@@ -462,6 +464,7 @@ export function createCatalogIndex(
 
   return {
     size: entries.length,
+    targets: entries.map((e) => e.target),
     search(query: SearchQuery): SearchResult {
       checkQuery(query);
       const limit = query.limit ?? DEFAULT_LIMIT;

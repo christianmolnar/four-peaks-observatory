@@ -143,3 +143,16 @@ describe('usableWindows', () => {
     ).toThrow(RangeError);
   });
 });
+
+describe('horizon normalisation is kept per array without going stale', () => {
+  it('a point edited in place changes the answer, and a bad edit throws', () => {
+    const pts = [{ az: 0, alt: 10 }, { az: 180, alt: 10 }];
+    expect(horizonAltitudeAt(pts, 90)).toBeCloseTo(10, 9);
+    pts[1].alt = 30;
+    expect(horizonAltitudeAt(pts, 90)).toBeCloseTo(20, 9);
+    pts.push({ az: 90, alt: 50 });
+    expect(horizonAltitudeAt(pts, 90)).toBeCloseTo(50, 9);
+    pts[2].az = 180;
+    expect(() => horizonAltitudeAt(pts, 90)).toThrow(RangeError);
+  });
+});
