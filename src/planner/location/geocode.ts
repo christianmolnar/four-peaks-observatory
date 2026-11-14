@@ -1,7 +1,7 @@
 import type { CounterStore } from '@/planner/ai/counter-store'
 import { getJson, UpstreamError } from './bounded-fetch'
 import type { FetchLike } from './bounded-fetch'
-import { cacheKey, regionMatches } from './query'
+import { cacheKey, coordText, regionMatches } from './query'
 import type { ParsedQuery } from './query'
 import { isKnownTimeZone, timeZoneAt } from './timezone'
 import type { PlaceCandidate } from './types'
@@ -60,7 +60,14 @@ export interface LocationDeps {
   nominatimOn?: () => boolean
 }
 
-const heightKey = (latitude: number, longitude: number): string => `${latitude.toFixed(3)},${longitude.toFixed(3)}`
+/** A 5-digit search is a US ZIP first: stable order, United States matches ahead of other countries' postcodes. Any other search keeps the geocoder's own order. */
+function usFirstForZip(q: ParsedQuery, found: PlaceCandidate[]): PlaceCandidate[] {
+  if (!/^\d{5}$/.test(q.name) || q.region !== '') return found
+  const us = (c: PlaceCandidate) => c.country === 'United States'
+  return [...found.filter(us), ...found.filter((c) => !us(c))]
+}
+
+const heightKey = (latitude: number, longitude: number): string => `${coordText(latitude)},${coordText(longitude)}`
 
 /**
  * Place search and elevation, with Open-Meteo first and Nominatim as the fallback.
@@ -115,6 +122,7 @@ export class LocationService {
     } else if (found.length === 0 && openMeteoFailed) {
       throw new LookupUnavailableError(UNAVAILABLE)
     }
+    found = usFirstForZip(q, found)
     if (found.length > 0) this.places.set(cacheKey(q), found)
     return found
   }
@@ -197,8 +205,8 @@ export class LocationService {
 
   /** Heights for points, in order; undefined where the service has none. One request. Throws UpstreamError on failure. */
   private async elevations(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
-    const lat = points.map((p) => p.latitude.toFixed(4)).join(',')
-    const lon = points.map((p) => p.longitude.toFixed(4)).join(',')
+    const lat = points.map((p) => coordText(p.latitude)).join(',')
+    const lon = points.map((p) => coordText(p.longitude)).join(',')
     const body = await getJson(this.deps.fetch, `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, ELEVATION_TIMEOUT_MS, 'Open-Meteo elevation')
     const list = typeof body === 'object' && body !== null ? (body as { elevation?: unknown }).elevation : undefined
     if (!Array.isArray(list) || list.length !== points.length) throw new UpstreamError('Open-Meteo elevation answered with an unexpected shape')

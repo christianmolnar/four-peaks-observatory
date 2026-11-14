@@ -4,7 +4,7 @@ import { memo, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
-import { fillSiteFields } from '@/planner/location/client';
+import type { SiteFieldKey } from '@/planner/location/client';
 import SiteFinder from './SiteFinder';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
@@ -113,10 +113,8 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
   const [error, setError] = useState<string | null>(null);
-  // Boxes the user typed in. A lookup fills the others and never overwrites these.
-  const touched = useRef(new Set<string>());
-  const textsRef = useRef(texts);
-  textsRef.current = texts;
+  // Boxes whose value a lookup wrote and the user has not edited since. A lookup may overwrite only these (and empty boxes); every other value is saved or typed by the user.
+  const filled = useRef(new Set<string>());
   const run = (fn: () => Profile, what: string) => {
     try {
       const next = fn();
@@ -126,10 +124,9 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       setError((e as Error).message);
     }
   };
-  const fill = (values: Parameters<typeof fillSiteFields>[2]): string[] => {
-    const { texts: next, kept } = fillSiteFields(textsRef.current, touched.current, values);
+  const apply = (next: Record<string, string>, changed: SiteFieldKey[]) => {
+    changed.forEach((k) => filled.current.add(k));
     setTexts(next);
-    return kept;
   };
   return (
     <FormShell
@@ -138,7 +135,7 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
       onRemove={() => run(() => removeItem(profile, list, item.id), `Removed ${item.name}.`)}
     >
-      {list === 'sites' && <SiteFinder latitudeText={texts.latitude ?? ''} longitudeText={texts.longitude ?? ''} onFill={fill} />}
+      {list === 'sites' && <SiteFinder texts={texts} overwritable={filled.current} onApply={apply} />}
       {spec.fields.map((f) => (
         <Box
           key={f.key}
@@ -146,7 +143,7 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
           spec={f}
           value={texts[f.key] ?? ''}
           onChange={(v) => {
-            touched.current.add(f.key);
+            filled.current.delete(f.key);
             setTexts((t) => ({ ...t, [f.key]: v }));
           }}
         />

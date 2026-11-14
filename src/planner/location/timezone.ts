@@ -1,4 +1,4 @@
-import tzlookup from 'tz-lookup'
+import tzlookup from '@photostructure/tz-lookup'
 
 /**
  * IANA time zone for a point, from the bundled tz-lookup boundary data (works offline, in the browser and on the server).

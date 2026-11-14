@@ -1,4 +1,4 @@
-import { parseCoordinates, parseQuery } from './query'
+import { coordText, parseCoordinates, parseQuery } from './query'
 import { timeZoneAt } from './timezone'
 import type { CoordinateDetails, PlaceCandidate } from './types'
 
@@ -89,7 +89,7 @@ export async function describeCoordinates(latitude: number, longitude: number, f
   const out: CoordinateDetails = { notes: [] }
   out.timeZone = timeZoneAt(c.latitude, c.longitude)
   try {
-    const body = await getFromRoute(`${ELEVATION_URL}?lat=${c.latitude}&lon=${c.longitude}`, fetchImpl, timeoutMs)
+    const body = await getFromRoute(`${ELEVATION_URL}?lat=${coordText(c.latitude)}&lon=${coordText(c.longitude)}`, fetchImpl, timeoutMs)
     if (body.elevationM === null) out.notes.push('No elevation is known for this point. Enter it by hand.')
     else if (typeof body.elevationM === 'number' && Number.isFinite(body.elevationM)) out.elevationM = body.elevationM
     else throw new LookupError('The lookup service sent a reply that could not be read.')
@@ -104,24 +104,50 @@ export async function describeCoordinates(latitude: number, longitude: number, f
 export type SiteFieldKey = 'latitude' | 'longitude' | 'elevationM' | 'timeZone'
 const LABELS: Record<SiteFieldKey, string> = { latitude: 'Latitude', longitude: 'Longitude', elevationM: 'Elevation', timeZone: 'Time zone' }
 
+/** One box a lookup would change: what it holds now and what the lookup has. */
+export interface FieldChange {
+  key: SiteFieldKey
+  label: string
+  from: string
+  to: string
+}
+
+const NUMERIC: ReadonlySet<SiteFieldKey> = new Set<SiteFieldKey>(['latitude', 'longitude', 'elevationM'])
+const sameValue = (key: SiteFieldKey, a: string, b: string): boolean =>
+  a.trim() === b.trim() || (NUMERIC.has(key) && a.trim() !== '' && b.trim() !== '' && Number(a) === Number(b))
+
 /**
- * Puts looked-up values into the site's boxes, except boxes the user has edited by hand (`touched`): those are never overwritten.
- * Returns the new box texts and the labels of the boxes that were kept. Pure.
+ * Puts looked-up values into the site's boxes. A box that already holds a different value is protected: it is overwritten only when
+ * a lookup in this session put that value there and the user has not edited it since (`overwritable`), or when `replace` is true
+ * (the user pressed Replace). Empty boxes are always filled. A value equal to what the box holds is not a change.
+ * Returns the new box texts, the boxes left alone (`kept`, with what the lookup had) and the boxes overwritten over a different value (`replaced`). Pure.
  */
 export function fillSiteFields(
   texts: Record<string, string>,
-  touched: ReadonlySet<string>,
+  overwritable: ReadonlySet<string>,
   values: Partial<Record<SiteFieldKey, string>>,
-): { texts: Record<string, string>; kept: string[] } {
+  replace = false,
+): { texts: Record<string, string>; changed: SiteFieldKey[]; kept: FieldChange[]; replaced: FieldChange[] } {
   const next = { ...texts }
-  const kept: string[] = []
+  const changed: SiteFieldKey[] = []
+  const kept: FieldChange[] = []
+  const replaced: FieldChange[] = []
   for (const key of Object.keys(values) as SiteFieldKey[]) {
-    const v = values[key]
-    if (v === undefined) continue
-    if (touched.has(key)) kept.push(LABELS[key])
-    else next[key] = v
+    const to = values[key]
+    if (to === undefined) continue
+    const from = texts[key] ?? ''
+    if (sameValue(key, from, to)) continue
+    const change = { key, label: LABELS[key], from, to }
+    if (from.trim() === '' || overwritable.has(key)) {
+      next[key] = to
+      changed.push(key)
+    } else if (replace) {
+      next[key] = to
+      changed.push(key)
+      replaced.push(change)
+    } else kept.push(change)
   }
-  return { texts: next, kept }
+  return { texts: next, changed, kept, replaced }
 }
 
 /** A candidate as box texts. Coordinates to 4 decimals (about 10 m); elevation only when the source knew it. */

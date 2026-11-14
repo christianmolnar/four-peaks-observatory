@@ -1,3 +1,4 @@
+import { parseCoordinates } from './query'
 import type { ClientFetch } from './client'
 import { CLIENT_TIMEOUT_MS, creditsFor, describeCoordinates, detailValues, fillSiteFields, LookupError, lookupPlace, placeValues } from './client'
 import type { PlaceCandidate } from './types'
@@ -56,7 +57,29 @@ describe('describeCoordinates', () => {
   it('Phoenix coordinates: zone from tz-lookup (offline), elevation from our route', async () => {
     const fetchImpl = jest.fn<Promise<Response>, Parameters<ClientFetch>>(async () => json({ elevationM: 331 }))
     expect(await describeCoordinates(33.4484, -112.074, fetchImpl)).toEqual({ timeZone: 'America/Phoenix', elevationM: 331, notes: [] })
-    expect(fetchImpl.mock.calls[0][0]).toBe('/api/planner/elevation?lat=33.4484&lon=-112.074')
+    expect(fetchImpl.mock.calls[0][0]).toBe('/api/planner/elevation?lat=33.44840&lon=-112.07400')
+  })
+  it('Google Maps coordinates with 14 decimals build a URL the route accepts, with the elevation filled', async () => {
+    const fetchImpl = jest.fn<Promise<Response>, Parameters<ClientFetch>>(async () => json({ elevationM: 335 }))
+    const d = await describeCoordinates(33.44838523745632, -112.07404345467383, fetchImpl)
+    expect(d.elevationM).toBe(335)
+    expect(d.notes).toEqual([])
+    const url = new URL(fetchImpl.mock.calls[0][0], 'http://x')
+    expect(url.searchParams.get('lat')).toBe('33.44839')
+    expect(url.searchParams.get('lon')).toBe('-112.07404')
+    expect(() => parseCoordinates(url.searchParams.get('lat'), url.searchParams.get('lon'))).not.toThrow()
+  })
+  it.each([
+    [0.0000001, -0.0000001],
+    [1e-7, 1e-12],
+    [89.999999999, 179.99999999],
+    [-90, -180],
+  ])('tiny and extreme values (%p, %p) never produce exponent notation or a URL the route refuses', async (lat, lon) => {
+    const fetchImpl = jest.fn<Promise<Response>, Parameters<ClientFetch>>(async () => json({ elevationM: 1 }))
+    await describeCoordinates(lat, lon, fetchImpl)
+    const url = new URL(fetchImpl.mock.calls[0][0], 'http://x')
+    expect(url.search).not.toMatch(/e[-+]?\d/i)
+    expect(() => parseCoordinates(url.searchParams.get('lat'), url.searchParams.get('lon'))).not.toThrow()
   })
   it('round trip: a place candidate, then its own coordinates, give the same zone and elevation', async () => {
     const d = await describeCoordinates(PHX.latitude, PHX.longitude, async () => json({ elevationM: PHX.elevationM }))
@@ -100,22 +123,46 @@ describe('describeCoordinates', () => {
 })
 
 describe('applying results to the site boxes', () => {
-  const boxes = { name: 'Home', latitude: '1', longitude: '2', elevationM: '', timeZone: '' }
+  const boxes = { name: 'Home', latitude: '', longitude: '', elevationM: '', timeZone: '' }
+  const saved = { name: 'Home', latitude: '33.6', longitude: '-111.7', elevationM: '600', timeZone: 'America/Phoenix' }
   it('placeValues: 4-decimal coordinates, whole-metre elevation, the zone; no elevation key when unknown', () => {
     expect(placeValues(PHX)).toEqual({ latitude: '33.4484', longitude: '-112.074', elevationM: '331', timeZone: 'America/Phoenix' })
     expect('elevationM' in placeValues({ ...PHX, elevationM: undefined })).toBe(false)
   })
-  it('fills every box nobody edited and never touches the name', () => {
-    const { texts, kept } = fillSiteFields(boxes, new Set(), placeValues(PHX))
-    expect(texts).toEqual({ name: 'Home', latitude: '33.4484', longitude: '-112.074', elevationM: '331', timeZone: 'America/Phoenix' })
-    expect(kept).toEqual([])
+  it('fills every empty box and never touches the name', () => {
+    const r = fillSiteFields(boxes, new Set(), placeValues(PHX))
+    expect(r.texts).toEqual({ name: 'Home', latitude: '33.4484', longitude: '-112.074', elevationM: '331', timeZone: 'America/Phoenix' })
+    expect(r.kept).toEqual([])
+    expect(r.replaced).toEqual([])
   })
-  it('edit-never-overwritten: a box the user typed in keeps its text and is reported', () => {
-    const { texts, kept } = fillSiteFields({ ...boxes, elevationM: '1500', timeZone: 'America/Denver' }, new Set(['elevationM', 'timeZone']), placeValues(PHX))
-    expect(texts.elevationM).toBe('1500')
-    expect(texts.timeZone).toBe('America/Denver')
-    expect(texts.latitude).toBe('33.4484')
-    expect(kept).toEqual(['Elevation', 'Time zone'])
+  it('a saved non-empty value is never replaced silently: it is kept and the change is listed', () => {
+    const r = fillSiteFields(saved, new Set(), placeValues(PHX))
+    expect(r.texts).toEqual(saved)
+    expect(r.changed).toEqual([])
+    expect(r.kept).toEqual([
+      { key: 'latitude', label: 'Latitude', from: '33.6', to: '33.4484' },
+      { key: 'longitude', label: 'Longitude', from: '-111.7', to: '-112.074' },
+      { key: 'elevationM', label: 'Elevation', from: '600', to: '331' },
+    ])
+  })
+  it('Use fills empty boxes and boxes an earlier lookup filled, and keeps the rest', () => {
+    const r = fillSiteFields({ ...saved, elevationM: '', timeZone: 'Europe/London' }, new Set(['timeZone']), placeValues(PHX))
+    expect(r.texts.elevationM).toBe('331')
+    expect(r.texts.timeZone).toBe('America/Phoenix')
+    expect(r.texts.latitude).toBe('33.6')
+    expect(r.kept.map((c) => c.label)).toEqual(['Latitude', 'Longitude'])
+    expect(r.replaced).toEqual([])
+  })
+  it('Replace overwrites the protected boxes and names each one', () => {
+    const r = fillSiteFields(saved, new Set(), placeValues(PHX), true)
+    expect(r.texts).toMatchObject({ latitude: '33.4484', longitude: '-112.074', elevationM: '331' })
+    expect(r.kept).toEqual([])
+    expect(r.replaced.map((c) => `${c.label} ${c.from} to ${c.to}`)).toEqual(['Latitude 33.6 to 33.4484', 'Longitude -111.7 to -112.074', 'Elevation 600 to 331'])
+  })
+  it('a value equal to what the box holds is not a change (33.40 equals 33.4)', () => {
+    const r = fillSiteFields({ ...saved, latitude: '33.4840' }, new Set(), { latitude: '33.484' })
+    expect(r.kept).toEqual([])
+    expect(r.changed).toEqual([])
   })
   it('the input is not mutated', () => {
     const before = { ...boxes }

@@ -7,7 +7,7 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 
 - `GET /api/planner/geocode?q=`: place or postal code, up to 5 candidates (`src/app/api/planner/geocode/route.ts`).
 - `GET /api/planner/elevation?lat=&lon=`: metres, or `null` when the service has no height (`.../elevation/route.ts`).
-- Time zone for hand-entered coordinates: `tz-lookup` 6.1.25, in the browser, offline. About 73 KB of boundary data, 29 KB gzipped. Less exact right at zone borders and at sea.
+- Time zone for hand-entered coordinates and Nominatim results: `@photostructure/tz-lookup` 11.8.0 (maintained fork of `tz-lookup`), in the browser, offline. 73 KB of boundary data, 29 KB gzipped, the same size as the 6.1.25 package it replaced. Less exact right at zone borders and at sea. The old package had pre-2022 data (Ciudad Juárez came out as America/Ojinaga, one hour off); the fork gets it right (America/Ciudad_Juarez, test in `timezone.test.ts`). Open-Meteo results carry the geocoder's own zone.
 - Code: `src/planner/location/` (`client.ts` for the browser, `geocode.ts` for the server, `limits.ts` for the caps).
 - UI: `src/app/planner/SiteFinder.tsx`, used by `ProfileEditor.tsx`.
 
@@ -29,13 +29,20 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 
 - 2 to 100 characters, no control characters (400 otherwise).
 - "City, ST" or "City, State": Open-Meteo is asked for the city; the part after the comma filters by state, county or country (US state codes understood). No match falls through to Nominatim.
+- "City State" with no comma ("Tucson Arizona", "Tucson AZ"): a trailing US state name, or an upper-case two-letter code, is split off and used as the filter, so Open-Meteo answers it without a Nominatim call. A lower-case "az" is left as part of the name.
 - ZIP+4 is cut to the 5 digits. Other postcodes go through as typed.
+- Street addresses are not wanted (the box says so). A leading house number is dropped before anything is sent or cached ("123 Main St, Phoenix" becomes "Main St, Phoenix"), only when the first part has a street word, so "29 Palms, CA" is untouched. Nothing else about an address is stripped.
+- Result order: a 5-digit search lists United States matches first (stable), then other countries' postcodes. Every other search keeps the geocoder's own order; there is no locale-based ordering.
+- Elevation requests and the elevation cache use the same rounding, 5 decimals (about 1 m). The browser rounds typed coordinates to 5 decimals before asking, so a Google Maps paste with 14 decimals works. The route itself accepts at most 8 decimals.
+- Reply bodies are read as a stream and cut off at 256 KB (a larger `Content-Length` is refused before reading).
 - Elevation of -9999 (no data) is dropped, never shown.
 
 ## Nominatim policy, as implemented
 
 - Button press only: no autocomplete anywhere.
-- One request per second for the whole app: callers queue in one server instance, and across instances claim a one-second slot in the counter store, refused while the slot before it is taken. Claimed slots are never adjacent, so two requests are always more than 1 s apart. Residual risk: two instances racing between the check and the claim.
+- One request per second: callers queue in one server instance, and claim a one-second slot in the counter store, refused while the slot before it is taken. Claimed slots are never adjacent, so two requests are always more than 1 s apart.
+  - **The gate spans server instances only when KV is configured** (the counter store is then shared). Without KV the store is in memory, so the gate is per instance: two instances can each send one request in the same second. Check that the KV env vars are set in production before relying on the app-wide limit.
+  - Residual risk, even with KV: two instances racing between the check and the claim.
 - User-Agent: `FourPeaksObservatory-planner/1.0 (+https://fourpeaksobservatory.com; ...)`. No personal contact data.
 - Results cached 24 h in memory (500 entries) and at the CDN (`s-maxage=86400`). Empty and failed answers are not cached.
 - Switch without a release: set env `PLANNER_NOMINATIM=off` (Open-Meteo only; an Open-Meteo outage then reads as "not available").
@@ -50,10 +57,17 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 
 ## Elevation endpoint reachability
 
-- From the dev machine (WSL, 2026-11-13) `api.open-meteo.com` times out on every path (elevation and forecast alike), while `geocoding-api.open-meteo.com` answers. The elevation route is therefore tested with fake replies only.
-- Check once on Vercel: `curl "https://<site>/api/planner/elevation?lat=33.4484&lon=-112.074"` should return `{"elevationM":331}`.
-- If it is unreachable, the box stays editable and the page says "Elevation was not filled in: ...".
+- `api.open-meteo.com/v1/elevation` answered from the dev machine on 2026-11-13 (335 m for 33.45, -112.07). An earlier timeout from this machine did not repeat.
+- If it is ever unreachable, the box stays editable and the page says "Elevation was not filled in: ...".
+- Check on Vercel: `curl "https://<site>/api/planner/elevation?lat=33.4484&lon=-112.074"` should return `{"elevationM":331}`.
+
+## Saved values are protected
+
+- A lookup never silently replaces a value already in a site box. "Use" fills empty boxes, and boxes an earlier lookup in this session filled and the user has not edited since. Everything else (saved values, anything typed) is kept.
+- Each result shows "Would change: Latitude 33.6 to 33.4484, ..." for what Use would keep, with a "Replace" button that overwrites it. The status message lists what was kept ("Kept your own entries for: ...") and what was replaced ("Replaced: Latitude 33.6 to 33.4484").
+- After Use or Replace, focus moves to the status message.
+- The same rule applies to "Look up elevation and time zone".
 
 ## Tests
 
-- `src/planner/location/*.test.ts`, `src/app/api/planner/geocode/route.test.ts`, `src/app/planner/SiteFinder.test.tsx`. All use fake fetch; no network.
+- `src/planner/location/*.test.ts`, `src/app/api/planner/geocode/route.test.ts`, `src/app/planner/SiteFinder.test.tsx`, `bounded-fetch.test.ts`. All use fake fetch; no network.

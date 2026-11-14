@@ -240,8 +240,18 @@ describe('elevation', () => {
     const r = rig({ elevation: () => json({ elevation: [331.4] }) })
     expect(await r.service.elevationAt(33.44838, -112.07404)).toBe(331)
     const u = new URL(r.elevation()[0].url)
-    expect(u.searchParams.get('latitude')).toBe('33.4484')
-    expect(u.searchParams.get('longitude')).toBe('-112.0740')
+    expect(u.searchParams.get('latitude')).toBe('33.44838')
+    expect(u.searchParams.get('longitude')).toBe('-112.07404')
+  })
+
+  it('the cache cell is the point asked for: two points 60 m apart are two requests, each answered for its own point', async () => {
+    const heights = [331, 340]
+    const r = rig({ elevation: () => json({ elevation: [heights.shift()] }) })
+    expect(await r.service.elevationAt(33.44838, -112.07404)).toBe(331)
+    expect(await r.service.elevationAt(33.44888, -112.07404)).toBe(340)
+    expect(r.elevation()).toHaveLength(2)
+    expect(r.service.cachedElevation(33.44838, -112.07404)).toBe(331)
+    expect(r.service.cachedElevation(33.44888, -112.07404)).toBe(340)
   })
 
   it.each([
@@ -252,6 +262,40 @@ describe('elevation', () => {
   ])('a failure (%s) throws, so the route can say so', async (_n, elevation) => {
     const r = rig({ elevation })
     await expect(r.service.elevationAt(33.4, -112)).rejects.toThrow()
+  })
+})
+
+describe('searches shaped like "City State", ZIPs and street addresses', () => {
+  it('"Tucson Arizona" (no comma) is answered by Open-Meteo alone: it asks for Tucson and filters by Arizona', async () => {
+    const tucsonAz = { ...PHOENIX, name: 'Tucson', latitude: 32.22, longitude: -110.93, elevation: 728 }
+    const tucsonOther = { ...tucsonAz, id: 9, admin1: 'Sonora', country: 'Mexico', country_code: 'MX' }
+    const r = rig({ meteo: () => json({ results: [tucsonOther, tucsonAz] }) })
+    const out = await r.service.searchPlaces(q('Tucson Arizona'))
+    expect(out.map((c) => c.country)).toEqual(['United States'])
+    expect(new URL(r.meteo()[0].url).searchParams.get('name')).toBe('Tucson')
+    expect(r.nominatim()).toHaveLength(0)
+  })
+
+  it('a 5-digit search puts United States matches first, in a stable order, even when the geocoder lists France first', async () => {
+    const fr = { ...PHOENIX, id: 7, name: 'La Roche-sur-Yon', country: 'France', country_code: 'FR', admin1: 'Pays de la Loire', timezone: 'Europe/Paris', latitude: 46.67, longitude: -1.43, elevation: 70 }
+    const phx2 = { ...PHOENIX, id: 8, name: 'Phoenix North' }
+    const r = rig({ meteo: () => json({ results: [fr, PHOENIX, phx2] }) })
+    const out = await r.service.searchPlaces(q('85001'))
+    expect(out.map((c) => c.name)).toEqual(['Phoenix', 'Phoenix North', 'La Roche-sur-Yon'])
+  })
+
+  it('other searches keep the geocoder order (not reordered by country)', async () => {
+    const fr = { ...PHOENIX, id: 7, name: 'Paris', country: 'France', country_code: 'FR' }
+    const r = rig({ meteo: () => json({ results: [fr, PHOENIX] }) })
+    expect((await r.service.searchPlaces(q('Paris'))).map((c) => c.name)).toEqual(['Paris', 'Phoenix'])
+  })
+
+  it('a street address: the house number never reaches Open-Meteo, Nominatim or the cache key', async () => {
+    const r = rig({ meteo: () => json({}), nominatim: () => json([NOM_PHOENIX]), elevation: () => json({ elevation: [331] }) })
+    await r.service.searchPlaces(q('1234 N Central Ave, Phoenix, AZ'))
+    expect(new URL(r.nominatim()[0].url).searchParams.get('q')).toBe('N Central Ave, Phoenix, AZ')
+    expect(r.service.cachedPlaces(q('N Central Ave, Phoenix, AZ'))).toBeDefined()
+    expect(r.calls.some((c) => c.url.includes('1234'))).toBe(false)
   })
 })
 

@@ -1,5 +1,31 @@
 import { cacheKey, MAX_QUERY_LENGTH, parseCoordinates, parseQuery, QueryError, regionMatches } from './query'
 
+describe('parseQuery: "City State" without a comma', () => {
+  it.each([
+    ['Tucson Arizona', 'Tucson', 'arizona'],
+    ['Tucson AZ', 'Tucson', 'az'],
+    ['Las Cruces New Mexico', 'Las Cruces', 'new mexico'],
+    ['Salt Lake City UT', 'Salt Lake City', 'ut'],
+    ['Charleston west virginia', 'Charleston', 'west virginia'],
+  ])('%s', (text, name, region) => {
+    expect(parseQuery(text)).toMatchObject({ name, region })
+  })
+  it.each(['Tucson', 'New York', 'Indiana', 'Rio de Janeiro', 'Tucson az', 'Kathmandu Valley'])('%s is left as one name', (text) => {
+    expect(parseQuery(text)).toMatchObject({ name: text, region: '' })
+  })
+})
+
+describe('parseQuery: street addresses', () => {
+  it('drops a leading house number when the first part has a street word', () => {
+    expect(parseQuery('123 Main St, Phoenix, AZ')).toMatchObject({ text: 'Main St, Phoenix, AZ', name: 'Main St' })
+    expect(parseQuery('221B Baker Street, London').text).toBe('Baker Street, London')
+  })
+  it('leaves places that start with a number alone', () => {
+    expect(parseQuery('29 Palms, CA').text).toBe('29 Palms, CA')
+    expect(parseQuery('85001').text).toBe('85001')
+  })
+})
+
 describe('parseQuery', () => {
   it('a city and state: name before the comma, region after, lower case', () => {
     expect(parseQuery('  Phoenix ,  AZ ')).toEqual({ text: 'Phoenix , AZ', name: 'Phoenix', region: 'az' })

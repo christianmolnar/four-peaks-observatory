@@ -9,6 +9,7 @@ const CITIES: [string, number, number, string][] = [
   ['Mumbai', 19.076, 72.8777, 'Asia/Kolkata'],
   ['Kathmandu', 27.7172, 85.324, 'Asia/Kathmandu'],
   ['Adelaide', -34.9285, 138.6007, 'Australia/Adelaide'],
+  ['Ciudad Juarez (zone created in 2022)', 31.69, -106.42, 'America/Ciudad_Juarez'],
   ['Tokyo', 35.6762, 139.6503, 'Asia/Tokyo'],
   ['Sao Paulo', -23.5505, -46.6333, 'America/Sao_Paulo'],
 ]
