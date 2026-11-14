@@ -14,6 +14,9 @@ export const MAX_CANDIDATES = 5
 export const OPEN_METEO_TIMEOUT_MS = 6000
 export const NOMINATIM_TIMEOUT_MS = 6000
 export const ELEVATION_TIMEOUT_MS = 5000
+/** Second elevation source. Its public API allows 1 call a second and 1,000 a day; we stay under both (see `elevationTurn`, `TOPO_DAILY_CAP`). */
+export const TOPO_TIMEOUT_MS = 5000
+export const TOPO_DAILY_CAP = 900
 export const CACHE_TTL_MS = 24 * 3600 * 1000
 export const CACHE_MAX_ENTRIES = 500
 
@@ -70,7 +73,7 @@ function usFirstForZip(q: ParsedQuery, found: PlaceCandidate[]): PlaceCandidate[
 const heightKey = (latitude: number, longitude: number): string => `${coordText(latitude)},${coordText(longitude)}`
 
 /**
- * Place search and elevation, with Open-Meteo first and Nominatim as the fallback.
+ * Place search and elevation, with Open-Meteo first and Nominatim as the fallback; elevation from Open-Meteo, then Open Topo Data.
  * Nominatim's usage policy is enforced here: at most one request per second for the whole app (see `nominatimTurn`),
  * a descriptive User-Agent, results cached, and no autocomplete (the caller is a button press).
  */
@@ -80,8 +83,8 @@ export class LocationService {
   private readonly nominatimOn: () => boolean
   private readonly places: TtlCache<PlaceCandidate[]>
   private readonly heights: TtlCache<number | null>
-  /** Callers wait their turn here, so one server instance never has two Nominatim requests open at once. */
-  private queue: Promise<unknown> = Promise.resolve()
+  /** Callers wait their turn here, so one server instance never has two requests open at once to a service limited to one a second. */
+  private readonly queues: Partial<Record<'nom' | 'topo', Promise<unknown>>> = {}
 
   constructor(private readonly deps: LocationDeps) {
     this.now = deps.now ?? Date.now
@@ -185,32 +188,70 @@ export class LocationService {
   }
 
   /**
-   * Waits until this app may send a Nominatim request. Rules: one at a time per instance (the queue), and across instances a claim on
-   * a one-second slot in the counter store, refused while the slot before it is taken. Claimed slots are therefore never adjacent, so two
-   * requests are always more than one second apart. Gives up after 4 tries (about 4 s) with UpstreamError, which reads as "fallback not available".
+   * Waits until this app may send a request to a service limited to one request a second (`kind` names the service: "nom" or "topo").
+   * Rules: one at a time per instance (the queue), and across instances a claim on a one-second slot in the counter store, refused while
+   * the slot before it is taken. Claimed slots are therefore never adjacent, so two requests are always more than one second apart.
+   * Gives up after 4 tries (about 4 s) with UpstreamError, which reads as "service not available".
    */
-  private nominatimTurn(): Promise<void> {
-    const turn = this.queue.then(async () => {
+  private turn(kind: 'nom' | 'topo', busyMessage: string): Promise<void> {
+    const turn = (this.queues[kind] ?? Promise.resolve()).then(async () => {
       for (let attempt = 0; attempt < 4; attempt++) {
         const slot = Math.floor(this.now() / 1000)
-        const busy = (await this.deps.store.get(`planner:loc:nom:${slot - 1}`)) > 0
-        if (!busy && (await this.deps.store.incr(`planner:loc:nom:${slot}`, 10)) === 1) return
+        const busy = (await this.deps.store.get(`planner:loc:${kind}:${slot - 1}`)) > 0
+        if (!busy && (await this.deps.store.incr(`planner:loc:${kind}:${slot}`, 10)) === 1) return
         await this.sleep(1000 - (this.now() % 1000) + 5)
       }
-      throw new UpstreamError('Nominatim is busy')
+      throw new UpstreamError(busyMessage)
     })
-    this.queue = turn.catch(() => undefined)
+    this.queues[kind] = turn.catch(() => undefined)
     return turn
   }
 
-  /** Heights for points, in order; undefined where the service has none. One request. Throws UpstreamError on failure. */
-  private async elevations(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
+  private nominatimTurn(): Promise<void> {
+    return this.turn('nom', 'Nominatim is busy')
+  }
+
+  /** Open-Meteo's elevation call. */
+  private async elevationsOpenMeteo(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
     const lat = points.map((p) => coordText(p.latitude)).join(',')
     const lon = points.map((p) => coordText(p.longitude)).join(',')
     const body = await getJson(this.deps.fetch, `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, ELEVATION_TIMEOUT_MS, 'Open-Meteo elevation')
     const list = typeof body === 'object' && body !== null ? (body as { elevation?: unknown }).elevation : undefined
     if (!Array.isArray(list) || list.length !== points.length) throw new UpstreamError('Open-Meteo elevation answered with an unexpected shape')
     return list.map(plausibleElevation)
+  }
+
+  /**
+   * Open Topo Data's public API: USGS NED 10 m inside the United States, SRTM 30 m elsewhere (both public-domain data), one request.
+   * Held to its published limits: one call a second (the turn) and a daily cap kept below its 1,000.
+   */
+  private async elevationsTopo(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
+    const day = new Date(this.now()).toISOString().slice(0, 10)
+    if ((await this.deps.store.incr(`planner:loc:topo:day:${day}`, 2 * 24 * 3600)) > TOPO_DAILY_CAP) throw new UpstreamError('Open Topo Data daily budget used')
+    await this.turn('topo', 'Open Topo Data is busy')
+    const locations = points.map((p) => `${coordText(p.latitude)},${coordText(p.longitude)}`).join('%7C')
+    const body = await getJson(this.deps.fetch, `https://api.opentopodata.org/v1/ned10m,srtm30m?locations=${locations}`, { Accept: 'application/json', 'User-Agent': USER_AGENT }, TOPO_TIMEOUT_MS, 'Open Topo Data elevation')
+    const list = typeof body === 'object' && body !== null ? (body as { results?: unknown }).results : undefined
+    if (!Array.isArray(list) || list.length !== points.length) throw new UpstreamError('Open Topo Data elevation answered with an unexpected shape')
+    return list.map((r) => plausibleElevation(typeof r === 'object' && r !== null ? (r as { elevation?: unknown }).elevation : undefined))
+  }
+
+  /**
+   * Heights for points, in order; undefined where no service has one. One request to the first service that answers: Open-Meteo, then Open Topo Data.
+   * Throws UpstreamError (naming both failures) when neither can be reached.
+   */
+  private async elevations(points: { latitude: number; longitude: number }[]): Promise<(number | undefined)[]> {
+    try {
+      return await this.elevationsOpenMeteo(points)
+    } catch (first) {
+      if (!(first instanceof UpstreamError)) throw first
+      try {
+        return await this.elevationsTopo(points)
+      } catch (second) {
+        if (!(second instanceof UpstreamError)) throw second
+        throw new UpstreamError(`${first.message}; ${second.message}`)
+      }
+    }
   }
 
   /** Elevation for a point in metres; null when the service has no height there. Throws UpstreamError when it cannot be reached or misreplies. */

@@ -1,6 +1,6 @@
 import { CounterStoreError, MemoryCounterStore } from '@/planner/ai/counter-store'
 import type { CounterStore } from '@/planner/ai/counter-store'
-import { ELEVATION_TIMEOUT_MS, LocationService, LookupUnavailableError, NOMINATIM_TIMEOUT_MS, OPEN_METEO_TIMEOUT_MS, USER_AGENT } from './geocode'
+import { ELEVATION_TIMEOUT_MS, LocationService, TOPO_DAILY_CAP, LookupUnavailableError, NOMINATIM_TIMEOUT_MS, OPEN_METEO_TIMEOUT_MS, USER_AGENT } from './geocode'
 import { parseQuery } from './query'
 
 const json = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status })
@@ -19,19 +19,19 @@ type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>
 interface Calls { url: string; init?: RequestInit; at: number }
 
 /** A fake clock, a sleep that advances it, and a fetch routed by host. */
-function rig(handlers: { meteo?: Handler; nominatim?: Handler; elevation?: Handler }, store: CounterStore = new MemoryCounterStore()) {
+function rig(handlers: { meteo?: Handler; nominatim?: Handler; elevation?: Handler; topo?: Handler }, store: CounterStore = new MemoryCounterStore()) {
   const clock = { t: 1_700_000_000_000 }
   const calls: Calls[] = []
   const fetch = async (url: string, init?: RequestInit): Promise<Response> => {
     calls.push({ url, init, at: clock.t })
-    const h = url.startsWith('https://geocoding-api.open-meteo.com/') ? handlers.meteo : url.startsWith('https://nominatim.openstreetmap.org/') ? handlers.nominatim : url.startsWith('https://api.open-meteo.com/v1/elevation') ? handlers.elevation : undefined
+    const h = url.startsWith('https://geocoding-api.open-meteo.com/') ? handlers.meteo : url.startsWith('https://nominatim.openstreetmap.org/') ? handlers.nominatim : url.startsWith('https://api.open-meteo.com/v1/elevation') ? handlers.elevation : url.startsWith('https://api.opentopodata.org/') ? handlers.topo : undefined
     if (!h) throw new Error(`unexpected fetch ${url}`)
     return h(url, init)
   }
   const sleeps: number[] = []
   const service = new LocationService({ fetch, store, now: () => clock.t, sleep: async (ms) => { sleeps.push(ms); clock.t += ms } })
   const hosts = (h: string) => calls.filter((c) => c.url.startsWith(h))
-  return { service, calls, clock, sleeps, meteo: () => hosts('https://geocoding-api.open-meteo.com/'), nominatim: () => hosts('https://nominatim.openstreetmap.org/'), elevation: () => hosts('https://api.open-meteo.com/') }
+  return { service, calls, clock, sleeps, meteo: () => hosts('https://geocoding-api.open-meteo.com/'), nominatim: () => hosts('https://nominatim.openstreetmap.org/'), elevation: () => hosts('https://api.open-meteo.com/'), topo: () => hosts('https://api.opentopodata.org/') }
 }
 
 const q = (s: string) => parseQuery(s)
@@ -359,5 +359,61 @@ describe('Nominatim: at most one request per second for the whole app', () => {
     await expect(r.service.searchPlaces(q('alpha town'))).rejects.toThrow(LookupUnavailableError)
     await expect(r.service.searchPlaces(q('bravo town'))).rejects.toThrow(LookupUnavailableError)
     expect(r.nominatim()).toHaveLength(2)
+  })
+})
+
+describe('elevation fails over to Open Topo Data', () => {
+  const topo = (...h: (number | null)[]) => () => json({ status: 'OK', results: h.map((elevation) => ({ dataset: 'ned10m', elevation, location: { lat: 0, lng: 0 } })) })
+
+  it('Open-Meteo timing out: the second source answers, once, with NED first then SRTM, and the answer is cached', async () => {
+    jest.useFakeTimers()
+    try {
+      const r = rig({ elevation: () => new Promise<Response>(() => undefined), topo: topo(330.56) })
+      const p = r.service.elevationAt(33.4484, -112.074)
+      await jest.advanceTimersByTimeAsync(ELEVATION_TIMEOUT_MS + 1)
+      expect(await p).toBe(331)
+      expect(r.topo()).toHaveLength(1)
+      expect(r.topo()[0].url).toBe('https://api.opentopodata.org/v1/ned10m,srtm30m?locations=33.44840,-112.07400')
+      expect(await r.service.elevationAt(33.4484, -112.074)).toBe(331)
+      expect(r.topo()).toHaveLength(1)
+      expect(r.elevation()).toHaveLength(1)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('Open-Meteo answering means the second source is never asked', async () => {
+    const r = rig({ elevation: () => json({ elevation: [331] }) })
+    await r.service.elevationAt(33.4484, -112.074)
+    expect(r.topo()).toHaveLength(0)
+  })
+
+  it('no data from the second source (null) is "no height here", not an error', async () => {
+    const r = rig({ elevation: () => json({}, 500), topo: topo(null) })
+    expect(await r.service.elevationAt(0.1, 0.1)).toBeNull()
+  })
+
+  it('both down: one error naming both failures', async () => {
+    const r = rig({ elevation: () => json({}, 500), topo: () => json({}, 503) })
+    await expect(r.service.elevationAt(33.4, -112)).rejects.toThrow(/Open-Meteo elevation.*Open Topo Data/)
+  })
+
+  it('a Nominatim search takes its heights from the second source when Open-Meteo elevation is down', async () => {
+    const r = rig({ meteo: () => json({}), nominatim: () => json([NOM_PHOENIX]), elevation: () => json({}, 500), topo: topo(330.56) })
+    const out = await r.service.searchPlaces(q('Phoenix Arizona'))
+    expect(out[0].elevationM).toBe(331)
+  })
+
+  it('calls to it are at least a second apart, and stop at the daily budget', async () => {
+    const store = new MemoryCounterStore()
+    const r = rig({ elevation: () => json({}, 500), topo: topo(10) }, store)
+    await r.service.elevationAt(1, 1)
+    await r.service.elevationAt(2, 2)
+    const [a, b] = r.topo()
+    expect(b.at - a.at).toBeGreaterThan(1000)
+    const day = new Date(r.clock.t).toISOString().slice(0, 10)
+    for (let i = 0; i < TOPO_DAILY_CAP; i++) await store.incr(`planner:loc:topo:day:${day}`, 100)
+    await expect(r.service.elevationAt(3, 3)).rejects.toThrow(/daily budget/)
+    expect(r.topo()).toHaveLength(2)
   })
 })

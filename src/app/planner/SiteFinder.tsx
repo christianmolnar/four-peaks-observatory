@@ -12,8 +12,10 @@ const btn =
   'min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
 
 export interface SiteFinderProps {
-  /** The site's boxes as they are now. */
+  /** The site's boxes as they were at the last render, for what is shown. */
   texts: Record<string, string>;
+  /** The site's boxes right now. A lookup result is merged against this, never against `texts`, so nothing typed while it ran is lost. */
+  getTexts: () => Record<string, string>;
   /** Boxes holding a value that a lookup put there and the user has not edited since. Any other non-empty box is protected. */
   overwritable: ReadonlySet<string>;
   /** Puts the new box texts in place; `changed` lists the boxes a lookup wrote. */
@@ -22,8 +24,11 @@ export interface SiteFinderProps {
   fetchImpl?: ClientFetch;
 }
 
+const FIELD_NAMES: Record<SiteFieldKey, string> = { latitude: 'latitude', longitude: 'longitude', elevationM: 'elevation', timeZone: 'time zone' };
+const placeLead = (c: PlaceCandidate, filled: string[]) => (filled.length > 0 ? `Filled in ${where(c)}: ${sentenceList(filled)}.` : '');
 const where = (c: PlaceCandidate) => [c.name, c.admin, c.country].filter(Boolean).join(', ');
 const show = (c: FieldChange) => `${c.label} ${c.from.trim() === '' ? 'empty' : c.from} to ${c.to}`;
+const sentenceList = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`);
 const wouldChange = (changes: FieldChange[]) => `Would change: ${changes.map(show).join(', ')}.`;
 
 /**
@@ -31,12 +36,12 @@ const wouldChange = (changes: FieldChange[]) => `Would change: ${changes.map(sho
  * only a button press sends a request. A lookup never silently replaces a value already in a box: "Use" fills empty boxes (and
  * boxes an earlier lookup filled), lists what it kept, and "Replace" is the explicit way to overwrite the rest.
  */
-export default function SiteFinder({ texts, overwritable, onApply, fetchImpl }: SiteFinderProps) {
+export default function SiteFinder({ texts, getTexts, overwritable, onApply, fetchImpl }: SiteFinderProps) {
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [found, setFound] = useState<PlaceCandidate[] | null>(null);
-  /** Result of a coordinates lookup, waiting for Replace when it would overwrite a saved value. */
-  const [pending, setPending] = useState<Partial<Record<SiteFieldKey, string>> | null>(null);
+  /** Result of a coordinates lookup, waiting for Replace when it would overwrite a saved value. Good only for the coordinates it was looked up for. */
+  const [pending, setPending] = useState<{ values: Partial<Record<SiteFieldKey, string>>; latitude: string; longitude: string } | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [credits, setCredits] = useState<string[]>([]);
@@ -47,15 +52,23 @@ export default function SiteFinder({ texts, overwritable, onApply, fetchImpl }: 
     if (focusTick > 0) messageRef.current?.focus();
   }, [focusTick]);
 
-  const apply = (what: string, values: Partial<Record<SiteFieldKey, string>>, replace: boolean, suffix: string) => {
-    const r = fillSiteFields(texts, overwritable, values, replace);
+  /**
+   * Puts values into the boxes as they are now, and says what happened from what actually happened:
+   * `lead(filled)` opens the sentence (filled: the boxes written into an empty or lookup-filled box), then what was replaced and what was kept.
+   */
+  const apply = (lead: (filled: string[]) => string, values: Partial<Record<SiteFieldKey, string>>, replace: boolean, suffix: string, notes = '') => {
+    const r = fillSiteFields(getTexts(), overwritable, values, replace);
     onApply(r.texts, r.changed);
-    const parts = [what];
+    const replacedKeys = new Set<string>(r.replaced.map((c) => c.key));
+    const filled = r.changed.filter((k) => !replacedKeys.has(k)).map((k) => FIELD_NAMES[k]);
+    const parts = [lead(filled)];
     if (r.replaced.length > 0) parts.push(`Replaced: ${r.replaced.map(show).join(', ')}.`);
     if (r.kept.length > 0) parts.push(`Kept your own entries for: ${r.kept.map((c) => c.label).join(', ')}.`);
     if (suffix) parts.push(suffix);
-    setMessage(parts.join(' '));
+    if (notes) parts.push(notes);
+    setMessage(parts.filter(Boolean).join(' '));
     setFocusTick((t) => t + 1);
+    return r;
   };
 
   const search = async () => {
@@ -82,24 +95,38 @@ export default function SiteFinder({ texts, overwritable, onApply, fetchImpl }: 
     setMessage('');
     setPending(null);
     try {
-      const latText = texts.latitude ?? '';
-      const lonText = texts.longitude ?? '';
+      const latText = getTexts().latitude ?? '';
+      const lonText = getTexts().longitude ?? '';
       const lat = latText.trim() === '' ? NaN : Number(latText);
       const lon = lonText.trim() === '' ? NaN : Number(lonText);
       const d = await describeCoordinates(lat, lon, fetchImpl);
       setFound(null);
       setCredits(creditsFor([]));
+      const now = getTexts();
+      if ((now.latitude ?? '') !== latText || (now.longitude ?? '') !== lonText) {
+        setMessage('The latitude or longitude changed while looking up, so nothing was filled in. Press the button again.');
+        return;
+      }
       const values = detailValues(d);
-      const notes = d.notes.length ? ' ' + d.notes.join(' ') : '';
-      const { kept } = fillSiteFields(texts, overwritable, values);
-      apply(`Filled in the time zone${d.elevationM !== undefined ? ' and elevation' : ''} for these coordinates.${notes}`, values, false, '');
-      if (kept.length > 0) setPending(values);
+      const r = apply(
+        (filled) => (filled.length > 0 ? `Filled in the ${sentenceList(filled)} for these coordinates.` : ''),
+        values,
+        false,
+        '',
+        d.notes.join(' '),
+      );
+      if (r.changed.length === 0 && r.kept.length === 0 && d.notes.length === 0) setMessage('Nothing to change: the boxes already match these coordinates.');
+      if (r.kept.length > 0) setPending({ values, latitude: latText, longitude: lonText });
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
+
+  // A waiting Replace belongs to the coordinates it was looked up for; change them and it is gone. It shows only while it would still change something.
+  const pendingKept =
+    pending && (texts.latitude ?? '') === pending.latitude && (texts.longitude ?? '') === pending.longitude ? fillSiteFields(texts, overwritable, pending.values).kept : [];
 
   return (
     <div className="sm:col-span-2 xl:col-span-3 rounded border border-white/15 p-3">
@@ -132,14 +159,14 @@ export default function SiteFinder({ texts, overwritable, onApply, fetchImpl }: 
         </button>
       </div>
       <p ref={messageRef} tabIndex={-1} aria-live="polite" className="mt-2 text-sky-100 font-normal text-sm min-h-5 focus:outline-none focus:ring-2 focus:ring-sky-400 rounded">{busy ? 'Looking up…' : message}</p>
-      {pending && (
+      {pendingKept.length > 0 && pending && (
         <div className="mt-2 flex flex-wrap items-center gap-3 rounded border border-white/15 p-2 text-white font-normal text-sm">
-          <div className="min-w-0 flex-1 basis-56 break-words">{wouldChange(fillSiteFields(texts, overwritable, pending).kept)}</div>
+          <div className="min-w-0 flex-1 basis-56 break-words">{wouldChange(pendingKept)}</div>
           <button
             type="button"
             className={btn}
             onClick={() => {
-              apply('Filled in the time zone and elevation for these coordinates.', pending, true, '');
+              apply((filled) => (filled.length > 0 ? `Filled in the ${sentenceList(filled)} for these coordinates.` : ''), pending.values, true, '');
               setPending(null);
             }}
           >
@@ -174,7 +201,7 @@ export default function SiteFinder({ texts, overwritable, onApply, fetchImpl }: 
                   aria-label={`Use ${where(c)}`}
                   onClick={() => {
                     done();
-                    apply(`Filled in ${where(c)}.`, placeValues(c), false, 'Check the values, then press Save.');
+                    apply((filled) => placeLead(c, filled), placeValues(c), false, 'Check the values, then press Save.');
                   }}
                 >
                   Use
@@ -186,7 +213,7 @@ export default function SiteFinder({ texts, overwritable, onApply, fetchImpl }: 
                     aria-label={`Replace saved values with ${where(c)}`}
                     onClick={() => {
                       done();
-                      apply(`Filled in ${where(c)}.`, placeValues(c), true, 'Check the values, then press Save.');
+                      apply((filled) => placeLead(c, filled), placeValues(c), true, 'Check the values, then press Save.');
                     }}
                   >
                     Replace

@@ -112,6 +112,12 @@ function FormShell({ legend, error, onSave, onRemove, children }: { legend: stri
 function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void }) {
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
+  // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
+  const textsRef = useRef(texts);
+  const commit = (next: Record<string, string>) => {
+    textsRef.current = next;
+    setTexts(next);
+  };
   const [error, setError] = useState<string | null>(null);
   // Boxes whose value a lookup wrote and the user has not edited since. A lookup may overwrite only these (and empty boxes); every other value is saved or typed by the user.
   const filled = useRef(new Set<string>());
@@ -135,7 +141,7 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
       onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
       onRemove={() => run(() => removeItem(profile, list, item.id), `Removed ${item.name}.`)}
     >
-      {list === 'sites' && <SiteFinder texts={texts} overwritable={filled.current} onApply={apply} />}
+      {list === 'sites' && <SiteFinder texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
       {spec.fields.map((f) => (
         <Box
           key={f.key}
@@ -144,7 +150,7 @@ function ItemForm({ profile, list, item, onChange }: { profile: Profile; list: L
           value={texts[f.key] ?? ''}
           onChange={(v) => {
             filled.current.delete(f.key);
-            setTexts((t) => ({ ...t, [f.key]: v }));
+            commit({ ...textsRef.current, [f.key]: v });
           }}
         />
       ))}

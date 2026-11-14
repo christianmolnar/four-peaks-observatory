@@ -165,9 +165,9 @@ export function detailValues(d: CoordinateDetails): Partial<Record<SiteFieldKey,
   return { ...(d.timeZone ? { timeZone: d.timeZone } : {}), ...(d.elevationM !== undefined ? { elevationM: String(Math.round(d.elevationM)) } : {}) }
 }
 
-/** The credit lines owed for a set of results. Open-Meteo always (its geocoder and elevation data); OpenStreetMap when Nominatim supplied any. */
+/** The credit lines owed for a set of results. Open-Meteo always (its geocoder and elevation data, and the elevation backup by Open Topo Data); OpenStreetMap when Nominatim supplied any. */
 export function creditsFor(candidates: readonly PlaceCandidate[]): string[] {
-  const out = ['Place search and elevation by Open-Meteo.com (CC BY 4.0).']
+  const out = ['Place search and elevation by Open-Meteo.com (CC BY 4.0). Elevation backup: Open Topo Data (USGS NED and SRTM data).']
   if (candidates.some((c) => c.source === 'nominatim')) out.push('Contains data from OpenStreetMap contributors (ODbL).')
   return out
 }

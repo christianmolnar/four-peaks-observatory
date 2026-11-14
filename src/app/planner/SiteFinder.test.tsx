@@ -183,6 +183,127 @@ describe('Find my site', () => {
     expect(await screen.findByText(/Nothing found/)).toBeTruthy();
   });
 
+  /** A fetch that answers only when the test says so, to type while a lookup is in flight. */
+  const held = () => {
+    let release!: (r: Response) => void;
+    fetchMock.mockImplementation(() => new Promise<Response>((res) => { release = res; }));
+    return (r: Response) => release(r);
+  };
+
+  it('H1: elevation cleared, lookup started, 1500 typed before the reply: it stays 1500', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Elevation/));
+    const answer = held();
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    await u.type(box(/^Elevation/), '1500');
+    answer(reply({ elevationM: 40 }));
+    await screen.findByText(/Kept your own entries for: Elevation/);
+    expect(box(/^Elevation/).value).toBe('1500');
+  });
+
+  it('H2: any box edited while the lookup runs keeps its edit (name, notes, Bortle)', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Elevation/));
+    const name = box(/^Name/);
+    const before = name.value;
+    const answer = held();
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    await u.type(name, ' edited');
+    fireEvent.change(screen.getByRole('combobox', { name: /Sky darkness, Bortle class/ }), { target: { value: '3' } });
+    answer(reply({ elevationM: 40 }));
+    await waitFor(() => expect(box(/^Elevation/).value).toBe('40'));
+    expect(box(/^Name/).value).toBe(`${before} edited`);
+    expect((screen.getByRole('combobox', { name: /Sky darkness, Bortle class/ }) as HTMLSelectElement).value).toBe('3');
+  });
+
+  it('two lookups cannot race: both buttons are off while one runs, and only one request goes out', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Elevation/));
+    const answer = held();
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    expect((screen.getByRole('button', { name: /Look up elevation and time zone/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Find' }) as HTMLButtonElement).disabled).toBe(true);
+    await u.type(box(/Find my site/), 'Phoenix{Enter}');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    answer(reply({ elevationM: 40 }));
+    await waitFor(() => expect(box(/^Elevation/).value).toBe('40'));
+  });
+
+  it('coordinates edited while the lookup runs: nothing from the old point is written', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Elevation/));
+    const answer = held();
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    await u.type(box(/^Latitude/), '1');
+    answer(reply({ elevationM: 40 }));
+    expect(await screen.findByText(/changed while looking up, so nothing was filled in/)).toBeTruthy();
+    expect(box(/^Elevation/).value).toBe('');
+  });
+
+  it('H5: look up Tokyo, change the boxes to Phoenix: the waiting Replace is gone and nothing from Tokyo is written', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Latitude/));
+    await u.type(box(/^Latitude/), '35.6762');
+    await u.clear(box(/^Longitude/));
+    await u.type(box(/^Longitude/), '139.6503');
+    fetchMock.mockResolvedValue(reply({ elevationM: 40 }));
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    await screen.findByRole('button', { name: 'Replace' });
+    await u.clear(box(/^Latitude/));
+    await u.type(box(/^Latitude/), '33.45');
+    await u.clear(box(/^Longitude/));
+    await u.type(box(/^Longitude/), '-112.07');
+    expect(screen.queryByRole('button', { name: 'Replace' })).toBeNull();
+    expect(screen.queryByText(/Would change/)).toBeNull();
+    expect(box(/^Time zone/).value).toBe('America/Phoenix');
+  });
+
+  it('H6: the zone typed by hand to match the lookup leaves no empty "Would change" panel', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Latitude/));
+    await u.type(box(/^Latitude/), '35.6762');
+    await u.clear(box(/^Longitude/));
+    await u.type(box(/^Longitude/), '139.6503');
+    fetchMock.mockResolvedValue(reply({ elevationM: 40 }));
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    await screen.findByText(/^Would change: Time zone/);
+    await u.clear(box(/^Time zone/));
+    await u.type(box(/^Time zone/), 'Asia/Tokyo');
+    expect(screen.queryByText(/Would change/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Replace' })).toBeNull();
+  });
+
+  it('the status says only what happened: no elevation returned, zone kept, nothing contradicts', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Elevation/));
+    await u.clear(box(/^Latitude/));
+    await u.type(box(/^Latitude/), '35.6762');
+    await u.clear(box(/^Longitude/));
+    await u.type(box(/^Longitude/), '139.6503');
+    fetchMock.mockResolvedValue(reply({ elevationM: null }));
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    const status = await screen.findByText(/Kept your own entries for: Time zone/);
+    expect(status.textContent).not.toMatch(/Filled in/);
+    expect(status.textContent).not.toMatch(/elevation and/i);
+    expect(status.textContent).toMatch(/No elevation is known/);
+  });
+
+  it('the status names what was filled: elevation only when the elevation box was written', async () => {
+    const u = userEvent.setup();
+    open();
+    await u.clear(box(/^Elevation/));
+    fetchMock.mockResolvedValue(reply({ elevationM: 40 }));
+    await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
+    expect((await screen.findByText(/^Filled in the elevation for these coordinates\./)).textContent).not.toMatch(/time zone/);
+  });
+
   it('Bortle stays the editable box, with a note that it is not looked up', () => {
     open();
     expect(screen.getByText(/Bortle class\) is not looked up/)).toBeTruthy();

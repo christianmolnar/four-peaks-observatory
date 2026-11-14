@@ -16,14 +16,21 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 - **Open-Meteo geocoding** (primary): returns coordinates, elevation (90 m DEM) and time zone in one call. A ZIP returns the city, not a ZIP centroid.
   - Terms: free for non-commercial use, under 10,000 calls a day, 600 a minute, CC BY 4.0 with attribution. https://open-meteo.com/en/terms
   - Our own daily cap (2,000) keeps well inside that.
-- **Open-Meteo elevation** (hand-entered coordinates, and Nominatim results): `api.open-meteo.com/v1/elevation`.
+- **Open-Meteo elevation** (hand-entered coordinates, and Nominatim results): `api.open-meteo.com/v1/elevation`. 5 s timeout.
+- **Open Topo Data** (elevation backup, asked only when Open-Meteo's elevation call fails): `api.opentopodata.org/v1/ned10m,srtm30m`. USGS NED 10 m inside the United States, SRTM 30 m elsewhere (public-domain data); a point neither covers has no height (`null`), which is not an error.
+  - Terms (https://www.opentopodata.org/, public API): free, no key; max 100 locations per request, 1 call a second, 1,000 calls a day.
+  - We stay inside them: one call a second through the same slot gate as Nominatim (own key `planner:loc:topo:`), and a daily budget of 900 (`TOPO_DAILY_CAP`); past it the backup is skipped and elevation is simply not filled in.
+  - Server side only (our route calls it), so CORS does not apply. Cached in the same 24 h height cache as Open-Meteo answers.
+  - Elevation stays an editable box; "no elevation" is never an error state, only a note.
 - **Nominatim** (fallback, only when Open-Meteo errors or finds nothing): OpenStreetMap data, ODbL. Policy: https://operations.osmfoundation.org/policies/nominatim/
   - US ZIP search by Nominatim is unreliable (a 5-digit query matches other countries; the `postalcode` parameter returned nothing in testing). It is a fallback, so candidates always show their country.
 
 ## Attribution (shown under the results)
 
 - "Place search and elevation by Open-Meteo.com (CC BY 4.0)." Always.
-- "Contains data from OpenStreetMap contributors (ODbL)." Only when a Nominatim result was returned.
+- "Elevation backup: Open Topo Data (USGS NED and SRTM data)." Same line, always.
+- "Contains data from OpenStreetMap contributors (ODbL)." Under the results, only when a Nominatim result was returned.
+- Planner page footer (`CatalogCredits.tsx`, next to the catalog credit), always: "Time-zone boundaries from timezone-boundary-builder, built from OpenStreetMap contributors, ODbL." The offline time zone comes from boundaries that originate in OpenStreetMap, so the credit is owed whether or not Nominatim ran.
 
 ## Query rules
 
@@ -53,13 +60,17 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 - Same visitor key and counter store as the AI plan (`guest-limits.ts`, `counter-store.ts`), own key prefix `planner:loc:`. The key is an HMAC of the IP bucket; no IP is stored or logged.
 - A cache hit costs nothing. A miss is one lookup, whatever the number of outbound calls behind it.
 - 429 with `Retry-After` when a cap is reached. 503 when the counter store, the cap setting or the visitor secret is unavailable. 502 with a plain message when both services are down.
-- Every outbound call has a timeout: 6 s place search (each service), 5 s elevation. The browser waits at most 20 s.
+- Every outbound call has a timeout: 6 s place search (each service), 5 s per elevation source (worst case 10 s; the route allows 15). The browser waits at most 20 s.
 
 ## Elevation endpoint reachability
 
-- `api.open-meteo.com/v1/elevation` answered from the dev machine on 2026-11-13 (335 m for 33.45, -112.07). An earlier timeout from this machine did not repeat.
-- If it is ever unreachable, the box stays editable and the page says "Elevation was not filled in: ...".
-- Check on Vercel: `curl "https://<site>/api/planner/elevation?lat=33.4484&lon=-112.074"` should return `{"elevationM":331}`.
+- Measured 2026-11-13 from the dev machine (WSL2, Phoenix), with curl, 20 s limit, polite spacing: `api.open-meteo.com/v1/elevation` **never connected**. 8 of 8 finished attempts failed the same way (6 at the 20 s limit, 2 at 8 and 12 s; a 7th was cancelled): DNS in 25 ms, TCP connect never completes (the host has the single address 51.81.167.44; IPv6 is refused at once). Not a slow answer, so a longer timeout would not help, and it is not our route.
+- `geocoding-api.open-meteo.com` (a different host) answered at the same time in 0.8 s, so this is that one address from this network, not Open-Meteo as a whole. Whether Vercel can reach it is not measured here; an earlier session saw it answer from this machine (335 m), so it is **intermittent**, not permanently down.
+- Open Topo Data from the same machine: 200 in 0.3 to 0.6 s on 5 of 5 calls (Phoenix 330.6 m from NED against 355.8 from the Open-Elevation instance and 364 from SRTM; Tokyo 40 m from SRTM; a two-point batch with the dataset list worked).
+- USGS EPQS (`epqs.nationalmap.gov`): TLS connected, no answer within 12 s on 2 of 2 calls. Not used.
+- Open-Elevation public instance: answered, but 90 m SRTM only (25 m off at Phoenix) and a volunteer-run service. Not used.
+- Behaviour: Open-Meteo first with a 5 s timeout; on any upstream failure Open Topo Data is asked once; if both fail the box stays editable and the page says "Elevation was not filled in: ...".
+- Check on Vercel: `curl "https://<site>/api/planner/elevation?lat=33.4484&lon=-112.074"` should return `{"elevationM":331}` (or 331 from the backup).
 
 ## Saved values are protected
 
@@ -67,6 +78,9 @@ Sky darkness (Bortle) is not looked up; it stays the editable site box until the
 - Each result shows "Would change: Latitude 33.6 to 33.4484, ..." for what Use would keep, with a "Replace" button that overwrites it. The status message lists what was kept ("Kept your own entries for: ...") and what was replaced ("Replaced: Latitude 33.6 to 33.4484").
 - After Use or Replace, focus moves to the status message.
 - The same rule applies to "Look up elevation and time zone".
+- A result is merged against the boxes as they are when it arrives, not as they were when the button was pressed. Typing in any box while a lookup runs is never overwritten, and if the latitude or longitude changed meanwhile nothing is written.
+- A waiting "Replace" from a coordinate lookup belongs to those coordinates: change either box and it disappears. It also disappears when nothing would change any more.
+- The status sentence is built from what happened: "Filled in the elevation for these coordinates." names only boxes written; "Kept your own entries for: ..." names those left alone.
 
 ## Tests
 
