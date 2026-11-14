@@ -14,30 +14,22 @@ const withTrainFirst = (id: string) => {
 };
 const wideProfile = () => withTrainFirst('wide-c11-hyperstar-2600');
 const siteId = sampleProfile().sites[0].id;
-const rows = (html: string) => (html.match(/<tr class="border-b border-white\/10/g) ?? []).length;
 
 describe('planner page', () => {
   const html = render(wideProfile());
 
-  it('renders the controls, the ranked table and the horizon editor', () => {
+  it('renders the controls, the search, the loading state of the list and the horizon editor (the list itself is ranked off the render)', () => {
     expect(html).toContain('IMAGING PLANNER');
     expect(html).toContain('id="plan-date"');
     expect(html).toContain('value="2026-12-15"');
     expect(html).toContain('Fountain Hills, AZ');
-    expect(html).toContain('data-testid="target-table"');
-    expect(html).toContain('Orion Nebula');
-    expect(html).toContain('Why recommended');
+    expect(html).toContain('BEST TARGETS FOR');
+    expect(html).toContain('Ranking the whole catalog');
+    expect(html).not.toContain('data-testid="target-table"');
+    expect(html).toContain('Search the catalog by name or number');
+    expect(html).toContain('MY PLAN');
     expect(html).toContain('Export CSV');
     expect(html).toContain('Replace profile with sample');
-    expect(rows(html)).toBeGreaterThan(5);
-  });
-
-  it('starts every target with the reason collapsed (one short line, score parts not rendered), not as hover titles', () => {
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain('aria-expanded="true"');
-    expect(html).not.toContain('Score parts: usable');
-    expect(html).not.toContain('title="usable');
-    expect(html).not.toMatch(/Hover a score/);
   });
 
   it('says only what is true about data leaving the browser', () => {
@@ -57,9 +49,7 @@ describe('planner page', () => {
     }
     expect(html).toContain('aria-label="Start azimuth slider"');
     expect(html).toContain('<title id="polar-title">');
-    expect(html).toContain('<title id="alt-title">');
     expect(html).toContain('Horizon as a table');
-    expect(html).toContain('Altitude as a table');
     expect(html).toContain('Blocked from 120 deg');
   });
 
@@ -72,18 +62,8 @@ describe('planner page', () => {
     const cleared = render(withSiteArcs(wideProfile(), siteId, []));
     expect(cleared).toContain('data-testid="horizon-not-set"');
     expect(cleared).toContain('Horizon not set: only the flat minimum altitude applies.');
-    expect(cleared).toContain('flat 20 deg minimum (horizon not set)');
     expect(cleared).toContain('Add a zone');
     expect(cleared).not.toContain('aria-label="Start azimuth slider"');
-    expect(html).not.toContain('flat 20 deg minimum');
-  });
-
-  it('changing the arc changes the usable windows in the list', () => {
-    const open = render(withSiteArcs(wideProfile(), siteId, []));
-    const wall = render(withSiteArcs(wideProfile(), siteId, [{ startAz: 90, endAz: 270, heightDeg: 80 }]));
-    expect(rows(wall)).toBeLessThan(rows(open));
-    expect(open).toMatch(/>Orion Nebula</);
-    expect(wall).not.toMatch(/>Orion Nebula</);
   });
 
   it('with a smart-scope train there is no field-of-view math', () => {

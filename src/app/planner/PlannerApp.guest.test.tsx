@@ -5,11 +5,16 @@ import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testi
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { pageProps, ready } from './testkit';
 
 // A fresh visitor: no stored data, no props. The page loads the sample, edits go to localStorage, reload keeps them.
 
 const stored = () => JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string);
-const app = () => render(<PlannerApp initialDate="2026-12-15" />);
+const app = async () => {
+  const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
+  await ready();
+  return r;
+};
 const nightSummary = () => screen.getByTestId('night-summary').textContent as string;
 
 let blobs: Blob[] = [];
@@ -45,7 +50,7 @@ async function open(u: ReturnType<typeof userEvent.setup>, name: RegExp) {
 
 describe('guest start', () => {
   it('opens with a full plan from the sample and the guest intro', async () => {
-    app();
+    await app();
     await waitFor(() => expect(screen.getByTestId('target-table')).toBeTruthy());
     const intro = document.querySelector('header p')?.textContent ?? '';
     expect(intro).toMatch(/free guest tool/i);
@@ -59,7 +64,7 @@ describe('guest start', () => {
 describe('editing site and gear', () => {
   it('a new latitude changes the plan, is stored, and survives a reload', async () => {
     const u = userEvent.setup();
-    const first = app();
+    const first = await app();
     const before = nightSummary();
     const siteBox = await open(u, /^Site \(1\)/);
     const lat = within(siteBox).getByLabelText('Latitude (deg, north is positive)');
@@ -69,14 +74,14 @@ describe('editing site and gear', () => {
     expect(stored().sites[0].latitude).toBe(-33.9);
     await waitFor(() => expect(nightSummary()).not.toBe(before));
     first.unmount();
-    app();
+    await app();
     await waitFor(() => expect(nightSummary()).not.toBe(before));
     expect(stored().sites[0].latitude).toBe(-33.9);
   });
 
   it('a site time zone changes the times shown and the zone sentence', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const before = nightSummary();
     expect(before).toMatch(/site's time zone \(America\/Phoenix\)/);
     const siteBox = await open(u, /^Site \(1\)/);
@@ -90,7 +95,7 @@ describe('editing site and gear', () => {
 
   it('a bad value is refused with the reason and nothing is stored', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const siteBox = await open(u, /^Site \(1\)/);
     const lat = within(siteBox).getByLabelText('Latitude (deg, north is positive)');
     await u.clear(lat);
@@ -108,7 +113,7 @@ describe('editing site and gear', () => {
 
   it('renaming a train is stored and shows in the Train box', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const trainsBox = await open(u, /^Trains \(/);
     fireEvent.change(within(trainsBox).getAllByLabelText('Name')[0], { target: { value: 'My own train' } });
     await u.click(within(trainsBox).getAllByRole('button', { name: 'Save' })[0]);
@@ -118,7 +123,7 @@ describe('editing site and gear', () => {
 
   it('editing a scope is stored', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const scopesBox = await open(u, /^Scopes \(/);
     fireEvent.change(within(scopesBox).getByLabelText('Focal length (mm)'), { target: { value: '2000' } });
     await u.click(within(scopesBox).getByRole('button', { name: 'Save' }));
@@ -127,7 +132,7 @@ describe('editing site and gear', () => {
 
   it('adds a filter, and refuses to remove a camera a train uses', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const filters = await open(u, /^Filters \(/);
     const n = within(filters).getAllByRole('button', { name: 'Save' }).length;
     await u.click(within(filters).getByRole('button', { name: 'Add filter' }));
@@ -141,20 +146,20 @@ describe('editing site and gear', () => {
 
   it('a changed horizon is stored and survives a reload', async () => {
     const u = userEvent.setup();
-    const first = app();
+    const first = await app();
     const h = await screen.findByRole('spinbutton', { name: /^Height/ });
     await u.clear(h);
     await u.type(h, '55');
     await u.click(screen.getByRole('button', { name: 'Save horizon' }));
     expect(stored().sites[0].blockedArcs[0].heightDeg).toBe(55);
     first.unmount();
-    app();
+    await app();
     await waitFor(() => expect(screen.getByTestId('horizon-summary').textContent).toMatch(/55° high/));
   });
 
   it('Replace profile with sample restores the sample', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const siteBox = await open(u, /^Site \(1\)/);
     const name = within(siteBox).getByLabelText('Name');
     await u.clear(name);
@@ -173,7 +178,7 @@ describe('profile JSON', () => {
 
   it('export then import gives an identical profile', async () => {
     const u = userEvent.setup();
-    app();
+    await app();
     const siteBox = await open(u, /^Site \(1\)/);
     const elev = within(siteBox).getByLabelText('Elevation (m)');
     await u.type(elev, '550');
@@ -198,7 +203,7 @@ describe('profile JSON', () => {
     ['an invalid field', JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 123 }] }), /sites\[0\]\.latitude/],
   ])('rejects %s with a readable message and changes nothing', async (_n, text, message) => {
     const u = userEvent.setup();
-    app();
+    await app();
     await u.upload(screen.getByLabelText('Import profile (JSON)'), file(text as string));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toMatch(message as RegExp);
@@ -211,7 +216,7 @@ describe('profile JSON', () => {
 
 describe('print', () => {
   it('has no print sheet on screen; it is built when the browser prints and removed after', async () => {
-    app();
+    await app();
     expect(screen.queryByTestId('print-sheet')).toBeNull();
     act(() => void window.dispatchEvent(new Event('beforeprint')));
     const sheet = screen.getByTestId('print-sheet');
@@ -223,8 +228,8 @@ describe('print', () => {
     expect(screen.queryByTestId('print-sheet')).toBeNull();
   });
 
-  it('the print sheet lists exactly the rows of the Targets table, in order', () => {
-    app();
+  it('the print sheet lists exactly the rows of the Targets table, in order', async () => {
+    await app();
     const names = (root: HTMLElement) => within(root).getAllByRole('row').map((r) => r.querySelector('th[scope="row"] strong, th[scope="row"] button')?.textContent).filter(Boolean);
     const screenNames = names(screen.getByTestId('target-table'));
     act(() => void window.dispatchEvent(new Event('beforeprint')));
@@ -234,7 +239,7 @@ describe('print', () => {
   it('the Print button calls the browser print', async () => {
     const print = jest.fn();
     window.print = print;
-    app();
+    await app();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Print or save as PDF' }));
     expect(print).toHaveBeenCalledTimes(1);
   });
@@ -242,7 +247,7 @@ describe('print', () => {
 
 describe('CSV', () => {
   it('writes the rows on screen, with the site zone, one line per row plus the header', async () => {
-    app();
+    await app();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Export CSV' }));
     const text = (await blobs[blobs.length - 1].text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');

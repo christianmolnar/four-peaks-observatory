@@ -7,6 +7,7 @@ import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { countHiddenBelow } from './ExposurePanel';
 import { CORE_FRAME_COUNT } from '@/planner/exposure';
+import { pageProps, ready } from './testkit';
 
 // The Exposure panel and the filter selector, driven with real events on the whole page.
 
@@ -19,7 +20,11 @@ const withBortle = (bortle: number) => {
   const p = withTrain(HYPERSTAR);
   return { ...p, sites: p.sites.map((x, i) => (i === 0 ? { ...x, bortle } : x)) };
 };
-const app = (profile = withTrain(HYPERSTAR)) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
+const app = async (profile = withTrain(HYPERSTAR)) => {
+  const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
+  await ready();
+  return r;
+};
 const panel = () => screen.getByRole('region', { name: /^EXPOSURE:/ });
 const radio = (name: RegExp) => within(panel()).getByRole('radio', { name }) as HTMLInputElement;
 const warnings = () => (screen.getByTestId('exposure-warnings').textContent ?? '');
@@ -35,8 +40,8 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('Exposure panel', () => {
-  it('shows three mode cards with every value labelled estimate, a range, and Balanced chosen', () => {
-    app();
+  it('shows three mode cards with every value labelled estimate, a range, and Balanced chosen', async () => {
+    await app();
     const p = panel();
     expect(within(p).getAllByRole('radio').map((r) => (r as HTMLInputElement).value)).toEqual(['quick', 'balanced', 'deep']);
     expect(radio(/Balanced/).checked).toBe(true);
@@ -54,8 +59,8 @@ describe('Exposure panel', () => {
     expect(p.textContent).toMatch(/Estimates for that night \(12\/15\/2026\), not predictions/);
   });
 
-  it('the marginal rows give 30, 60, 90 and 120 minutes at x1.00, x1.41, x1.73 and x2.00 of the signal-to-noise', () => {
-    app();
+  it('the marginal rows give 30, 60, 90 and 120 minutes at x1.00, x1.41, x1.73 and x2.00 of the signal-to-noise', async () => {
+    await app();
     const rows = within(screen.getByTestId('marginal-table')).getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
     expect(rows).toHaveLength(4);
     expect(rows[0]).toMatch(/^30 min.*x1\.00.*baseline/);
@@ -68,7 +73,7 @@ describe('Exposure panel', () => {
 
   it('arrow keys move the choice between the cards; the word "Selected" follows and the notes change', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     const selectedWords = () => within(panel()).getAllByText('Selected').filter((n) => n.getAttribute('aria-hidden') !== 'true');
     expect(selectedWords()).toHaveLength(1);
     radio(/Balanced/).focus();
@@ -83,26 +88,26 @@ describe('Exposure panel', () => {
 
   it('a click on a card chooses it too', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     await user.click(within(panel()).getByText('Deep Project'));
     expect(radio(/Deep/).checked).toBe(true);
   });
 
-  it('a different Bortle class on the site changes the sub lengths', () => {
+  it('a different Bortle class on the site changes the sub lengths', async () => {
     const subs = () => within(panel()).getAllByText(/^\d+ s \(range/).map((n) => n.textContent);
-    app();
+    await app();
     const before = subs();
     cleanup();
-    app(withBortle(9));
+    await app(withBortle(9));
     expect(subs()).not.toEqual(before);
     cleanup();
-    app(withBortle(2));
+    await app(withBortle(2));
     expect(subs()).not.toEqual(before);
   });
 
   it('picking another target keeps the panel and names the target', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     const buttons = within(screen.getByTestId('target-table')).getAllByRole('button', { pressed: false });
     const name = buttons[0].textContent as string;
     await user.click(buttons[0]);
@@ -111,8 +116,8 @@ describe('Exposure panel', () => {
 });
 
 describe('Filter selector and its warnings', () => {
-  it('lists No filter and the twelve sample filters on an optical train', () => {
-    app();
+  it('lists No filter and the twelve sample filters on an optical train', async () => {
+    await app();
     expect(Array.from(filterSelect().options).map((o) => o.text)).toEqual([
       'No filter',
       ...sampleProfile().equipment.filters.map((f) => `${f.name} (${f.sizeMm} mm)`),
@@ -123,7 +128,7 @@ describe('Filter selector and its warnings', () => {
 
   it('L-eXtreme at the HyperStar f-ratio raises the rated-slower warning; the CLS CCD removes it and raises none', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     expect(warnings()).not.toMatch(/rated|published/);
     await user.selectOptions(filterSelect(), 'optolong-lextreme');
     expect(warnings()).toMatch(/Optolong L-eXtreme \(standard\) has no published f-ratio rating/);
@@ -137,7 +142,7 @@ describe('Filter selector and its warnings', () => {
 
   it('the ASI533MC train with no filter, or one lacking UV/IR cut, raises the IR warning; a filter with it does not', async () => {
     const user = userEvent.setup();
-    app(withTrain('deep-c11-reducer-533'));
+    await app(withTrain('deep-c11-reducer-533'));
     expect(warnings()).toMatch(/No filter is selected and this camera has no UV\/IR cut/);
     await user.selectOptions(filterSelect(), 'idas-lps-p2');
     expect(warnings()).toMatch(/not known that IDAS LPS-P2 blocks UV\/IR/);
@@ -149,7 +154,7 @@ describe('Filter selector and its warnings', () => {
 
   it('a visual-first filter on a colour camera is warned about', async () => {
     const user = userEvent.setup();
-    app(withTrain('deep-c11-2600'));
+    await app(withTrain('deep-c11-2600'));
     await user.selectOptions(filterSelect(), 'apertura-moon-skyglow');
     expect(warnings()).toMatch(/made for visual use/);
   });
@@ -157,18 +162,19 @@ describe('Filter selector and its warnings', () => {
   // Two tests, not one: each page render in jsdom is slow, and one test doing both ran close to the time limit when the machine was busy.
   it('the choice is saved with the profile and survives a reload', async () => {
     const user = userEvent.setup();
-    const { unmount } = app();
+    const { unmount } = await app();
     await user.selectOptions(filterSelect(), 'zwo-duo-band');
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).trains.find((t: { id: string }) => t.id === HYPERSTAR).filterId).toBe('zwo-duo-band');
     unmount();
-    render(<PlannerApp initialDate="2026-12-15" />); // reads storage, as a reload does
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" />); // reads storage, as a reload does
+    await ready();
     await user.selectOptions(trainSelect(), HYPERSTAR);
     expect(filterSelect().value).toBe('zwo-duo-band');
   });
 
   it('switching trains shows each train\'s own filter', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     await user.selectOptions(filterSelect(), 'zwo-duo-band');
     await user.selectOptions(trainSelect(), 'deep-c11-2600');
     expect(filterSelect().value).toBe('');
@@ -178,7 +184,7 @@ describe('Filter selector and its warnings', () => {
 
   it('a smart scope has no filter slot and no exposure estimate', async () => {
     const user = userEvent.setup();
-    app(withTrain('smart-seestar-s50'));
+    await app(withTrain('smart-seestar-s50'));
     expect(filterSelect().disabled).toBe(true);
     expect(filterSelect().value).toBe('');
     expect(screen.getByRole('option', { name: 'Built in (smart scope)' })).toBeTruthy();
@@ -187,16 +193,16 @@ describe('Filter selector and its warnings', () => {
     expect(filterSelect().disabled).toBe(false);
   });
 
-  it('a profile without filters says so and names the action, short enough for its two-line box', () => {
+  it('a profile without filters says so and names the action, short enough for its two-line box', async () => {
     const p = sampleProfile();
-    app({ ...p, trains: p.trains.map((t) => (t.kind === 'optical' ? { ...t, filterId: undefined } : t)), equipment: { ...p.equipment, filters: [] } });
+    await app({ ...p, trains: p.trains.map((t) => (t.kind === 'optical' ? { ...t, filterId: undefined } : t)), equipment: { ...p.equipment, filters: [] } });
     expect(filterSelect().options).toHaveLength(1);
     expect(document.getElementById('plan-filter-msg')!.textContent).toMatch(/^No filters\. Use Replace profile with sample\.$/);
   });
 
-  it('a train whose scope has no aperture says what is missing instead of guessing', () => {
+  it('a train whose scope has no aperture says what is missing instead of guessing', async () => {
     const p = sampleProfile();
-    app({
+    await app({
       ...p,
       equipment: { ...p.equipment, scopes: p.equipment.scopes.map((s) => ({ ...s, apertureMm: undefined })) },
       trains: [...p.trains].sort((a) => (a.id === HYPERSTAR ? -1 : 1)),
@@ -215,7 +221,7 @@ describe('meridian flip, through the whole page', () => {
   };
   it('North America Nebula already past the meridian: no flip, overhead 33.7 min (the peak is only the window start)', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     const quick = await pick(user, /North America Nebula/);
     expect(quick).toMatch(/Overhead, estimate33\.7 min/);
     expect(quick).toMatch(/meridian flip 0$|meridian flip 0Elapsed/);
@@ -223,14 +229,14 @@ describe('meridian flip, through the whole page', () => {
   });
   it('Hercules Globular Cluster, rising, window ends long before the crossing: no flip', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     const quick = await pick(user, /Hercules Globular Cluster/);
     expect(quick).toMatch(/meridian flip 0/);
     expect(warnings()).not.toMatch(/meridian flip/i);
   });
   it("Thor's Helmet crosses 43 minutes into its window: the flip is counted and noted", async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     const quick = await pick(user, /Thor's Helmet/);
     expect(quick).toMatch(/meridian flip 10/);
     expect(warnings()).toMatch(/A meridian flip falls inside this session and adds 10 minutes/);
@@ -241,7 +247,7 @@ describe('meridian flip, through the whole page', () => {
 describe('Exposure panel for a planet', () => {
   it('says planning here is for deep-sky targets', async () => {
     const user = userEvent.setup();
-    app(withTrain('deep-c11-2600'));
+    await app(withTrain('deep-c11-2600'));
     await user.selectOptions(screen.getByLabelText('Type'), 'planets');
     const planetButton = within(screen.getByTestId('target-table')).getAllByRole('button')[0];
     await user.click(planetButton);
@@ -250,8 +256,8 @@ describe('Exposure panel for a planet', () => {
 });
 
 describe('Gain column and the overflow cue', () => {
-  it('the Gain column says estimate in its heading and gives a range in each row', () => {
-    app();
+  it('the Gain column says estimate in its heading and gives a range in each row', async () => {
+    await app();
     const table = screen.getByTestId('marginal-table');
     expect(within(table).getByRole('columnheader', { name: /Gain on step before, estimate \(range\)/ })).toBeTruthy();
     const rows = within(table).getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
@@ -270,7 +276,7 @@ describe('Gain column and the overflow cue', () => {
       return rect(0);
     });
     try {
-      app();
+      await app();
       await user.selectOptions(filterSelect(), 'optolong-lextreme'); // warns at f/1.93
       const items = screen.getByTestId('exposure-warnings').querySelectorAll('li').length;
       expect(items).toBeGreaterThan(0);
@@ -279,7 +285,7 @@ describe('Gain column and the overflow cue', () => {
       spy.mockRestore();
     }
     cleanup();
-    app();
+    await app();
     expect(screen.getByTestId('exposure-warnings-cue').textContent).toBe('');
   });
 
@@ -295,7 +301,7 @@ describe('Gain column and the overflow cue', () => {
 
     it('a flagged target shows one line with the estimate label and a three-bullet blend fold', async () => {
       const user = userEvent.setup();
-      app(withTrain('deep-c11-reducer-2600'));
+      await app(withTrain('deep-c11-reducer-2600'));
       await pick(user, /Hercules Globular Cluster/);
       const line = within(panel()).getByTestId('core-advice');
       expect(line.querySelector('p')!.textContent).toMatch(
@@ -310,7 +316,7 @@ describe('Gain column and the overflow cue', () => {
 
     it('a flagged target with no core set shows one fixed line instead (HyperStar subs are already the shortest)', async () => {
       const user = userEvent.setup();
-      app();
+      await app();
       await pick(user, /Hercules Globular Cluster/);
       const line = within(panel()).getByTestId('core-advice');
       expect(line.querySelector('p')!.textContent).toBe('No short set needed here.');
@@ -321,7 +327,7 @@ describe('Gain column and the overflow cue', () => {
     // placeholder of the same minimum height. The browser measurement is in the report.
     it.each([HYPERSTAR, 'deep-c11-reducer-2600'])('the core block has the same reserved height in every mode and sky (%s)', async (train) => {
       const user = userEvent.setup();
-      app(withTrain(train));
+      await app(withTrain(train));
       await pick(user, /Hercules Globular Cluster/);
       const shape = () => {
         const block = within(panel()).getByTestId('core-advice');
@@ -333,7 +339,7 @@ describe('Gain column and the overflow cue', () => {
       const seen = new Set<string>();
       for (const bortle of [2, 9]) {
         cleanup();
-        app({ ...withTrain(train), sites: withTrain(train).sites.map((x, i) => (i === 0 ? { ...x, bortle } : x)) });
+        await app({ ...withTrain(train), sites: withTrain(train).sites.map((x, i) => (i === 0 ? { ...x, bortle } : x)) });
         await pick(user, /Hercules Globular Cluster/);
         for (const mode of [/quick/i, /balanced/i, /deep/i]) {
           await user.click(radio(mode));
@@ -345,7 +351,7 @@ describe('Gain column and the overflow cue', () => {
 
     it('an unflagged target shows nothing', async () => {
       const user = userEvent.setup();
-      app(withTrain('deep-c11-reducer-2600'));
+      await app(withTrain('deep-c11-reducer-2600'));
       await pick(user, /Bode's Galaxy/);
       expect(within(panel()).queryByTestId('core-advice')).toBeNull();
       expect(panel().textContent).not.toMatch(/for the core/);

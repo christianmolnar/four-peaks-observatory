@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
-import { starterTargets } from '@/planner/catalog';
+import type { CatalogIndex } from '@/planner/catalog/search';
 import { MODES, MODE_ORDER } from '@/planner/exposure';
 import type { ExposureMode } from '@/planner/exposure';
 import { usableWindowsOnTrack } from '@/planner/horizon';
@@ -31,18 +31,32 @@ import { EXACT_MAX_SLOTS, orderKey, suggestOrderSteps } from '@/planner/itinerar
 import type { OrderSuggestion } from '@/planner/itinerary/suggest';
 import { itineraryToCsv, itineraryToJson, makeCsvTime } from '@/planner/export';
 import { newItem, planetIdOf, slotInputFor } from '@/planner/itinerary/resolve';
-import type { PlanEntry } from '@/planner/plan';
+import { PLANETS } from '@/planner/plan';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import NightTimeline from './NightTimeline';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
 import { download } from './download';
+import type { NightScorer } from './nightScorer';
+
+/** One choice in "Target to add". */
+export interface AddOption {
+  id: string;
+  name: string;
+  isPlanet: boolean;
+  usableMinutes: number;
+}
 
 export interface ItinerarySectionProps {
   profile: Profile;
   /** The train chosen at the top of the page; new slots start on it. */
   train: TrainEntry;
-  entries: readonly PlanEntry[];
+  /** The targets of my plan that the page could resolve (a catalog object or a planet), in the user's order, with their clear time on the night. */
+  planOptions: readonly AddOption[];
+  /** The bundled catalog, for searching a target to add and for finding saved slots' targets; null until it has loaded (or when it failed). */
+  catalog: CatalogIndex | null;
+  /** Scores one target for the night, for the clear time shown beside each choice. */
+  scorer: NightScorer | null;
   site: Site;
   night: AstronomicalNight;
   horizon: readonly HorizonPoint[] | null;
@@ -73,6 +87,9 @@ const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text
 const SEARCH_SLICE_MS = 10;
 
 const MOON_ID = planetIdOf('Moon');
+
+const optionText = (e: AddOption, nightWord: string): string =>
+  `${e.name}${e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: ${e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : `not clear ${nightWord}`}`;
 
 /** What the advice box says when the order is already the best the search found. */
 export const unchangedAdviceText = (exhaustive: boolean): string =>
@@ -132,7 +149,7 @@ function Detail({
  * a train, a filter and a mode, scheduled one after the other with the changeover between them. Subs and counts come
  * from the exposure module; every time and number here is an estimate. Saved in this browser with a version.
  */
-export default function ItinerarySection({ profile, train, entries, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
+export default function ItinerarySection({ profile, train, planOptions, catalog, scorer, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [startTime, setStartTime] = useState<string | null>(null);
   // What is being typed in the start box; null: show the saved start time.
@@ -143,6 +160,8 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   // A rejected saved itinerary is an alert; a storage that cannot be read or written is a status (the page already reports blocked storage).
   const [problem, setProblem] = useState<{ text: string; urgent: boolean } | null>(null);
   const [addId, setAddId] = useState<string>('');
+  // What is typed in "Search the catalog to add": its matches join the choices.
+  const [addText, setAddText] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const focusNext = useRef<string | null>(null);
   const startBox = useRef<HTMLInputElement>(null);
@@ -211,7 +230,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   };
 
   const optical = profile.trains.filter((t) => t.kind === 'optical');
-  const inputs = useMemo(() => items.map((i) => slotInputFor(i, profile, starterTargets)), [items, profile]);
+  const inputs = useMemo(() => items.map((i) => slotInputFor(i, profile, catalog?.targets ?? [])), [items, profile, catalog]);
   const startAt = useMemo(() => (startTime && night.start ? clockToInstant(startTime, night.start, timeZone) : null), [startTime, night, timeZone]);
   // Each target's usable windows, found once per site, night, horizon and minimum: the plan, the order search and later changes all share them.
   const windows = useMemo(() => (night.kind === 'normal' ? makeWindowLookup({ site, night, horizon, minAltitude }) : null), [site, night, horizon, minAltitude]);
@@ -253,15 +272,35 @@ export default function ItinerarySection({ profile, train, entries, site, night,
     if (report) report.current = plan ? { plan } : null;
   }, [report, plan]);
 
-  // The Moon is not a row of the target table; the itinerary offers it after the planets.
-  const options = useMemo((): Pick<PlanEntry, 'id' | 'name' | 'isPlanet' | 'usableMinutes'>[] => {
-    let moonMinutes = 0;
-    if (night.kind === 'normal' && night.start && night.end) {
-      const { windows } = usableWindowsOnTrack({ altAzAt: (d) => bodyAltAz('Moon', d, site), horizon, minAltitude, start: night.start, end: night.end, stepMinutes: 5 });
-      moonMinutes = windows.reduce((s, w) => s + (w.end.getTime() - w.start.getTime()), 0) / 60000;
-    }
-    return [...entries, { id: MOON_ID, name: 'Moon', isPlanet: true, usableMinutes: moonMinutes }];
-  }, [entries, night, site, horizon, minAltitude]);
+  // The Moon is not a catalog object; the itinerary offers it after the planets.
+  const moonMinutes = useMemo(() => {
+    if (night.kind !== 'normal' || !night.start || !night.end) return 0;
+    const { windows } = usableWindowsOnTrack({ altAzAt: (d) => bodyAltAz('Moon', d, site), horizon, minAltitude, start: night.start, end: night.end, stepMinutes: 5 });
+    return windows.reduce((s, w) => s + (w.end.getTime() - w.start.getTime()), 0) / 60000;
+  }, [night, site, horizon, minAltitude]);
+  const bodyOptions = useMemo(
+    (): AddOption[] => [
+      ...PLANETS.map((b) => ({ id: planetIdOf(b), name: b, isPlanet: true, usableMinutes: scorer?.planet(b).usableMinutes ?? 0 })),
+      { id: MOON_ID, name: 'Moon', isPlanet: true, usableMinutes: moonMinutes },
+    ],
+    [scorer, moonMinutes],
+  );
+  // Matches for what is typed: the catalog's own search, scored for the night by the same single-target path as everywhere.
+  const found = useMemo((): AddOption[] => {
+    const text = addText.trim();
+    if (catalog === null || text === '') return [];
+    return catalog.search({ text, limit: 10 }).hits.map((h) => ({ id: h.target.id, name: h.target.displayName ?? h.target.name, isPlanet: false, usableMinutes: scorer?.target(h.target).usableMinutes ?? 0 }));
+  }, [catalog, addText, scorer]);
+  const choices = useMemo(() => {
+    const seen = new Set<string>();
+    const unique = (list: AddOption[]) => list.filter((o) => !seen.has(o.id) && seen.add(o.id));
+    const planned = unique([...planOptions]);
+    const matches = unique(found);
+    const rest = unique(bodyOptions);
+    return { matches, planned, rest, all: [...matches, ...planned, ...rest] };
+  }, [planOptions, found, bodyOptions]);
+  // Searching puts the first match in the box; otherwise it is the first of my plan; with neither, nothing is chosen.
+  const chosenId = choices.all.some((o) => o.id === addId) ? addId : (choices.matches[0]?.id ?? choices.planned[0]?.id ?? '');
 
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   const move = (id: string, dir: 'up' | 'down') => {
@@ -276,7 +315,7 @@ export default function ItinerarySection({ profile, train, entries, site, night,
   };
   const add = () => {
     if (train.kind !== 'optical' || items.length >= MAX_SLOTS) return;
-    const entry = options.find((e) => e.id === (addId || options[0]?.id));
+    const entry = choices.all.find((e) => e.id === chosenId);
     if (!entry) return;
     const id = nextId(items);
     commit([...items, newItem(entry, train.id, train.filterId ?? null, id)], null);
@@ -312,18 +351,44 @@ export default function ItinerarySection({ profile, train, entries, site, night,
         Slots run in the order below, one after the other. Each starts when the one before is done and the changeover is over, or when its target clears your horizon, whichever is later. Times, subs and overhead are estimates for {nightWord}, not predictions. Setup (30 minutes) happens before the first slot and is not counted.
       </p>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[2fr_auto] items-end">
+      <div className="mt-4 grid gap-4 md:grid-cols-[1fr_2fr_auto] items-end">
+        <div>
+          <label htmlFor="it-add-search" className="block text-white/90 font-normal text-sm mb-1">Search the catalog to add</label>
+          <input
+            id="it-add-search"
+            type="search"
+            autoComplete="off"
+            maxLength={100}
+            disabled={catalog === null}
+            placeholder={catalog === null ? 'Catalog not loaded' : 'M31, NGC 7000, Veil'}
+            value={addText}
+            onChange={(e) => {
+              setAddText(e.target.value);
+              setAddId(''); // the first match becomes the choice
+            }}
+            className="min-h-11 w-full bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-60"
+          />
+        </div>
         <div>
           <label htmlFor="it-add-target" className="block text-white/90 font-normal text-sm mb-1">Target to add</label>
-          <WrapSelect id="it-add-target" className="w-full" value={addId || options[0]?.id || ''} onChange={(e) => setAddId(e.target.value)} disabled={options.length === 0}>
-            {options.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}{e.isPlanet && e.id !== MOON_ID ? ' (planet)' : ''}: {e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : `not clear ${nightWord}`}
-              </option>
-            ))}
+          <WrapSelect id="it-add-target" className="w-full" value={chosenId} onChange={(e) => setAddId(e.target.value)}>
+            {chosenId === '' && <option value="">Choose a target</option>}
+            {choices.matches.length > 0 && (
+              <optgroup label="Search results">
+                {choices.matches.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
+              </optgroup>
+            )}
+            {choices.planned.length > 0 && (
+              <optgroup label="My plan">
+                {choices.planned.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
+              </optgroup>
+            )}
+            <optgroup label="Planets and Moon">
+              {choices.rest.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
+            </optgroup>
           </WrapSelect>
         </div>
-        <button type="button" className={btn44} onClick={add} disabled={addDisabledReason !== '' || options.length === 0}>
+        <button type="button" className={btn44} onClick={add} disabled={addDisabledReason !== '' || chosenId === ''}>
           Add to itinerary
         </button>
       </div>

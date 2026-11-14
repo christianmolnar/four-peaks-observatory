@@ -70,7 +70,7 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
                   <br />
                   <span>{e.why}</span>
                 </th>
-                <td>{e.isPlanet ? 'n/a' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`}</td>
+                <td>{e.isPlanet ? 'n/a' : e.seasonMonths.length === 0 ? 'Not listed' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`}</td>
                 <td>{fitLabel(e)}</td>
                 <td>{e.peakAltitude.toFixed(0)}° {compass(e.peakAzimuth)} at {formatTime(e.peakTime)}</td>
                 <td>{e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', ')}</td>

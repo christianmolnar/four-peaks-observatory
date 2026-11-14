@@ -6,6 +6,9 @@ import { zoneOffsetMs } from '../plan';
 export const PROFILE_KEY = 'fpo-planner-profile-v1';
 export const CAPTURED_KEY = 'fpo-planner-captured-v1';
 export const SELECTION_KEY = 'fpo-planner-selection-v1';
+export const MY_PLAN_KEY = 'fpo-planner-my-plan-v1';
+/** Targets one plan can hold: a night has hours for a handful, and a stored list is read back from the browser, so it is bounded. */
+export const MAX_MY_PLAN = 50;
 
 /** The site and train last chosen at the top of the page; either may be gone from the profile by now. */
 export interface Selection {
@@ -45,6 +48,46 @@ export function loadSelection(storage: Pick<Storage, 'getItem' | 'removeItem'>):
 
 export function saveSelection(storage: Pick<Storage, 'setItem'>, selection: Selection): void {
   storage.setItem(SELECTION_KEY, JSON.stringify({ siteId: selection.siteId, trainId: selection.trainId }));
+}
+
+/**
+ * "My plan": the targets the user picked, best first (the order is their priority), as catalog ids (a planet is "planet-jupiter").
+ * Same storage pattern as the selection: damaged text is removed and throws in words, so the page says it once and starts with an empty plan.
+ */
+export function loadMyPlan(storage: Pick<Storage, 'getItem' | 'removeItem'>): string[] {
+  let text: string | null;
+  try {
+    text = storage.getItem(MY_PLAN_KEY);
+  } catch (e) {
+    throw new Error(`Your plan could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+  }
+  if (text === null) return [];
+  let v: unknown;
+  try {
+    v = JSON.parse(text);
+  } catch {
+    v = null;
+  }
+  const ids = (v as { version?: unknown; ids?: unknown } | null)?.ids;
+  const ok =
+    (v as { version?: unknown } | null)?.version === 1 &&
+    Array.isArray(ids) &&
+    ids.length <= MAX_MY_PLAN &&
+    ids.every((id) => typeof id === 'string' && id !== '') &&
+    new Set(ids).size === ids.length;
+  if (!ok) {
+    try {
+      storage.removeItem(MY_PLAN_KEY);
+    } catch (e) {
+      throw new Error(`Your saved plan is damaged and could not be cleared: ${(e as Error).message}`);
+    }
+    throw new Error('Your saved plan is damaged, so it starts empty.');
+  }
+  return ids as string[];
+}
+
+export function saveMyPlan(storage: Pick<Storage, 'setItem'>, ids: readonly string[]): void {
+  storage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids }));
 }
 
 /** The default profile for a first visit, loaded through the same validator as any user's. */

@@ -3,15 +3,23 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
-import { starterTargets } from '@/planner/catalog';
+import { loadCatalog } from '@/planner/catalog/loader';
+import type { CatalogIndex, SearchTarget } from '@/planner/catalog/search';
 import { makeCsvTime, planToCsv } from '@/planner/export';
 import { arcsConflict, arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
-import { altitudeTrack, compass, fitLabel, planTonight, planTrainFor, seasonLabel } from '@/planner/plan';
+import { PLANETS, altitudeTrack, compass, fitLabel, planTrainFor, seasonLabel, tonightsNight } from '@/planner/plan';
+import type { PlanEntry, PlanTrain } from '@/planner/plan';
+import type { RankResult } from '@/planner/plan/rank';
+import { planetIdOf } from '@/planner/itinerary/resolve';
+import { rankTonightAsync } from '@/planner/tonight';
+import type { TonightQuery } from '@/planner/tonight';
 import {
   DEFAULT_MIN_ALTITUDE,
   MIN_ALTITUDE_RANGE,
+  MAX_MY_PLAN,
+  MY_PLAN_KEY,
   PROFILE_KEY,
   SELECTION_KEY,
   checkZoneFields,
@@ -23,10 +31,12 @@ import {
   newZoneFields,
   friendlyArcError,
   loadCaptured,
+  loadMyPlan,
   loadProfile,
   loadSelection,
   sampleProfile,
   saveCaptured,
+  saveMyPlan,
   sameFields,
   saveProfile,
   saveSelection,
@@ -46,6 +56,13 @@ import { download } from './download';
 import type { ItineraryReport } from './ItinerarySection';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
+import MyPlan from './MyPlan';
+import type { MyPlanRow } from './MyPlan';
+import TargetSearch from './TargetSearch';
+import { createNightScorer } from './nightScorer';
+import { designationOf, nightStatus, sizeText, typeLabel } from './catalogText';
+import { useCatalog } from './useCatalog';
+import { useTonightList } from './useTonightList';
 
 /** 24 h clock time in `timeZone` (IANA name), or in the browser's zone when none is given. */
 const clockIn = (timeZone?: string): ((d: Date) => string) => {
@@ -64,12 +81,16 @@ const TYPE_LABELS: Record<TypeFilter, string> = {
 /** The picked day as the date input shows it: the browser's own locale. */
 const dateLabel = (iso: string) => new Intl.DateTimeFormat(undefined, { timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 
-type RankedEntry = NonNullable<ReturnType<typeof planTonight>>['entries'][number];
+type RankedEntry = PlanEntry;
+
+/** Tonight's list holds at most this many targets. */
+const LIST_LIMIT = 100;
 
 /** The text of one ranked target, shared by the table row (md and up) and the card (below md). */
 function targetText(e: RankedEntry, formatTime: (d: Date) => string) {
   return {
-    season: e.isPlanet ? 'n/a' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`,
+    // Only the curated targets carry a season; a catalog object has none, and the page says so instead of guessing.
+    season: e.isPlanet ? 'n/a' : e.seasonMonths.length === 0 ? 'Not listed' : `${seasonLabel(e.seasonMonths)}${e.inSeason ? ' (now)' : ''}`,
     setup: fitLabel(e),
     peak: `${e.peakAltitude.toFixed(0)}° ${compass(e.peakAzimuth)} at ${formatTime(e.peakTime)}`,
     windows: e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`),
@@ -134,11 +155,46 @@ function WhyToggle({ e, t, open, onToggle, idPrefix }: { e: RankedEntry; t: Retu
   );
 }
 
+const names = (list: readonly { name: string }[]): string => (list.length < 2 ? list.map((h) => h.name).join('') : `${list.slice(0, -1).map((h) => h.name).join(', ')} and ${list[list.length - 1].name}`);
+
+/**
+ * What the size screen left out of the list, said with names instead of a silent disappearance. Too large can be shown
+ * (the "show targets that do not fit" switch); too small is reported only.
+ */
+function HiddenNote({ counts, hidden, showNoFit, onShow }: { counts: RankResult['counts']; hidden: RankResult['hidden']; showNoFit: boolean; onShow: () => void }) {
+  const large = showNoFit ? 0 : counts.tooLarge;
+  if (large === 0 && counts.tooSmall === 0) return null;
+  const more = (n: number, shown: number) => (n > shown ? ` and ${n - shown} more` : '');
+  return (
+    <div className="mb-3 space-y-1 text-white/80 font-normal text-sm" data-testid="hidden-note">
+      {large > 0 && (
+        <p>
+          {names(hidden.tooLarge)}
+          {more(large, hidden.tooLarge.length)} {large === 1 ? 'is' : 'are'} larger than this frame ({large} hidden):{' '}
+          <button type="button" onClick={onShow} className="min-h-11 rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            show anyway
+          </button>
+        </p>
+      )}
+      {counts.tooSmall > 0 && (
+        <p>
+          {names(hidden.tooSmall)}
+          {more(counts.tooSmall, hidden.tooSmall.length)} {counts.tooSmall === 1 ? 'is' : 'are'} too small for this frame ({counts.tooSmall} hidden).
+        </p>
+      )}
+    </div>
+  );
+}
+
 export interface PlannerAppProps {
   /** For tests and previews: fixes the evening date (YYYY-MM-DD) instead of reading the clock. */
   initialDate?: string;
   /** For tests and previews: skips reading saved data. */
   initialProfile?: Profile;
+  /** Tonight's ranking over the catalog; defaults to the app-wide worker-backed one. A test stands in a fake. */
+  rank?: (query: TonightQuery) => Promise<RankResult>;
+  /** The bundled catalog; defaults to the app-wide lazy loader. A test stands in a fake fetch behind its own loader. */
+  loadCatalogIndex?: () => Promise<CatalogIndex>;
 }
 
 /** How long a toast stays up. */
@@ -151,7 +207,7 @@ const NO_ZONES: readonly BlockedArc[] = [];
 
 const fieldsOf = (arcs: readonly BlockedArc[]): HorizonFields[] => arcs.map(fieldsFromArc);
 
-export default function PlannerApp({ initialDate, initialProfile }: PlannerAppProps) {
+export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog }: PlannerAppProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
   const [notice, setNotice] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -180,9 +236,10 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       return next;
     });
   const [type, setType] = useState<TypeFilter>('all');
-  const [onlyUsable, setOnlyUsable] = useState(true);
   const [showNoFit, setShowNoFit] = useState(false);
   const [selectedId, setSelectedId] = useState<string>('');
+  // My plan: catalog ids in the user's priority order; remembered in this browser like the site and train choice.
+  const [planIds, setPlanIds] = useState<readonly string[]>([]);
   const [zone, setZone] = useState<string>('');
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
@@ -215,6 +272,11 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     try {
       setCaptured(loadCaptured(window.localStorage));
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+    try {
+      setPlanIds(loadMyPlan(window.localStorage));
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -352,56 +414,103 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   minAltRef.current = minAltitude;
   const minAltError = minCheck.ok ? null : `${minCheck.error} Planning with ${minAltitude} until fixed.`;
 
-  const planResult = useMemo(() => {
-    if (!site || !train || date === '') return null;
+  // The night is cheap and needed at once (the planets, the itinerary, the labels); the ranking over the catalog is not, so it runs off the main thread.
+  const nightInfo = useMemo(() => {
+    if (siteLat === undefined || siteLon === undefined || date === '') return { night: null, error: null as string | null };
     try {
-      const result = planTonight({
-        site: { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM },
+      return { night: tonightsNight({ latitude: siteLat, longitude: siteLon, elevationM: siteElev }, date, siteZone), error: null as string | null };
+    } catch (e) {
+      return { night: null, error: (e as Error).message };
+    }
+  }, [siteLat, siteLon, siteElev, siteZone, date]);
+  const stableNight = nightInfo.night;
+  const hasNight = stableNight?.kind === 'normal';
+
+  // The train as the plan sees it, kept as the same object while its numbers do not change: a filter pick or a Bortle edit makes a new
+  // profile but not a new train, and must not send the whole catalog through the ranking again.
+  const planTrainMemo = useRef<{ key: string; train: PlanTrain } | null>(null);
+  const trainPlan = useMemo((): { train: PlanTrain | null; error: string | null } => {
+    if (!train) return { train: null, error: null };
+    try {
+      const next = planTrainFor(profile, train);
+      const key = JSON.stringify(next);
+      if (planTrainMemo.current?.key !== key) planTrainMemo.current = { key, train: next };
+      return { train: planTrainMemo.current.train, error: null };
+    } catch (e) {
+      return { train: null, error: (e as Error).message };
+    }
+  }, [profile, train]);
+
+  const planTrain = trainPlan.train;
+  const trainError = trainPlan.error;
+  // What the night is planned against: everything the ranking and the single-target scoring share, or why it cannot be built.
+  const planning = useMemo(() => {
+    if (siteLat === undefined || siteLon === undefined || date === '' || nightInfo.error !== null) return { base: null, error: nightInfo.error };
+    if (planTrain === null) return { base: null, error: trainError };
+    return {
+      base: {
+        site: { latitude: siteLat, longitude: siteLon, elevationM: siteElev },
         horizon,
         minAltitude,
         date,
-        timeZone: site.timeZone,
-        train: planTrainFor(profile, train),
-        targets: starterTargets,
-      });
-      return { result, error: null as string | null };
-    } catch (e) {
-      return { result: null, error: (e as Error).message };
-    }
-  }, [site, train, date, horizon, minAltitude, profile]);
+        timeZone: siteZone,
+        train: planTrain,
+      },
+      error: null as string | null,
+    };
+  }, [siteLat, siteLon, siteElev, siteZone, date, horizon, minAltitude, planTrain, trainError, nightInfo.error]);
+  const planError = planning.error;
+  const rankQuery = useMemo<TonightQuery | null>(
+    () => (planning.base !== null && hasNight ? { ...planning.base, includeTooLarge: showNoFit, limit: LIST_LIMIT } : null),
+    [planning.base, hasNight, showNoFit],
+  );
+  const scorer = useMemo(() => (planning.base !== null && hasNight ? createNightScorer(planning.base) : null), [planning.base, hasNight]);
+  const { state: tonight, retry: retryTonight } = useTonightList(rank, rankQuery);
+  const { state: catalog, retry: retryCatalog } = useCatalog(loadCatalogIndex);
+  const catalogById = useMemo(() => (catalog.status === 'ready' ? new Map(catalog.index.targets.map((t) => [t.id, t])) : null), [catalog]);
 
-  const plan = planResult?.result ?? null;
-  // The night as a stable object: the plan is rebuilt for a filter change, but the night does not change, and the
-  // planet cards and the itinerary below should not be recomputed for it.
-  const nightKey = plan ? `${plan.night.kind}|${plan.night.start?.getTime()}|${plan.night.end?.getTime()}` : '';
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- nightKey names exactly what the night holds
-  const stableNight = useMemo(() => plan?.night ?? null, [nightKey]);
-
+  const ranked = useMemo(() => (tonight.status === 'ready' ? tonight.result : null), [tonight]);
   const filtered = useMemo(() => {
-    if (!plan) return [];
-    return plan.entries.filter((e) => {
-      if (onlyUsable && e.usableMinutes <= 0) return false;
-      if (!showNoFit && e.fit === 'too-large') return false;
+    if (!ranked) return [];
+    return ranked.entries.filter((e) => {
       if (type === 'planets' && !e.isPlanet) return false;
       if (type === 'deep-sky' && e.isPlanet) return false;
       return true;
     });
-  }, [plan, onlyUsable, showNoFit, type]);
+  }, [ranked, type]);
+  const placeOf = useMemo(() => new Map((ranked?.entries ?? []).map((e, i) => [e.id, i + 1])), [ranked]);
+
+  const isTonight = date === '' || date === tonightDate;
+  const nightWord = isTonight ? 'tonight' : `that night (${dateLabel(date)})`;
+
+  // My plan resolved for the night: a catalog target or a planet, scored by the same single-target path as the search.
+  const planItems = useMemo(
+    () =>
+      planIds.map((id) => {
+        const target = catalogById?.get(id);
+        const body = PLANETS.find((b) => planetIdOf(b) === id);
+        const entry = body !== undefined ? (scorer?.planet(body) ?? null) : target !== undefined ? (scorer?.target(target) ?? null) : null;
+        return { id, target, body, entry };
+      }),
+    [planIds, catalogById, scorer],
+  );
+
+  const planIdSet = useMemo(() => new Set(planIds), [planIds]);
 
   const selected = filtered.find((e) => e.id === selectedId) ?? filtered[0];
   const track = useMemo(() => {
-    if (!plan || !selected || !site || plan.night.kind !== 'normal') return null;
+    if (!stableNight || stableNight.kind !== 'normal' || !selected || !site) return null;
     const pad = 2 * 3600000;
     return altitudeTrack(
       selected.source,
       { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM },
       horizon,
       minAltitude,
-      new Date((plan.night.start as Date).getTime() - pad),
-      new Date((plan.night.end as Date).getTime() + pad),
+      new Date((stableNight.start as Date).getTime() - pad),
+      new Date((stableNight.end as Date).getTime() + pad),
       10,
     );
-  }, [plan, selected, site, horizon, minAltitude]);
+  }, [stableNight, selected, site, horizon, minAltitude]);
 
   // What the Exposure panel needs from the train: optics numbers, the camera record and the chosen filter.
   const trainInfo = useMemo(() => {
@@ -413,7 +522,8 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       return { optics: null, camera: null, filter: null }; // the plan already reports an unresolved train
     }
   }, [profile, train]);
-  const selectedTarget = selected ? starterTargets.find((t) => t.id === selected.id) : undefined;
+  // A catalog entry has no curated flags (brightCore): the exposure panel treats the absence as no, not as a value.
+  const selectedTarget = selected ? catalogById?.get(selected.id) : undefined;
 
   /** Remembers the site and train chosen at the top, so a reload opens on them. */
   const rememberSelection = (nextSiteId: string, nextTrainId: string) => {
@@ -470,6 +580,12 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     } catch (e) {
       setNotice(`Could not clear the stored site and train choice: ${(e as Error).message}`);
     }
+    try {
+      window.localStorage.removeItem(MY_PLAN_KEY);
+    } catch (e) {
+      setNotice(`Could not clear the stored plan: ${(e as Error).message}`);
+    }
+    setPlanIds([]);
     const sample = sampleProfile();
     setProfile(sample);
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
@@ -491,6 +607,32 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     setCaptured(next);
   };
 
+  const commitPlan = (next: readonly string[]) => {
+    setPlanIds(next);
+    try {
+      saveMyPlan(window.localStorage, next);
+    } catch (e) {
+      setNotice(`Plan not saved, so it is lost on reload: ${(e as Error).message}`);
+    }
+  };
+  const addToPlan = (id: string) => {
+    if (planIds.includes(id)) return;
+    if (planIds.length >= MAX_MY_PLAN) {
+      setNotice(`My plan holds at most ${MAX_MY_PLAN} targets. Remove one to add another.`);
+      return;
+    }
+    commitPlan([...planIds, id]);
+  };
+  const movePlan = (id: string, direction: 'up' | 'down') => {
+    const i = planIds.indexOf(id);
+    const j = direction === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= planIds.length) return;
+    const next = [...planIds];
+    [next[i], next[j]] = [next[j], next[i]];
+    commitPlan(next);
+  };
+  const removeFromPlan = (id: string) => commitPlan(planIds.filter((x) => x !== id));
+
   const importProfile = async (file: File | undefined) => {
     if (!file) return;
     setImportError(null);
@@ -503,12 +645,14 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
       return;
     }
     setProfile(next);
+    setPlanIds([]);
     setDate(defaultDateForProfile(new Date(), next));
     loadForm(next.sites[0]?.blockedArcs ?? [], true);
     setSiteId('');
     setTrainId('');
     try {
       window.localStorage.removeItem(SELECTION_KEY); // the old ids belong to the old profile
+      window.localStorage.removeItem(MY_PLAN_KEY);
       saveProfile(window.localStorage, next);
       setNotice(`Imported ${file.name}.`);
     } catch (e) {
@@ -517,7 +661,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
   };
 
   const exportCsv = () => {
-    if (!plan) return;
+    if (ranked === null) return;
     download(
       `planner-${date}.csv`,
       planToCsv(filtered, { formatTime: makeCsvTime(siteZone), captured }),
@@ -526,11 +670,41 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     );
   };
 
+  const planRows: MyPlanRow[] = planItems.map(({ id, target, body, entry }) => {
+    const name = body ?? target?.displayName ?? target?.name ?? id;
+    const detail =
+      body !== undefined
+        ? 'Planet'
+        : target !== undefined
+          ? [designationOf(target.id), typeLabel(target.type), sizeText(target.sizeArcmin)].filter((x) => x !== '').join(' · ')
+          : catalog.status === 'loading'
+            ? 'Loading the catalog…'
+            : 'Not in the bundled catalog.';
+    const status = entry !== null ? nightStatus(entry, nightWord, formatTime) : scorer === null && stableNight ? 'No astronomical night on this date.' : '';
+    return { id, name, detail, status };
+  });
+  // What the itinerary may add: the plan's targets that resolved, with their clear time on the night.
+  const planOptions = planItems.flatMap(({ id, target, body, entry }) =>
+    body === undefined && target === undefined
+      ? []
+      : [{ id, name: body ?? target?.displayName ?? target?.name ?? id, isPlanet: body !== undefined, usableMinutes: entry?.usableMinutes ?? 0 }],
+  );
+
   const field =
     'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
   const btn =
     'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
-  const panel = 'bg-black/70 rounded-lg border border-white/10 p-6';
+  const panel = 'bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6';
+  const btn44 = `${btn} min-h-11`;
+  // The target is named by the description (its own name button), so the button's name stays "Add to my plan" and names are not repeated in a list of buttons.
+  const planButton = (e: RankedEntry, prefix: string) =>
+    planIds.includes(e.id) ? (
+      <span className="inline-flex min-h-11 items-center text-white/70 text-sm">In my plan</span>
+    ) : (
+      <button type="button" aria-describedby={`${prefix}-name-${e.id}`} onClick={() => addToPlan(e.id)} className={btn44}>
+        Add to my plan
+      </button>
+    );
 
   const importControl = (
     <div>
@@ -568,9 +742,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
     );
   }
 
-  const night = plan?.night;
-  const isTonight = date === '' || date === tonightDate;
-  const nightWord = isTonight ? 'tonight' : `that night (${dateLabel(date)})`;
+  const night = stableNight ?? undefined;
   const bortle = site.bortle ?? DEFAULT_BORTLE;
   const zoneName = siteZone ?? zone;
   const zoneText = zoneName ? `Times are in ${siteZone ? "the site's" : "your browser's"} time zone (${zoneName}).` : '';
@@ -609,9 +781,9 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             {importError}
           </p>
         )}
-        {planResult?.error && (
+        {planError && (
           <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
-            Could not plan: {planResult.error}
+            Could not plan: {planError}
           </p>
         )}
       </div>
@@ -701,9 +873,20 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         </p>
       </section>
 
+      <TargetSearch
+        catalog={catalog}
+        onRetryCatalog={retryCatalog}
+        scorer={scorer}
+        nightWord={nightWord}
+        formatTime={formatTime}
+        planIds={planIdSet}
+        rankOf={(id) => placeOf.get(id)}
+        onAdd={(t: SearchTarget) => addToPlan(t.id)}
+      />
+
       <section aria-labelledby="list-heading" className={panel}>
         <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
-          <h2 id="list-heading" className="text-xl font-light text-white tracking-[0.15em]">TARGETS</h2>
+          <h2 id="list-heading" className="text-xl font-light text-white tracking-[0.15em]">BEST TARGETS FOR {nightWord.toUpperCase()}</h2>
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label htmlFor="f-type" className="block text-white/90 font-normal text-sm mb-1">Type</label>
@@ -714,25 +897,35 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
               </WrapSelect>
             </div>
             <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
-              <input type="checkbox" checked={onlyUsable} onChange={(e) => setOnlyUsable(e.target.checked)} className="accent-sky-400" />
-              Only targets usable {nightWord}
-            </label>
-            <label className="flex items-center gap-2 text-white/90 font-normal text-sm pb-1">
               <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="accent-sky-400" />
               Show targets that do not fit
             </label>
-            <button type="button" className={btn} onClick={exportCsv} disabled={!plan || filtered.length === 0}>
+            <button type="button" className={btn} onClick={exportCsv} disabled={ranked === null || filtered.length === 0}>
               Export CSV
             </button>
-            <button type="button" className={btn} onClick={() => window.print()} disabled={!plan || filtered.length === 0}>
+            <button type="button" className={btn} onClick={() => window.print()} disabled={ranked === null || filtered.length === 0}>
               Print or save as PDF
             </button>
           </div>
         </div>
 
-        {plan && plan.night.kind !== 'normal' ? (
+        {stableNight && !hasNight ? (
           <p className="text-white/90 font-normal">No astronomical night, so there is nothing to rank.</p>
-        ) : filtered.length === 0 ? (
+        ) : tonight.status === 'error' ? (
+          <div role="alert" className="flex flex-wrap items-center gap-3 rounded border border-orange-300/40 bg-orange-400/15 px-3 py-2 text-orange-100 font-normal text-sm">
+            <span className="min-w-0 break-words">The list for {nightWord} could not be ranked: {tonight.message}</span>
+            <button type="button" className={`${btn} min-h-11`} onClick={retryTonight}>Retry</button>
+          </div>
+        ) : tonight.status !== 'ready' ? (
+          planError ? null : (
+            <p aria-live="polite" aria-busy="true" className="text-white/90 font-normal">
+              Ranking the whole catalog for {nightWord}…
+            </p>
+          )
+        ) : (
+          <>
+            <HiddenNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} onShow={() => setShowNoFit(true)} />
+            {filtered.length === 0 ? (
           <p className="text-white/90 font-normal">No targets match these filters.</p>
         ) : (
           <>
@@ -748,6 +941,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                           <span className="text-white/70">{i + 1}.</span>
                           <button
                             type="button"
+                            id={`card-name-${e.id}`}
                             onClick={() => setSelectedId(e.id)}
                             aria-pressed={isSel}
                             className="min-h-11 py-2 underline decoration-dotted text-left text-white break-words focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
@@ -766,6 +960,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                           />
                           <span aria-hidden="true">Captured</span>
                         </label>
+                        {planButton(e, 'card')}
                         <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
                           <dt className="text-white/70">Season</dt><dd>{t.season}</dd>
                           <dt className="text-white/70">Setup</dt><dd>{t.setup}</dd>
@@ -818,6 +1013,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                     <th scope="row" className="py-2 pr-3 font-normal">
                       <button
                         type="button"
+                        id={`row-name-${e.id}`}
                         onClick={() => setSelectedId(e.id)}
                         aria-pressed={selected?.id === e.id}
                         className="underline decoration-dotted text-left text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
@@ -825,6 +1021,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
                         {e.name}
                       </button>
                       {e.isPlanet && <span className="ml-2 rounded bg-yellow-300/20 text-yellow-100 text-xs px-1.5 py-0.5">planet</span>}
+                      <div>{planButton(e, 'row')}</div>
                     </th>
                     <td className="py-2 pr-3">{t.season}</td>
                     <td className="py-2 pr-3">{t.setup}</td>
@@ -846,21 +1043,25 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
             </div>
           </>
         )}
+          </>
+        )}
         <p className="text-white/60 font-normal text-xs mt-3">
-          Score: usable hours up to 50, peak altitude up to 30, in season 10, Moon up to -20, does not fit -25. Open Why recommended on a target to see its score parts and fit detail.
+          Score: usable hours up to 50, peak altitude up to 30, in season 10 (curated targets only; the catalog has no seasons), Moon up to -20, does not fit -25, plus brightness and framing. Double stars are not ranked (search finds them). Open Why recommended on a target to see its score parts and fit detail.
         </p>
       </section>
 
-      {selected && track && plan && (
+      <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} />
+
+      {selected && track && stableNight && (
         <section aria-labelledby="chart-heading" className={panel}>
           <h2 id="chart-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">
             ALTITUDE: {selected.name.toUpperCase()}
           </h2>
           <AltitudeChart
             entry={selected}
-            night={plan.night}
+            night={stableNight}
             track={track}
-            horizonSet={plan.horizonSet}
+            horizonSet={horizon !== null}
             minAltitude={minAltitude}
             formatTime={formatTime}
             nightWord={nightWord}
@@ -868,7 +1069,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         </section>
       )}
 
-      {selected && plan && (
+      {selected && (
         <ExposurePanel
           entry={selected}
           target={selectedTarget ? exposureTargetFrom(selectedTarget) : { id: selected.id, name: selected.name }}
@@ -883,11 +1084,13 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         />
       )}
 
-      {plan && stableNight && astroSite && (
+      {stableNight && astroSite && catalog.status !== 'loading' && (
         <ItinerarySection
           profile={profile}
           train={train}
-          entries={plan.entries}
+          planOptions={planOptions}
+          catalog={catalog.status === 'ready' ? catalog.index : null}
+          scorer={scorer}
           site={astroSite}
           night={stableNight}
           horizon={horizon}
@@ -901,7 +1104,7 @@ export default function PlannerApp({ initialDate, initialProfile }: PlannerAppPr
         />
       )}
 
-      {plan && stableNight && astroSite && (
+      {stableNight && astroSite && (
         <PlanetsSection
           profile={profile}
           train={train}

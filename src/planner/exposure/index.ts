@@ -1,5 +1,4 @@
 import { normalizeName } from '../catalog';
-import type { CatalogTarget } from '../catalog';
 import type { ProfileFilter, ReadNoiseClass } from '../profile';
 import {
   AUTOFOCUS_EVERY_MIN,
@@ -218,7 +217,17 @@ export function isOu4(t: Pick<ExposureTarget, 'id' | 'name' | 'aliases'>): boole
   return [t.id, t.name, ...(t.aliases ?? [])].some((s) => s !== undefined && normalizeName(s) === 'ou4');
 }
 
-export function exposureTargetFrom(t: CatalogTarget): ExposureTarget {
+/** What the exposure advice reads of a target: a curated target and a catalog search target both fit. */
+export interface ExposureSource {
+  id: string;
+  name: string;
+  aliases: readonly string[];
+  type: string;
+  /** Curated only; absent means no. */
+  brightCore?: boolean;
+}
+
+export function exposureTargetFrom(t: ExposureSource): ExposureTarget {
   return { id: t.id, name: t.name, aliases: t.aliases, type: t.type, brightCore: t.brightCore };
 }
 

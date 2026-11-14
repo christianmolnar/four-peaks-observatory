@@ -4,6 +4,7 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { pageProps } from './testkit';
 
 // A zone row's bad box falls back to that row's own saved zone, never to another zone's numbers. A new row has no
 // saved zone, so a bad box in it draws nothing. Checked on the chart (its description) and on the sliders.
@@ -31,7 +32,7 @@ const said = (arcs: { startAz: number; endAz: number; heightDeg: number }[]) => 
 const app = (zones: (typeof A)[]) => {
   const p = sampleProfile();
   p.sites[0] = { ...p.sites[0], blockedArcs: zones };
-  return render(<PlannerApp initialDate="2026-12-15" initialProfile={p} />);
+  return render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={p} />);
 };
 const sliders = (zone: number) => [sliderOf(zone, 'start').value, sliderOf(zone, 'end').value, sliderOf(zone, 'height').value];
 

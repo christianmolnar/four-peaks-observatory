@@ -5,6 +5,7 @@ import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { pageProps, ready } from './testkit';
 
 // Real keystrokes, one key at a time, through the whole page. The expected values are the rows of the
 // round-2 and round-3 failure tables. The form holds the text and nothing else holds a copy of it, so
@@ -49,7 +50,11 @@ const pause = async () => {
   });
 };
 
-const app = (profile = sampleProfile()) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
+const app = async (profile = sampleProfile()) => {
+  const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
+  await ready();
+  return r;
+};
 
 /** Replaces the box content with real key presses, one key at a time; the box stays focused. */
 async function type(u: U, name: string, text: string) {
@@ -92,8 +97,8 @@ afterEach(() => {
 });
 
 describe('draft and commit', () => {
-  it('starts with box and slider in sync with the saved arc, no message, nothing to save', () => {
-    app();
+  it('starts with box and slider in sync with the saved arc, no message, nothing to save', async () => {
+    await app();
     clean();
     expect(status()).toBe('');
     expect(button('Save horizon').disabled).toBe(true);
@@ -101,7 +106,7 @@ describe('draft and commit', () => {
   });
 
   it('typing a valid value previews it but stores nothing; only Save commits', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '150');
     expect(slider(START).value).toBe('150');
@@ -118,7 +123,7 @@ describe('draft and commit', () => {
   });
 
   it('blur does nothing and there is no Escape handler: the text stays, nothing is stored', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '500');
     await u.tab();
@@ -132,7 +137,7 @@ describe('draft and commit', () => {
   });
 
   it('retyping the saved value is not a change', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '150');
     await type(u, START, '120');
@@ -141,7 +146,7 @@ describe('draft and commit', () => {
   });
 
   it('Enter in a box saves when the form is valid and changed, and does nothing otherwise', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '95');
     await u.keyboard('{Enter}');
@@ -154,8 +159,8 @@ describe('draft and commit', () => {
     expect(status()).toBe('Saved');
   });
 
-  it('the slider writes into the same text as the box', () => {
-    app();
+  it('the slider writes into the same text as the box', async () => {
+    await app();
     slide(START, '200');
     expect(box(START).value).toBe('200');
     expect(summary()).toContain('120°');
@@ -168,7 +173,7 @@ describe('draft and commit', () => {
   });
 
   it('arrow keys on the Start slider cross End one degree at a time: 318 then five presses gives 319 to 323', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '318');
     await u.tab();
@@ -184,7 +189,7 @@ describe('draft and commit', () => {
   });
 
   it('arrow keys on the End slider cross Start one degree at a time: 122 then four presses gives 121 to 118', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, END, '122');
     await u.tab();
@@ -199,7 +204,7 @@ describe('draft and commit', () => {
   });
 
   it('whole degrees only: the box refuses a decimal with a message, the slider stays', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '1.5');
     expect(msg(START)).toBe('Whole degrees only.');
@@ -208,7 +213,7 @@ describe('draft and commit', () => {
   });
 
   it('the tab order is the number box, then its slider, field by field, then the buttons', async () => {
-    app();
+    await app();
     const u = user();
     box(START).focus();
     const seen: string[] = [];
@@ -222,8 +227,8 @@ describe('draft and commit', () => {
     expect(seen.slice(6, 10)).toEqual(['Add another zone', 'Use sample horizon', 'Clear horizon', 'Horizon as a table']);
   });
 
-  it('the Edit horizon link jumps to the editor', () => {
-    app();
+  it('the Edit horizon link jumps to the editor', async () => {
+    await app();
     expect(screen.getByRole('link', { name: 'Edit horizon' }).getAttribute('href')).toBe('#horizon');
     expect(document.getElementById('horizon')).not.toBeNull();
   });
@@ -231,7 +236,7 @@ describe('draft and commit', () => {
 
 describe('nothing moves: the message lines and buttons are always there', () => {
   it('every message line exists before any error, and the same elements are used after', async () => {
-    app();
+    await app();
     const u = user();
     const lines = [START, END, HEIGHT, MINALT].map((n) => document.getElementById(`${ID[n]}-msg`));
     expect(lines.every((l) => l !== null)).toBe(true);
@@ -256,7 +261,7 @@ describe.each([
   ['91 in Height', HEIGHT, '91', 'Use 0 to 90 degrees.', '42'],
 ])('a bad value typed key by key: %s', (_n, name, text, message, original) => {
   it('shows the message, keeps slider and plan where they were, and Save is off', async () => {
-    app();
+    await app();
     const u = user();
     const horizon = summary();
     await type(u, name, text);
@@ -270,7 +275,7 @@ describe.each([
   });
 
   it('then Discard on the first click restores the box and clears the message', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, name, text);
     await u.click(button('Discard changes'));
@@ -280,7 +285,7 @@ describe.each([
 
 describe('Minimum altitude uses the same pattern and applies live once valid', () => {
   it('100 typed key by key: message names the number in use, slider and night summary stay', async () => {
-    app();
+    await app();
     const u = user();
     const night = nightSummary();
     await type(u, MINALT, '100');
@@ -294,9 +299,10 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
   });
 
   it('from a saved 30, typing 450 key by key ends on 30 and the message names 30, never a prefix', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, MINALT, '30');
+    await ready();
     const rows = screen.getByTestId('target-table').textContent;
     expect(msg(MINALT)).toBe('');
     await pause(); // 30 is now the value in effect; a new run of typing begins
@@ -306,18 +312,21 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
       if (box(MINALT).value === '450') {
         expect(slider(MINALT).value).toBe('30');
         expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
+        await ready();
         expect(screen.getByTestId('target-table').textContent).toBe(rows);
       }
     }
     expect(box(MINALT).value).toBe('450');
     expect(slider(MINALT).value).toBe('30');
+    await ready();
     expect(screen.getByTestId('target-table').textContent).toBe(rows);
   });
 
   it('a bad Minimum altitude keeps 30 whether it is emptied or has a digit added', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, MINALT, '30');
+    await ready();
     const rows = screen.getByTestId('target-table').textContent;
     await pause();
     await u.clear(box(MINALT));
@@ -328,16 +337,18 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     await u.keyboard('0'); // 300, appended to the 30 in effect
     expect(box(MINALT).value).toBe('300');
     expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
+    await ready();
     expect(screen.getByTestId('target-table').textContent).toBe(rows);
   });
 
   // Backspace and one-run rules: real key events, one at a time.
   it('45 in effect, Backspace twice: plan, slider and message name 45, never the prefix 4', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, MINALT, '45');
     await u.tab();
     await u.click(box(MINALT)); // focus: 45 is in effect
+    await ready();
     const rows45 = screen.getByTestId('target-table').textContent;
     await u.keyboard('{End}{Backspace}');
     expect(box(MINALT).value).toBe('4'); // 4 is a valid number and applies live
@@ -345,12 +356,14 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(box(MINALT).value).toBe('');
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 45 until fixed.');
     expect(slider(MINALT).value).toBe('45');
+    await ready();
     expect(screen.getByTestId('target-table').textContent).toBe(rows45);
   });
 
   it('default 20, Backspace twice: plan stays 20 and the list keeps its rows', async () => {
-    app();
+    await app();
     const u = user();
+    await ready();
     const rows20 = screen.getByTestId('target-table').textContent;
     const count = screen.getByTestId('target-table').querySelectorAll('tbody tr').length;
     await u.click(box(MINALT));
@@ -360,15 +373,18 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(box(MINALT).value).toBe('');
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 20 until fixed.');
     expect(slider(MINALT).value).toBe('20');
+    await ready();
     expect(screen.getByTestId('target-table').textContent).toBe(rows20);
+    await ready();
     expect(screen.getByTestId('target-table').querySelectorAll('tbody tr').length).toBe(count);
   });
 
   it('focus capture: 30 set, Tab away, click, select all, 450 without clearing: the message names 30', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, MINALT, '30');
     await u.tab(); // leaves the box
+    await ready();
     const rows30 = screen.getByTestId('target-table').textContent;
     await u.click(box(MINALT));
     await u.keyboard('{Control>}a{/Control}');
@@ -376,11 +392,12 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
     expect(box(MINALT).value).toBe('450');
     expect(msg(MINALT)).toBe('Use 0 to 89. Planning with 30 until fixed.');
     expect(slider(MINALT).value).toBe('30');
+    await ready();
     expect(screen.getByTestId('target-table').textContent).toBe(rows30);
   });
 
   it('one run: click, 30, select all, 450 with no pause names the value before the run (20), not 30', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(box(MINALT));
     await u.keyboard('{Control>}a{/Control}30');
@@ -392,7 +409,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
   });
 
   it('a pause ends the run: type 30, pause, select all, 450: the message names 30', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(box(MINALT));
     await u.keyboard('{Control>}a{/Control}30');
@@ -403,7 +420,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
   });
 
   it('Enter ends the run: type 30, Enter, select all, 450: the message names 30', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(box(MINALT));
     await u.keyboard('{Control>}a{/Control}30{Enter}{Control>}a{/Control}450');
@@ -411,7 +428,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
   });
 
   it('empty and decimal boxes say what is wrong', async () => {
-    app();
+    await app();
     const u = user();
     await u.clear(box(MINALT));
     expect(msg(MINALT)).toBe('Enter a number from 0 to 89. Planning with 20 until fixed.');
@@ -423,7 +440,7 @@ describe('Minimum altitude uses the same pattern and applies live once valid', (
 // Round-2 table 2: old drafts must not come back. Round-3 table 2: Minimum altitude too.
 describe('external events set the boxes from the saved data, in one place', () => {
   it('type 150 in Start, Discard, then End to 150: Start shows 120, no message', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '150');
     await u.click(button('Discard changes'));
@@ -437,7 +454,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   });
 
   it('the message is derived: rejected 320 in Start, End to 300 (valid), End back to 320 (refused again)', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '320');
     expect(msg(START)).toBe('Start and End must differ.');
@@ -451,7 +468,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   });
 
   it('Height 50, bad 500 in Start, Discard: Start 120 and Height 42, no message', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '50');
     await type(u, START, '500');
@@ -463,7 +480,7 @@ describe('external events set the boxes from the saved data, in one place', () =
     ['Use sample horizon', 'a horizon-only draft'],
     ['Replace profile with sample', 'the whole profile'],
   ])('bad 500 in Start, %s (%s): Start 120, no message, first click', async (label) => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '500');
     await u.click(button(label));
@@ -471,7 +488,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   });
 
   it.each([['Use sample horizon'], ['Replace profile with sample']])('bad 95 in Height, %s: Height 42', async (label) => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '95');
     await u.click(button(label));
@@ -479,7 +496,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   });
 
   it('bad 500 in Start, switch to a site with the same start azimuth: 120, no message', async () => {
-    app(twoSites());
+    await app(twoSites());
     const u = user();
     await type(u, START, '500');
     await u.selectOptions(screen.getByLabelText('Site'), 'other');
@@ -487,7 +504,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   });
 
   it('an unsaved valid 150 is dropped by a site change', async () => {
-    app(twoSites());
+    await app(twoSites());
     const u = user();
     await type(u, START, '150');
     await u.selectOptions(screen.getByLabelText('Site'), 'other');
@@ -498,7 +515,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   it('Use sample horizon is an unsaved draft: Discard undoes it and nothing was stored', async () => {
     const p = sampleProfile();
     const saved = { ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 10, endAz: 100, heightDeg: 20 }] }] };
-    app(saved);
+    await app(saved);
     const u = user();
     expect(box(START).value).toBe('10');
     await u.click(button('Use sample horizon'));
@@ -515,7 +532,7 @@ describe('external events set the boxes from the saved data, in one place', () =
     ['Replace profile with sample'],
   ])('Minimum altitude has no stale draft after %s', (label) => {
     it('100 typed, then the button: 20, no message', async () => {
-      app();
+      await app();
       const u = user();
       await type(u, MINALT, '100');
       await u.click(button(label));
@@ -526,7 +543,7 @@ describe('external events set the boxes from the saved data, in one place', () =
   });
 
   it('Minimum altitude: 100 typed, then a site change: 20, no message', async () => {
-    app(twoSites());
+    await app(twoSites());
     const u = user();
     await type(u, MINALT, '100');
     await u.selectOptions(screen.getByLabelText('Site'), 'other');
@@ -546,7 +563,7 @@ describe('external events set the boxes from the saved data, in one place', () =
         });
       };
     }
-    app();
+    await app();
     const u = user();
     await type(u, MINALT, '100');
     await type(u, START, '500');
@@ -563,7 +580,7 @@ describe('external events set the boxes from the saved data, in one place', () =
 describe('the first click after bad typing works (no key pressed after the last digit)', () => {
   it('500 in Start, Use sample horizon / Replace profile with sample: reset at once', async () => {
     for (const label of ['Use sample horizon', 'Replace profile with sample']) {
-      app();
+      await app();
       const u = user();
       await type(u, START, '500');
       await u.click(button(label));
@@ -573,7 +590,7 @@ describe('the first click after bad typing works (no key pressed after the last 
   });
 
   it('95 in Height, Use sample horizon: 42, no message', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '95');
     await u.click(button('Use sample horizon'));
@@ -581,7 +598,7 @@ describe('the first click after bad typing works (no key pressed after the last 
   });
 
   it('Height 50, 500 in Start, Discard: 120 and 42, no message', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '50');
     await type(u, START, '500');
@@ -590,7 +607,7 @@ describe('the first click after bad typing works (no key pressed after the last 
   });
 
   it('Height 50, 500 in Start, Save horizon: nothing is stored; fix the box and one click stores it', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '50');
     await type(u, START, '500');
@@ -602,7 +619,7 @@ describe('the first click after bad typing works (no key pressed after the last 
   });
 
   it('Height 50, bad Minimum altitude, Save horizon: stores the horizon with the original Start and End', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, HEIGHT, '50');
     await type(u, MINALT, '100');
@@ -611,7 +628,7 @@ describe('the first click after bad typing works (no key pressed after the last 
   });
 
   it('500 in Start, Clear horizon: cleared at once, and the message is gone', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '500');
     await u.click(button('Clear horizon'));
@@ -622,7 +639,7 @@ describe('the first click after bad typing works (no key pressed after the last 
 
 describe('Save after bad typing, then reload', () => {
   it('bad typing stores nothing; Discard and Save keep the original arc; a reload shows it', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '500');
     expect(button('Save horizon').disabled).toBe(true);
@@ -631,7 +648,8 @@ describe('Save after bad typing, then reload', () => {
     await u.click(button('Save horizon'));
     expect(storedArc()).toEqual({ startAz: 120, endAz: 320, heightDeg: 50 });
     cleanup();
-    render(<PlannerApp initialDate="2026-12-15" />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
+    await ready();
     await waitFor(() => expect(box(HEIGHT).value).toBe('50'));
     expect(box(START).value).toBe('120');
     expect(box(END).value).toBe('320');
@@ -639,7 +657,7 @@ describe('Save after bad typing, then reload', () => {
   });
 
   it('an arc that crosses north saves and reloads', async () => {
-    app();
+    await app();
     const u = user();
     await type(u, START, '300');
     await type(u, END, '60');
@@ -647,7 +665,8 @@ describe('Save after bad typing, then reload', () => {
     await u.click(button('Save horizon'));
     expect(storedArc()).toEqual({ startAz: 300, endAz: 60, heightDeg: 35 });
     cleanup();
-    render(<PlannerApp initialDate="2026-12-15" />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
+    await ready();
     await waitFor(() => expect(box(START).value).toBe('300'));
     expect(box(END).value).toBe('60');
   });
@@ -657,38 +676,42 @@ describe('the target list plans from the saved arc until Save', () => {
   const rows = () => screen.getByTestId('target-table').textContent;
 
   it('typing 500 in Start, key by key, never changes the list or the Tonight summary', async () => {
-    app();
+    await app();
     const u = user();
     const before = [rows(), summary()];
     await u.clear(box(START));
     for (const key of '500') {
       await u.keyboard(key);
+      await ready();
       expect([rows(), summary()]).toEqual(before);
     }
   });
 
   it('a valid draft (Height 80) previews in the chart only; Save moves the list', async () => {
-    app();
+    await app();
     const u = user();
     const before = [rows(), summary()];
     await type(u, HEIGHT, '80');
+    await ready();
     expect([rows(), summary()]).toEqual(before);
     expect(screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent).toContain('up to 80 deg');
     await u.click(button('Save horizon'));
+    await ready();
     expect(rows()).not.toBe(before[0]);
     expect(summary()).toContain('80°');
   });
 
   it('Minimum altitude still applies live', async () => {
-    app();
+    await app();
     const u = user();
     const before = rows();
     await type(u, MINALT, '60');
+    await ready();
     expect(rows()).not.toBe(before);
   });
 
   it('a number written differently is the same arc: 0120 over a saved 120 is no change, and 045 saves as 45 and reads Saved', async () => {
-    app();
+    await app();
     const u = user();
     fireEvent.change(box(START), { target: { value: '0120' } });
     expect(box(START).value).toBe('0120');
@@ -709,7 +732,7 @@ describe('toasts clear themselves and never take a click', () => {
 
   it('the notice carries pointer-events-none up its chain and is gone after the timeout; Save then works first time', async () => {
     jest.useFakeTimers();
-    app();
+    await app();
     const u = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     await u.click(button('Replace profile with sample'));
     const toast = screen.getByRole('status');
@@ -731,7 +754,8 @@ describe('toasts clear themselves and never take a click', () => {
   it('an error toast also clears and is click-through', async () => {
     jest.useFakeTimers();
     window.localStorage.setItem(PROFILE_KEY, '{not json');
-    render(<PlannerApp initialDate="2026-12-15" />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
+    await ready();
     const alert = await screen.findByRole('alert');
     expect(alert.className).toContain('pointer-events-none');
     expect(alert.parentElement?.className).toContain('pointer-events-none');
@@ -744,7 +768,7 @@ describe('toasts clear themselves and never take a click', () => {
 
 describe('Clear horizon and Add a zone', () => {
   it('Clear is a draft: Discard brings the arc back; Save stores no zones', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Clear horizon'));
     expect(screen.getByTestId('horizon-not-set')).toBeTruthy();
@@ -771,14 +795,14 @@ describe('up to four zones', () => {
     if (text !== '') await u.type(el, text);
   }
 
-  it('starts with the sample as one zone and offers Add another zone', () => {
-    app();
+  it('starts with the sample as one zone and offers Add another zone', async () => {
+    await app();
     expect(zoneCount()).toBe(1);
     expect(button('Add another zone').disabled).toBe(false);
   });
 
   it('adds zones to four; the fifth cannot be added; each new zone is placed without overlap', async () => {
-    app();
+    await app();
     const u = user();
     for (let n = 2; n <= 4; n++) {
       await u.click(button('Add another zone'));
@@ -799,7 +823,7 @@ describe('up to four zones', () => {
   });
 
   it('overlapping zones show a clear error on both rows, disable Save, and store nothing', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Add another zone'));
     await typeInto(u, zbox(1, 'arc-start'), '200');
@@ -824,7 +848,7 @@ describe('up to four zones', () => {
   });
 
   it('a zone that only touches another is refused too', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Add another zone'));
     await typeInto(u, zbox(1, 'arc-start'), '320');
@@ -834,7 +858,7 @@ describe('up to four zones', () => {
   });
 
   it('each zone has the same field rules: a bad Start in zone 2 says so under zone 2 only', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Add another zone'));
     await typeInto(u, zbox(1, 'arc-start'), '500');
@@ -846,7 +870,7 @@ describe('up to four zones', () => {
   });
 
   it('edits zone 2 with the box and the slider, and saves it', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Add another zone'));
     const start = Number(zbox(1, 'arc-start').value);
@@ -864,7 +888,7 @@ describe('up to four zones', () => {
       ...p,
       sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 10, endAz: 40, heightDeg: 15 }, { startAz: 100, endAz: 160, heightDeg: 60 }, { startAz: 220, endAz: 300, heightDeg: 20 }] }],
     };
-    app(three);
+    await app(three);
     expect(zoneCount()).toBe(3);
     const u = user();
     await u.click(button('Remove zone 2'));
@@ -877,7 +901,7 @@ describe('up to four zones', () => {
   });
 
   it('removing every zone is the empty list; Add a zone starts one again', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Remove zone 1'));
     expect(zoneCount()).toBe(0);
@@ -890,7 +914,7 @@ describe('up to four zones', () => {
   });
 
   it('Discard brings back the saved zones, and Use sample horizon restores the single zone', async () => {
-    app();
+    await app();
     const u = user();
     await u.click(button('Add another zone'));
     await u.click(button('Add another zone'));
@@ -904,7 +928,7 @@ describe('up to four zones', () => {
   });
 
   it('the plan above the editor uses the saved zones only, and adding or removing a zone does not move it', async () => {
-    app();
+    await app();
     const u = user();
     const before = nightSummary();
     const list = () => document.querySelector('#horizon')!.previousElementSibling?.outerHTML;
@@ -918,7 +942,7 @@ describe('up to four zones', () => {
   });
 
   it('a saved two-zone horizon changes the plan, and a v2 profile in storage loads as one zone with the same plan', async () => {
-    const same = app();
+    const same = await app();
     const planBefore = document.body.textContent;
     same.unmount();
     cleanup();
@@ -928,7 +952,8 @@ describe('up to four zones', () => {
     v2.sites[0].blockedArc = v2.sites[0].blockedArcs[0];
     delete v2.sites[0].blockedArcs;
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(v2));
-    render(<PlannerApp initialDate="2026-12-15" />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
+    await ready();
     await waitFor(() => expect(zbox(0, 'arc-start').value).toBe('120'));
     expect(zoneCount()).toBe(1);
     expect(document.body.textContent).toBe(planBefore);

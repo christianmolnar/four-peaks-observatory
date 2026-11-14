@@ -17,6 +17,7 @@ jest.mock('@/planner/itinerary/suggest', () => {
   return { ...actual, suggestOrderSteps: jest.fn(actual.suggestOrderSteps) };
 });
 import { suggestOrderSteps } from '@/planner/itinerary/suggest';
+import { pageProps, ready } from './testkit';
 
 // Start time, altitude per slot, the night graph and the suggested order, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 
@@ -24,13 +25,21 @@ const withTrain = (id: string) => {
   const p = sampleProfile();
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
-const app = () => render(<PlannerApp initialDate="2026-12-15" initialProfile={withTrain('deep-c11-reducer-533')} />);
+const app = async () => {
+  const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={withTrain('deep-c11-reducer-533')} />);
+  await ready();
+  return r;
+};
 // Helsinki on 2027-04-20: a short night (00:55 to 01:41), where a start of 00:13 is before the night and shows the start note.
 const helsinki = () => {
   const p = withTrain('deep-c11-reducer-533');
   return { ...p, sites: [{ ...p.sites[0], id: 'helsinki', name: 'Helsinki', latitude: 60.17, longitude: 24.94, timeZone: 'Europe/Helsinki', blockedArcs: [{ startAz: 0, endAz: 1, heightDeg: 0 }] }] };
 };
-const helApp = () => render(<PlannerApp initialDate="2027-04-20" initialProfile={helsinki()} />);
+const helApp = async () => {
+  const r = render(<PlannerApp {...pageProps} initialDate="2027-04-20" initialProfile={helsinki()} />);
+  await ready();
+  return r;
+};
 const section = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
 const slots = () => within(section()).queryAllByRole('listitem').filter((li) => /^slot-s\d+$/.test(li.getAttribute('data-testid') ?? ''));
 const names = () => slots().map((li) => li.querySelector('h3')!.textContent!.replace(/^\d+\. /, ''));
@@ -50,9 +59,9 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('start time', () => {
-  it('an itinerary saved before the start time existed loads unchanged, with the start at the night start', () => {
+  it('an itinerary saved before the start time existed loads unchanged, with the start at the night start', async () => {
     seed(1, ['m31', 'ic405']);
-    app();
+    await app();
     expect(names()).toEqual(['Andromeda Galaxy', 'Flaming Star Nebula']);
     expect(startInput().value).toMatch(/^\d\d:\d\d$/);
     expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
@@ -62,7 +71,7 @@ describe('start time', () => {
   it('a later start moves every slot, is saved with the itinerary (version 2), and "Use night start" puts it back', async () => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
-    app();
+    await app();
     const before = times();
     const nightStart = startInput().value;
     fireEvent.change(startInput(), { target: { value: '23:00' } });
@@ -79,22 +88,22 @@ describe('start time', () => {
     expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBeNull();
   });
 
-  it('a start in the daytime after the night gives a plain message, no time for any slot, and no crash', () => {
+  it('a start in the daytime after the night gives a plain message, no time for any slot, and no crash', async () => {
     seed(2, ['m31', 'ic405'], '11:00');
-    app();
+    await app();
     expect(screen.getByTestId('itinerary-start-note').textContent).toMatch(/is after the night ends \(\d\d:\d\d\), so there is no time for any slot\./);
     expect(slots().map((li) => li.textContent)).toEqual([expect.stringContaining('no time'), expect.stringContaining('no time')]);
   });
 
-  it('a start before the night says imaging begins when the night starts', () => {
+  it('a start before the night says imaging begins when the night starts', async () => {
     seed(2, ['m31'], '15:00');
-    app();
+    await app();
     expect(screen.getByTestId('itinerary-start-note').textContent).toMatch(/^Your start time is before the night: imaging begins when the night starts, \d\d:\d\d\.$/);
   });
 
-  it('the start is a 24 h text box with a numeric keyboard; 21:30, 2130 and 9:05 are accepted, half a time and nonsense are not', () => {
+  it('the start is a 24 h text box with a numeric keyboard; 21:30, 2130 and 9:05 are accepted, half a time and nonsense are not', async () => {
     seed(1, ['m31']);
-    app();
+    await app();
     const input = startInput();
     expect(input.type).toBe('text');
     expect(input.inputMode).toBe('numeric');
@@ -119,9 +128,9 @@ describe('start time', () => {
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
   });
 
-  it('typing 2, 1, 3, 0 shows no error on the way; "905" works; a pasted " 21:30 " and full-width digits work; Enter and leaving the box show the error', () => {
+  it('typing 2, 1, 3, 0 shows no error on the way; "905" works; a pasted " 21:30 " and full-width digits work; Enter and leaving the box show the error', async () => {
     seed(1, ['m31']);
-    app();
+    await app();
     const input = startInput();
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
     input.focus();
@@ -207,7 +216,7 @@ describe('start time', () => {
   it('Helsinki, full-width ０１３０ key by key: nothing is saved, searched or noted on ０, ０１, ０１３; it is saved on the fourth digit', async () => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
-    helApp();
+    await helApp();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
     const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
@@ -234,7 +243,7 @@ describe('start time', () => {
   it('Helsinki, full-width ０１３０ then Backspace: the 3 digits left are held, nothing is saved, no start note; Enter settles it', async () => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
-    helApp();
+    await helApp();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
     const input = startInput();
@@ -259,7 +268,7 @@ describe('start time', () => {
   it('after "Use night start" the box text is selected, so the next digit replaces it', async () => {
     const user = userEvent.setup();
     seed(2, ['m31'], '21:30');
-    app();
+    await app();
     const input = startInput();
     await user.click(input);
     await user.click(within(section()).getByRole('button', { name: 'Use night start' }));
@@ -270,7 +279,7 @@ describe('start time', () => {
   it('Helsinki, 01:30 saved, select all, 0130, Backspace, Backspace, 4: the box shows 014 and the saved start stays 01:30, no note', async () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'ic405'], '01:30');
-    helApp();
+    await helApp();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
     const input = startInput();
@@ -286,7 +295,7 @@ describe('start time', () => {
   it('a 3-digit time left with Enter or by leaving the box is saved then; a pasted 3-digit time is saved at once', async () => {
     const user = userEvent.setup();
     seed(1, ['m31']);
-    app();
+    await app();
     const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
     const input = startInput();
     await user.clear(input);
@@ -307,7 +316,7 @@ describe('start time', () => {
   it('"Use night start" with a held 3-digit value never saves the held value', async () => {
     const user = userEvent.setup();
     seed(2, ['m31'], '21:30');
-    app();
+    await app();
     const input = startInput();
     await user.click(input);
     await user.keyboard('{Control>}a{/Control}905');
@@ -323,50 +332,50 @@ describe('start time', () => {
     expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
   });
 
-  it('the start box text is 16 px by class (iOS zooms in on anything smaller)', () => {
+  it('the start box text is 16 px by class (iOS zooms in on anything smaller)', async () => {
     seed(1, ['m31']);
-    app();
+    await app();
     expect(startInput().className).toMatch(/\btext-base\b/);
     expect(startInput().className).not.toMatch(/\btext-sm\b/);
   });
 
-  it('typing the default night start (shown without seconds) gives no warning', () => {
+  it('typing the default night start (shown without seconds) gives no warning', async () => {
     seed(1, ['m31']);
-    app();
+    await app();
     const nightStart = startInput().value;
     fireEvent.change(startInput(), { target: { value: nightStart } });
     expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
   });
 
-  it('with the start after the night the graph says why it is empty, inside the graph, and draws no start label', () => {
+  it('with the start after the night the graph says why it is empty, inside the graph, and draws no start label', async () => {
     seed(2, ['m31', 'ic405'], '11:00');
-    app();
+    await app();
     const g = within(section()).getByTestId('night-timeline');
     const why = within(g).getByTestId('timeline-empty').textContent!;
     expect(why).toMatch(/Your start, 11:00, is after the night ends \(\d\d:\d\d\), so no slot has time\./);
     expect(g.querySelector('svg')!.textContent).not.toMatch(/Start 11:00/);
   });
 
-  it('every button in the itinerary section is a 44 px target by its class', () => {
+  it('every button in the itinerary section is a 44 px target by its class', async () => {
     seed(2, ['m31', 'm42', 'planet-jupiter']);
-    app();
+    await app();
     const buttons = within(section()).getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(10);
     for (const b of buttons) expect(`${b.textContent}: ${b.className}`).toMatch(/min-h-11/);
   });
 
-  it('the start input is at least 44 px tall by its class and is labelled', () => {
+  it('the start input is at least 44 px tall by its class and is labelled', async () => {
     seed(1, ['m31']);
-    app();
+    await app();
     expect(startInput().className).toContain('min-h-11');
     expect(within(section()).getByRole('button', { name: 'Use night start' }).className).toContain('min-h-11');
   });
 });
 
 describe('altitude in each slot', () => {
-  it('shows altitude with direction at the start, in the middle and at the end, and the trend', () => {
+  it('shows altitude with direction at the start, in the middle and at the end, and the trend', async () => {
     seed(2, ['m31', 'planet-jupiter']);
-    app();
+    await app();
     for (let k = 0; k < 2; k++) {
       expect(screen.getByTestId(`slot-altitude-${k}`).textContent).toMatch(/^Altitude: \d+° [NSEW]{1,2} at the start, \d+° [NSEW]{1,2} in the middle, \d+° [NSEW]{1,2} at the end; (rising|peaks in this slot|past peak, falling)\.$/);
     }
@@ -374,9 +383,9 @@ describe('altitude in each slot', () => {
 });
 
 describe('night graph', () => {
-  it('is on the page with one numbered segment per slot and its numbers collapsed', () => {
+  it('is on the page with one numbered segment per slot and its numbers collapsed', async () => {
     seed(2, ['m31', 'm42', 'm33']);
-    app();
+    await app();
     const g = within(section()).getByTestId('night-timeline');
     expect(g.querySelectorAll('svg polyline[stroke-width="5"]')).toHaveLength(3);
     expect((within(g).getByTestId('timeline-numbers') as HTMLDetailsElement).open).toBe(false);
@@ -397,7 +406,7 @@ describe('suggested order', () => {
 
   it('says "Looking for a better order..." while an 8 slot search runs, then gives the answer, and says "the most light" only for an exhaustive search', async () => {
     seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101', 'ngc7000', 'm45']);
-    app();
+    await app();
     const advice = screen.getByTestId('order-advice');
     await waitFor(() => expect(within(advice).queryByTestId('order-advice-searching')).toBeNull(), { timeout: 20000 });
     expect(advice.textContent).not.toMatch(/Looking for/);
@@ -410,7 +419,7 @@ describe('suggested order', () => {
   it('the advice names the same Light as the totals line, now and after Use this order, and a note does not search again', async () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'm42', 'planet-jupiter']);
-    app();
+    await app();
     const totalsLight = () => Number(/^Light (\d+) min/.exec(screen.getByTestId('itinerary-totals').textContent!)![1]);
     const before = totalsLight();
     const advice = screen.getByTestId('order-advice');
@@ -429,16 +438,16 @@ describe('suggested order', () => {
     expect(lightMinutes).toBeDefined();
   });
 
-  it('needs two slots', () => {
+  it('needs two slots', async () => {
     seed(2, ['m31']);
-    app();
+    await app();
     expect(screen.getByTestId('order-advice').textContent).toMatch(/Add two or more targets/);
   });
 
   it('keeps the order until the button is pressed, then applies it, and Up and Down undo it', async () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'm42', 'm33', 'ic405']);
-    app();
+    await app();
     const advice = () => screen.getByTestId('order-advice');
     await waitFor(() => expect(within(advice()).queryByTestId('order-advice-searching')).toBeNull());
     const before = names();

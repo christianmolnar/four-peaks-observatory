@@ -5,6 +5,7 @@ import { render, screen, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { pageProps } from './testkit';
 
 // The Planets section, driven with real key events on the whole page. The planetary train (C11 + ASI676MC) is the sample's first train.
 
@@ -12,7 +13,7 @@ const withTrain = (id: string) => {
   const p = sampleProfile();
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
-const app = (profile = sampleProfile()) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
+const app = (profile = sampleProfile()) => render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
 const section = () => screen.getByRole('region', { name: 'PLANETS' });
 const radios = () => within(section()).getAllByRole('radio') as HTMLInputElement[];
 const radio = (name: string) => radios().find((r) => r.value === name)!;

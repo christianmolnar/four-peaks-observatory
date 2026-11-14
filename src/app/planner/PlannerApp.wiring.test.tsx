@@ -5,6 +5,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { defaultDateForProfile, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { pageProps, ready } from './testkit';
 
 // 2026-12-20 05:00 UTC = 22:00 on Dec 19 in Phoenix, already 15:00 on Dec 20 in Sydney.
 const NOW = Date.UTC(2026, 11, 20, 5, 0);
@@ -53,13 +54,15 @@ afterEach(() => {
 describe('default date', () => {
   it('comes from the profile site, not the browser: Sydney site, Phoenix browser', async () => {
     phoenixClock();
-    render(<PlannerApp initialProfile={sydney()} />);
+    render(<PlannerApp {...pageProps} initialProfile={sydney()} />);
+    await ready();
     await waitFor(() => expect(date()).toBe('2026-12-20'));
   });
 
   it('the same clock at a Phoenix site gives Dec 19', async () => {
     phoenixClock();
-    render(<PlannerApp initialProfile={sampleProfile()} />);
+    render(<PlannerApp {...pageProps} initialProfile={sampleProfile()} />);
+    await ready();
     await waitFor(() => expect(date()).toBe('2026-12-19'));
   });
 
@@ -73,7 +76,8 @@ describe('default date', () => {
 
   it('importing a profile refreshes the date from the new profile\'s site', async () => {
     phoenixClock();
-    render(<PlannerApp initialProfile={sampleProfile()} />);
+    render(<PlannerApp {...pageProps} initialProfile={sampleProfile()} />);
+    await ready();
     await waitFor(() => expect(date()).toBe('2026-12-19'));
     const u = userEvent.setup();
     await u.upload(screen.getByLabelText('Import profile (JSON)'), jsonFile(sydney()));
@@ -87,14 +91,16 @@ describe('storage that cannot be read or written', () => {
     jest.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
       throw new DOMException('denied', 'SecurityError');
     });
-    render(<PlannerApp />);
+    render(<PlannerApp {...pageProps} />);
+    await ready();
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/browser storage is blocked or unavailable/));
     expect(screen.getByTestId('target-table')).toBeTruthy();
     expect((screen.getByRole('spinbutton', { name: /^Start azimuth/ }) as HTMLInputElement).value).toBe('120');
   });
 
   it('importing with storage that cannot be written still loads the profile and says it is not saved', async () => {
-    render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    await ready();
     jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('denied', 'SecurityError');
     });
@@ -106,7 +112,8 @@ describe('storage that cannot be read or written', () => {
   });
 
   it('a file over the size limit is refused from its size, without being read', async () => {
-    render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    await ready();
     const big = jsonFile(sydney());
     Object.defineProperty(big, 'size', { value: 500 * 1024 * 1024 });
     const text = jest.spyOn(big, 'text');
@@ -117,7 +124,8 @@ describe('storage that cannot be read or written', () => {
   });
 
   it('ticking captured with storage that cannot be written says the tick is not saved', async () => {
-    render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    await ready();
     jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('denied', 'SecurityError');
     });
@@ -136,7 +144,8 @@ describe('CSV export', () => {
     };
     (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {};
     jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    render(<PlannerApp initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    await ready();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Export CSV' }));
     expect(blob).toBeDefined();
     const text = await (blob as Blob).text();

@@ -4,8 +4,9 @@
 import { render, screen, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
-import { sampleProfile } from '@/planner/state';
+import { MY_PLAN_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
+import { pageProps, ready } from './testkit';
 
 // The Night itinerary, driven with real key events on the whole page (C11 + 0.7x reducer + ASI533MC, the evening of 2026-12-15).
 
@@ -13,7 +14,11 @@ const withTrain = (id: string) => {
   const p = sampleProfile();
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
-const app = (profile = withTrain('deep-c11-reducer-533')) => render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} />);
+const app = async (profile = withTrain('deep-c11-reducer-533')) => {
+  const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
+  await ready();
+  return r;
+};
 const section = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
 const slots = () => within(section()).queryAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('slot-') && !li.getAttribute('data-testid')!.startsWith('slot-time'));
 const names = () => slots().map((li) => li.querySelector('h3')!.textContent!.replace(/^\d+\. /, ''));
@@ -22,7 +27,9 @@ const times = () => slots().map((li) => /(\d\d:\d\d) to (\d\d:\d\d)/.exec(li.tex
 const chips = (li: HTMLElement) => within(li).getByTestId(/^slot-chips-/).textContent ?? '';
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 
+/** Picks a target the way a person does: a planet from the list, a catalog object by searching for it. */
 async function add(user: ReturnType<typeof userEvent.setup>, id: string) {
+  if (!id.startsWith('planet-')) await user.type(screen.getByLabelText('Search the catalog to add'), id);
   await user.selectOptions(screen.getByLabelText('Target to add'), id);
   const button = within(section()).getByRole('button', { name: 'Add to itinerary' });
   button.focus();
@@ -45,7 +52,7 @@ afterEach(cleanup);
 describe('Night itinerary', () => {
   it('starts empty with an instruction, and adds a slot from the keyboard with times labelled estimate', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     expect(within(section()).getByText(/Choose a target above and add it\. Reorder with the Up and Down buttons\./)).toBeTruthy();
     await add(user, 'm31');
     expect(names()).toEqual(['Andromeda Galaxy']);
@@ -59,7 +66,7 @@ describe('Night itinerary', () => {
   it('Down and Up reorder with the keyboard, start times follow, and focus stays on the button that was pressed', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');
-    app();
+    await app();
     expect(names()).toEqual(['Andromeda Galaxy', 'Flaming Star Nebula']);
     const before = times();
     const down = within(section()).getByRole('button', { name: 'Move Andromeda Galaxy down' });
@@ -86,7 +93,7 @@ describe('Night itinerary', () => {
   it('Up on the first slot and Down on the last stay focusable but are marked disabled, and do nothing', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');
-    app();
+    await app();
     const up = within(section()).getByRole('button', { name: 'Move Andromeda Galaxy up' });
     expect(up.getAttribute('aria-disabled')).toBe('true');
     up.focus();
@@ -100,7 +107,7 @@ describe('Night itinerary', () => {
   it('a slot that starts late in a short window gives a visible overlap warning, in the slot and in the details', async () => {
     const user = userEvent.setup();
     seed('m42', 'm33');
-    app();
+    await app();
     const second = slots()[1];
     expect(chips(second)).toMatch(/Warning: overlaps window/);
     expect(chips(second)).toMatch(/Note: cut short/);
@@ -119,7 +126,7 @@ describe('Night itinerary', () => {
   it('a short first window is skipped for a longer later one, and the slot says so (Andromeda, then Orion)', async () => {
     const user = userEvent.setup();
     seed('m31', 'm42');
-    app();
+    await app();
     const second = slots()[1];
     expect(chips(second)).toMatch(/Note: waits/);
     expect(chips(second)).not.toMatch(/overlaps window/);
@@ -127,12 +134,12 @@ describe('Night itinerary', () => {
     expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 27 min of light\)/).length).toBeGreaterThan(0);
   });
 
-  it('a slot that never runs shows "No imaging is planned" and no "Before it" line', () => {
+  it('a slot that never runs shows "No imaging is planned" and no "Before it" line', async () => {
     seed('m31', 'ic405', 'planet-saturn'); // Saturn's window has closed before its turn when IC 405 is deep
     const p = JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!);
     p.items[1].mode = 'deep';
     window.localStorage.setItem(ITINERARY_KEY, JSON.stringify(p));
-    app();
+    await app();
     const dead = slots()[2];
     expect(dead.textContent).toMatch(/No imaging is planned for this slot\./);
     expect(dead.textContent).not.toMatch(/Before it/);
@@ -142,7 +149,7 @@ describe('Night itinerary', () => {
   it('a different filter on the second slot adds the swap and a refocus to the gap and says so', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');
-    app();
+    await app();
     const gap = () => toMin(times()[1]![0]) - toMin(times()[0]![1]);
     expect(gap()).toBe(3);
     await user.selectOptions(within(slots()[1]).getByLabelText('Filter for Flaming Star Nebula'), 'zwo-duo-band');
@@ -156,7 +163,7 @@ describe('Night itinerary', () => {
 
   it('is saved with a version and comes back after a reload, notes and filter included', async () => {
     const user = userEvent.setup();
-    const { unmount } = app();
+    const { unmount } = await app();
     await add(user, 'm31');
     await user.selectOptions(within(slots()[0]).getByLabelText('Filter for Andromeda Galaxy'), 'zwo-duo-band');
     await user.type(within(slots()[0]).getByLabelText('Note for Andromeda Galaxy'), 'frame wide');
@@ -165,7 +172,7 @@ describe('Night itinerary', () => {
     expect(stored.items).toHaveLength(1);
     expect(stored.items[0]).toMatchObject({ targetId: 'm31', filterId: 'zwo-duo-band', note: 'frame wide', mode: 'balanced' });
     unmount();
-    app();
+    await app();
     expect(names()).toEqual(['Andromeda Galaxy']);
     expect((within(slots()[0]).getByLabelText('Note for Andromeda Galaxy') as HTMLInputElement).value).toBe('frame wide');
     expect((within(slots()[0]).getByLabelText('Filter for Andromeda Galaxy') as HTMLSelectElement).value).toBe('zwo-duo-band');
@@ -175,7 +182,7 @@ describe('Night itinerary', () => {
     const user = userEvent.setup();
     const bad = JSON.stringify({ version: 1, items: [{ id: 'a', targetId: 'm31', trainId: 'x', filterId: null, mode: 'fast', note: '' }] });
     window.localStorage.setItem(ITINERARY_KEY, bad);
-    app();
+    await app();
     const alert = within(section()).getByRole('alert');
     expect(alert.textContent).toBe('Your saved itinerary could not be read, so the page started with an empty one. The saved copy stays in this browser until you change the itinerary.');
     expect(alert.textContent).not.toMatch(/\$|items\[|must be|JSON/);
@@ -192,7 +199,7 @@ describe('Night itinerary', () => {
       ITINERARY_KEY,
       JSON.stringify({ version: 1, items: [{ id: 'a', targetId: 'm31', trainId: 'deep-c11-reducer-533', filterId: 'removed-filter', mode: 'balanced', note: '' }, { id: 'b', targetId: 'ic405', trainId: 'deep-c11-reducer-533', filterId: null, mode: 'quick', note: '' }] }),
     );
-    app();
+    await app();
     expect(chips(slots()[0])).toMatch(/Warning: problem/);
     expect((within(slots()[0]).getByLabelText('Filter for Andromeda Galaxy') as HTMLSelectElement).value).toBe('removed-filter');
     expect(slots()[1].textContent).toMatch(/Light: \d+ s x \d+ subs/);
@@ -201,7 +208,7 @@ describe('Night itinerary', () => {
   it('Remove drops the slot and puts focus back on the Add box', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');
-    app();
+    await app();
     const remove = within(section()).getByRole('button', { name: 'Remove Andromeda Galaxy' });
     remove.focus();
     await user.keyboard('{Enter}');
@@ -210,8 +217,8 @@ describe('Night itinerary', () => {
     expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).items.map((i: { targetId: string }) => i.targetId)).toEqual(['ic405']);
   });
 
-  it('on a smart scope train the Add button is off and the reason is given', () => {
-    app(withTrain('smart-seestar-s50'));
+  it('on a smart scope train the Add button is off and the reason is given', async () => {
+    await app(withTrain('smart-seestar-s50'));
     expect(within(section()).getByRole('button', { name: 'Add to itinerary' })).toHaveProperty('disabled', true);
     expect(screen.getByTestId('itinerary-add-note').textContent).toMatch(/Pick an optical train at the top of the page/);
   });
@@ -219,8 +226,9 @@ describe('Night itinerary', () => {
   it('holds at most eight slots and says so', async () => {
     // Seven slots come from saved state; only the eighth is added by key, so the test renders the page twice, not nine times.
     seed(...Array.from({ length: 7 }, () => 'm31'));
+    window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['m31'] })); // my plan's first target is the default choice
     const user = userEvent.setup();
-    app();
+    await app();
     expect(names()).toHaveLength(7);
     expect(within(section()).getByRole('button', { name: 'Add to itinerary' })).toHaveProperty('disabled', false);
     await add(user, 'm31');
@@ -232,7 +240,7 @@ describe('Night itinerary', () => {
 
   it('a planet slot that crosses the meridian shows the flip note and takes the flip minutes (Neptune)', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     await add(user, 'planet-neptune');
     const li = slots()[0];
     expect(chips(li)).toMatch(/Note: meridian flip/);
@@ -245,7 +253,7 @@ describe('Night itinerary', () => {
 
   it('the Moon is offered last in the list, can be added, and has no flip', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     const options = within(screen.getByLabelText('Target to add')).getAllByRole('option');
     expect(options[options.length - 1].textContent).toMatch(/^Moon: \d+ min clear$/);
     expect(options.some((o) => /^Neptune \(planet\)/.test(o.textContent ?? ''))).toBe(true);
@@ -257,7 +265,7 @@ describe('Night itinerary', () => {
 
   it('a planet slot is a short block with no subs', async () => {
     const user = userEvent.setup();
-    app();
+    await app();
     await add(user, 'planet-saturn');
     expect(slots()[0].textContent).toMatch(/Planet: short video clips, about 20 min \(estimate\)\. See the Planets checklist\./);
   });
