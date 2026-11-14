@@ -1,0 +1,18 @@
+{
+  "license": "CC0-1.0",
+  "author": "Four Peaks Observatory",
+  "about": "Corrections to names that OpenNGC v20260501 gets wrong, applied on top of the bundled extract. `name` replaces the object's name (the old one stays as an alias unless dropped); `dropNames` removes names and aliases. Each entry says why. See docs/reference/planner-catalog.md.",
+  "entries": [
+    {
+      "id": "ic434",
+      "name": "IC 434",
+      "dropNames": ["Flame Nebula"],
+      "reason": "OpenNGC names IC 434 the Flame Nebula. IC 434 is the emission strip behind the Horsehead (its own OpenNGC note says so); the Flame Nebula is NGC 2024."
+    },
+    {
+      "id": "ngc2024",
+      "name": "Flame Nebula",
+      "reason": "NGC 2024 is the Flame Nebula; OpenNGC leaves it unnamed (see IC 434)."
+    }
+  ]
+}

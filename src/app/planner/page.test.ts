@@ -14,3 +14,9 @@ describe('planner page is static', () => {
     expect(src).not.toMatch(/async\s+function\s+PlannerPage/);
   });
 });
+
+describe('planner page credits', () => {
+  it('shows the OpenNGC attribution', () => {
+    expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).toContain('<CatalogCredits />');
+  });
+});

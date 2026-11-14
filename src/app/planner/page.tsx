@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import SiteLayout from '@/components/SiteLayout';
 import PlannerApp from './PlannerApp';
 import AuthControl from './AuthControl';
+import CatalogCredits from './CatalogCredits';
 
 // Static on purpose: the page reads no cookie. The sign-in control asks /api/planner/session after load.
 
@@ -22,6 +23,7 @@ export default function PlannerPage() {
               <AuthControl />
             </div>
             <PlannerApp />
+            <CatalogCredits />
           </div>
         </main>
       </div>
