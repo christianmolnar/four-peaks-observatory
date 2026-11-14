@@ -6,26 +6,6 @@ import { starterTargets } from '../catalog'
 
 export const MAX_BODY_BYTES = 64 * 1024
 export const MAX_HORIZON_POINTS = 360
-/** Per owner id, per rolling hour. In memory: it resets on a cold start and is per server instance, so it is a brake on mistakes, not a hard quota. */
-export const RATE_LIMIT = 10
-export const RATE_WINDOW_MS = 60 * 60 * 1000
-
-const calls = new Map<string, number[]>()
-
-/** Records a call for `id` and returns 0, or returns the seconds until the oldest call in the window expires when the limit is reached. */
-export function takeRateSlot(id: string, now = Date.now()): number {
-  const recent = (calls.get(id) ?? []).filter((t) => now - t < RATE_WINDOW_MS)
-  if (recent.length >= RATE_LIMIT) {
-    calls.set(id, recent)
-    return Math.max(1, Math.ceil((recent[0] + RATE_WINDOW_MS - now) / 1000))
-  }
-  recent.push(now)
-  calls.set(id, recent)
-  return 0
-}
-export function resetRateLimit(): void {
-  calls.clear()
-}
 
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)

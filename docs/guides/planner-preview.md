@@ -1,6 +1,6 @@
 # Imaging planner preview (`/planner`)
 
-Reachable by URL only; not in the header, `noindex`. All state is in the browser (localStorage keys `fpo-planner-profile-v1`, `fpo-planner-captured-v1`, `fpo-planner-itinerary-v1`). The planner itself has no server code; the optional GitHub sign-in does (see Sign-in and owner gate).
+Reachable by URL only; not in the header, `noindex`. All state is in the browser (localStorage keys `fpo-planner-profile-v1`, `fpo-planner-captured-v1`, `fpo-planner-itinerary-v1`). The planner itself has no server code; the optional Google sign-in does (see Sign-in and owner gate).
 
 ## Manual check
 
@@ -95,9 +95,9 @@ Checked by mutant: the old warnings reserve (`min-h`, no fixed height) fails the
 
 ## Sign-in and owner gate
 
-- Signing in (GitHub, Auth.js, JWT) is optional. Every visitor gets the free planner; only owners get anything that costs money.
+- Signing in (Google, Auth.js, JWT) is optional. Every visitor gets the planner and the AI night plan with guest caps; owners (allowlisted Google accounts) are uncapped. See `planner-ai-night-plan.md`.
 - `/planner` is prerendered. The sign-in control asks `/api/planner/session` after load (200 always, `private, no-store`: `{signedIn:false, configured}` signed out, or `owner` and `login`). The control is a fixed 44 px row; `scripts/planner-auth-shift-check.py` proves the `h1` does not move.
-- Owners are numeric GitHub ids in `PLANNER_OWNER_GITHUB_ID` (comma list). Logins are not matched: a login can be renamed and claimed by someone else. Unset, empty or non-numeric entries mean nobody.
-- **Every route that costs money (model prompt box, AI lookup) must call `requireOwner()` first** (`src/lib/planner-auth/require-user.ts`): 401 signed out, 403 signed in but not an owner. `requireUser()` alone is not enough.
-- Env: `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_URL` (or `AUTH_TRUST_HOST=true` off Vercel), `PLANNER_OWNER_GITHUB_ID`.
-- With JS off the button posts without a CSRF token; Auth.js redirects to its own sign-in page, where the GitHub button works.
+- Owners are Google account ids (`sub`) in `PLANNER_OWNER_GOOGLE_SUB` (comma list), or verified emails in `PLANNER_OWNER_GOOGLE_EMAIL`. Display names are never matched. Unset, empty or malformed entries mean nobody.
+- A route that must stay owner-only calls `requireOwner()` first (`src/lib/planner-auth/require-user.ts`): 401 signed out, 403 signed in but not an owner. A route open to guests with caps (the AI night plan) uses `identifyCaller()` and must count every paid call. `requireUser()` alone is not a gate.
+- Env: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL` (or `AUTH_TRUST_HOST=true` off Vercel), `PLANNER_OWNER_GOOGLE_SUB`, `PLANNER_OWNER_GOOGLE_EMAIL`. Google OAuth redirect URI: `<AUTH_URL>/api/auth/callback/google`.
+- With JS off the button posts without a CSRF token; Auth.js redirects to its own sign-in page, where the Google button works.

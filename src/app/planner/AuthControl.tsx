@@ -32,7 +32,7 @@ export default function AuthControl() {
 
   const onSignIn = (e: FormEvent) => {
     e.preventDefault();
-    void signIn('github');
+    void signIn('google');
   };
 
   return (
@@ -45,7 +45,7 @@ export default function AuthControl() {
         <form method="get" action="/api/auth/signin" onSubmit={onSignIn}>
           <input type="hidden" name="callbackUrl" value="/planner" />
           <button type="submit" className={btn}>
-            Sign in with GitHub
+            Sign in with Google
           </button>
         </form>
       )}

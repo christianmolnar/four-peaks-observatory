@@ -25,13 +25,13 @@ describe('AuthControl', () => {
     const form = container.querySelector('form') as HTMLFormElement;
     expect(form.getAttribute('method')).toBe('get');
     expect(form.getAttribute('action')).toBe('/api/auth/signin');
-    expect(screen.getByRole('button', { name: /sign in with github/i }).getAttribute('type')).toBe('submit');
+    expect(screen.getByRole('button', { name: /sign in with google/i }).getAttribute('type')).toBe('submit');
   });
   it('signed out: submitting calls the Auth.js client sign-in', async () => {
     mockSession(200, { signedIn: false, configured: true });
     render(<AuthControl />);
-    fireEvent.click(screen.getByRole('button', { name: /sign in with github/i }));
-    expect(mockSignIn).toHaveBeenCalledWith('github');
+    fireEvent.click(screen.getByRole('button', { name: /sign in with google/i }));
+    expect(mockSignIn).toHaveBeenCalledWith('google');
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
   });
   it('not configured: says so and offers no button', async () => {
