@@ -97,6 +97,14 @@ describe('TargetList rows on a phone and at md', () => {
     expect(why.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 
+  it('a phone row has no vertical padding (about 64 px, measured in the browser probe); md keeps 6 px', () => {
+    mount(many(1));
+    const cls = screen.getAllByRole('listitem')[0].className.split(' ');
+    expect(cls).toContain('py-0');
+    expect(cls).toContain('md:py-1.5');
+    expect(cls).not.toContain('py-0.5');
+  });
+
   it('the column titles stick below the page header and the control strip', () => {
     const { container } = mount(many(1));
     const head = container.querySelector('[aria-hidden="true"]')!;

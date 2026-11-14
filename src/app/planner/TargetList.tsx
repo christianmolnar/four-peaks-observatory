@@ -82,7 +82,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
           const nameId = `${idPrefix}-name-${e.id}`;
           const detailId = `${idPrefix}-detail-${e.id}`;
           return (
-            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-white/10 px-1 py-0.5 md:py-1.5 ${isOpen ? 'bg-sky-400/10' : ''}`}>
+            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-white/10 px-1 py-0 md:py-1.5 ${isOpen ? 'bg-sky-400/10' : ''}`}>
               <div className="col-start-1 min-w-0 md:col-auto">
                 <button
                   type="button"

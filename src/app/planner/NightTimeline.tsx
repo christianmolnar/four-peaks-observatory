@@ -7,6 +7,7 @@ import type { TrackPoint } from '@/planner/plan';
 import type { HorizonPoint } from '@/planner/horizon';
 import { TREND_TEXT, makeScale, timelineGeometry } from '@/planner/itinerary';
 import type { ItineraryPlan, SlotInput } from '@/planner/itinerary';
+import DisclosureChevron from './DisclosureChevron';
 
 /** One colour per slot number; the slot is also named by its number on the line and in the key, so colour is never the only cue. */
 const COLOURS = ['#7dd3fc', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#a3e635', '#22d3ee', '#e879f9'];
@@ -274,8 +275,8 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
         </ol>
       )}
 
-      <details className="mt-2" data-testid="timeline-numbers">
-        <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">Altitude numbers as a table</summary>
+      <details className="group mt-2" data-testid="timeline-numbers">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
         <table className="mt-1 w-full table-fixed text-left text-xs font-normal text-white/90">
           <caption className="sr-only">Altitude and compass direction at the start, middle and end of each slot</caption>
           <thead>

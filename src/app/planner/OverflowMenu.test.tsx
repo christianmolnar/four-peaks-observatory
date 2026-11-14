@@ -17,6 +17,15 @@ const trigger = () => screen.getByRole('button', { name: /^More/ });
 afterEach(cleanup);
 
 describe('the overflow menu', () => {
+  it('is anchored to the left of its button on a phone and to the right from md, so it stays on screen (browser probe checks the box)', async () => {
+    const u = userEvent.setup();
+    mount();
+    await u.click(trigger());
+    const cls = screen.getByRole('menu').className.split(' ');
+    expect(cls).toEqual(expect.arrayContaining(['left-0', 'md:left-auto', 'md:right-0']));
+    expect(cls).not.toContain('right-0');
+  });
+
   it('is closed until opened, and the button says it has a menu', () => {
     mount();
     expect(screen.queryByRole('menu')).toBeNull();

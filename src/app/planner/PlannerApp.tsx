@@ -192,7 +192,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The sticky strip: closed it is one line (date, site, train); open it holds the controls. The page's fixed header and the strip
   // are measured so the column titles and anchors stop below them.
   const [controlsOpen, setControlsOpen] = useState(false);
-  const stripRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLElement>(null);
   const [stickyTop, setStickyTop] = useState({ nav: 0, strip: 0 });
   // "Change or find a site": a count that the site editor answers by opening its Site list with the Find box focused.
   const [findSiteTick, setFindSiteTick] = useState(0);
@@ -832,9 +832,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
       </div>
 
-      <section aria-labelledby="controls-heading" className="sticky top-[var(--planner-nav,0px)] z-30 rounded-lg border border-white/10 bg-black/95 backdrop-blur">
+      <section ref={stripRef} aria-labelledby="controls-heading" className="sticky top-[var(--planner-nav,0px)] z-30 rounded-lg border border-white/10 bg-black/95 backdrop-blur">
         <h2 id="controls-heading" className="sr-only">{nightWord.toUpperCase()}</h2>
-        <div ref={stripRef} className="flex items-center gap-2 px-2 sm:px-4">
+        <div className="flex items-center gap-2 px-2 sm:px-4">
           <button
             type="button"
             aria-expanded={controlsOpen}

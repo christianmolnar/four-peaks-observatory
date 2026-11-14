@@ -14,6 +14,7 @@ import type { ExposureMode, ExposureTarget, ExposureWarning, ModeEstimate } from
 import type { OpticalTrain } from '@/planner/optics';
 import type { PlanEntry } from '@/planner/plan';
 import type { ProfileCamera, ProfileFilter } from '@/planner/profile';
+import DisclosureChevron from './DisclosureChevron';
 
 export interface ExposurePanelProps {
   entry: PlanEntry;
@@ -127,8 +128,8 @@ function CoreAdvice({ name, advice }: { name: string; advice: ReturnType<typeof 
         )}
       </p>
       {advice ? (
-        <details className="mt-1">
-          <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">How to blend</summary>
+        <details className="group mt-1">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm"><DisclosureChevron />How to blend</summary>
           <ul className="list-disc space-y-1 pl-5 text-white/80 font-normal text-sm">
             <li>Stack the long and the short subs as two separate stacks.</li>
             <li>Blend with a mask that takes the short stack where the long one nears clipping.</li>

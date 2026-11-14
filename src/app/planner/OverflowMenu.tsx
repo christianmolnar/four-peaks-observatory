@@ -72,7 +72,7 @@ export default function OverflowMenu({ label, items }: { label: string; items: r
           id={id}
           role="menu"
           aria-label={label}
-          className="absolute right-0 z-40 mt-1 min-w-48 rounded border border-white/30 bg-slate-900 py-1 shadow-lg"
+          className="absolute left-0 z-40 md:left-auto md:right-0 mt-1 min-w-48 rounded border border-white/30 bg-slate-900 py-1 shadow-lg"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();

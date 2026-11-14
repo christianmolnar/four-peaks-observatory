@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { compass } from '@/planner/plan';
 import type { PlanEntry, TrackPoint } from '@/planner/plan';
 import type { AstronomicalNight } from '@/planner/astro';
+import DisclosureChevron from './DisclosureChevron';
 
 /** Width used until the box is measured (and where nothing can be measured). */
 const DEFAULT_WIDTH = 680;
@@ -120,8 +121,8 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         <li><span aria-hidden="true" className="inline-block w-4 h-3 bg-indigo-500/40 align-middle mr-1" />Astronomical night</li>
       </ul>
       <p className="text-white/90 font-normal text-sm mt-2">{summary}</p>
-      <details className="mt-2">
-        <summary className="flex min-h-11 cursor-pointer items-center text-white/90 font-normal text-sm">Altitude as a table</summary>
+      <details className="group mt-2">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm"><DisclosureChevron />Altitude as a table</summary>
         <table className="mt-2 text-sm font-normal text-white/90">
           <caption className="sr-only">{`Altitude of ${entry.name} every 30 minutes`}</caption>
           <thead>

@@ -89,6 +89,23 @@ describe('the sticky control strip', () => {
     expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--planner-top')).toMatch(/^\d+px$/);
     nav.remove();
   });
+
+  it('measures the whole strip section, so --planner-top has no overlap with the column titles', async () => {
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    const spy = jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.tagName === 'SECTION' && this.getAttribute('aria-labelledby') === 'controls-heading') return { height: 46 } as DOMRect;
+      if (this.tagName === 'DIV' && this.parentElement?.getAttribute('aria-labelledby') === 'controls-heading') return { height: 44 } as DOMRect;
+      return real.call(this);
+    });
+    const nav = document.createElement('nav');
+    nav.className = 'fixed';
+    nav.getBoundingClientRect = () => ({ height: 100 }) as DOMRect;
+    document.body.appendChild(nav);
+    const { container } = await app();
+    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--planner-top')).toBe('146px');
+    nav.remove();
+    spy.mockRestore();
+  });
 });
 
 describe('dates in words and quick dates', () => {
@@ -164,6 +181,21 @@ describe('Change or find a site', () => {
     site.open = true;
     fireEvent(site, new Event('toggle'));
     expect(site.querySelector('summary [aria-hidden="true"]')!.textContent).toBe('▾');
+  });
+});
+
+describe('the disclosures inside a row', () => {
+  it('Altitude as a table and the others carry a chevron that turns with the open state', async () => {
+    await app();
+    fireEvent.click(listRows()[0].querySelector('button[aria-expanded]')!);
+    const summaries = [...document.querySelectorAll('details > summary')].filter((s) => /^(Altitude as a table|Altitude numbers as a table|How to blend)$/.test(s.textContent?.replace('▸', '').trim() ?? ''));
+    expect(summaries.length).toBeGreaterThanOrEqual(2);
+    for (const s of summaries) {
+      const chev = s.querySelector('[data-disclosure-chevron]')!;
+      expect(chev.textContent).toBe('▸');
+      expect(chev.className).toContain('group-open:rotate-90');
+      expect(s.parentElement!.className.split(' ')).toContain('group');
+    }
   });
 });
 
