@@ -412,21 +412,20 @@ function sampleFixed(ctx: NightContext, raHours: number, decDeg: number): Sample
   const { sky, horizon, minAltitude } = ctx;
   const p = skyPoint(raHours, decDeg);
   const n = sky.times.length;
-  const alts = new Array<number>(n);
-  const azs = new Array<number>(n);
+  const alts = new Float64Array(n);
+  const azs = new Float64Array(n);
+  sky.fill(p, alts, azs);
   // Peak: highest sample while usable, else highest of the night; the first of equals.
   let usable = -1;
   let usableAlt = -Infinity;
   let any = -1;
   let anyAlt = -Infinity;
   for (let k = 0; k < n; k++) {
-    const r = sky.altAzAt(p, k);
-    alts[k] = r.altitude;
-    azs[k] = r.azimuth;
-    if (r.altitude > anyAlt) { any = k; anyAlt = r.altitude; }
-    if (r.altitude > usableAlt && r.altitude >= minAltitude && r.altitude >= limitAltitudeAt(horizon, r.azimuth, minAltitude)) {
+    const alt = alts[k];
+    if (alt > anyAlt) { any = k; anyAlt = alt; }
+    if (alt > usableAlt && alt >= minAltitude && alt >= limitAltitudeAt(horizon, azs[k], minAltitude)) {
       usable = k;
-      usableAlt = r.altitude;
+      usableAlt = alt;
     }
   }
   const t0 = sky.times[0];

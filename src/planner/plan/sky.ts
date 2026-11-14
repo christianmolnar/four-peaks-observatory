@@ -31,8 +31,8 @@ export interface NightSky {
   /** Sample instants in ms. */
   readonly times: readonly number[];
   readonly moonUp: readonly boolean[];
-  /** Zenith distance based alt/az at sample `k`, exactly as `targetAltAz`. */
-  altAzAt(p: SkyPoint, k: number): AltAz;
+  /** Alt/az at every sample into `alts` and `azs`, the the same arithmetic as `targetAltAz`, without allocating a result per sample. */
+  fill(p: SkyPoint, alts: Float64Array, azs: Float64Array): void;
   /** Altitude only, at sample `k` (no azimuth, no atan2): for the cheap screen. */
   altitudeAt(p: SkyPoint, k: number): number;
   /** Alt/az at any instant within the night (interpolated between samples; exact on a sample). */
@@ -104,7 +104,22 @@ export function createNightSky(site: Site, start: Date, end: Date, stepMinutes: 
   return {
     times,
     moonUp,
-    altAzAt: (p, k) => altAzFrom(p, basis, k * 9),
+    fill(p, alts, azs) {
+      for (let k = 0; k < n; k++) {
+        const o = k * 9;
+        const pz = p.x * basis[o] + p.y * basis[o + 1] + p.z * basis[o + 2];
+        const pn = p.x * basis[o + 3] + p.y * basis[o + 4] + p.z * basis[o + 5];
+        const pw = p.x * basis[o + 6] + p.y * basis[o + 7] + p.z * basis[o + 8];
+        const proj = Math.hypot(pn, pw);
+        let azimuth = 0;
+        if (proj > 0) {
+          azimuth = -Math.atan2(pw, pn) / DEG;
+          if (azimuth < 0) azimuth += 360;
+        }
+        alts[k] = 90 - Math.atan2(proj, pz) / DEG;
+        azs[k] = azimuth;
+      }
+    },
     altitudeAt: (p, k) => {
       const o = k * 9;
       return Math.asin(Math.max(-1, Math.min(1, p.x * basis[o] + p.y * basis[o + 1] + p.z * basis[o + 2]))) / DEG;
