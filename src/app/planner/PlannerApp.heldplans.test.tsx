@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY, serializeItinerary } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import { MY_PLAN_KEY, sampleProfile, saveMyPlan } from '@/planner/state';
-import { PLANS_BACKUP_KEY, PLANS_KEY } from '@/planner/state/plans';
+import { PLANS_BACKUP_KEY, PLANS_BACKUP_PREFIX, PLANS_KEY, listBackups } from '@/planner/state/plans';
 import { RESET_LOSES } from './ResetAll';
 import PlannerApp from './PlannerApp';
 import { openGear, pageProps, planSwitch, ready, resetAll, storedPlan, storedPlans } from './testkit';
@@ -42,6 +42,7 @@ const storageEvent = (key: string | null, newValue: string | null) =>
   });
 const messages = () => screen.queryByTestId('plans-messages')?.textContent ?? '';
 const held = () => screen.queryByTestId('plans-held');
+const backups = () => listBackups(window.localStorage).map((b) => b.text);
 
 beforeAll(() => {
   const w = window as unknown as { CSS?: { escape?: (s: string) => string } };
@@ -63,6 +64,7 @@ describe('M1: another tab saves a newer or damaged text while this page is open'
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(V2);
     expect(held()!.textContent).toMatch(/made by a newer version of the planner/);
     expect(held()!.textContent).toMatch(/not saved until you replace them/);
+    expect(held()!.textContent).toMatch(/a copy of what is stored now first, under a dated backup name/);
     expect(planSwitch().options).toHaveLength(2); // the edit shows on screen, unsaved
   });
 
@@ -86,7 +88,7 @@ describe('M1: another tab saves a newer or damaged text while this page is open'
     expect(held()!.textContent).toMatch(/Another tab saved plans this page cannot use as they are/);
     await newPlan(u);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{"version":1,"plans":[{broken');
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBeNull();
+    expect(backups()).toEqual([]);
   });
 
   it('the held box shows on the Gear and site tab too, and Replace copies what is stored now, then saves this page\'s plans', async () => {
@@ -99,7 +101,7 @@ describe('M1: another tab saves a newer or damaged text while this page is open'
     expect(held()).not.toBeNull();
     expect(held()!.closest('[role="tabpanel"]')).toBeNull();
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(V2);
+    expect(backups()).toEqual([V2]);
     expect(storedPlans()!.version).toBe(1);
     expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['Mine']);
     expect(held()).toBeNull();
@@ -110,11 +112,11 @@ describe('M2: messages name buttons that exist', () => {
   it('the newer-version notice says exactly which button replaces the plans', async () => {
     window.localStorage.setItem(PLANS_KEY, V2);
     await app();
-    const text = messages();
-    expect(text).toContain(
-      'Your saved plans were made by a newer version of the planner. This version leaves them untouched and does not save over them. Use "Replace the saved plans" to save the plans on this page over them; a copy of them is kept first.',
-    );
-    expect(text).not.toMatch(/Start over/);
+    // The held box says it; the persistent line does not say it again.
+    expect(held()!.textContent).toContain('Your saved plans were made by a newer version of the planner.');
+    expect(messages()).toBe('');
+    expect(held()!.textContent).not.toMatch(/Start over/);
+    expect(within(held()!).getByRole('button', { name: 'Replace the saved plans' })).toBeTruthy();
   });
 
   it('every button or box a notice names is on the page under that name', async () => {
@@ -124,7 +126,7 @@ describe('M2: messages name buttons that exist', () => {
     await newPlan(u);
     const spoken = [messages(), screen.getByRole('status').textContent ?? '', held()!.textContent ?? ''].join(' ');
     const named = [...spoken.matchAll(/["“]([^"”]+)["”]/g)].map((m) => m[1]);
-    expect(named).toContain('Replace the saved plans');
+    expect(held()!.textContent).not.toBe(messages());
     for (const name of named) expect(screen.getByRole('button', { name })).toBeTruthy();
     // The one other notice that names a control: the no-fit note names the box that lists them.
     expect(screen.queryAllByLabelText('Show targets that do not fit').length + screen.queryAllByText('Show targets that do not fit').length).toBeGreaterThan(0);
@@ -135,7 +137,7 @@ describe('M3: a copy that cannot be kept holds the stored text', () => {
   const failBackup = () => {
     const set = Storage.prototype.setItem;
     return jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
-      if (k === PLANS_BACKUP_KEY) throw new Error('quota');
+      if (k.startsWith(PLANS_BACKUP_PREFIX)) throw new Error('quota');
       set.call(this, k, v);
     });
   };
@@ -152,7 +154,8 @@ describe('M3: a copy that cannot be kept holds the stored text', () => {
     const u = userEvent.setup();
     await app();
     expect(held()!.textContent).toMatch(/could not be read whole, and a copy of them could not be kept first/);
-    expect(messages()).toMatch(/A copy of the saved plans could not be kept \(quota\)/);
+    expect(held()!.textContent).toMatch(/The copy failed: quota/);
+    expect(messages()).not.toMatch(/could not be kept/); // the box says it; the line does not repeat it
     await newPlan(u);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(text);
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' })); // the copy still fails: refused, nothing changes
@@ -160,7 +163,7 @@ describe('M3: a copy that cannot be kept holds the stored text', () => {
     expect(messages()).toMatch(/Not replaced, the saved plans are untouched: quota/);
     spy.mockRestore();
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(text);
+    expect(backups()).toEqual([text]);
     expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['Night 1', 'Plan 2']);
     expect(held()).toBeNull();
   });
@@ -176,33 +179,44 @@ describe('M3: a copy that cannot be kept holds the stored text', () => {
   });
 });
 
-describe('S1: the backup is never replaced by worse text', () => {
-  it('probe W: a copy of other plans is already kept: a damaged text is held, the copy stays, and Replace is the explicit choice', async () => {
+describe('S1: a backup is never overwritten', () => {
+  it('probe W: a copy of other plans is already kept: a damaged text gets its own copy, the earlier one stays, and nothing is held', async () => {
     window.localStorage.setItem(PLANS_BACKUP_KEY, V2);
     window.localStorage.setItem(PLANS_KEY, '{nope');
     const u = userEvent.setup();
     await app();
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(V2);
-    expect(messages()).toMatch(/a copy of other saved plans is already kept in this browser/);
+    expect(backups()).toEqual([V2, '{nope']); // the single old key is the oldest
+    expect(held()).toBeNull();
+    expect(messages()).toMatch(/A copy of the saved plans as they were is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 2 backups are kept/);
     await newPlan(u);
-    expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(V2);
-    expect(held()!.textContent).toMatch(/takes the place of the copy already kept/);
-    await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe('{nope');
     expect(storedPlans()!.plans).toHaveLength(2);
+    expect(backups()).toEqual([V2, '{nope']);
   });
 
-  it('a copy that already holds the same text is simply kept; Reset all clears the backup and says so', async () => {
+  it('a copy that already holds the same text is not written again; Reset all clears every backup and says so', async () => {
     window.localStorage.setItem(PLANS_BACKUP_KEY, '{nope');
+    window.localStorage.setItem(`${PLANS_BACKUP_PREFIX}5`, 'other');
     window.localStorage.setItem(PLANS_KEY, '{nope');
     const u = userEvent.setup();
     await app();
     expect(held()).toBeNull();
-    expect(RESET_LOSES.join(' ')).toMatch(/backup copy/);
+    expect(backups()).toEqual(['{nope', 'other']);
+    expect(RESET_LOSES.join(' ')).toMatch(/every backup copy/);
     openGear();
     await resetAll(u);
+    expect(backups()).toEqual([]);
     expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBeNull();
+  });
+
+  it('Replace never overwrites a backup: it adds a copy of what is stored now; only the oldest beyond 5 goes', async () => {
+    [1, 2, 3, 4, 5].forEach((n) => window.localStorage.setItem(`${PLANS_BACKUP_PREFIX}${n}`, `old ${n}`));
+    window.localStorage.setItem(PLANS_KEY, V2);
+    const u = userEvent.setup();
+    await app();
+    await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
+    expect(backups()).toEqual(['old 2', 'old 3', 'old 4', 'old 5', V2]);
+    expect(messages()).toMatch(/The saved plans were replaced\. A copy of what was stored is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 5 backups are kept/);
+    expect(messages()).not.toMatch(/does not save over|leaves them untouched/);
   });
 });
 
@@ -247,11 +261,11 @@ describe('S3: Replace carries over what the old keys held back', () => {
     await app();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).not.toBeNull(); // held back while the newer plans are held
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
-    expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'My plan']);
+    expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'My plan (from before)']);
     expect(storedPlans()!.plans[1].targets.map((t) => t.id)).toEqual(['m42', 'm13']);
     expect(storedPlan()!.id).toBe('plan-1'); // the plan that was open stays open
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(V2);
+    expect(backups()).toEqual([V2]);
     expect(messages()).toMatch(/old plan and night timeline from before plans were carried over as one more plan/);
   });
 });
@@ -301,5 +315,141 @@ describe('the plans saved are still the open plan\'s', () => {
     await newPlan(u);
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
     expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'Plan 2']);
+  });
+});
+
+// Two pages of one browser: they share one storage. The window sends no storage event to the page that wrote, so a test sends it by hand to the pages that did not.
+describe('R4: a backup is never overwritten and a held page follows the other tab', () => {
+  const two = async () => {
+    const a = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    const b = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
+    await ready();
+    return { a: within(a.container), b: within(b.container) };
+  };
+  const replace = (u: ReturnType<typeof userEvent.setup>, page: ReturnType<typeof within>) => u.click(page.getByRole('button', { name: 'Replace the saved plans' }));
+  /** Every text kept under any plans key (the plans and each backup). */
+  const kept = () => [...Array(window.localStorage.length).keys()].map((i) => window.localStorage.key(i)!).filter((k) => k.startsWith(PLANS_KEY)).map((k) => window.localStorage.getItem(k)!);
+
+  it('two pages held on version 2 both press Replace (no event reached either): the version 2 text and the first page\'s plans are both in a backup', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    const u = userEvent.setup();
+    const { a, b } = await two();
+    expect(a.getByTestId('plans-held')).toBeTruthy();
+    await replace(u, a);
+    const afterA = window.localStorage.getItem(PLANS_KEY)!;
+    expect(backups()).toEqual([V2]);
+    await replace(u, b); // page b still showed its box; what is stored now is page a's plans
+    expect(backups()).toEqual([V2, afterA]);
+    expect(kept()).toEqual(expect.arrayContaining([V2, afterA]));
+    expect(storedPlans()!.version).toBe(1);
+  });
+
+  it('with the event delivered, an untouched held page takes the other tab\'s plans up, leaves the held state and says so', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    const u = userEvent.setup();
+    const { a, b } = await two();
+    await replace(u, a);
+    storageEvent(PLANS_KEY, window.localStorage.getItem(PLANS_KEY));
+    expect(b.queryByTestId('plans-held')).toBeNull();
+    expect(b.getByTestId('plans-messages').textContent).toMatch(/Another tab saved plans while this page held the saved ones back\. This page now shows them/);
+    expect(backups()).toEqual([V2]);
+  });
+
+  it('with the event delivered, a held page with changes of its own stays held on the new text; its Replace keeps both earlier texts', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    const u = userEvent.setup();
+    const { a, b } = await two();
+    await u.click(within(b.getByTestId('plans-bar')).getByRole('button', { name: 'New' })); // b's edit is on screen only
+    await replace(u, a);
+    const afterA = window.localStorage.getItem(PLANS_KEY)!;
+    storageEvent(PLANS_KEY, afterA);
+    expect(b.getByTestId('plans-held').textContent).toMatch(/Another tab saved plans after this page held the saved ones back/);
+    await replace(u, b);
+    expect(backups()).toEqual([V2, afterA]);
+    expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'Plan 2']);
+  });
+
+  it('a held page follows damaged or newer text from another tab: the held text is the latest, so Replace keeps that one', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    const u = userEvent.setup();
+    await app();
+    const V3 = V2.replace('"version":2', '"version":3');
+    window.localStorage.setItem(PLANS_KEY, V3);
+    storageEvent(PLANS_KEY, V3);
+    expect(held()!.textContent).toMatch(/newer version/);
+    window.localStorage.setItem(PLANS_KEY, '{nope');
+    storageEvent(PLANS_KEY, '{nope');
+    expect(held()!.textContent).toMatch(/Another tab saved plans this page cannot use/);
+    await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
+    expect(backups()).toEqual(['{nope']); // the version 3 text was never stored by Replace's reading; it was overwritten by the other tab itself
+  });
+
+  it('focus re-checks a held page that missed the event: readable plans are taken up; other text updates the held text', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    await app();
+    const V3 = V2.replace('"version":2', '"version":3');
+    window.localStorage.setItem(PLANS_KEY, V3);
+    act(() => void window.dispatchEvent(new Event('focus')));
+    expect(held()).not.toBeNull();
+    window.localStorage.setItem(PLANS_KEY, v1('Theirs'));
+    act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    expect(held()).toBeNull();
+    expect([...planSwitch().options].map((o) => o.textContent)).toEqual(['Theirs (1)']);
+    expect(messages()).toMatch(/Another tab saved plans while this page held/);
+  });
+
+  it('Replace is described before the press and reported once after, with where the copy is', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    const u = userEvent.setup();
+    await app();
+    expect(held()!.textContent).toMatch(/Replacing keeps a copy of what is stored now first, under a dated backup name/);
+    await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
+    expect(messages().match(/The saved plans were replaced/g)).toHaveLength(1);
+    expect(held()).toBeNull();
+  });
+
+  it('Reset all removes the plans key last and a failed clear is reported, not called a reset', async () => {
+    window.localStorage.setItem(PLANS_KEY, v1('Mine'));
+    saveMyPlan(window.localStorage, ['m42']);
+    window.localStorage.setItem(`${PLANS_BACKUP_PREFIX}7`, 'old');
+    const u = userEvent.setup();
+    await app();
+    openGear();
+    const order: string[] = [];
+    const real = Storage.prototype.removeItem;
+    jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      order.push(k);
+      real.call(this, k);
+    });
+    await resetAll(u);
+    expect(order[order.length - 1]).toBe(PLANS_KEY);
+    expect(order).toEqual(expect.arrayContaining([MY_PLAN_KEY, `${PLANS_BACKUP_PREFIX}7`]));
+    expect(backups()).toEqual([]);
+  });
+
+  it('a failed clear during Reset all is said as a failure, and the success toast is not shown', async () => {
+    window.localStorage.setItem(PLANS_KEY, v1('Mine'));
+    const u = userEvent.setup();
+    await app();
+    openGear();
+    const real = Storage.prototype.removeItem;
+    jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      if (k === PLANS_KEY) throw new Error('locked');
+      real.call(this, k);
+    });
+    await resetAll(u);
+    expect(messages()).toMatch(/Reset did not finish: could not clear the plans \(locked\)/);
+    expect(screen.queryByText(/Reset: the planner is back/)).toBeNull();
+  });
+
+  it('Reset all in another tab: the other page finds nothing left to carry over, so it does not save a new plans key', async () => {
+    window.localStorage.setItem(PLANS_KEY, V2);
+    saveMyPlan(window.localStorage, ['m42', 'm13']);
+    await app(); // held on V2; the old My plan list waits
+    window.localStorage.clear(); // what the other tab's Reset all leaves, the plans key last
+    storageEvent(PLANS_KEY, null);
+    expect(window.localStorage.getItem(PLANS_KEY)).toBeNull();
+    expect(held()).toBeNull();
+    expect(messages()).toMatch(/reset in another tab/);
   });
 });

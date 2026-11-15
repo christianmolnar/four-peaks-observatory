@@ -7,8 +7,15 @@ import { MAX_MY_PLAN, MY_PLAN_KEY, loadMyPlan } from './index';
 /** Where the saved plans live in this browser: all of them, and which one is open. */
 export const PLANS_KEY = 'fpo-planner-plans-v1';
 export const PLANS_VERSION = 1;
-/** One copy of stored plans that could not be used as they were (damaged, repaired, or made by a newer version), kept so nothing is lost silently. */
+/**
+ * Copies of stored plans that could not be used as they were (damaged, repaired, newer, or about to be replaced), kept so nothing is lost silently.
+ * Each copy has its own key, `PLANS_BACKUP_PREFIX` + the time in milliseconds; a copy is never overwritten. The single `PLANS_BACKUP_KEY` of earlier
+ * versions is read as the oldest copy.
+ */
 export const PLANS_BACKUP_KEY = `${PLANS_KEY}.bak`;
+export const PLANS_BACKUP_PREFIX = `${PLANS_KEY}.bak.`;
+/** The newest this many copies are kept; only older ones beyond that are removed. */
+export const MAX_BACKUPS = 5;
 /** The one-time exposure notice of the page before plans; nothing reads it now. */
 export const EXPOSURE_NOTICE_KEY = 'fpo-planner-exposure-notice-v1';
 /** A plan is a saved whole, read back from the browser, so the count of plans and of targets in one is bounded. */
@@ -18,6 +25,8 @@ export const MAX_PLAN_NAME = 60;
 export const MAX_PLAN_NOTES = 2000;
 export const MAX_TARGET_NOTE = 200;
 const DEFAULT_NAME = 'My plan';
+/** The plan made from the My plan list and night timeline of before there were plans. */
+const MIGRATED_NAME = 'My plan (from before)';
 
 /** The preset of a target in a plan: one of the exposure presets, or custom (any change from a preset). */
 export type PlanPreset = ExposureMode | 'custom';
@@ -60,9 +69,9 @@ export interface PlansState {
 export class PlansError extends Error {
   constructor(
     public readonly path: string,
-    message: string,
+    public readonly detail: string,
   ) {
-    super(`${path}: ${message}`);
+    super(`${path}: ${detail}`);
     this.name = 'PlansError';
   }
 }
@@ -175,9 +184,44 @@ export interface LoadedPlans {
   unusable: { kind: 'newer' | 'damaged' | 'repaired'; text: string } | null;
 }
 
-const NEWER_NOTICE =
-  'Your saved plans were made by a newer version of the planner. This version leaves them untouched and does not save over them. Use "Replace the saved plans" to save the plans on this page over them; a copy of them is kept first.';
-const DAMAGED_NOTICE = 'Your saved plans could not be read, so they start over with one empty plan. A copy of what was stored is kept in this browser.';
+/** Said by the held box (newer plans) and not by the persistent line, so the two never repeat each other. */
+export const NEWER_NOTICE = 'Your saved plans were made by a newer version of the planner.';
+/** The copy made for damaged text is named by the page, which knows whether it could be made. */
+export const DAMAGED_NOTICE = 'Your saved plans could not be read, so they start over with one empty plan.';
+
+const FIELD_WORDS: Record<string, string> = {
+  id: 'id',
+  name: 'name',
+  createdAt: 'created time',
+  updatedAt: 'updated time',
+  date: 'date',
+  siteId: 'site',
+  trainId: 'train',
+  startTime: 'start time',
+  targets: 'targets',
+  notes: 'notes',
+  preset: 'preset',
+  custom: 'custom values',
+  start: 'start time',
+  end: 'end time',
+  note: 'note',
+  subSeconds: 'sub-exposure seconds',
+  subCount: 'sub-exposure count',
+  totalMin: 'total minutes',
+};
+
+/** Where in a plan a problem is, in words: "$.plans[1].targets[2].note" is "target 3, note". */
+export function describePath(path: string): string {
+  const parts: string[] = [];
+  for (const seg of path.replace(/^\$\.plans\[\d+\]\.?/, '').split('.')) {
+    if (seg === '') continue;
+    const m = /^(\w+)\[(\d+)\]$/.exec(seg);
+    if (m && m[1] === 'targets') parts.push(`target ${Number(m[2]) + 1}`);
+    else if (m) parts.push(`${FIELD_WORDS[m[1]] ?? m[1]} ${Number(m[2]) + 1}`);
+    else parts.push(FIELD_WORDS[seg] ?? seg);
+  }
+  return parts.join(', ');
+}
 
 /** A plan checked on its own: as it is, else with the two fields a newer or older version can leave unknown repaired (preset to Balanced, date to `today`). Null when it cannot be read. */
 function readPlan(raw: unknown, i: number, today: string, notices: string[], dateText: (iso: string) => string): Plan | null {
@@ -213,7 +257,8 @@ function readPlan(raw: unknown, i: number, today: string, notices: string[], dat
         if (!(second instanceof PlansError)) throw second;
       }
     }
-    notices.push(`The plan ${label} could not be read and is left out (${first.message}).`);
+    const where = describePath(first.path);
+    notices.push(`The plan ${label} could not be read and is left out${where === '' ? '' : ` (${where}: ${first.detail})`}.`);
     return null;
   }
 }
@@ -265,17 +310,47 @@ export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string, date
   return { state: { version: PLANS_VERSION, openId, plans }, notices, unusable: notices.length > 0 ? { kind: 'repaired', text } : null };
 }
 
+/** One copy kept in storage: its key, its text, and when it was made (the key's milliseconds; the single old key is -1, the oldest). */
+export interface Backup {
+  key: string;
+  text: string;
+  at: number;
+}
+
+/** Every backup in storage, oldest first. */
+export function listBackups(storage: Pick<Storage, 'length' | 'key' | 'getItem'>): Backup[] {
+  const found: Backup[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key === null) continue;
+    const at = key === PLANS_BACKUP_KEY ? -1 : key.startsWith(PLANS_BACKUP_PREFIX) && /^\d+$/.test(key.slice(PLANS_BACKUP_PREFIX.length)) ? Number(key.slice(PLANS_BACKUP_PREFIX.length)) : null;
+    if (at === null) continue;
+    const text = storage.getItem(key);
+    if (text !== null) found.push({ key, text, at });
+  }
+  return found.sort((a, b) => a.at - b.at);
+}
+
 /**
- * Copies stored text to the one backup key, only when that key is empty or already holds this same text: an earlier copy is never replaced
- * by what may be worse (`replace` is the user's own choice, "Replace the saved plans"). Returns `kept` (the text is in the backup) or `exists`
- * (a copy of other text is already there and was left alone). Throws when the backup cannot be read or written.
+ * Copies stored text to a backup key of its own and returns that key. A backup is never overwritten: text that is already in a backup is not written
+ * again (its key is returned), and a new copy takes a key after the newest. Only when the copy is written, backups older than the newest `MAX_BACKUPS`
+ * are removed (a removal that fails leaves them, which loses nothing). Throws when the copy cannot be read for or written; then nothing is removed.
  */
-export function keepCopy(storage: Pick<Storage, 'getItem' | 'setItem'>, text: string, replace = false): 'kept' | 'exists' {
-  const have = storage.getItem(PLANS_BACKUP_KEY);
-  if (have === text) return 'kept';
-  if (have !== null && !replace) return 'exists';
-  storage.setItem(PLANS_BACKUP_KEY, text);
-  return 'kept';
+export function keepCopy(storage: Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 'removeItem'>, text: string, now: number = Date.now()): string {
+  const have = listBackups(storage);
+  const same = have.find((b) => b.text === text);
+  if (same) return same.key;
+  const at = Math.max(now, (have.length > 0 ? have[have.length - 1].at : 0) + 1);
+  const key = `${PLANS_BACKUP_PREFIX}${at}`;
+  storage.setItem(key, text);
+  for (const old of have.slice(0, Math.max(0, have.length + 1 - MAX_BACKUPS))) {
+    try {
+      storage.removeItem(old.key);
+    } catch {
+      // The copy is safe; an extra old one staying costs only space, and the next copy tries again.
+    }
+  }
+  return key;
 }
 
 /** What another tab's stored text is to this one: whole plans to continue from, plans of a newer version, or text this version cannot read whole. */
@@ -417,7 +492,7 @@ function joinNotes(a: string, b: string): string {
 }
 
 /**
- * The My plan list and the night itinerary this page saved before there were plans, as one plan named "My plan". Read only: the old keys are
+ * The My plan list and the night itinerary this page saved before there were plans, as one plan named "My plan (from before)". Read only: the old keys are
  * left as they are; `clear` names the ones to remove once the plans are saved (read, or damaged; never one the browser could not read).
  * The plan's targets are the itinerary's slots first, in slot order, then the rest of My plan in its order, so the first 8 are the old night.
  * Each takes its slot's mode as its preset and its note. Two slots for one target merge: the first slot's mode, the notes joined within the
@@ -491,7 +566,7 @@ export function migrateOldPlan(
     if (!slot) return { id, preset: 'balanced' };
     return slot.note === '' ? { id, preset: slot.mode } : { id, preset: slot.mode, note: slot.note };
   });
-  return { plan: { ...blank(d, 'plan-1', DEFAULT_NAME), startTime, targets }, problems, clear, cut };
+  return { plan: { ...blank(d, 'plan-1', MIGRATED_NAME), startTime, targets }, problems, clear, cut };
 }
 
 /** The sentence for targets the 50-target limit left out of a carried-over plan, by the names `nameOf` gives. */

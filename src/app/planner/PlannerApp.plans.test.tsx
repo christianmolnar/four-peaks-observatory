@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { MY_PLAN_KEY, defaultTonightDate, sampleProfile } from '@/planner/state';
-import { MAX_PLANS, PLANS_KEY } from '@/planner/state/plans';
+import { MAX_PLANS, PLANS_KEY, listBackups } from '@/planner/state/plans';
 import PlannerApp from './PlannerApp';
 import { openControls, openGear, openPart, openPlanTab, pageProps, planSwitch, ready, storedPlan, storedPlans, timelineSlots } from './testkit';
 
@@ -192,9 +192,9 @@ describe('My plans', () => {
   it('a damaged saved set of plans is reported, copied to the backup, and one empty plan starts; the text is not removed', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     await app();
-    expect((await screen.findByTestId('plans-messages')).textContent).toContain('Your saved plans could not be read, so they start over with one empty plan. A copy of what was stored is kept in this browser.');
+    expect((await screen.findByTestId('plans-messages')).textContent).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans as they were is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 1 backup is kept in this browser\./);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
-    expect(window.localStorage.getItem('fpo-planner-plans-v1.bak')).toBe('{nope');
+    expect(listBackups(window.localStorage).map((b) => b.text)).toEqual(['{nope']);
     expect(heading()).toBe('PLAN: My plan (0 targets)');
   });
 
@@ -298,9 +298,9 @@ describe('what was there before plans moves into the first plan', () => {
       }),
     );
     await app();
-    expect(heading()).toBe('PLAN: My plan (4 targets)');
+    expect(heading()).toBe('PLAN: My plan (from before) (4 targets)');
     const plan = storedPlan()!;
-    expect(plan.name).toBe('My plan');
+    expect(plan.name).toBe('My plan (from before)');
     expect(plan.date).toBe('2026-12-15');
     expect(plan.startTime).toBe('21:30');
     // The itinerary's slots first, in slot order; then the rest of My plan in its order.

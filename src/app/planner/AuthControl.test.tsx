@@ -36,6 +36,7 @@ describe('AuthControl', () => {
   it('not configured: says so and offers no button', () => {
     render(<AuthControl state={DISABLED} />);
     expect(screen.getByText(/not available/i)).toBeTruthy();
+    expect(screen.getByText(/not available/i).className).toContain('sr-only'); // on a phone: read aloud, not cut to "Si…"
     expect(screen.queryByRole('button')).toBeNull();
   });
   it('signed in: shows the login and a sign-out button', () => {
@@ -63,7 +64,7 @@ describe('AuthControl', () => {
   it('not configured is cut with an ellipsis, not clipped', () => {
     render(<AuthControl state={DISABLED} />);
     // Cut with an ellipsis when it does not fit, with the full sentence in title.
-    const text = screen.getByText(/not available/i);
+    const text = screen.getByText(/not available/i).parentElement!;
     expect(text.className).toContain('truncate');
     expect(text.getAttribute('title')).toBe('Sign-in is not available right now.');
   });

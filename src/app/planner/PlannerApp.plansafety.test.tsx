@@ -6,7 +6,9 @@ import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY, serializeItinerary } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import { MY_PLAN_KEY, defaultTonightDate, sampleProfile, saveMyPlan } from '@/planner/state';
-import { EXPOSURE_NOTICE_KEY, PLANS_BACKUP_KEY, PLANS_KEY } from '@/planner/state/plans';
+import { EXPOSURE_NOTICE_KEY, PLANS_BACKUP_KEY, PLANS_KEY, listBackups } from '@/planner/state/plans';
+
+const backups = () => listBackups(window.localStorage).map((b) => b.text);
 import PlannerApp from './PlannerApp';
 import { openGear, pageProps, planSwitch, ready, storedPlan, storedPlans } from './testkit';
 
@@ -113,7 +115,7 @@ describe('the old night timeline keeps its order', () => {
     await u.click(screen.getByRole('button', { name: 'Reset all' }));
     await u.click(screen.getByRole('button', { name: 'Yes, reset everything' }));
     expect(window.localStorage.getItem(EXPOSURE_NOTICE_KEY)).toBeNull();
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBeNull();
+    expect(backups()).toEqual([]);
   });
 
   it('S3 (J): a My plan key the browser cannot read stays in storage; the itinerary still moves', async () => {
@@ -153,7 +155,7 @@ describe('the old night timeline keeps its order', () => {
       throw new Error('quota');
     });
     await app();
-    expect(heading()).toBe('PLAN: My plan (2 targets)');
+    expect(heading()).toBe('PLAN: My plan (from before) (2 targets)');
     expect(status()).toMatch(/carried over but could not be saved: quota\. Your old plan stays in this browser and is carried over again the next time the page opens\./);
     expect(status()).not.toMatch(/lost on reload/);
     jest.restoreAllMocks();
@@ -186,14 +188,13 @@ describe('stored plans that cannot be used whole are never removed', () => {
     window.localStorage.setItem(PLANS_KEY, v2);
     const u = userEvent.setup();
     await app();
-    expect(status()).toMatch(/made by a newer version of the planner/);
-    expect(status()).not.toMatch(/damaged/);
+    expect(status()).not.toMatch(/newer version/); // the held box says it, the line does not repeat it
     expect(screen.getByTestId('plans-held').textContent).toMatch(/newer version of the planner/);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(v2);
     await u.click(within(bar()).getByRole('button', { name: 'New' })); // an edit
     expect(switchNames()).toEqual(['My plan (0)', 'Plan 2 (0)']);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(v2); // still untouched
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBeNull();
+    expect(backups()).toEqual([]);
   });
 
   it('M3: a newer-version copy is replaced only when the user chooses, and a copy is kept first', async () => {
@@ -203,7 +204,7 @@ describe('stored plans that cannot be used whole are never removed', () => {
     await app();
     await u.click(within(bar()).getByRole('button', { name: 'New' }));
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(v2);
+    expect(backups()).toEqual([v2]);
     expect(storedPlans()!.version).toBe(1);
     expect(storedPlans()!.plans).toHaveLength(2);
     expect(screen.queryByTestId('plans-held')).toBeNull();
@@ -224,7 +225,7 @@ describe('stored plans that cannot be used whole are never removed', () => {
     expect(switchNames()).toEqual(['Night 1 (1)', 'Night 2 (1)', 'Night 3 (1)', 'Night 4 (1)', 'Night 5 (1)']);
     expect(heading()).toBe('PLAN: Night 2 (1 target)');
     expect(status()).toMatch(/In the plan "Night 4", 1 target had a preset this version does not know, so it is set to Balanced\./);
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(text);
+    expect(backups()).toEqual([text]);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(text); // kept until the next save
   });
 
@@ -234,18 +235,18 @@ describe('stored plans that cannot be used whole are never removed', () => {
     await app();
     expect(switchNames()).toEqual(['Night 2 (1)', 'Night 3 (1)', 'Night 4 (1)', 'Night 5 (1)']);
     expect(status()).toMatch(/The plan "Night 1" could not be read and is left out/);
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe(text);
+    expect(backups()).toEqual([text]);
   });
 
   it('M3: damaged text starts one empty plan, is said, is copied to the backup, and stays until the next save', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     const first = await app();
-    expect(status()).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of what was stored is kept/);
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe('{nope');
+    expect(status()).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans as they were is kept under the backup name/);
+    expect(backups()).toEqual(['{nope']);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
     expect(heading()).toBe('PLAN: My plan (0 targets)');
     first.unmount();
-    expect(window.localStorage.getItem(PLANS_BACKUP_KEY)).toBe('{nope');
+    expect(backups()).toEqual(['{nope']);
   });
 });
 

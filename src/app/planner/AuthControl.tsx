@@ -16,8 +16,9 @@ export default function AuthControl({ state }: { state: AuthState }) {
   return (
     <div className="flex h-[44px] min-w-0 items-center justify-end gap-3 print:hidden" data-testid="auth-control">
       {state.kind === 'disabled' && (
+        // On a phone there is no room beside the title, so the words are there for a screen reader and show from 640 px (no cut-off "Si…").
         <span className="min-w-0 truncate text-white/80 text-sm font-normal" title="Sign-in is not available right now.">
-          Sign-in is not available right now.
+          <span className="sr-only sm:not-sr-only">Sign-in is not available right now.</span>
         </span>
       )}
       {state.kind === 'signedOut' && (

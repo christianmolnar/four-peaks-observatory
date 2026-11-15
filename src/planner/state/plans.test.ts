@@ -6,6 +6,8 @@ import {
   MAX_PLANS,
   MAX_PLAN_TARGETS,
   PLANS_BACKUP_KEY,
+  PLANS_BACKUP_PREFIX,
+  listBackups,
   PLANS_KEY,
   PlansError,
   adoptStored,
@@ -37,6 +39,10 @@ function memory(initial: Record<string, string> = {}) {
     getItem: (k: string) => data.get(k) ?? null,
     setItem: (k: string, v: string) => void data.set(k, v),
     removeItem: (k: string) => void data.delete(k),
+    get length() {
+      return data.size;
+    },
+    key: (i: number) => [...data.keys()][i] ?? null,
     data,
   };
 }
@@ -234,7 +240,8 @@ describe('plans: stored copy', () => {
     const r = loadPlans(memory({ [PLANS_KEY]: five((p) => { p[3].startTime = '9pm'; }) }), TODAY);
     expect(r.state!.plans.map((p) => p.id)).toEqual(['plan-1', 'plan-2', 'plan-3', 'plan-5']);
     expect(r.notices).toHaveLength(1);
-    expect(r.notices[0]).toMatch(/^The plan "Plan 4" could not be read and is left out \(\$\.plans\[3\]\.startTime/);
+    expect(r.notices[0]).toMatch(/^The plan "Plan 4" could not be read and is left out \(start time: must be a 24 h time/);
+    expect(r.notices[0]).not.toContain('$.');
     expect(r.unusable!.kind).toBe('repaired');
   });
 
@@ -252,15 +259,36 @@ describe('plans: stored copy', () => {
     expect(() => loadPlans({ getItem: () => { throw new Error('denied'); } }, TODAY)).toThrow(/could not be read.*denied/);
   });
 
-  it('keepCopy writes the backup only when it is empty or holds the same text; an earlier copy is kept unless the user replaces it', () => {
+  it('keepCopy gives every copy its own key, never overwrites one and does not repeat a text', () => {
     const m = memory();
-    expect(keepCopy(m, 'first')).toBe('kept');
-    expect(keepCopy(m, 'first')).toBe('kept');
-    expect(keepCopy(m, 'second')).toBe('exists'); // probe W: a worse text never replaces the copy
-    expect(m.data.get(PLANS_BACKUP_KEY)).toBe('first');
-    expect(keepCopy(m, 'second', true)).toBe('kept'); // the user's own choice
-    expect(m.data.get(PLANS_BACKUP_KEY)).toBe('second');
+    const a = keepCopy(m, 'first', 1000);
+    expect(a).toBe(`${PLANS_BACKUP_PREFIX}1000`);
+    expect(keepCopy(m, 'first', 2000)).toBe(a); // same text: no duplicate
+    const b = keepCopy(m, 'second', 1000); // a clock that did not move still takes a later key
+    expect(b).toBe(`${PLANS_BACKUP_PREFIX}1001`);
+    expect(m.data.get(a)).toBe('first');
+    expect(m.data.get(b)).toBe('second');
     expect(PLANS_BACKUP_KEY).toBe('fpo-planner-plans-v1.bak');
+  });
+
+  it('keepCopy keeps the newest 5 and drops only the oldest beyond that; the single old key is the oldest', () => {
+    const m = memory({ [PLANS_BACKUP_KEY]: 'legacy' });
+    const keys = [1, 2, 3, 4].map((n) => keepCopy(m, `t${n}`, n * 10));
+    expect(listBackups(m).map((b) => b.text)).toEqual(['legacy', 't1', 't2', 't3', 't4']);
+    const fifth = keepCopy(m, 't5', 50);
+    expect(listBackups(m).map((b) => b.text)).toEqual(['t1', 't2', 't3', 't4', 't5']); // only the oldest went
+    expect(m.data.get(fifth)).toBe('t5');
+    expect(keys.every((k) => m.data.has(k))).toBe(true);
+    expect(m.data.get(PLANS_KEY)).toBeUndefined();
+  });
+
+  it('keepCopy removes nothing when the new copy cannot be written', () => {
+    const m = memory({ [PLANS_BACKUP_KEY]: 'a', [`${PLANS_BACKUP_PREFIX}1`]: 'b', [`${PLANS_BACKUP_PREFIX}2`]: 'c', [`${PLANS_BACKUP_PREFIX}3`]: 'd', [`${PLANS_BACKUP_PREFIX}4`]: 'e' });
+    m.setItem = () => {
+      throw new Error('full');
+    };
+    expect(() => keepCopy(m, 'new', 9)).toThrow('full');
+    expect(listBackups(m)).toHaveLength(5);
   });
 
   it('adoptStored takes the plans another tab saved and keeps this tab\'s open plan when it is still there', () => {
@@ -297,11 +325,11 @@ describe('plans: migration from the old My plan and itinerary', () => {
     expect(migrateOldPlan(memory(), ctx)).toEqual({ plan: null, problems: [], clear: [], cut: [] });
   });
 
-  it('turns the My plan list into one plan named My plan, targets in order, balanced', () => {
+  it('turns the My plan list into one plan named My plan (from before), targets in order, balanced', () => {
     const { plan, problems, clear } = migrateOldPlan(oldBrowser(['ngc7000', 'm31', 'planet-jupiter'], null), ctx);
     expect(problems).toEqual([]);
     expect(clear).toEqual([MY_PLAN_KEY]);
-    expect(plan).toMatchObject({ name: 'My plan', date: '2026-11-14', siteId: 'home', trainId: 't1', startTime: null });
+    expect(plan).toMatchObject({ name: 'My plan (from before)', date: '2026-11-14', siteId: 'home', trainId: 't1', startTime: null });
     expect(plan!.targets).toEqual([target('ngc7000'), target('m31'), target('planet-jupiter')]);
   });
 

@@ -9,7 +9,7 @@ const btn =
 export const RESET_LOSES = [
   'Your sites, each with its horizon and Minimum altitude.',
   'Your gear: scopes, cameras, filters, accessories and trains.',
-  'Your plans: every saved plan, with its targets, times and notes, and the one backup copy kept when plans could not be read.',
+  'Your plans: every saved plan, with its targets, times and notes, and every backup copy kept when plans could not be read or were replaced.',
   'The captured ticks.',
   'The remembered site and train choice.',
 ] as const;
