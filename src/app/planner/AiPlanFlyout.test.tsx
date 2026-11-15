@@ -256,6 +256,29 @@ describe('Use this plan, Ask again, Close', () => {
     expect(props.onClose).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps focus in the flyout: the page behind is inert, Tab wraps both ways, Escape works from the page body', async () => {
+    const props = propsFor(fetching(reply(200, twoAnswer())));
+    render(<div data-testid="page"><button type="button">behind</button></div>);
+    const view = render(<AiPlanFlyout {...props} />);
+    const user = userEvent.setup();
+    await user.click(ask());
+    await screen.findByTestId('ai-result');
+    expect(screen.getByTestId('page').parentElement!.hasAttribute('inert')).toBe(true);
+    const flyout = screen.getByTestId('ai-flyout');
+    const close = within(flyout).getByRole('button', { name: 'Close' });
+    close.focus();
+    await user.tab();
+    expect(flyout.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(close);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(close);
+    (document.activeElement as HTMLElement).blur();
+    await user.keyboard('{Escape}');
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(screen.getByTestId('page').parentElement!.hasAttribute('inert')).toBe(false);
+  });
+
   it('Close after a result changes nothing', async () => {
     const props = propsFor(fetching(reply(200, twoAnswer())));
     render(<AiPlanFlyout {...props} />);

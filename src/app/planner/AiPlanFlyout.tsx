@@ -171,6 +171,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
 
   // The page behind is inert while the flyout is open: Tab and screen readers stay inside it, and Escape (heard here) always reaches it.
   const dialog = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<() => void>(() => undefined);
   useEffect(() => {
     const own = dialog.current;
     const made: Element[] = [];
@@ -179,7 +180,32 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
       el.setAttribute('inert', '');
       made.push(el);
     }
-    return () => made.forEach((el) => el.removeAttribute('inert'));
+    // Escape closes and Tab wraps from the document, so they still work when focus has dropped to the page body (a click on the backdrop, a wrap through the browser's own controls).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current();
+      } else if (e.key === 'Tab' && own) {
+        const items = Array.from(own.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')).filter((el) => el.closest('[hidden]') === null && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden');
+        if (items.length === 0) return;
+        const at = document.activeElement;
+        const inside = at instanceof Node && own.contains(at);
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && (!inside || at === first || at === heading.current)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (!inside || at === last)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      made.forEach((el) => el.removeAttribute('inert'));
+    };
   }, []);
 
   const disabledReason = blocked ?? prepared?.tooLarge ?? null;
@@ -247,6 +273,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
     flight.current = null;
     onClose();
   };
+  closeRef.current = close;
 
   const loading = run === 'loading';
   const stale = done !== null && prepared !== null ? Object.keys(PART_LABELS).filter((k) => done.parts[k] !== prepared.parts[k]) : done !== null ? Object.keys(PART_LABELS) : [];
@@ -297,12 +324,6 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
       aria-labelledby="ai-plan-heading"
       data-testid="ai-flyout"
       className="fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.stopPropagation();
-          close();
-        }
-      }}
     >
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
         <h2 id="ai-plan-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-white focus:outline-none">
