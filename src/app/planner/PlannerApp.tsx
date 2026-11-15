@@ -213,7 +213,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The list's one Type selector: an id of `TYPE_GROUPS`; "Best [type] tonight" ranks that type over the whole catalog.
   const [type, setType] = useState<string>('all');
   const [showNoFit, setShowNoFit] = useState(false);
-  // The row that is open (its detail shows in place); '' for none. The Exposure panel follows it.
+  // The row that is open (its detail shows in place); '' for none.
   const [openId, setOpenId] = useState<string>('');
   // The two groups under the list: the user's own open or close, else the default for the situation.
   const [planetsOpen, setPlanetsOpen] = useState<boolean | null>(null);
@@ -355,17 +355,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       }
       if (state === null) {
         let migrated = null;
+        let problems: string[] = [];
         try {
           const m = migrateOldPlan(window.localStorage, defaults);
           migrated = m.plan;
-          if (m.problems.length > 0) setNotice(m.problems.join(' '));
+          problems = m.problems;
+          if (problems.length > 0) setNotice(problems.join(' '));
         } catch (e) {
           setNotice((e as Error).message);
         }
         state = startPlans(defaults, migrated);
-        if (migrated !== null) {
+        if (migrated !== null || problems.length > 0) {
+          // What was readable is saved as the first plan; the old copies, readable or damaged (said above), go so they are not read or reported again.
           try {
-            savePlans(window.localStorage, state);
+            if (migrated !== null) savePlans(window.localStorage, state);
             clearOldPlanKeys(window.localStorage);
           } catch (e) {
             setNotice(`Your plan was carried over but not saved, so it is lost on reload: ${(e as Error).message}`);
@@ -1534,7 +1537,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <ResetAll onConfirm={resetAll} />
         </div>
         <p className="text-white/60 font-normal text-xs mt-3">
-          Imports are checked field by field; a rejected file changes nothing and the error names the field.
+          Your profile, plans and captured list stay in this browser; export your profile to keep a copy. Imports are checked field by field; a rejected file changes nothing and the error names the field.
         </p>
       </section>
       </div>

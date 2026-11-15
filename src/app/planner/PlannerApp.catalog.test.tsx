@@ -7,10 +7,11 @@ import type { CatalogObject } from '@/planner/catalog/openngc';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { createTonightRanker } from '@/planner/tonight';
 import { MY_PLAN_KEY, SELECTION_KEY, sampleProfile } from '@/planner/state';
+import { PLANS_KEY } from '@/planner/state/plans';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, ready, resetAll, rowName, rowNames, showAll } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, openGear, openPlanTab, ready, resetAll, rowName, rowNames, showAll, storedPlan, timelineSlots } from './testkit';
 
-// The page over the whole catalog: tonight's list from the worker, the search, my plan, the itinerary that reads it.
+// The page over the whole catalog: tonight's list from the worker, the search, the open plan, the night timeline that reads it.
 // The catalog is the curated 25 plus the objects below; the worker is a fake that runs the real ranking and answers when told to.
 
 const OBJECTS: CatalogObject[] = [
@@ -39,14 +40,12 @@ function mount(opts: { hold?: boolean; trainId?: string; props?: Partial<React.C
 }
 const table = () => screen.getByTestId('target-list');
 const listNames = () => (showAll(), rowNames());
-const myPlan = () => screen.getByRole('region', { name: /^MY PLAN/ });
-/** My plan opens by itself once it holds something; an empty one is a one-line header the user opens. */
-const openMyPlan = () => {
-  const header = within(myPlan()).getByRole('button', { name: /^MY PLAN/ });
-  if (header.getAttribute('aria-expanded') === 'false') fireEvent.click(header);
-};
+const myPlan = () => screen.getByRole('region', { name: /^PLAN:/ });
 const planNames = () => within(myPlan()).queryAllByRole('listitem').map((li) => li.querySelector('p')?.textContent?.replace(/^\d+\.\s*/, '').trim());
-const stored = () => JSON.parse(window.localStorage.getItem(MY_PLAN_KEY) ?? 'null') as { version: number; ids: string[] } | null;
+const stored = () => {
+  const p = storedPlan();
+  return p === null ? null : { ids: p.targets.map((t) => t.id) };
+};
 const searchBox = () => screen.getByLabelText('Search the catalog by name or number') as HTMLInputElement;
 const results = () => screen.getByRole('list', { name: 'Search results' });
 
@@ -130,7 +129,7 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing \d+ targets that do not fit this frame in the group below the list/);
   });
 
-  it('a catalog object shows no season column and no "Not listed"; its row opens in place with the chart and the exposure panel follows', async () => {
+  it('a catalog object shows no season column and no "Not listed"; its row opens in place with the chart', async () => {
     mount();
     await ready();
     showAll();
@@ -138,7 +137,7 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(row).toBeTruthy();
     expect(table().textContent).not.toMatch(/Not listed|Season/);
     await userEvent.setup().click(within(row).getByRole('button', { name: /^\d+\. NGC 891$/ }));
-    expect(screen.getByRole('region', { name: /^EXPOSURE: NGC 891/ })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: /^EXPOSURE:/ })).toBeNull(); // the global Exposure module is gone from the page
     expect(within(row).getByRole('img', { name: /NGC 891/ })).toBeTruthy(); // the altitude chart, in the row
     expect(screen.queryByRole('heading', { name: 'ALTITUDE: NGC 891' })).toBeNull();
   });
@@ -216,62 +215,54 @@ describe('search', () => {
     await u.tab(); // the Search button
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Search' }));
     await u.tab(); // the first result's Add button
-    expect(document.activeElement).toBe(within(results()).getAllByRole('button', { name: /^Add .+ to my plan$/ })[0]);
+    expect(document.activeElement).toBe(within(results()).getAllByRole('button', { name: /^Add .+ to the plan$/ })[0]);
   });
 
-  it('Add to my plan puts the target in my plan, and the result says it is there', async () => {
+  it('Add to the plan puts the target in the open plan, and the result says it is there', async () => {
     mount();
     await ready();
     const u = userEvent.setup();
     await u.type(searchBox(), 'ngc 7331');
-    await u.click(within(results()).getByRole('button', { name: 'Add NGC 7331 to my plan' }));
+    await u.click(within(results()).getByRole('button', { name: 'Add NGC 7331 to the plan' }));
     expect(planNames()).toEqual(['NGC 7331']);
-    expect(stored()).toEqual({ version: 1, ids: ['ngc7331'] });
-    expect(within(results()).getByRole('button', { name: 'NGC 7331 is in my plan' }).textContent).toBe('In my plan');
+    expect(stored()).toEqual({ ids: ['ngc7331'] });
+    expect(within(results()).getByRole('button', { name: 'NGC 7331 is in the plan' }).textContent).toBe('In plan');
   });
 });
 
-describe('my plan', () => {
+describe('the open plan', () => {
   const addFromList = async (u: ReturnType<typeof userEvent.setup>, name: string) => {
     showAll();
     const card = listRows().find((li) => rowName(li) === name) as HTMLElement;
-    await u.click(within(card).getByRole('button', { name: `Add ${name} to my plan` }));
+    await u.click(within(card).getByRole('button', { name: `Add ${name} to the plan` }));
   };
 
-  it('starts as a closed one-line header with the count, opens to an instruction; Add on a row adds it once and the row then says In my plan', async () => {
+  it('starts empty with an instruction; Add on a row adds it once and the row then says In plan', async () => {
     mount();
     await ready();
     const u = userEvent.setup();
-    expect(within(myPlan()).getByRole('button', { name: 'MY PLAN (0)' }).getAttribute('aria-expanded')).toBe('false');
-    openMyPlan();
-    expect(within(myPlan()).getByText(/Nothing in your plan yet/)).toBeTruthy();
+    expect(within(myPlan()).getByRole('heading', { name: 'PLAN: My plan (0 targets)' })).toBeTruthy();
+    expect(within(myPlan()).getByText(/Nothing in this plan yet/)).toBeTruthy();
     await addFromList(u, 'NGC 891');
     expect(planNames()).toEqual(['NGC 891']);
-    expect(within(myPlan()).getByRole('button', { name: 'MY PLAN (1)' }).getAttribute('aria-expanded')).toBe('true');
+    expect(within(myPlan()).getByRole('heading', { name: 'PLAN: My plan (1 target)' })).toBeTruthy();
     const card = listRows().find((li) => rowName(li) === 'NGC 891') as HTMLElement;
-    expect(within(card).queryByRole('button', { name: 'Add NGC 891 to my plan' })).toBeNull();
-    expect(within(card).getByRole('button', { name: 'NGC 891 is in my plan' }).textContent).toBe('In my plan');
-    expect(within(myPlan()).getByText(/^Up [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}/)).toBeTruthy();
+    expect(within(card).queryByRole('button', { name: 'Add NGC 891 to the plan' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'NGC 891 is in the plan' }).textContent).toBe('In plan');
+    expect(within(myPlan()).getByText(/^Up \d\d:\d\d.\d\d:\d\d · Score \d+/)).toBeTruthy();
   });
 
-  it('keeps the user\'s order: Up and Down move one place, the ends are disabled, the order is saved', async () => {
+  it('keeps the order the targets were added in, saves it, and a re-rank (a new date) does not re-sort it; there is no hand reordering', async () => {
     mount();
     await ready();
     const u = userEvent.setup();
     for (const n of ['NGC 891', 'NGC 7331', 'NGC 1023']) await addFromList(u, n);
     expect(planNames()).toEqual(['NGC 891', 'NGC 7331', 'NGC 1023']);
-    expect((within(myPlan()).getByRole('button', { name: 'Move NGC 891 up' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((within(myPlan()).getByRole('button', { name: 'Move NGC 1023 down' }) as HTMLButtonElement).disabled).toBe(true);
-    await u.click(within(myPlan()).getByRole('button', { name: 'Move NGC 1023 up' }));
-    expect(planNames()).toEqual(['NGC 891', 'NGC 1023', 'NGC 7331']);
-    expect(document.activeElement).toBe(within(myPlan()).getByRole('button', { name: 'Move NGC 1023 up' }));
-    await u.click(within(myPlan()).getByRole('button', { name: 'Move NGC 891 down' }));
-    expect(planNames()).toEqual(['NGC 1023', 'NGC 891', 'NGC 7331']);
-    expect(stored()?.ids).toEqual(['ngc1023', 'ngc891', 'ngc7331']);
-    // The plan's order is the user's: a re-rank (a new date) does not re-sort it.
+    expect(within(myPlan()).queryByRole('button', { name: /^Move / })).toBeNull();
+    expect(stored()?.ids).toEqual(['ngc891', 'ngc7331', 'ngc1023']);
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2027-06-15' } });
     await ready();
-    expect(planNames()).toEqual(['NGC 1023', 'NGC 891', 'NGC 7331']);
+    expect(planNames()).toEqual(['NGC 891', 'NGC 7331', 'NGC 1023']);
   });
 
   it('Remove takes one out and saves; the list card offers it again', async () => {
@@ -279,10 +270,10 @@ describe('my plan', () => {
     await ready();
     const u = userEvent.setup();
     await addFromList(u, 'NGC 891');
-    await u.click(within(myPlan()).getByRole('button', { name: 'Remove NGC 891 from my plan' }));
+    await u.click(within(myPlan()).getByRole('button', { name: 'Remove NGC 891 from the plan' }));
     expect(planNames()).toEqual([]);
     expect(stored()?.ids).toEqual([]);
-    expect(within(screen.getByTestId('target-list')).getByRole('button', { name: 'Add NGC 891 to my plan' })).toBeTruthy();
+    expect(within(screen.getByTestId('target-list')).getByRole('button', { name: 'Add NGC 891 to the plan' })).toBeTruthy();
   });
 
   it('is remembered: a reload (a new page over the same storage) opens on the same plan in the same order', async () => {
@@ -303,9 +294,12 @@ describe('my plan', () => {
     mount();
     await ready();
     await waitFor(() => expect(planNames()).toEqual(['NGC 891']));
+    openGear();
     await resetAll(userEvent.setup());
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
+    expect(window.localStorage.getItem(PLANS_KEY)).toBeNull();
     expect(window.localStorage.getItem(SELECTION_KEY)).toBeNull();
+    openPlanTab();
     expect(planNames()).toEqual([]);
     jest.restoreAllMocks();
   });
@@ -324,47 +318,53 @@ describe('my plan', () => {
     mount();
     await ready();
     await waitFor(() => expect(within(myPlan()).getByText('Not in the bundled catalog.')).toBeTruthy());
-    await userEvent.setup().click(within(myPlan()).getByRole('button', { name: 'Remove gone-from-catalog from my plan' }));
+    await userEvent.setup().click(within(myPlan()).getByRole('button', { name: 'Remove gone-from-catalog from the plan' }));
     expect(planNames()).toEqual([]);
   });
 });
 
-describe('the night itinerary reads my plan', () => {
-  const section = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
-  const select = () => screen.getByLabelText('Target to add') as HTMLSelectElement;
+describe('the night timeline reads the open plan', () => {
+  const part = () => document.getElementById('night-timeline-body') as HTMLElement;
+  const slotHeadings = () => timelineSlots().map((li) => li.querySelector('h3')?.textContent);
 
-  it('offers my plan\'s targets first, defaults to the first of them, and adds the chosen one as a slot on the chosen train', async () => {
+  it('has the plan\'s targets as its slots, in the plan\'s order, with no control of its own to add or reorder them', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['ngc7331', 'ngc891'] }));
     mount();
     await ready();
-    await waitFor(() => expect(select().value).toBe('ngc7331'));
-    const groups = [...select().querySelectorAll('optgroup')].map((g) => g.label);
-    expect(groups).toEqual(['My plan', 'Solar system']);
-    expect([...select().querySelectorAll('optgroup')[0].querySelectorAll('option')].map((o) => o.value)).toEqual(['ngc7331', 'ngc891']);
-    await userEvent.setup().click(within(section()).getByRole('button', { name: 'Add to itinerary' }));
-    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string).items;
-    expect(saved.map((i: { targetId: string }) => i.targetId)).toEqual(['ngc7331']);
-    expect(within(section()).getByRole('heading', { name: '1. NGC 7331' })).toBeTruthy();
+    await waitFor(() => expect(slotHeadings()).toEqual(['1. NGC 7331', '2. NGC 891']));
+    expect(screen.queryByLabelText('Target to add')).toBeNull();
+    expect(within(part()).queryByRole('button', { name: /^(Add to|Move )/ })).toBeNull();
+    expect(part().textContent).not.toMatch(/itinerary/i);
   });
 
-  it('with an empty plan nothing is chosen for the user, and a search inside the itinerary finds any catalog object to add', async () => {
+  it('writes a slot\'s preset back to the plan: the plan row says it and the plan is saved with it', async () => {
+    window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['ngc7331', 'ngc891'] }));
     mount();
     await ready();
-    expect(select().value).toBe('');
-    expect((within(section()).getByRole('button', { name: 'Add to itinerary' }) as HTMLButtonElement).disabled).toBe(true);
-    const u = userEvent.setup();
-    await u.type(within(section()).getByLabelText('Search the catalog to add'), 'ngc891');
-    expect(select().value).toBe('ngc891');
-    await u.click(within(section()).getByRole('button', { name: 'Add to itinerary' }));
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string).items[0].targetId).toBe('ngc891');
+    await waitFor(() => expect(slotHeadings()).toHaveLength(2));
+    fireEvent.change(within(part()).getByLabelText('Exposure preset for NGC 7331'), { target: { value: 'deep' } });
+    expect(storedPlan()!.targets.map((t) => [t.id, t.preset])).toEqual([['ngc7331', 'deep'], ['ngc891', 'balanced']]);
+    expect(screen.getByTestId('plan-row-preset-ngc7331').textContent).toBe('Deep Project');
   });
 
-  it('a slot saved for a catalog object that is not in my plan still finds its target', async () => {
+  it('with an empty plan says so; a target added to the plan becomes the first slot', async () => {
+    mount();
+    await ready();
+    expect(part().textContent).toContain('No targets in the plan yet.');
+    const u = userEvent.setup();
+    await u.type(searchBox(), 'ngc891');
+    await u.click(within(results()).getByRole('button', { name: 'Add NGC 891 to the plan' }));
+    expect(slotHeadings()).toEqual(['1. NGC 891']);
+  });
+
+  it('a slot saved by the old itinerary for a catalog object that was not in the old My plan is carried into the plan and finds its target', async () => {
     window.localStorage.setItem(ITINERARY_KEY, JSON.stringify({ version: 1, items: [{ id: 's1', targetId: 'ngc891', trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }] }));
     mount();
     await ready();
-    await waitFor(() => expect(within(section()).getByRole('heading', { name: '1. NGC 891' })).toBeTruthy());
-    expect(within(section()).queryByText(/is not in the target list/)).toBeNull();
+    await waitFor(() => expect(slotHeadings()).toEqual(['1. NGC 891']));
+    expect(planNames()).toEqual(['NGC 891']);
+    expect(part().textContent).not.toMatch(/is not in the target list/);
+    expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull(); // moved into the plan, not kept twice
   });
 });
 
@@ -381,7 +381,7 @@ describe('phone layout', () => {
     expect(hit.querySelector('.min-w-0')).toBeTruthy();
     expect(hit.querySelector('.break-words')).toBeTruthy();
     for (const b of [...within(results()).getAllByRole('button'), screen.getByRole('button', { name: 'Search' }), searchBox()]) expect(b.className).toContain('min-h-11');
-    await u.click(within(results()).getAllByRole('button', { name: /^Add .+ to my plan$/ })[0]);
+    await u.click(within(results()).getAllByRole('button', { name: /^Add .+ to the plan$/ })[0]);
     const item = within(myPlan()).getAllByRole('listitem')[0];
     expect(item.className).toMatch(/flex-wrap/);
     for (const b of within(item).getAllByRole('button')) expect(b.className).toMatch(/min-h-11/);

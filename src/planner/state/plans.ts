@@ -306,8 +306,8 @@ export function migrateOldPlan(storage: Pick<Storage, 'getItem' | 'removeItem'>,
       items = saved.items;
       startTime = saved.startTime;
     }
-  } catch (e) {
-    problems.push(`Your saved night itinerary could not be read, so it was not carried over: ${(e as Error).message}`);
+  } catch {
+    problems.push('Your saved night timeline could not be read, so it was not carried over.');
   }
   const bySlot = new Map<string, (typeof items)[number]>();
   for (const it of items) if (!bySlot.has(it.targetId)) bySlot.set(it.targetId, it);

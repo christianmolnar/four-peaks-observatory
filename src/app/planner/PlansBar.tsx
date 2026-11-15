@@ -31,7 +31,10 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
   const nameBox = useRef<HTMLInputElement>(null);
   const cancelDelete = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (mode === 'rename') nameBox.current?.select();
+    if (mode === 'rename') {
+      nameBox.current?.focus();
+      nameBox.current?.select();
+    }
     if (mode === 'delete') cancelDelete.current?.focus();
   }, [mode]);
   // Opening another plan closes whatever was asked of the one before.

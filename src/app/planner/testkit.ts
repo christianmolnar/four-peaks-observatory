@@ -1,4 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react';
+import { PLANS_KEY } from '@/planner/state/plans';
+import type { Plan, PlansState } from '@/planner/state/plans';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { createCatalogLoader } from '@/planner/catalog/loader';
 import type { CatalogObject } from '@/planner/catalog/openngc';
@@ -141,3 +143,34 @@ export const resetAll = async (u: { click: (el: Element) => Promise<void> }): Pr
   await u.click(screen.getByRole('button', { name: 'Reset all' }));
   await u.click(screen.getByRole('button', { name: 'Yes, reset everything' }));
 };
+
+/** The plans as stored in this browser, or null. */
+export const storedPlans = (): PlansState | null => JSON.parse(window.localStorage.getItem(PLANS_KEY) ?? 'null') as PlansState | null;
+
+/** The open plan as stored, or null. */
+export const storedPlan = (): Plan | null => {
+  const s = storedPlans();
+  return s?.plans.find((p) => p.id === s.openId) ?? null;
+};
+
+/** Opens the "Gear and site" tab (the horizon editor, the site and gear editor, Reset all, import and export live there). */
+export const openGear = (): void => {
+  fireEvent.click(screen.getByRole('tab', { name: 'Gear and site' }));
+};
+
+/** Opens a closed part of the open plan ("Night and horizon", "Night timeline"); does nothing when it is open. */
+export const openPart = (name: string): void => {
+  const button = screen.getByRole('button', { name });
+  if (button.getAttribute('aria-expanded') === 'false') fireEvent.click(button);
+};
+
+/** Opens the "Plan" tab (it is the one a visit starts on). */
+export const openPlanTab = (): void => {
+  fireEvent.click(screen.getByRole('tab', { name: 'Plan' }));
+};
+
+/** The slots of the open plan's Night timeline (the part is closed by default; its content is in the page either way). */
+export const timelineSlots = (): HTMLElement[] => [...(document.getElementById('night-timeline-body')?.querySelectorAll<HTMLElement>('ol[aria-label="Night timeline, in order"] > li') ?? [])];
+
+/** The My plans switcher (a select). */
+export const planSwitch = (): HTMLSelectElement => screen.getByRole('combobox', { name: /^My plans/ }) as HTMLSelectElement;

@@ -259,7 +259,7 @@ describe('plans: migration from the old My plan and itinerary', () => {
     expect(a.problems).toEqual([expect.stringMatching(/saved plan is damaged/)]);
     expect(a.plan!.targets.map((t) => t.id)).toEqual(['m31', 'm42']);
     const b = migrateOldPlan(memory({ [MY_PLAN_KEY]: oldMyPlan, [ITINERARY_KEY]: '{"version":9}' }), ctx);
-    expect(b.problems).toEqual([expect.stringMatching(/saved night itinerary could not be read/)]);
+    expect(b.problems).toEqual(['Your saved night timeline could not be read, so it was not carried over.']);
     expect(b.plan!.targets.map((t) => t.id)).toEqual(['ngc7000', 'm31', 'planet-jupiter']);
   });
 

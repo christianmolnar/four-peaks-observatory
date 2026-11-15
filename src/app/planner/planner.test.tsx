@@ -27,13 +27,15 @@ describe('planner page', () => {
     expect(html).toContain('Ranking the whole catalog');
     expect(html).not.toContain('data-testid="target-list"');
     expect(html).toContain('Search the catalog by name or number');
-    expect(html).toContain('MY PLAN');
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('Gear and site');
+    expect(html).toContain('PLAN: ');
     expect(html).toContain('More');
     expect(html).toContain('Reset all');
     expect(html).not.toContain('Replace profile with sample');
   });
 
-  it('says only what is true about data leaving the browser', () => {
+  it('says only what is true about data leaving the browser, in the Gear and site tab', () => {
     expect(html).toContain('stay in this browser');
     expect(html).not.toContain('nothing is sent anywhere');
   });

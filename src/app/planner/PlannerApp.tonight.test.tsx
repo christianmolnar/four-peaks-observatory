@@ -53,16 +53,14 @@ describe('"tonight" in every section follows the date', () => {
     expect(pageText()).not.toMatch(/tonight/i);
     expect(pageText()).toMatch(/Tue 15 Dec/i);
     expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
-    expect(pageText()).toMatch(/Worked out for Tue 15 Dec\./);
     expect(pageText()).toMatch(/estimates for Tue 15 Dec, not predictions/);
-    expect(openFirstBody().textContent).toMatch(/: Tue 15 Dec/); // last: an open solar-system row takes over the Exposure panel
+    expect(openFirstBody().textContent).toMatch(/: Tue 15 Dec/);
   });
 
   it('on the real tonight the sections say tonight', async () => {
     const s = site();
     await app(defaultTonightDate(new Date(), s.longitude, s.timeZone));
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
-    expect(pageText()).toMatch(/Worked out for tonight\./);
     expect(pageText()).toMatch(/estimates for tonight, not predictions/);
     expect(openFirstBody().textContent).toMatch(/: tonight/);
   });

@@ -55,7 +55,7 @@ describe('Solar system rows', () => {
     expect(names).toEqual(expect.arrayContaining(['Jupiter', 'Saturn', 'Mars', 'Moon']));
     expect(names).not.toContain('Mercury'); // below the horizon all night: not up, not listed
     expect(rowOf('Jupiter').textContent).toMatch(/Solar system.*Up /);
-    expect(within(rowOf('Jupiter')).getByRole('button', { name: 'Add Jupiter to my plan' })).toBeTruthy();
+    expect(within(rowOf('Jupiter')).getByRole('button', { name: 'Add Jupiter to the plan' })).toBeTruthy();
     expect(screen.queryByTestId('solar-detail-Jupiter')).toBeNull(); // closed until the row is opened
   });
 

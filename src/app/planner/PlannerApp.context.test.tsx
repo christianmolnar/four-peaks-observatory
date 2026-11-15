@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { PROFILE_KEY, SELECTION_KEY, defaultTonightDate, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready, resetAll } from './testkit';
+import { openGear, openPlanTab, pageProps, ready, resetAll, storedPlans } from './testkit';
 
 // Nothing is asked twice: the sky darkness belongs to the site, the page opens on the gear last chosen,
 // and the wording follows the date picked.
@@ -26,8 +26,7 @@ const app = async (profile = base(), initialDate = '2026-12-15') => {
 };
 const trainSelect = () => screen.getByLabelText('Train') as HTMLSelectElement;
 const siteSelect = () => screen.getByLabelText('Site') as HTMLSelectElement;
-const exposure = () => screen.getByRole('region', { name: /^EXPOSURE:/ });
-const itinerary = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
+const timeline = () => document.getElementById('night-timeline-body') as HTMLElement;
 const bortleSelects = () => screen.queryAllByLabelText(/^Sky darkness, Bortle class \(1 to 9, 1 is darkest\)$/) as HTMLSelectElement[];
 
 /** jsdom does not toggle a <details> on a click, so open it the way the browser would. */
@@ -53,46 +52,41 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('Bortle class belongs to the site', () => {
-  it('is asked once, in the site editor, with 6 as a labelled assumption; the panels only say it', async () => {
+  it('is asked once, in the site editor, with 6 as a labelled assumption', async () => {
     await app();
+    openGear();
     expect(document.getElementById('exposure-bortle')).toBeNull();
     expect(document.getElementById('it-bortle')).toBeNull();
     expect(bortleSelects()).toHaveLength(0); // the editor's lists are closed
     openList('Site (1)');
     expect(bortleSelects()).toHaveLength(1);
     expect([...bortleSelects()[0].options].map((o) => o.textContent)[0]).toBe('Not set (6 assumed)');
-    expect(within(exposure()).getByTestId('exposure-sky').textContent).toBe('Sky darkness: Bortle 6');
-    expect(exposure().textContent).toMatch(/Assumed, the site has none/);
-    expect(screen.getByTestId('itinerary-add-note').textContent).toMatch(/Bortle 6 assumed, the site has none/);
   });
 
-  it('changing it in the site editor changes both plans and is saved with the site', async () => {
+  it('changing it in the site editor changes the night timeline and is saved with the site', async () => {
     window.localStorage.setItem(
       ITINERARY_KEY,
       JSON.stringify({ version: 1, items: [{ id: 's1', targetId: 'm31', trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }] }),
     );
     await app();
-    const subs = () => within(exposure()).getAllByText(/^\d+ s \(range/).map((n) => n.textContent);
-    const itineraryText = () => itinerary().textContent;
-    const subsBefore = subs();
-    const itineraryBefore = itineraryText();
+    const timelineBefore = timeline().textContent;
+    openGear();
     openList('Site (1)');
     saveBortle('9');
-    expect(within(exposure()).getByTestId('exposure-sky').textContent).toBe('Sky darkness: Bortle 9');
-    expect(screen.getByTestId('itinerary-add-note').textContent).toMatch(/Bortle 9 from the site/);
-    expect(subs()).not.toEqual(subsBefore);
-    expect(itineraryText()).not.toEqual(itineraryBefore);
+    expect(timeline().textContent).not.toEqual(timelineBefore);
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).sites[0].bortle).toBe(9);
   });
 
-  it('clearing it goes back to the labelled assumption', async () => {
+  it('clearing it goes back to the labelled assumption, and the site is saved without it', async () => {
     const p = base();
     await app({ ...p, sites: p.sites.map((s, i) => (i === 0 ? { ...s, bortle: 3 } : s)) });
-    expect(within(exposure()).getByTestId('exposure-sky').textContent).toBe('Sky darkness: Bortle 3');
+    openGear();
     openList('Site (1)');
     expect(bortleSelects()[0].value).toBe('3');
     saveBortle('');
-    expect(within(exposure()).getByTestId('exposure-sky').textContent).toBe('Sky darkness: Bortle 6');
+    expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).sites[0].bortle).toBeUndefined();
+    expect([...bortleSelects()[0].options].map((o) => o.textContent)[0]).toBe('Not set (6 assumed)');
+    expect(bortleSelects()[0].value).toBe('');
   });
 });
 
@@ -137,8 +131,12 @@ describe('the page opens on the site and train last chosen', () => {
     const user = userEvent.setup();
     await app();
     await user.selectOptions(trainSelect(), 'smart-seestar-s50');
+    expect(storedPlans()!.plans[0].trainId).toBe('smart-seestar-s50');
+    openGear();
     await resetAll(user);
     expect(window.localStorage.getItem(SELECTION_KEY)).toBeNull();
+    openPlanTab();
+    expect(trainSelect().value).toBe(sampleProfile().trains[0].id); // the sample's first train
   });
 });
 
