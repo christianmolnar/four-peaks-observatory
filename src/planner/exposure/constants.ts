@@ -107,6 +107,23 @@ export const MIN_SUB_S = 15;
  */
 export const MAX_SUB_S = 300;
 /**
+ * The shortest sub any path accepts (a typed row value, a stored value, a favorite): under 1 s the overhead of each frame (download, dither settle)
+ * is longer than the exposure, so the number is a typing slip. The engine itself never picks below MIN_SUB_S; this is the floor for a user's own number.
+ */
+export const MIN_CUSTOM_SUB_S = 1;
+/**
+ * The most subs in one plan, for every path (engine, rows, favorites, store, AI reply, UI messages). ASSUMPTION: 500, from overhead and stack size.
+ * With OVERHEAD_PER_SUB_S = 10 s, 500 subs cost 83 minutes of clock in overhead whatever their length, and a stack of that many frames is the practical
+ * size for stacking software and disk. At 60 s a sub, 500 of them are 8.3 hours of light, more than a night, so the cap never binds a sub of 60 s or more;
+ * it only stops plans of very short subs, and the engine then lengthens the sub (up to MAX_SUB_S) instead of recommending more frames.
+ */
+export const MAX_SUBS = 500;
+/**
+ * ASSUMPTION: two sub lengths give "the same stacked noise" when the noise variance per hour of clock time (read noise and overhead both counted)
+ * differs by less than this fraction. Among such lengths the shortest is used: fewer minutes lost to a trail, a gust or a cloud per frame.
+ */
+export const SAME_NOISE_TOLERANCE = 0.02;
+/**
  * ASSUMPTION: star saturation. One forum report says stars saturate "in less than 30 seconds" on an f/2-class system. Star flux per
  * pixel scales with 1/N^2, so the ceiling is this many seconds at STAR_SATURATION_REF_F and grows with the square of the focal ratio
  * (f/2 -> 30 s, f/6.3 -> about 300 s, f/10 -> 750 s: only a fast beam is limited). One report, no camera or full-well named.

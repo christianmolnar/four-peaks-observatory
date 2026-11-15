@@ -1,6 +1,6 @@
 import { nextMeridianTransit } from '@/planner/astro';
 import type { Site } from '@/planner/astro';
-import { MODE_ORDER, exposureFor, marginalBenefit } from '@/planner/exposure';
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, exposureFor, marginalBenefit } from '@/planner/exposure';
 import type { ExposureChoice, ExposureMode, ExposureOverrides, ExposureResult, ExposureWarning, MarginalRow } from '@/planner/exposure';
 import type { PlanEntry } from '@/planner/plan';
 import type { SlotInput } from '@/planner/itinerary';
@@ -30,8 +30,8 @@ export type RowExposure =
 /** The stored custom numbers that are inside the limits: a number typed on a row replaces the custom value, so a stored one outside the limits is not carried along. */
 const keepUsable = (c: ExposureOverrides): ExposureOverrides => {
   const out: ExposureOverrides = { ...c };
-  if (out.subSeconds !== undefined && (out.subSeconds < MIN_SUB_S_ROW || out.subSeconds > MAX_SUB_S)) delete out.subSeconds;
-  if (out.subCount !== undefined && (!Number.isInteger(out.subCount) || out.subCount < 1)) delete out.subCount;
+  if (out.subSeconds !== undefined && (out.subSeconds < MIN_CUSTOM_SUB_S || out.subSeconds > MAX_SUB_S)) delete out.subSeconds;
+  if (out.subCount !== undefined && (!Number.isInteger(out.subCount) || out.subCount < 1 || out.subCount > MAX_SUBS)) delete out.subCount;
   return out;
 };
 
@@ -43,12 +43,13 @@ export function choiceOf(ref: Pick<PlanTargetRef, 'preset' | 'base' | 'custom'>)
   return ref.preset === 'custom' ? { preset: baseOf(ref), overrides: ref.custom ?? {} } : { preset: ref.preset };
 }
 
-/** The plain reason a stored custom value is outside the limits (a sub under 1 s or over 1 hour, a count that is not a whole number), or null. */
+/** The plain reason a stored custom value is outside the limits (a sub under MIN_CUSTOM_SUB_S or over MAX_SUB_S, a count over MAX_SUBS or that is not a whole number), or null. */
 export function storedProblem(c: ExposureOverrides | undefined): string | null {
   if (c === undefined) return null;
-  if (c.subSeconds !== undefined && c.subSeconds < MIN_SUB_S_ROW) return `The stored sub length is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.`;
-  if (c.subSeconds !== undefined && c.subSeconds > MAX_SUB_S) return `The stored sub length is longer than ${MAX_SUB_S} s (1 hour): too long for one sub.`;
+  if (c.subSeconds !== undefined && c.subSeconds < MIN_CUSTOM_SUB_S) return `The stored sub length is shorter than ${MIN_CUSTOM_SUB_S} s: too short to be an exposure.`;
+  if (c.subSeconds !== undefined && c.subSeconds > MAX_SUB_S) return `The stored sub length is longer than ${MAX_SUB_S} s: too long for one sub.`;
   if (c.subCount !== undefined && (!Number.isInteger(c.subCount) || c.subCount < 1)) return 'The stored number of subs is not a whole number of 1 or more.';
+  if (c.subCount !== undefined && c.subCount > MAX_SUBS) return `The stored number of subs is more than ${MAX_SUBS}: too many for one plan.`;
   return null;
 }
 
@@ -167,14 +168,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, customUnusable, withNumber };
 }
 
-/** The longest sub, the most subs, and the most light one plan row accepts: past these a number is a typing slip, not an exposure. */
-export const MAX_SUB_S = 3600;
-/**
- * The shortest sub one plan row accepts. 1 s, not the engine's 15 s floor: the engine itself allows a typed sub below its floor (its range goes down to 1 s),
- * so a bright-target user may want 5 s or 10 s; but under 1 s the overhead of each frame (download, dither settle) is longer than the exposure, so it is a typing slip.
- */
-export const MIN_SUB_S_ROW = 1;
-export const MAX_SUBS = 5000;
+/** The most light one plan row accepts. The longest sub, the shortest sub and the most subs are the engine's own (MAX_SUB_S, MIN_CUSTOM_SUB_S, MAX_SUBS). */
 export const MAX_LIGHT_S = 24 * 3600;
 
 export type NumberCheck = { ok: true; value: number } | { ok: false; message: string };
@@ -188,8 +182,8 @@ export function checkNumber(field: 'subSeconds' | 'subCount', text: string): Num
   if (field === 'subSeconds') {
     if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, message: 'Enter the sub length in seconds as a number, for example 120.' };
     const v = Number(t);
-    if (v < MIN_SUB_S_ROW) return { ok: false, message: `A sub of ${v} s is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.` };
-    if (v > MAX_SUB_S) return { ok: false, message: `${t.length > 10 ? 'That sub length' : `A sub of ${v} s`} is longer than ${MAX_SUB_S} s (1 hour): too long for one sub.` };
+    if (v < MIN_CUSTOM_SUB_S) return { ok: false, message: `A sub of ${v} s is shorter than ${MIN_CUSTOM_SUB_S} s: too short to be an exposure.` };
+    if (v > MAX_SUB_S) return { ok: false, message: `${t.length > 10 ? 'That sub length' : `A sub of ${v} s`} is longer than ${MAX_SUB_S} s: too long for one sub.` };
     return { ok: true, value: v };
   }
   if (!/^\d+$/.test(t)) return { ok: false, message: 'Enter the number of subs as a whole number, for example 30.' };
@@ -209,7 +203,7 @@ export function exposureSummary(f: { preset: PlanTargetRef['preset']; base?: Exp
  * or more than a day of light), or null when they can. `onNight`: the value is already stored and the night changed, so the message says "on this night".
  */
 export function resultProblem(r: ExposureResult, usableMinutes: number, onNight = false): string | null {
-  if (r.subCount > MAX_SUBS) return `That would need more than ${MAX_SUBS.toLocaleString('en-US')} subs${onNight ? ' on this night' : ''}; use longer subs.`;
+  if (r.warnings.some((w) => w.code === 'count-capped')) return `That would need more than ${MAX_SUBS.toLocaleString('en-US')} subs${onNight ? ' on this night' : ''}; use longer subs.`;
   if (r.subCount < 1) {
     if (usableMinutes <= 0) return 'There is no usable time on this night for that, so it would give no subs.';
     return `A ${r.subSeconds} s sub does not fit in the ${Math.floor(usableMinutes)} usable minutes of this night; use shorter subs.`;

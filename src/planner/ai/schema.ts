@@ -1,3 +1,4 @@
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S } from '../exposure';
 import { ISO_PATTERN, ISO_RE } from './instant';
 
 export const clip = (s: string, max: number): string => (s.length <= max ? s : `${s.slice(0, max - 3)}...`);
@@ -72,7 +73,7 @@ export const PLAN_JSON_SCHEMA = {
         type: 'object',
         required: ['id', 'minutes', 'subSeconds'],
         additionalProperties: false,
-        properties: { id: { type: 'string' }, minutes: { type: 'number', exclusiveMinimum: 0 }, subSeconds: { type: 'number', exclusiveMinimum: 0 } },
+        properties: { id: { type: 'string' }, minutes: { type: 'number', exclusiveMinimum: 0 }, subSeconds: { type: 'number', minimum: MIN_CUSTOM_SUB_S, maximum: MAX_SUB_S } },
       },
     },
     plan: {
@@ -98,8 +99,8 @@ export const PLAN_JSON_SCHEMA = {
       properties: {
         id: { type: 'string' },
         leftoverMinutes: { type: 'number', minimum: 0 },
-        subSeconds: { type: 'number', exclusiveMinimum: 0 },
-        frames: { type: 'integer', minimum: 0 },
+        subSeconds: { type: 'number', minimum: MIN_CUSTOM_SUB_S, maximum: MAX_SUB_S },
+        frames: { type: 'integer', minimum: 0, maximum: MAX_SUBS },
         usefulness: { enum: [...USEFULNESS] },
         reason: { type: 'string' },
       },
@@ -151,7 +152,7 @@ function listOf<T>(v: unknown, what: string, item: (x: unknown, i: number) => Pa
 function parseVerdict(x: unknown): LastTargetVerdict | string {
   if (!isObj(x) || !isStr(x.id)) return 'needs a string id';
   const n = (k: string, ok: (v: number) => boolean, what: string): string | null => (typeof x[k] === 'number' && Number.isFinite(x[k]) && ok(x[k] as number) ? null : `${k} must be ${what}`);
-  const bad = n('leftoverMinutes', (v) => v >= 0, 'a number, 0 or more') ?? n('subSeconds', (v) => v > 0, 'a positive number') ?? n('frames', (v) => Number.isInteger(v) && v >= 0, 'a whole number, 0 or more');
+  const bad = n('leftoverMinutes', (v) => v >= 0, 'a number, 0 or more') ?? n('subSeconds', (v) => v >= MIN_CUSTOM_SUB_S && v <= MAX_SUB_S, `a number from ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S}`) ?? n('frames', (v) => Number.isInteger(v) && v >= 0 && v <= MAX_SUBS, `a whole number from 0 to ${MAX_SUBS}`);
   if (bad) return bad;
   if (typeof x.usefulness !== 'string' || !(USEFULNESS as readonly string[]).includes(x.usefulness)) return `usefulness must be one of ${USEFULNESS.join(', ')}`;
   if (!isStr(x.reason)) return 'reason must be a non-empty string';
@@ -168,7 +169,8 @@ export function parsePlanReply(text: string): Parsed<ModelPlan> {
   const exposures = listOf<ExposureEntry>(o.exposures, 'exposures', (x) => {
     if (!isObj(x) || !isStr(x.id)) return fail('needs a string id');
     if (typeof x.minutes !== 'number' || !Number.isFinite(x.minutes) || x.minutes <= 0) return fail('minutes must be a positive number');
-    if (typeof x.subSeconds !== 'number' || !Number.isFinite(x.subSeconds) || x.subSeconds <= 0) return fail('subSeconds must be a positive number');
+    if (typeof x.subSeconds !== 'number' || !Number.isFinite(x.subSeconds) || x.subSeconds < MIN_CUSTOM_SUB_S || x.subSeconds > MAX_SUB_S) return fail(`subSeconds must be a number from ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S}`);
+    if (x.minutes * 60 > x.subSeconds * MAX_SUBS) return fail(`${x.minutes} min at ${x.subSeconds} s is more than ${MAX_SUBS} subs; use a longer sub (at most ${MAX_SUB_S} s) or fewer minutes`);
     return good({ id: x.id, minutes: x.minutes, subSeconds: x.subSeconds });
   });
   if (!exposures.ok) return exposures;

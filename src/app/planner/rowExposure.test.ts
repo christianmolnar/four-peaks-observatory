@@ -1,3 +1,4 @@
+import { MAX_SUBS, MAX_SUB_S } from '@/planner/exposure';
 import { checkNumber, choiceOf, differsText, exposureSummary, minutesText, splitWarnings, withNumber, withPreset } from './rowExposure';
 import type { PlanTargetRef } from '@/planner/state/plans';
 import { PLANS_VERSION, validatePlans } from '@/planner/state/plans';
@@ -20,9 +21,11 @@ describe('typed numbers', () => {
     }
     expect(checkNumber('subSeconds', '0.999')).toMatchObject({ ok: false, message: expect.stringMatching(/shorter than 1 s/) });
     expect(checkNumber('subSeconds', '1').ok).toBe(true);
-    expect(checkNumber('subSeconds', '3601')).toMatchObject({ ok: false, message: expect.stringMatching(/too long for one sub/) });
-    expect(checkNumber('subSeconds', '3600').ok).toBe(true);
-    expect(checkNumber('subCount', '5001')).toMatchObject({ ok: false, message: expect.stringMatching(/too many/) });
+    expect(checkNumber('subSeconds', String(MAX_SUB_S + 1))).toMatchObject({ ok: false, message: expect.stringMatching(/too long for one sub/) });
+    expect(checkNumber('subSeconds', '3600')).toMatchObject({ ok: false, message: expect.stringMatching(/too long for one sub/) });
+    expect(checkNumber('subSeconds', String(MAX_SUB_S)).ok).toBe(true);
+    expect(checkNumber('subCount', String(MAX_SUBS + 1))).toMatchObject({ ok: false, message: expect.stringMatching(/too many/) });
+    expect(checkNumber('subCount', String(MAX_SUBS)).ok).toBe(true);
     expect(checkNumber('subCount', '2.5').ok).toBe(false);
     expect(checkNumber('subCount', '99999999999999999999').ok).toBe(false);
   });

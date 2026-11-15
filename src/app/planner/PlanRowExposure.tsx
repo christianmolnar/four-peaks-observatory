@@ -17,6 +17,7 @@ const SUB_LIMIT: Record<ExposureResult['limitedBy']['sub'], string> = {
   'risk-cap': 'the risk cap (a longer sub risks losing more to a trail or a cloud)',
   saturation: 'star saturation (a longer sub would clip the stars)',
   floor: 'the 15 s floor (overhead makes shorter subs wasteful)',
+  'count-cap': 'the limit on the number of subs (a longer sub keeps the count down)',
   user: 'your choice',
 };
 const TOTAL_LIMIT: Record<ExposureResult['limitedBy']['total'], string> = {

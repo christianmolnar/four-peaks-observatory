@@ -1,3 +1,4 @@
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S } from '../exposure';
 import { createAnthropicCaller, DEFAULT_MODEL, MAX_TOKENS, MissingKeyError, redactKey } from './anthropic';
 import { planNightWithAi, ModelReplyError, MAX_BASE_CHARS, MAX_CALL_CHARS, MAX_REQUEST_CHARS, PromptTooLargeError } from './plan';
 import type { CallModel, ModelMessage } from './plan';
@@ -561,5 +562,34 @@ describe('one enforced call limit', () => {
     expect(r.plan.plan).toHaveLength(two.plan.length);
     expect(r.violations.map((v) => v.kind)).not.toContain('too-many-slots');
     expect(r.violations).toHaveLength(expected.length);
+  });
+});
+
+describe('one set of exposure limits applies to the model reply', () => {
+  const withExposure = (e: object) => {
+    const p = JSON.parse(good());
+    p.exposures[0] = { ...p.exposures[0], ...e };
+    return JSON.stringify(p);
+  };
+  it('a sub over MAX_SUB_S, under MIN_CUSTOM_SUB_S, or a count over MAX_SUBS is refused with the limit named', () => {
+    expect(parsePlanReply(withExposure({ minutes: 120, subSeconds: MAX_SUB_S + 1 }))).toMatchObject({ ok: false, error: expect.stringContaining(`${MAX_SUB_S}`) });
+    expect(parsePlanReply(withExposure({ minutes: 60, subSeconds: 3600 })).ok).toBe(false);
+    expect(parsePlanReply(withExposure({ minutes: 1, subSeconds: MIN_CUSTOM_SUB_S / 2 })).ok).toBe(false);
+    expect(parsePlanReply(withExposure({ minutes: 1000, subSeconds: 30 }))).toMatchObject({ ok: false, error: expect.stringContaining(`${MAX_SUBS} subs`) });
+    expect(parsePlanReply(withExposure({ minutes: (MAX_SUBS * 60) / 60, subSeconds: 60 })).ok).toBe(true);
+    expect(parsePlanReply(withExposure({ minutes: 120, subSeconds: MAX_SUB_S })).ok).toBe(true);
+  });
+  it('the last-target verdict is held to the same limits', () => {
+    const verdict = (v: object) => {
+      const p = JSON.parse(good());
+      p.lastTarget = { ...p.lastTarget, ...v };
+      return JSON.stringify(p);
+    };
+    expect(parsePlanReply(verdict({ subSeconds: MAX_SUB_S + 1 })).ok).toBe(false);
+    expect(parsePlanReply(verdict({ frames: MAX_SUBS + 1 })).ok).toBe(false);
+  });
+  it('the prompt and the schema it carries name the same limits', () => {
+    expect(SYSTEM_PROMPT).toContain(`from ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S}`);
+    expect(SYSTEM_PROMPT).toContain(`at most ${MAX_SUBS} subs`);
   });
 });

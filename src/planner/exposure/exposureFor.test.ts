@@ -4,7 +4,12 @@ import { validateProfile } from '../profile';
 import type { ProfileFilter } from '../profile';
 import {
   BRIGHT_CORE_SUB_CAP_S,
+  MAX_SUBS,
+  MAX_SUB_S,
   MODE_ORDER,
+  SUB_STEPS_S,
+  noiseCost,
+  pickSub,
   PRESETS,
   SKY_LIMIT_K,
   exposureFor,
@@ -314,8 +319,8 @@ describe('custom: overrides of a preset', () => {
   it('a total that a given count overrides is not listed as a difference', () => {
     expect(at({ subCount: 30, totalMin: 45 }).differs.map((d) => d.field)).toEqual(['subCount']);
   });
-  it('a sub length under a second keeps a range that starts above zero', () => {
-    const r = at({ subSeconds: 0.5 });
+  it('a sub length of one second keeps a range that starts above zero', () => {
+    const r = at({ subSeconds: 1 });
     expect(r.subSecondsRange[0]).toBeGreaterThanOrEqual(1);
     expect(r.subSecondsRange[1]).toBeGreaterThanOrEqual(r.subSecondsRange[0]);
   });
@@ -330,7 +335,7 @@ describe('custom: overrides of a preset', () => {
     expect(codes(r.warnings)).toContain('limited-by-usable-time');
   });
   it('rejects overrides that are not positive numbers (whole for the count)', () => {
-    for (const o of [{ subSeconds: 0 }, { subSeconds: NaN }, { subCount: 0 }, { subCount: 2.5 }, { totalMin: -5 }]) {
+    for (const o of [{ subSeconds: 0 }, { subSeconds: 0.5 }, { subSeconds: 301 }, { subSeconds: 3600 }, { subSeconds: NaN }, { subCount: 0 }, { subCount: 2.5 }, { subCount: MAX_SUBS + 1 }, { totalMin: -5 }]) {
       expect(() => at(o)).toThrow(RangeError);
     }
     expect(() => exposureFor(galaxy(22), rig(TRAINS.f10), { bortle: 6 }, night(), { preset: 'nope' as 'quick' })).toThrow(RangeError);
@@ -477,8 +482,90 @@ describe('overrides stay cheap and honest at the edges', () => {
     expect(codes(r.warnings)).toContain('limited-by-usable-time');
   });
   it('a sub longer than the window plans no subs and says so', () => {
-    const r = run(galaxy(22), rig(TRAINS.f10), 6, night({ usableMinutes: 30 }), { preset: 'balanced', overrides: { subSeconds: 3600 } });
+    const r = run(galaxy(22), rig(TRAINS.f10), 6, night({ usableMinutes: 4 }), { preset: 'balanced', overrides: { subSeconds: MAX_SUB_S } });
     expect(r.subCount).toBe(0);
     expect(codes(r.warnings)).toContain('limited-by-usable-time');
   });
 });
+
+describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUBS subs', () => {
+  const TRAIN_LIST = Object.values(TRAINS);
+  const FILTERS: (ProfileFilter | null)[] = [null, bandFilter(50), bandFilter(7)];
+  const lowerRn = { ...duo, readNoiseClass: 'low' as const };
+  const highRn = { ...duo, readNoiseClass: 'high' as const };
+
+  it('no preset, on any train, filter, sky, read noise or window, gives a sub over MAX_SUB_S or a count over MAX_SUBS', () => {
+    for (const cam of [lowerRn, duo, highRn]) {
+      for (const tr of TRAIN_LIST) {
+        for (const f of FILTERS) {
+          for (const bortle of [1, 4, 6, 9]) {
+            for (const usableMinutes of [20, 240, 900]) {
+              for (const preset of MODE_ORDER) {
+                for (const t of [galaxy(20), galaxy(24), { ...galaxy(22), brightCore: true }]) {
+                  const r = run(t, rig(tr, f, cam), bortle, night({ usableMinutes }), { preset });
+                  expect([preset, bortle, r.subSeconds <= MAX_SUB_S, r.subCount <= MAX_SUBS]).toEqual([preset, bortle, true, true]);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('a dark sky with high read noise does not run away: the sub stops at the ceiling, never above MAX_SUB_S', () => {
+    const r = run(galaxy(24), rig(TRAINS.f63, bandFilter(7), highRn), 1, night({ usableMinutes: 900 }), { preset: 'deep' });
+    expect(['risk-cap', 'saturation']).toContain(r.limitedBy.sub); // the sky-limited length is far over the cap
+    expect(r.subSeconds).toBeLessThanOrEqual(MAX_SUB_S);
+    expect(r.subCount).toBeLessThanOrEqual(MAX_SUBS);
+    expect(codes(r.warnings)).toContain('sub-capped');
+  });
+
+  it('a user sub of 1 s with a long window is cut to MAX_SUBS subs and says so', () => {
+    const r = run(galaxy(24), rig(TRAINS.f63), 6, night({ usableMinutes: 900 }), { preset: 'deep', overrides: { subSeconds: 1, totalMin: 600 } });
+    expect(r.subCount).toBe(MAX_SUBS);
+    expect(codes(r.warnings)).toContain('count-capped');
+  });
+
+  it('a preset whose light would need more than MAX_SUBS short subs lengthens the sub instead', () => {
+    // A bright sky floors the sub at MIN_SUB_S (15 s); a faint object in a long night then wants far more than MAX_SUBS frames at 15 s.
+    const r = run(galaxy(24), rig(TRAINS.hs), 9, night({ usableMinutes: 900 }), { preset: 'deep' });
+    expect(r.subCount).toBeLessThanOrEqual(MAX_SUBS);
+    expect(r.subSeconds).toBeGreaterThan(15);
+    expect(r.limitedBy.sub).toBe('count-cap');
+    expect(r.integrationMin * 60).toBeLessThanOrEqual(MAX_SUBS * r.subSeconds + 0.05 * 60);
+  });
+
+  it('prefers the shorter sub when it gives the same stacked noise', () => {
+    // Read noise is negligible against the sky, so only the 10 s overhead is left: 240 s and 300 s differ by under SAME_NOISE_TOLERANCE
+    // in noise per clock time, while 180 s and 300 s differ by more (overhead is then material).
+    const rn = 0.1;
+    const rate = 5;
+    expect(noiseCost(rn, rate, 240) / noiseCost(rn, rate, 300) - 1).toBeLessThan(0.02);
+    expect(noiseCost(rn, rate, 180) / noiseCost(rn, rate, 300) - 1).toBeGreaterThan(0.02);
+    expect(pickSub(rn, rate, 300, 300)).toBe(240);
+  });
+
+  it('keeps the longer sub when the shorter one costs real noise', () => {
+    // Swamp length 100 s at K = 10: 60 s would add much more read noise than the tolerance allows.
+    const rn = 3;
+    const rate = (10 * rn * rn) / 100;
+    expect(pickSub(rn, rate, 100, 300)).toBeGreaterThanOrEqual(90);
+  });
+
+  it('never picks a sub longer than the step nearest the sky-limited length', () => {
+    for (const wanted of [15, 22, 40, 75, 150, 299]) {
+      for (const rn of [1, 3, 8]) {
+        for (const rate of [0.01, 0.1, 1]) {
+          const t = pickSub(rn, rate, wanted, 300);
+          expect(t).toBeLessThanOrEqual(snapNearestFor(wanted));
+          expect(SUB_STEPS_S).toContain(t);
+        }
+      }
+    }
+  });
+});
+
+function snapNearestFor(s: number): number {
+  return SUB_STEPS_S.reduce((b, x) => (Math.abs(Math.log(x / s)) < Math.abs(Math.log(b / s)) ? x : b));
+}

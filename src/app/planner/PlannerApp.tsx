@@ -15,7 +15,7 @@ import { makeCsvTime, planRowsToCsv, planToCsv } from '@/planner/export';
 import type { PlanExposureRow } from '@/planner/export';
 import { arcToHorizonPoints, ProfileError } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
-import { DEFAULT_BORTLE, MODE_ORDER, PRESETS } from '@/planner/exposure';
+import { DEFAULT_BORTLE, MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, PRESETS } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
@@ -102,7 +102,7 @@ import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { MAX_SUBS, MAX_SUB_S, baseOf, presetLabel, rowExposure, withNumber, withPreset } from './rowExposure';
+import { baseOf, presetLabel, rowExposure, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -1137,10 +1137,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const ref = planTargets.find((t) => t.id === id);
     const view = rowViews.get(id);
     if (ref === undefined || view?.kind !== 'ok' || view.customUnusable !== null || view.chosen.subCount < 1) return;
-    // The favorites store accepts a sub of at most 1 hour and 1 to 5,000 whole subs; a row outside that is refused here, so the store's own check is never reached.
+    // The favorites store accepts the engine's limits (MIN_CUSTOM_SUB_S to MAX_SUB_S, 1 to MAX_SUBS whole subs); a row outside that is refused here, so the store's own check is never reached.
     const { subSeconds, subCount } = view.chosen;
-    if (!(subSeconds > 0 && subSeconds <= MAX_SUB_S) || !Number.isInteger(subCount) || subCount > MAX_SUBS) {
-      setNotice('The favorite was not saved: these numbers are outside what a favorite can hold (a sub of up to 1 hour, 1 to 5,000 subs).');
+    if (!(subSeconds >= MIN_CUSTOM_SUB_S && subSeconds <= MAX_SUB_S) || !Number.isInteger(subCount) || subCount < 1 || subCount > MAX_SUBS) {
+      setNotice(`The favorite was not saved: these numbers are outside what a favorite can hold (a sub of ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} subs).`);
       return;
     }
     const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';

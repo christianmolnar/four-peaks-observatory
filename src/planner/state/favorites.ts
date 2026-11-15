@@ -1,4 +1,4 @@
-import { MODE_ORDER } from '../exposure';
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER } from '../exposure';
 import type { ExposureMode } from '../exposure';
 import { keepCopy, listBackups } from './plans';
 import type { Backup, PlanPreset } from './plans';
@@ -8,9 +8,6 @@ export const FAVORITES_KEY = 'fpo-planner-favorites-v1';
 export const FAVORITES_VERSION = 1;
 export const FAVORITES_BACKUP_PREFIX = `${FAVORITES_KEY}.bak.`;
 export const MAX_FAVORITES = 500;
-/** Limits of a saved exposure: the same the plan's own boxes hold. */
-export const MAX_SUB_SECONDS = 3600;
-export const MAX_SUB_COUNT = 5000;
 const MAX_NAME = 200;
 
 const PRESETS: readonly PlanPreset[] = [...MODE_ORDER, 'custom'];
@@ -56,11 +53,11 @@ function checkFavorite(raw: unknown, path: string): Favorite {
   if (!isRecord(raw)) throw new FavoritesError(path, 'must be an object');
   if (typeof raw.id !== 'string' || raw.id === '' || raw.id.length > MAX_NAME) throw new FavoritesError(`${path}.id`, 'must be a non-empty id');
   if (!PRESETS.includes(raw.preset as PlanPreset)) throw new FavoritesError(`${path}.preset`, `must be one of ${PRESETS.join(', ')}`);
-  if (typeof raw.subSeconds !== 'number' || !Number.isFinite(raw.subSeconds) || raw.subSeconds <= 0 || raw.subSeconds > MAX_SUB_SECONDS) {
-    throw new FavoritesError(`${path}.subSeconds`, `must be a number above 0 and at most ${MAX_SUB_SECONDS}`);
+  if (typeof raw.subSeconds !== 'number' || !Number.isFinite(raw.subSeconds) || raw.subSeconds < MIN_CUSTOM_SUB_S || raw.subSeconds > MAX_SUB_S) {
+    throw new FavoritesError(`${path}.subSeconds`, `must be a number from ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S}`);
   }
-  if (typeof raw.subCount !== 'number' || !Number.isInteger(raw.subCount) || raw.subCount < 1 || raw.subCount > MAX_SUB_COUNT) {
-    throw new FavoritesError(`${path}.subCount`, `must be a whole number from 1 to ${MAX_SUB_COUNT}`);
+  if (typeof raw.subCount !== 'number' || !Number.isInteger(raw.subCount) || raw.subCount < 1 || raw.subCount > MAX_SUBS) {
+    throw new FavoritesError(`${path}.subCount`, `must be a whole number from 1 to ${MAX_SUBS}`);
   }
   if (raw.base !== undefined && !MODE_ORDER.includes(raw.base as ExposureMode)) throw new FavoritesError(`${path}.base`, `must be one of ${MODE_ORDER.join(', ')}`);
   if (typeof raw.savedAt !== 'string' || Number.isNaN(Date.parse(raw.savedAt))) throw new FavoritesError(`${path}.savedAt`, 'must be a date and time');

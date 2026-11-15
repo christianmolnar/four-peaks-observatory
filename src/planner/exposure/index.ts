@@ -28,8 +28,10 @@ import {
   HA_NM,
   KIND_BANDWIDTH_NM,
   MARGINAL_MINUTES,
+  MAX_SUBS,
   MAX_SUB_S,
   MERIDIAN_FLIP_MIN,
+  MIN_CUSTOM_SUB_S,
   MIN_SUB_S,
   MODE_ORDER,
   MOON_FALLOFF_DEG,
@@ -38,6 +40,8 @@ import {
   MOON_NOTE_SEPARATION_DEG,
   NO_FILTER_BANDWIDTH_NM,
   OIII_NM,
+  OVERHEAD_PER_SUB_S,
+  SAME_NOISE_TOLERANCE,
   OVERHEAD_RANGE,
   OVERSAMPLED_BELOW_ARCSEC,
   READ_NOISE_E,
@@ -107,6 +111,7 @@ export type WarningCode =
   | 'sb-assumed'
   | 'short-of-target'
   | 'sub-capped'
+  | 'count-capped'
   | 'meridian-flip';
 
 export interface ExposureWarning {
@@ -342,6 +347,27 @@ export function snapSub(seconds: number): number {
   return SUB_STEPS_S.reduce((best, step) => (Math.abs(Math.log(step / s)) < Math.abs(Math.log(best / s)) ? step : best));
 }
 
+/**
+ * Noise variance of the stack per unit of clock time for subs of `t` seconds: (1 + RN^2 / (S t)) / (t / (t + overhead)). Lower is better.
+ * Read noise falls with longer subs, overhead falls with them too; nothing here rewards a sub beyond what the sky needs.
+ */
+export function noiseCost(readNoiseE: number, rate: number, t: number): number {
+  return (1 + (readNoiseE * readNoiseE) / (rate * t)) / (t / (t + OVERHEAD_PER_SUB_S));
+}
+
+/**
+ * The sub length to recommend, from the sky-limited length `wanted` (already clamped to [MIN_SUB_S, ceiling]): the step nearest to it
+ * (never above the ceiling), then, when a SHORTER step gives the same stacked noise (noise per clock time within SAME_NOISE_TOLERANCE, read noise
+ * and overhead both counted), that shorter step. A longer sub is never chosen for noise it does not buy.
+ */
+export function pickSub(readNoiseE: number, rate: number, wanted: number, ceiling: number): number {
+  const snapped = snapSub(wanted);
+  const nearest = snapped > ceiling ? snapSubDown(ceiling) : snapped;
+  const reference = noiseCost(readNoiseE, rate, nearest);
+  const same = SUB_STEPS_S.find((t) => t >= MIN_SUB_S && t < nearest && noiseCost(readNoiseE, rate, t) <= reference * (1 + SAME_NOISE_TOLERANCE));
+  return same ?? nearest;
+}
+
 export interface Bandwidth {
   nm: number;
   /** True when the filter had no width and a default was used. */
@@ -498,7 +524,7 @@ export interface ExposureDifference {
 }
 
 /** What held the sub length where it is. */
-export type SubLimit = 'read-noise' | 'risk-cap' | 'saturation' | 'floor' | 'user';
+export type SubLimit = 'read-noise' | 'risk-cap' | 'saturation' | 'floor' | 'count-cap' | 'user';
 /** What held the total where it is. */
 export type TotalLimit = 'snr-target' | 'diminishing-returns' | 'minimum-total' | 'usable-window' | 'user';
 
@@ -581,8 +607,12 @@ function checkChoice(choice: ExposureChoice): void {
   if (!MODE_ORDER.includes(choice.preset)) throw new RangeError(`preset must be one of ${MODE_ORDER.join(', ')}: ${choice.preset}`);
   const o = choice.overrides;
   if (!o) return;
-  if (o.subSeconds !== undefined && !(Number.isFinite(o.subSeconds) && o.subSeconds > 0)) throw new RangeError(`subSeconds must be above zero: ${o.subSeconds}`);
-  if (o.subCount !== undefined && !(Number.isInteger(o.subCount) && o.subCount >= 1)) throw new RangeError(`subCount must be a whole number, 1 or more: ${o.subCount}`);
+  if (o.subSeconds !== undefined && !(Number.isFinite(o.subSeconds) && o.subSeconds >= MIN_CUSTOM_SUB_S && o.subSeconds <= MAX_SUB_S)) {
+    throw new RangeError(`subSeconds must be ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S}: ${o.subSeconds}`);
+  }
+  if (o.subCount !== undefined && !(Number.isInteger(o.subCount) && o.subCount >= 1 && o.subCount <= MAX_SUBS)) {
+    throw new RangeError(`subCount must be a whole number, 1 to ${MAX_SUBS}: ${o.subCount}`);
+  }
   if (o.totalMin !== undefined && !(Number.isFinite(o.totalMin) && o.totalMin > 0)) throw new RangeError(`totalMin must be above zero: ${o.totalMin}`);
 }
 
@@ -745,8 +775,7 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     if (swampSeconds > ceiling) subLimit = satCap < riskCap ? 'saturation' : 'risk-cap';
     else if (swampSeconds < MIN_SUB_S) subLimit = 'floor';
     const wanted = Math.min(Math.max(swampSeconds, MIN_SUB_S), ceiling);
-    const snapped = snapSub(wanted);
-    subSeconds = snapped > ceiling ? snapSubDown(ceiling) : snapped;
+    subSeconds = pickSub(c.readNoiseE, c.rate, wanted, ceiling);
   }
   const penalty = readNoisePenalty(c.readNoiseE, c.rate, subSeconds);
   if (o.subSeconds === undefined && swampSeconds > ceiling) {
@@ -763,7 +792,13 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   const stopMin = Math.max(MIN_TOTAL_MIN, knee.minutes);
   const wantedMin = o.totalMin ?? stopMin;
   // Rounded up: the plan reaches the stop point (and the 30 minute minimum) instead of falling up to one sub short; the window still cuts it.
-  const desiredCount = o.subCount ?? Math.ceil((wantedMin * 60) / subSeconds - 1e-9);
+  // More than MAX_SUBS frames is never recommended: the engine's own sub is lengthened (never past the ceiling) until the light fits in MAX_SUBS.
+  if (o.subSeconds === undefined && o.subCount === undefined && Math.ceil((wantedMin * 60) / subSeconds - 1e-9) > MAX_SUBS) {
+    subSeconds = SUB_STEPS_S.find((t) => t >= subSeconds && t <= ceiling && Math.ceil((wantedMin * 60) / t - 1e-9) <= MAX_SUBS) ?? snapSubDown(ceiling);
+    subLimit = 'count-cap';
+  }
+  const uncappedCount = o.subCount ?? Math.ceil((wantedMin * 60) / subSeconds - 1e-9);
+  const desiredCount = Math.min(uncappedCount, MAX_SUBS);
   const dither = spec.dither;
 
   const fit = (flip: boolean): { count: number; overhead: Overhead } => {
@@ -789,6 +824,10 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
         text: `A meridian flip falls inside this session and adds ${MERIDIAN_FLIP_MIN} minutes (the target crosses the meridian during the session).`,
       });
     }
+  }
+  // The cap binds only when the night would have held more than MAX_SUBS (a shorter window already cuts the count below it, with its own note).
+  if (uncappedCount > MAX_SUBS && count >= MAX_SUBS) {
+    warnings.push({ code: 'count-capped', severity: 'note', text: `That would need ${uncappedCount} subs; the plan stops at ${MAX_SUBS}. Use longer subs.` });
   }
   // The range stays inside the module's own limits: no sub shorter than MIN_SUB_S, none longer than the ceiling (a user's own sub may sit outside; the range then collapses onto it).
   const rangeFactor = c.bw.assumed || c.rnAssumed ? SUB_RANGE_FACTOR_ASSUMED : SUB_RANGE_FACTOR;

@@ -3,7 +3,7 @@
  */
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { starterTargets } from '@/planner/catalog';
-import { DEFAULT_BORTLE, MODE_ORDER, exposureFor, exposureTargetFrom } from '@/planner/exposure';
+import { DEFAULT_BORTLE, MAX_SUBS, MAX_SUB_S, MODE_ORDER, exposureFor, exposureTargetFrom } from '@/planner/exposure';
 import type { ExposureOverrides } from '@/planner/exposure';
 import { nextMeridianTransit } from '@/planner/astro';
 import { arcToHorizonPoints } from '@/planner/profile';
@@ -122,30 +122,22 @@ describe('each preset equals an independent engine call', () => {
 });
 
 describe('a typed sub length is judged by what the engine gives for it', () => {
-  it.each(['quick', 'balanced', 'deep'] as const)('600 s and 1200 s on %s are accepted with the engine\'s count and light, never a 24-hour message', async (mode) => {
+  it.each(['quick', 'balanced', 'deep'] as const)('300 s on %s is accepted with the engine\'s count and light; 600 s and 1200 s are refused as longer than MAX_SUB_S and never stored', async (mode) => {
     await app([{ id: 'm31', preset: mode }]);
+    const original = JSON.stringify(storedPlan());
     for (const sub of [600, 1200]) {
-      const before = parse(numbers());
       type(subBox(), String(sub));
-      expect(alertText()).toBeNull();
-      const want = engine('m31', { preset: mode, overrides: { subSeconds: sub } });
-      const got = parse(numbers());
-      expect(got.sub).toBe(sub);
-      expect(got.subs).toBe(want.subCount);
-      expect(minutes(got.light)).toBe(Math.round(want.integrationMin));
-      expect(got.subs).toBeLessThan(before.subs > 100 ? before.subs : Infinity); // the count was recomputed, not kept
-      expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: mode, custom: { subSeconds: sub } });
-      press(mode[0].toUpperCase() + mode.slice(1));
+      expect(alertText()).toBe(`A sub of ${sub} s is longer than ${MAX_SUB_S} s: too long for one sub.`);
+      expect(JSON.stringify(storedPlan())).toBe(original);
     }
-  });
-
-  it('600 s on a row that has hundreds of subs is accepted (hundreds of subs x 600 s would be over a day)', async () => {
-    await app([{ id: 'm31', preset: 'deep' }]);
-    const deep = parse(numbers());
-    expect(deep.subs * 600).toBeGreaterThan(24 * 3600);
-    type(subBox(), '600');
+    type(subBox(), String(MAX_SUB_S));
     expect(alertText()).toBeNull();
-    expect(parse(numbers()).sub).toBe(600);
+    const want = engine('m31', { preset: mode, overrides: { subSeconds: MAX_SUB_S } });
+    const got = parse(numbers());
+    expect(got.sub).toBe(MAX_SUB_S);
+    expect(got.subs).toBe(want.subCount);
+    expect(minutes(got.light)).toBe(Math.round(want.integrationMin));
+    expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: mode, custom: { subSeconds: MAX_SUB_S } });
   });
 
   it('when the count is also custom, that count is used with the new sub length', async () => {
@@ -164,7 +156,7 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
     expect(alertText()).toMatch(/shorter than 1 s/);
     expect(JSON.stringify(storedPlan())).toBe(original);
     type(subBox(), '1');
-    expect(alertText()).toBe('That would need more than 5,000 subs; use longer subs.');
+    expect(alertText()).toBe(`That would need more than ${MAX_SUBS} subs; use longer subs.`);
     expect(JSON.stringify(storedPlan())).toBe(original);
     expect(subBox().getAttribute('aria-invalid')).toBe('true');
     expect(numbers()).toBe(before);
@@ -175,8 +167,8 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
     await app([{ id: 'm31', preset: 'balanced' }]);
     const tries: [string | null, string | null][] = [
       ['2', null], ['2.5', null], ['5', null], ['15', null], ['60', null], ['300', null], ['600', null], ['1200', null], ['3600', null],
-      [null, '1'], [null, '12'], [null, '300'], [null, '5000'],
-      ['600', '12'], ['1200', '5000'], ['15', '5000'], ['3600', '1'], ['2.5', '2000'],
+      [null, '1'], [null, '12'], [null, '300'], [null, '500'], [null, '501'], [null, '5000'],
+      ['600', '12'], ['300', '500'], ['15', '500'], ['15', '501'], ['3600', '1'], ['2.5', '400'], ['120', '500'],
     ];
     let accepted = 0;
     for (const [sub, count] of tries) {
@@ -196,7 +188,7 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove favorite' }));
       expect(storedFavorites()).toEqual([]);
     }
-    expect(accepted).toBeGreaterThanOrEqual(12);
+    expect(accepted).toBeGreaterThanOrEqual(8);
   });
 });
 

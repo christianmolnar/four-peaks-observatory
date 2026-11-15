@@ -192,7 +192,7 @@ describe('Custom', () => {
       expect(screen.getByRole('alert')).toBeTruthy();
       expect(JSON.stringify(storedPlan())).toBe(original);
     }
-    // A count above the 5,000 the box accepts is refused (above); a long sub is judged by the engine's own count and light, see PlannerApp.subinput.test.tsx.
+    // A count above MAX_SUBS is refused (above); a long sub is judged by the engine's own count and light, see PlannerApp.subinput.test.tsx.
     expect(numbers('m31')).toBe(before);
   });
 

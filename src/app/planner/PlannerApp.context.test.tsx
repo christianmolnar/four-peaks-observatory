@@ -72,9 +72,9 @@ describe('Bortle class belongs to the site', () => {
     const timelineBefore = timeline().textContent;
     openGear();
     openList('Site (1)');
-    saveBortle('9');
+    saveBortle('1');
     expect(timeline().textContent).not.toEqual(timelineBefore);
-    expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).sites[0].bortle).toBe(9);
+    expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).sites[0].bortle).toBe(1);
   });
 
   it('clearing it goes back to the labelled assumption, and the site is saved without it', async () => {

@@ -1,3 +1,4 @@
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S } from '../exposure';
 import {
   FAVORITES_BACKUP_PREFIX,
   FAVORITES_KEY,
@@ -63,6 +64,10 @@ describe('the favorites store', () => {
     expect(bad({ ...fav('a'), subSeconds: 0 })).toThrow(FavoritesError);
     expect(bad({ ...fav('a'), subSeconds: -5 })).toThrow(/subSeconds/);
     expect(bad({ ...fav('a'), subSeconds: 99999 })).toThrow(/subSeconds/);
+    expect(bad({ ...fav('a'), subSeconds: MAX_SUB_S + 1 })).toThrow(/subSeconds/);
+    expect(bad({ ...fav('a'), subSeconds: MIN_CUSTOM_SUB_S / 2 })).toThrow(/subSeconds/);
+    expect(bad({ ...fav('a'), subCount: MAX_SUBS + 1 })).toThrow(/subCount/);
+    expect(() => validateFavorites({ version: 1, favorites: [{ ...fav('a'), subSeconds: MAX_SUB_S, subCount: MAX_SUBS }] })).not.toThrow();
     expect(bad({ ...fav('a'), subCount: 2.5 })).toThrow(/subCount/);
     expect(bad({ ...fav('a'), subCount: 0 })).toThrow(/subCount/);
     expect(bad({ ...fav('a'), preset: 'ultra' })).toThrow(/preset/);
