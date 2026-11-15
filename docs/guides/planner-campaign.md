@@ -13,7 +13,7 @@ Code decides all of it (the engine in `src/planner/campaign/`): no AI, no cost, 
 - **The default useful range comes from the exposure engine** (`exposureFor`, `planner-exposure.md`), not from a table of its own.
   For each target, on the chosen train, filter and Bortle class: the least is the light the Quick preset stops at, the most is the light Deep stops at, each rounded up to the 5 minute grid (`usefulRangeOf`, `src/planner/campaign/analysis.ts`).
   The target's catalog surface brightness reaches it (`subject.surfaceBrightnessMu`), so a bright, a medium and a faint target get different ranges: on a C11 at f/10, broadband, Bortle 6, 30 to 30, 30 to 240 and 70 to 295 minutes for surface brightness 20, 22 and 24.
-  The ranges are the same ones the exposure panel shows for the presets.
+  The ranges are the ones the exposure panel shows for the presets on a night with no Moon: with the Moon up the panel's totals are larger (for surface brightness 21, Deep is 95 minutes with the Moon up and 46 without), and the campaign does not add that.
   Beyond about surface brightness 22.5 in Bortle 6 every faint target stops at the same diminishing-returns point (68 and 293 minutes before rounding).
 - **A smart scope blocks the plan**: it plans its own exposures and the profile holds no optics for the estimate, so there is nothing to size the ranges from. Pick an optical train. A train with no focal ratio, image scale or pixel size blocks it too.
 - **Seasonal lists are not a filter.** Change *Evening of* and plan again; night 1 is always the evening you chose.

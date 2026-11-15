@@ -213,6 +213,24 @@ describe('Night itinerary', () => {
     expect(slots()[1].textContent).toMatch(/Light: \d+ s x \d+ subs/);
   });
 
+  it('a saved itinerary shows a one-line exposure notice once; dismissing it is remembered', async () => {
+    const user = userEvent.setup();
+    seed('m31');
+    const first = await app();
+    const notice = () => screen.queryByTestId('itinerary-exposure-notice');
+    expect(notice()!.textContent).toMatch(/Saved nights and applied plans now plan their own totals from the exposure rules/);
+    await user.click(within(notice()!).getByRole('button', { name: 'Dismiss' }));
+    expect(notice()).toBeNull();
+    first.unmount();
+    await app();
+    expect(notice()).toBeNull();
+  });
+
+  it('no exposure notice for an empty itinerary', async () => {
+    await app();
+    expect(screen.queryByTestId('itinerary-exposure-notice')).toBeNull();
+  });
+
   it('Remove drops the slot and puts focus back on the Add box', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');

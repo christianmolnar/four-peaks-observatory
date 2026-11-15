@@ -224,8 +224,8 @@ describe('the result', () => {
     expect(rows[0]).toMatch(/^1\. Andromeda Galaxy \d\d:\d\d to \d\d:\d\d \(60 min\)/);
     expect(rows[0]).toMatch(/The AI wants about 60 min of light for this target\./);
     expect(rows[0]).not.toMatch(/120 s subs/); // the model's sub length is not shown; the estimate's is
-    expect(rows[0]).toMatch(/For 60 min of light, the exposure estimate says \d+ subs of \d+ s \(calculated, Bortle \d( assumed)?\)\./);
-    expect(rows[1]).toMatch(/Last slot, worth shooting \(\d+ frames\): Enough frames to stack\./);
+    expect(rows[0]).toMatch(/For 60 min of light the itinerary uses (Quick & Beautiful|Balanced|Deep Project): \d+ subs of \d+ s, [\d.]+ min \(calculated, Bortle \d( assumed)?\)\./);
+    expect(rows[1]).toMatch(/Last slot, worth shooting \(\d+ frames of \d+ s\): Enough frames to stack\./);
     expect(screen.getByTestId('ai-notes').textContent).toMatch(/the nebula goes first/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/Checked by code against the sky facts/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/The AI decided the order, the times, how long each target gets and the reasons/);
@@ -234,6 +234,34 @@ describe('the result', () => {
     // The page's own night graph, drawn for these slots.
     expect(within(result()).getByRole('img', { name: /Altitude through the night/ })).toBeTruthy();
     expect(within(result()).getByText('Left out (0)')).toBeTruthy();
+  });
+
+  it('shows one frame count per slot: no frame count on the card differs from the calculated one', async () => {
+    const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
+    mount(f.fn);
+    await ready();
+    await planned();
+    const rows = slotsText();
+    for (const [i, row] of rows.entries()) {
+      const calc = within(result()).queryByTestId(`ai-slot-calc-${i}`)?.textContent?.match(/: (\d+) subs of (\d+) s/);
+      expect(calc).not.toBeNull();
+      const counts = [...row.matchAll(/\b(\d+) (?:frames|subs)\b/g)].map((m) => m[1]);
+      expect(counts.length).toBeGreaterThan(0);
+      for (const c of counts) expect(c).toBe(calc![1]); // the model's own count (its own sub length) is not on the card
+    }
+    expect(rows[1]).not.toMatch(/\(\d+ frames\)/);
+  });
+
+  it('the card and the itinerary it becomes agree on sub length and count for the first slot', async () => {
+    const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
+    mount(f.fn);
+    await ready();
+    const user = await planned();
+    const calc = within(result()).getByTestId('ai-slot-calc-0').textContent ?? '';
+    const [, subs, secs] = calc.match(/: (\d+) subs of (\d+) s/) as RegExpMatchArray;
+    await user.click(apply());
+    await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
+    expect(itinerarySlots()[0].textContent).toContain(`${secs} s x ${subs} subs`);
   });
 
   it('lists what was left out with why, and the checker\'s warning in plain words (no ids, no ISO times)', async () => {

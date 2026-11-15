@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AstronomicalNight } from '@/planner/astro';
 import { MAX_TARGETS } from '@/planner/ai/facts';
+import type { AstronomicalNight } from '@/planner/astro';
+import { bodyAltAz, moonIllumination, moonSeparation, nextMeridianTransit } from '@/planner/astro';
 import { DEFAULT_BORTLE, exposureFor } from '@/planner/exposure';
 import { MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
@@ -19,6 +20,7 @@ import {
   aiSlotMinutes,
   clockOfIso,
   itineraryFromAiPlan,
+  modeForMinutes,
   minutesBetween,
   plainText,
   problemFor,
@@ -317,16 +319,25 @@ function Result({
   const exposureOf = (id: string) => result.plan.exposures.find((e) => e.id === id);
   const inputs = useMemo(() => items.map((it) => slotInputFor(it, profile, catalogTargets)), [items, profile, catalogTargets]);
   const bortle = base?.bortle ?? DEFAULT_BORTLE;
-  // The sub length and count for a slot come from the exposure engine (the Balanced preset, the AI's minutes as the total), not from the model.
-  const engineFor = (i: number, minutes: number) => {
+  // The sub length and count for a slot come from the exposure engine, not from the model: the preset the itinerary will use
+  // for the slot's minutes (`modeForMinutes`), with the Moon at the slot's start, so the card and the applied itinerary agree.
+  const engineFor = (i: number, s: { start: string; end: string; exposureMinutes?: number }) => {
     const input = inputs[i];
-    if (!input || input.problem !== undefined || input.optics === null || input.camera === null) return null;
+    if (!input || base === null || input.problem !== undefined || input.optics === null || input.camera === null || input.source.kind !== 'fixed') return null;
+    const start = new Date(s.start);
     const out = exposureFor(
       input.exposureTarget,
       { train: input.optics, camera: input.camera, filter: input.filter },
       { bortle },
-      { moonIllumination: 0, moonSeparationDeg: 180, moonUp: false, usableMinutes: 24 * 60, acquisitionStart: null, transitTime: null },
-      { preset: 'balanced', overrides: { totalMin: Math.max(minutes, 1) } },
+      {
+        moonIllumination: moonIllumination(start),
+        moonSeparationDeg: moonSeparation(input.source.raHours, input.source.decDeg, start, base.site),
+        moonUp: bodyAltAz('Moon', start, base.site).altitude > 0,
+        usableMinutes: Math.max(minutesBetween(s.start, s.end), 1),
+        acquisitionStart: start,
+        transitTime: nextMeridianTransit(input.source.raHours, input.source.decDeg, start, base.site),
+      },
+      { preset: modeForMinutes(aiSlotMinutes(s)) },
     );
     return out.ok ? out : null;
   };
@@ -372,7 +383,7 @@ function Result({
           <ol className="space-y-2" aria-label="AI plan, in time order">
             {slots.map((s, i) => {
               const exp = exposureOf(s.id);
-              const calc = engineFor(i, aiSlotMinutes(s));
+              const calc = engineFor(i, s);
               const isLast = i === slots.length - 1 && last !== null && last.id === s.id;
               return (
                 <li key={`${s.id}-${s.start}`} className="rounded border border-white/15 p-3 text-sm font-normal text-white/90" data-testid={`ai-slot-${i}`}>
@@ -385,12 +396,12 @@ function Result({
                   </p>
                   {calc !== null && (
                     <p className="text-white/80" data-testid={`ai-slot-calc-${i}`}>
-                      For {Math.round(aiSlotMinutes(s))} min of light, the exposure estimate says {calc.subCount} subs of {calc.subSeconds} s (calculated, {bortleText}).
+                      For {Math.round(aiSlotMinutes(s))} min of light the itinerary uses {calc.modeLabel}: {calc.subCount} subs of {calc.subSeconds} s, {calc.integrationMin} min (calculated, {bortleText}).
                     </p>
                   )}
                   {isLast && last !== null && (
                     <p className="mt-1">
-                      <span className="text-white/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'} ({last.frames} frames): </span>
+                      <span className="text-white/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'}{calc !== null ? ` (${calc.subCount} frames of ${calc.subSeconds} s)` : ''}: </span>
                       {last.reason}
                     </p>
                   )}

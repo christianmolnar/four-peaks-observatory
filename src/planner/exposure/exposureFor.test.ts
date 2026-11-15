@@ -311,6 +311,14 @@ describe('custom: overrides of a preset', () => {
     const r = at({ subSeconds: base.subSeconds, subCount: base.subCount, totalMin: base.integrationMin });
     expect([r.custom, r.differs]).toEqual([false, []]);
   });
+  it('a total that a given count overrides is not listed as a difference', () => {
+    expect(at({ subCount: 30, totalMin: 45 }).differs.map((d) => d.field)).toEqual(['subCount']);
+  });
+  it('a sub length under a second keeps a range that starts above zero', () => {
+    const r = at({ subSeconds: 0.5 });
+    expect(r.subSecondsRange[0]).toBeGreaterThanOrEqual(1);
+    expect(r.subSecondsRange[1]).toBeGreaterThanOrEqual(r.subSecondsRange[0]);
+  });
   it('several overrides list each difference', () => {
     expect(at({ subSeconds: 90, totalMin: 60 }).differs.map((d) => d.field)).toEqual(['subSeconds', 'totalMin']);
   });
@@ -413,6 +421,21 @@ describe('the short-of-target note', () => {
     const w = note(run(galaxy(24.17), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' }))!;
     expect(w.text).not.toMatch(/\d{4}/);
     expect(w.text).toContain('beyond one night');
+  });
+  it('when the window is what stops the plan, the note gives no sky or filter advice (a 108 minute window plans 99 of 106)', () => {
+    const r = run(galaxy(22), rig(TRAINS.f10), 6, night({ usableMinutes: 108 }), { preset: 'balanced' });
+    expect(r.limitedBy.total).toBe('usable-window');
+    expect(r.integrationMin).toBe(99);
+    expect(r.knee.snrTimeMin).toBeCloseTo(105.4, 0);
+    const w = note(r)!;
+    expect(w.text).toContain('would need about 105 minutes');
+    expect(w.text).not.toMatch(/darker sky|narrower filter|no filter/);
+    expect(codes(r.warnings)).toContain('limited-by-usable-time');
+  });
+  it('a galaxy through a dual-band is told "no filter", not that a narrower filter would not help', () => {
+    const w = note(run(galaxy(24.17), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' }))!;
+    expect(w.text).toMatch(/no filter or a darker sky/);
+    expect(w.text).not.toMatch(/narrower filter/);
   });
   it('an emission nebula may be told a narrower filter helps', () => {
     const w = note(run(nebula(24.5), rig(TRAINS.f63), 6, night(), { preset: 'balanced' }))!;

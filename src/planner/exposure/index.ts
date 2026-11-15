@@ -794,7 +794,7 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   const rangeFactor = c.bw.assumed || c.rnAssumed ? SUB_RANGE_FACTOR_ASSUMED : SUB_RANGE_FACTOR;
   const subRange: Range =
     o.subSeconds !== undefined
-      ? [Math.round(subSeconds / rangeFactor), Math.round(subSeconds * rangeFactor)]
+      ? [Math.max(1, Math.round(subSeconds / rangeFactor)), Math.max(1, Math.round(subSeconds * rangeFactor))]
       : [Math.max(MIN_SUB_S, Math.round(subSeconds / rangeFactor)), Math.min(ceiling, Math.round(subSeconds * rangeFactor))];
   const integrationMin = round1((count * subSeconds) / 60);
   const inSessionOverhead = overhead.ditherMin + overhead.autofocusMin + overhead.meridianFlipMin;
@@ -835,12 +835,19 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     });
   }
   if (count > 0 && !reachesSnrTarget && o.subCount === undefined && o.totalMin === undefined) {
+    // The advice depends on what held the plan short: when the window did, `limited-by-usable-time` says so and sky or filter advice would mislead.
+    const advice =
+      totalLimit === 'usable-window'
+        ? '.'
+        : emission
+          ? '; a narrower filter or a darker sky changes it more than time does.'
+          : rig.filter && c.bw.nm < REF_BANDWIDTH_NM
+            ? '; no filter or a darker sky changes it more than time does (this object is mostly continuum, so the filter cuts the object with the sky).'
+            : '; a darker sky changes it more than time does (a narrower filter would not help: this object is mostly continuum, so it cuts the object with the sky).';
     warnings.push({
       code: 'short-of-target',
       severity: 'note',
-      text: `At this sky and filter, ${spec.label} would need ${needText(knee.snrTimeMin)} for its signal-to-noise target on this object; the plan stops at ${integrationMin} minutes, where more time pays little or the night ends. Expect a noisy result (estimate); ${
-        emission ? 'a narrower filter or a darker sky changes it more than time does.' : 'a darker sky changes it more than time does (a narrower filter would not help: this object is mostly continuum, so it cuts the object with the sky).'
-      }`,
+      text: `At this sky and filter, ${spec.label} would need ${needText(knee.snrTimeMin)} for its signal-to-noise target on this object; the plan stops at ${integrationMin} minutes, where more time pays little or the night ends. Expect a noisy result (estimate)${advice}`,
     });
   }
   if (knee.surfaceBrightnessFrom === 'assumed') {
@@ -917,7 +924,7 @@ export function exposureFor(object: ExposureTarget, rig: ExposureRig, site: Expo
   const differs: ExposureDifference[] = [];
   if (o.subSeconds !== undefined && o.subSeconds !== base.subSeconds) differs.push({ field: 'subSeconds', preset: base.subSeconds, chosen: o.subSeconds });
   if (o.subCount !== undefined && o.subCount !== base.subCount) differs.push({ field: 'subCount', preset: base.subCount, chosen: o.subCount });
-  if (o.totalMin !== undefined && o.totalMin !== base.integrationMin) differs.push({ field: 'totalMin', preset: base.integrationMin, chosen: o.totalMin });
+  if (o.totalMin !== undefined && o.subCount === undefined && o.totalMin !== base.integrationMin) differs.push({ field: 'totalMin', preset: base.integrationMin, chosen: o.totalMin });
   return { ...result, custom: differs.length > 0, differs };
 }
 
