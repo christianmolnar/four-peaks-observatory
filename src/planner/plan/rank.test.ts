@@ -619,3 +619,73 @@ describe('planets and the targets that do not fit sit beside the list, not insid
     expect(new Set(r.hidden.tooLarge.map((h) => h.name)).size).toBe(r.hidden.tooLarge.length);
   });
 });
+
+describe('ranking one type over the whole catalog (Best [type] tonight)', () => {
+  const opts = { train: wide, date: '2026-11-13', minAltitude: 20 } as const;
+  const mixed = rank({ ...opts });
+  const byType = (t: string) => catalog.filter((x) => x.type === t);
+
+  it('typeCounts is, per catalog type, how many targets are up and fit the frame: the same whatever types are asked for', () => {
+    const only = rank({ ...opts, types: ['globular-cluster'] });
+    expect(only.typeCounts).toEqual(mixed.typeCounts);
+    // Direct count: every catalog object of the type, scored alone by the planner's own single-target path.
+    const direct = rankTargets({ site: phoenix, horizon: null, minAltitude: 20, date: '2026-11-13', train: wide, targets: byType('globular-cluster'), limit: 1000, includePlanets: false });
+    expect(mixed.typeCounts['globular-cluster']).toBe(direct.entries.length);
+    expect(direct.entries.length).toBeGreaterThan(5);
+    expect(mixed.typeCounts['double-star']).toBeUndefined();
+  });
+
+  it('a type with fewer than 100 objects lists all of them that are up, best to worst, nothing of another type', () => {
+    const r = rank({ ...opts, types: ['planetary-nebula'] });
+    expect(r.entries.length).toBe(r.typeCounts['planetary-nebula']);
+    expect(r.entries.length).toBeLessThan(43 + 1);
+    expect(r.entries.every((e) => e.type === 'planetary-nebula')).toBe(true);
+    const totals = r.entries.map((e) => e.score.total);
+    expect(totals).toEqual([...totals].sort((a, b) => b - a));
+  });
+
+  it('the best of a type that the mixed top 100 leaves out is still ranked first when the type is asked for', () => {
+    // A type with enough up objects that the mixed list drops some of them.
+    const missing = Object.keys(mixed.typeCounts).flatMap((type) => {
+      const inMixed = new Set(mixed.entries.filter((e) => e.type === type).map((e) => e.id));
+      const asked = rank({ ...opts, types: [type] });
+      const best = asked.entries[0];
+      return best !== undefined && !inMixed.has(best.id) ? [{ type, best, asked }] : [];
+    });
+    expect(missing.length).toBeGreaterThan(0);
+    for (const { type, best, asked } of missing) {
+      expect(asked.entries.every((e) => e.type === type)).toBe(true);
+      expect(asked.entries[0].score.total).toBe(Math.max(...asked.entries.map((e) => e.score.total)));
+      expect(mixed.entries.some((e) => e.id === best.id)).toBe(false);
+    }
+  });
+
+  it('several types are one group (Nebulae = nebula + dark-nebula), and the cut is 100 within the group', () => {
+    const r = rank({ ...opts, types: ['galaxy'] });
+    expect(r.entries).toHaveLength(100); // galaxies: far more than 100 are up
+    expect(r.entries.every((e) => e.type === 'galaxy')).toBe(true);
+    const both = rank({ ...opts, types: ['nebula', 'dark-nebula'] });
+    expect(both.entries.every((e) => e.type === 'nebula' || e.type === 'dark-nebula')).toBe(true);
+    expect(both.entries.length).toBe((both.typeCounts.nebula ?? 0) + (both.typeCounts['dark-nebula'] ?? 0));
+  });
+
+  it('the hidden counts, names and the do-not-fit list are for the asked type only', () => {
+    const base = { train: narrow, date: '2026-11-13', minAltitude: 20, includeNoFit: true } as const;
+    const all = rank(base);
+    const gal = rank({ ...base, types: ['galaxy'] });
+    expect(gal.counts.tooLarge + gal.counts.tooSmall).toBeLessThan(all.counts.tooLarge + all.counts.tooSmall);
+    expect(gal.noFit.length).toBeGreaterThan(0);
+    expect(gal.noFit.every((e) => e.type === 'galaxy')).toBe(true);
+    const names = new Set(byType('galaxy').map((t) => t.displayName ?? t.name));
+    expect(gal.hidden.tooLarge.length).toBeGreaterThan(0);
+    expect(gal.hidden.tooLarge.every((h) => names.has(h.name))).toBe(true);
+    expect(gal.entries.every((e) => e.type === 'galaxy')).toBe(true);
+  });
+
+  it('an empty type list ranks no object but still counts them all; no types is the mixed list as before', () => {
+    const none = rank({ ...opts, types: [] });
+    expect(none.entries).toEqual([]);
+    expect(none.typeCounts).toEqual(mixed.typeCounts);
+    expect(rank({ ...opts, types: undefined }).entries).toEqual(mixed.entries);
+  });
+});

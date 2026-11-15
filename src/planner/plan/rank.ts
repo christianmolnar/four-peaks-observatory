@@ -120,6 +120,11 @@ export interface RankInput extends Omit<TonightInput, 'targets'> {
   includeNoFit?: boolean;
   /** Drop targets under this percent of the frame; 0 keeps all. Default 3. */
   minFramePercent?: number;
+  /**
+   * Catalog types to list ("Best globular clusters tonight"): `entries`, `noFit`, the hidden counts and names are for these types
+   * only, and the cut to `limit` is made within them, over the whole catalog. `typeCounts` still covers every type. Default: all.
+   */
+  types?: readonly string[];
 }
 
 export interface RankResult {
@@ -141,6 +146,11 @@ export interface RankResult {
    * (under the minimum share of the frame).
    */
   counts: { input: number; scored: number; usable: number; tooLarge: number; tooSmall: number };
+  /**
+   * Per catalog type, how many targets are up (usable time) and fit the frame: what the list would hold for that type with no
+   * cut. The same whatever `types` asks for, so a type selector can show every option's count from any one answer.
+   */
+  typeCounts: Record<string, number>;
   /** The brightest of the hidden ones, up to `HIDDEN_LEADING` of each, so the page can say "M31 is larger than this frame". */
   hidden: { tooLarge: HiddenTarget[]; tooSmall: HiddenTarget[] };
 }
@@ -283,16 +293,22 @@ export function prepareRanking(input: RankInput): Ranker {
         planets: [],
         noFit: [],
         counts: { input: input.targets.length, scored: 0, usable: 0, tooLarge: 0, tooSmall: 0 },
+        typeCounts: {},
         hidden: { tooLarge: [], tooSmall: [] },
       }),
     };
   }
+  const wanted = input.types === undefined ? null : new Set(input.types);
+  const inTypes = (t: Pick<PlanTarget, 'type'>): boolean => wanted === null || wanted.has(t.type);
   const imageable = input.includeNonImaging === true ? input.targets : input.targets.filter((t) => !NON_IMAGING_TYPES.includes(t.type));
   const screened = screenTargetsDetailed(ctx, imageable, { includeTooLarge: input.includeTooLarge ?? false, minFramePercent });
+  const tooLarge = screened.tooLarge.filter(inTypes);
+  const tooSmall = screened.tooSmall.filter(inTypes);
   const noFitIds = new Set<string>();
+  // Every target that fits is scored, whatever the type asked for: the per-type counts need them. Only the do-not-fit ones are cut to the type.
   const candidates = [...screened.kept];
   if (input.includeNoFit === true) {
-    for (const t of [...screened.tooLarge, ...screened.tooSmall]) {
+    for (const t of [...tooLarge, ...tooSmall]) {
       candidates.push(t);
       noFitIds.add(t.id);
     }
@@ -305,15 +321,18 @@ export function prepareRanking(input: RankInput): Ranker {
       const usable = entries.filter((e) => e.usableMinutes > 0).sort(compareEntries);
       const noFit = usable.filter((e) => noFitIds.has(e.id));
       const listed = usable.filter((e) => !noFitIds.has(e.id) && !e.isPlanet);
+      const typeCounts: Record<string, number> = {};
+      for (const e of listed) typeCounts[e.type] = (typeCounts[e.type] ?? 0) + 1;
       return {
         night: ctx.night,
         horizonSet: ctx.horizonSet,
         minAltitude: input.minAltitude,
-        entries: capClassShare(listed, limit),
+        entries: capClassShare(listed.filter(inTypes), limit),
         planets: usable.filter((e) => e.isPlanet),
         noFit: [...noFit].sort((a, b) => b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || compareEntries(a, b)).slice(0, NO_FIT_LIMIT),
-        counts: { input: input.targets.length, scored: entries.length, usable: usable.length, tooLarge: screened.tooLarge.length, tooSmall: screened.tooSmall.length },
-        hidden: { tooLarge: leading(screened.tooLarge), tooSmall: leading(screened.tooSmall) },
+        counts: { input: input.targets.length, scored: entries.length, usable: usable.length, tooLarge: tooLarge.length, tooSmall: tooSmall.length },
+        typeCounts,
+        hidden: { tooLarge: leading(tooLarge), tooSmall: leading(tooSmall) },
       };
     },
   };

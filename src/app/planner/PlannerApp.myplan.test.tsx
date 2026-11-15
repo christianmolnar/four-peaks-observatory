@@ -42,7 +42,7 @@ describe('My plan is in sight', () => {
     const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(follows(myPlan(), screen.getByRole('region', { name: 'FIND A TARGET' }))).toBe(true);
     expect(follows(myPlan(), screen.getByTestId('target-list'))).toBe(true);
-    expect(follows(myPlan(), screen.getByRole('region', { name: /^BEST TARGETS FOR/ }))).toBe(true);
+    expect(follows(myPlan(), screen.getByRole('region', { name: /^Best targets for/ }))).toBe(true);
   });
 
   it('is a one-line header with the count when closed, and opens by itself once it has an item', async () => {

@@ -111,7 +111,7 @@ describe('the sticky control strip', () => {
 describe('dates in words and quick dates', () => {
   it('headings say "Tue 15 Dec" for another night and "tonight" for today', async () => {
     await app('2026-12-15');
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TUE 15 DEC' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Best targets for Tue 15 Dec' })).toBeTruthy();
     expect(screen.queryByText(/\d+\/\d+\/\d{4}/)).toBeNull();
   });
 
@@ -122,7 +122,7 @@ describe('dates in words and quick dates', () => {
     fireEvent.click(group.getByRole('button', { name: 'Today' }));
     const today = input.value;
     expect(group.getByRole('button', { name: 'Today' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TONIGHT' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Best targets for tonight' })).toBeTruthy();
     fireEvent.click(group.getByRole('button', { name: 'Tomorrow' }));
     expect(input.value).toBe(addDays(today, 1));
     expect(group.getByRole('button', { name: 'Tomorrow' }).getAttribute('aria-pressed')).toBe('true');

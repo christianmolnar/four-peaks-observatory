@@ -62,7 +62,7 @@ describe('planner defaults', () => {
     expect(screen.getAllByLabelText('Train')).toHaveLength(1);
     expect(screen.queryByLabelText('Setup')).toBeNull();
     const type = screen.getByLabelText('Type') as HTMLSelectElement;
-    expect([...type.options].map((o) => o.textContent)).toEqual(['All', 'Deep-sky', 'Solar system']);
+    expect([...type.options].map((o) => (o.textContent ?? '').split(' · ')[0])).toEqual(['All', 'Galaxies', 'Nebulae', 'Planetary nebulae', 'Globular clusters', 'Open clusters', 'Supernova remnants', 'Galaxy groups and pairs', 'Solar system']);
     expect(screen.queryByText(/Fits this setup/)).toBeNull();
     expect(screen.queryByText(/Too large for this setup/)).toBeNull();
   });

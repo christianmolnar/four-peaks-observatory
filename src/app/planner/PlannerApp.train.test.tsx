@@ -92,7 +92,7 @@ describe('what the list says about itself', () => {
   it('shows no season anywhere in the list or its note', async () => {
     mount();
     await ready();
-    expect(screen.getByRole('region', { name: /^BEST TARGETS FOR/ }).textContent).not.toMatch(/Season|in season|Not listed/);
+    expect(screen.getByRole('region', { name: /^Best targets for/ }).textContent).not.toMatch(/Season|in season|Not listed/);
   });
 });
 

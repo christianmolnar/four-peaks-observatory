@@ -18,6 +18,7 @@ import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
+import { SOLAR_SYSTEM, TYPE_GROUPS, groupCount, typeGroupOf } from '@/planner/plan/type-groups';
 import { planetIdOf, SLOT_BODIES } from '@/planner/itinerary/resolve';
 import { rankTonightAsync } from '@/planner/tonight';
 import type { TonightQuery } from '@/planner/tonight';
@@ -88,14 +89,6 @@ import { useTonightList } from './useTonightList';
 const clockIn = (timeZone?: string): ((d: Date) => string) => {
   const f = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
   return (d) => f.format(d);
-};
-
-type TypeFilter = 'all' | 'deep-sky' | 'solar-system';
-
-const TYPE_LABELS: Record<TypeFilter, string> = {
-  all: 'All',
-  'deep-sky': 'Deep-sky',
-  'solar-system': 'Solar system',
 };
 
 type RankedEntry = PlanEntry;
@@ -170,6 +163,10 @@ export interface PlannerAppProps {
 const TOAST_MS = 6000;
 /** How long "Added, #3 in My plan" stays next to the button. */
 const ADDED_MS = 4000;
+/** "Add top 3" adds this many. */
+const TOP_N = 3;
+/** The `added` id of a bulk add: no row's button, so only the bulk row shows its words. */
+const TOP_ADDED_ID = '__top__';
 /** A pause this long with no keystroke ends a run of typing in Minimum altitude. */
 const MIN_ALT_PAUSE_MS = 600;
 
@@ -198,7 +195,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const minAltTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [captured, setCaptured] = useState<ReadonlySet<string>>(new Set());
-  const [type, setType] = useState<TypeFilter>('all');
+  // The list's one Type selector: an id of `TYPE_GROUPS`; "Best [type] tonight" ranks that type over the whole catalog.
+  const [type, setType] = useState<string>('all');
   const [showNoFit, setShowNoFit] = useState(false);
   // The row that is open (its detail shows in place); '' for none. The Exposure panel follows it.
   const [openId, setOpenId] = useState<string>('');
@@ -309,6 +307,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const home = loaded.sites.find((s) => s.id === remembered?.siteId) ?? loaded.sites[0];
     if (home && home.id === remembered?.siteId) setSiteId(home.id);
     if (loaded.trains.some((t) => t.id === remembered?.trainId)) setTrainId(remembered!.trainId);
+    setType(typeGroupOf(remembered?.typeId).id); // a type that no longer exists is All
     loadForm(home?.blockedArcs ?? [], true);
     if (!initialDate) {
       setDate(defaultDateForProfile(new Date(), home ? { ...loaded, sites: [home] } : loaded));
@@ -483,9 +482,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     };
   }, [siteLat, siteLon, siteElev, siteZone, date, horizon, minAltitude, planTrain, trainError, nightInfo.error]);
   const planError = planning.error;
+  // The type goes to the ranker, which cuts the best 100 within it over the whole catalog (never the mixed top 100 filtered afterwards).
+  // All and Solar system share one query, so moving between them does not rank again.
+  const group = typeGroupOf(type);
+  const isSolar = group.id === SOLAR_SYSTEM;
+  const rankTypes = group.types;
   const rankQuery = useMemo<TonightQuery | null>(
-    () => (planning.base !== null && hasNight ? { ...planning.base, includeNoFit: showNoFit, limit: LIST_LIMIT } : null),
-    [planning.base, hasNight, showNoFit],
+    () => (planning.base !== null && hasNight ? { ...planning.base, includeNoFit: showNoFit, limit: LIST_LIMIT, types: rankTypes } : null),
+    [planning.base, hasNight, showNoFit, rankTypes],
   );
   const scorer = useMemo(() => (planning.base !== null && hasNight ? createNightScorer(planning.base) : null), [planning.base, hasNight]);
   const { state: tonight, retry: retryTonight } = useTonightList(rank, rankQuery);
@@ -494,21 +498,29 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
   const ranked = useMemo(() => (tonight.status === 'ready' ? tonight.result : null), [tonight]);
   // The Moon and planets that are up sit beside the best 100 as the "Solar system" group: Type = Solar system shows only that group, All shows it above the targets.
-  const mainList = useMemo((): readonly PlanEntry[] => (ranked === null || type === 'solar-system' ? [] : ranked.entries), [ranked, type]);
+  const mainList = useMemo((): readonly PlanEntry[] => (ranked === null || isSolar ? [] : ranked.entries), [ranked, isSolar]);
   // The ranker lists the planets; the Moon is scored by the same single-target path as the search and joins them when it is up.
   const moonEntry = useMemo(() => scorer?.planet('Moon') ?? null, [scorer]);
-  const planetGroup = useMemo((): readonly PlanEntry[] => {
-    if (ranked === null || type === 'deep-sky') return [];
+  const bodiesUp = useMemo((): readonly PlanEntry[] => {
+    if (ranked === null) return [];
     const bodies = moonEntry !== null && moonEntry.usableMinutes > 0 ? [...ranked.planets, moonEntry] : ranked.planets;
     return [...bodies].sort((x, y) => y.score.total - x.score.total);
-  }, [ranked, type, moonEntry]);
+  }, [ranked, moonEntry]);
+  // The Solar system group shows in All and in Solar system; a deep-sky type shows its own list alone.
+  const showsBodies = group.types === undefined;
+  const planetGroup = useMemo((): readonly PlanEntry[] => (showsBodies ? bodiesUp : []), [showsBodies, bodiesUp]);
   // The bodies that are not up that night keep their rows (and their detail), under "Not up", never ranked and never counted as up.
   const notUpGroup = useMemo((): readonly PlanEntry[] => {
-    if (scorer === null || type === 'deep-sky') return [];
+    if (scorer === null || !showsBodies) return [];
     const up = new Set(planetGroup.map((e) => e.id));
     return SLOT_BODIES.map((b) => scorer.planet(b)).filter((e) => !up.has(e.id));
-  }, [scorer, type, planetGroup]);
-  const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && type !== 'solar-system' ? ranked.noFit : []), [ranked, showNoFit, type]);
+  }, [scorer, showsBodies, planetGroup]);
+  const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && !isSolar ? ranked.noFit : []), [ranked, showNoFit, isSolar]);
+  // The per-type counts belong to the night, site, horizon and train, not to the type chosen: the last answer's counts stay on the
+  // options while the list for another type is on its way, and go the moment the night or the train changes.
+  const countsMemo = useRef<{ base: unknown; counts: Readonly<Record<string, number>>; solarUp: number } | null>(null);
+  if (ranked !== null) countsMemo.current = { base: planning.base, counts: ranked.typeCounts, solarUp: bodiesUp.length };
+  const typeCounts = countsMemo.current !== null && countsMemo.current.base === planning.base ? countsMemo.current : null;
   // Everything the Type filter lets through, in reading order: what Export and Print carry.
   const filtered = useMemo(() => [...mainList, ...planetGroup], [mainList, planetGroup]);
   const openEntry = useMemo(() => [...mainList, ...planetGroup, ...notUpGroup, ...noFitList].find((e) => e.id === openId), [mainList, planetGroup, notUpGroup, noFitList, openId]);
@@ -570,12 +582,19 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const selectedTarget = selected ? catalogById?.get(selected.id) : undefined;
 
   /** Remembers the site and train chosen at the top, so a reload opens on them. */
-  const rememberSelection = (nextSiteId: string, nextTrainId: string) => {
+  const rememberSelection = (nextSiteId: string, nextTrainId: string, nextType: string = type) => {
     try {
-      saveSelection(window.localStorage, { siteId: nextSiteId, trainId: nextTrainId });
+      saveSelection(window.localStorage, { siteId: nextSiteId, trainId: nextTrainId, typeId: nextType });
     } catch (e) {
-      setNotice(`Site and train choice not saved, so it is lost on reload: ${(e as Error).message}`);
+      setNotice(`Site, train and type choice not saved, so it is lost on reload: ${(e as Error).message}`);
     }
+  };
+
+  /** The one way the list's Type changes. */
+  const chooseType = (id: string) => {
+    const next = typeGroupOf(id).id;
+    setType(next);
+    if (site && train) rememberSelection(site.id, train.id, next);
   };
 
   /** The one way the Train changes: the select and the planetary note's button both end here. */
@@ -643,6 +662,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
     setSiteId('');
     setTrainId('');
+    setType('all');
     setImportError(null);
     setNotice('Reset: the planner is back to its starting point.');
     setResetFocus((n) => n + 1);
@@ -689,6 +709,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
   };
+  /** "Add top 3": the first three of the list that are not in My plan yet, in the list's order, as many as the plan has room for. */
+  const addTopThree = (list: readonly PlanEntry[]) => {
+    const fresh = list.filter((e) => !planIdSet.has(e.id)).slice(0, TOP_N);
+    const picks = fresh.slice(0, Math.max(0, MAX_MY_PLAN - planIds.length));
+    if (picks.length === 0) return;
+    commitPlan([...planIds, ...picks.map((e) => e.id)]);
+    const first = planIds.length + 1;
+    const last = planIds.length + picks.length;
+    const places = picks.length === 1 ? `#${first}` : `#${first} to #${last}`;
+    const short = picks.length < fresh.length ? ` My plan is full: ${fresh.length - picks.length} not added.` : '';
+    setAdded({ id: TOP_ADDED_ID, text: `Added ${picks.length}, ${places} in My plan.${short}`, say: `Added ${picks.length} to My plan, ${places}: ${nameList(picks.map((e) => e.name))}.${short}` });
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
+  };
   const movePlan = (id: string, direction: 'up' | 'down') => {
     const i = planIds.indexOf(id);
     const j = direction === 'up' ? i - 1 : i + 1;
@@ -716,6 +750,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     loadForm(next.sites[0]?.blockedArcs ?? [], true);
     setSiteId('');
     setTrainId('');
+    setType('all');
     try {
       window.localStorage.removeItem(SELECTION_KEY); // the old ids belong to the old profile
       window.localStorage.removeItem(MY_PLAN_KEY);
@@ -873,7 +908,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
   const planetary = train.kind === 'optical' && train.tag === 'planetary';
   // The Solar system group: open on a planetary train, and for the Solar system view only; closed otherwise. A hand-made open or close wins.
-  const groupOpen = planetsOpen ?? (planetary || type === 'solar-system');
+  const groupOpen = planetsOpen ?? (planetary || isSolar);
   // "Not up" inside it: closed, unless nothing is up (then it is the only content).
   const notUpShown = notUpOpen ?? planetGroup.length === 0;
   // The plan mixes kinds when the train is for one and My plan holds the other (adding is never blocked, the train never switches by itself).
@@ -950,6 +985,35 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (!input) return;
     input.scrollIntoView({ block: 'center' });
     input.focus({ preventScroll: true });
+  };
+  /** Why a type has no list: nothing up long enough, or everything that is up is the wrong size for this frame. */
+  const emptyText = (counts: RankResult['counts']): string => {
+    const what = group.id === 'all' ? 'targets' : group.noun;
+    const wrongSize = [counts.tooLarge > 0 ? `${counts.tooLarge} larger than this frame` : '', counts.tooSmall > 0 ? `${counts.tooSmall} too small for it` : ''].filter((x) => x !== '');
+    if (wrongSize.length > 0) return `No ${what} that fit this frame are up ${nightWord}: ${wrongSize.join(' and ')}.${showNoFit ? ' They are listed below.' : ''}`;
+    return `No ${what} are up long enough ${nightWord}, above your horizon and minimum altitude.`;
+  };
+  /** The Add top 3 row above a ranked list: the button, and in words what it did or why it cannot. */
+  const topThree = (list: readonly PlanEntry[]) => {
+    const full = planIds.length >= MAX_MY_PLAN;
+    const nothingNew = list.every((e) => planIdSet.has(e.id));
+    const why = full ? `My plan is full (${MAX_MY_PLAN} targets). Remove one to add more.` : nothingNew ? 'Everything in this list is already in My plan.' : '';
+    return (
+      <div className="mb-2 mt-2 flex flex-wrap items-center gap-x-3" data-testid="top-three">
+        <button
+          type="button"
+          disabled={full || nothingNew}
+          aria-describedby="top-three-note"
+          onClick={() => addTopThree(list)}
+          className={`${btn} min-h-11 disabled:cursor-default disabled:opacity-60`}
+        >
+          Add top {TOP_N} to my plan
+        </button>
+        <span id="top-three-note" className="min-w-0 text-sm font-normal text-white/80">
+          {added?.id === TOP_ADDED_ID ? <span aria-hidden="true" className="text-emerald-300">{added.text}</span> : why}
+        </span>
+      </div>
+    );
   };
   const listProps = {
     formatTime,
@@ -1181,17 +1245,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
       <section aria-labelledby="list-heading" className={panel}>
         <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
-          <h2 id="list-heading" className="text-xl font-light text-white tracking-[0.15em]">BEST TARGETS FOR {nightWord.toUpperCase()}</h2>
+          <h2 id="list-heading" className="text-xl font-light uppercase text-white tracking-[0.15em]">Best {group.noun} for {nightWord}</h2>
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label htmlFor="f-type" className="block text-white/90 font-normal text-sm mb-1">Type</label>
-              <WrapSelect id="f-type" className="w-full" value={type} onChange={(e) => {
-                const next = e.target.value as TypeFilter;
-                setType(next);
-              }}>
-                {(Object.keys(TYPE_LABELS) as TypeFilter[]).map((k) => (
-                  <option key={k} value={k}>{TYPE_LABELS[k]}</option>
-                ))}
+              <WrapSelect id="f-type" className="w-full" value={group.id} onChange={(e) => chooseType(e.target.value)}>
+                {TYPE_GROUPS.map((g) => {
+                  const n = typeCounts === null ? null : groupCount(g, typeCounts.counts, typeCounts.solarUp);
+                  // A choice with nothing up is shown, said so and not pickable, unless it is the one chosen (the night or train moved under it).
+                  return (
+                    <option key={g.id} value={g.id} disabled={n === 0 && g.id !== group.id}>
+                      {n === null ? g.label : `${g.label} · ${n === 0 ? `none up ${nightWord}` : `${n} up ${nightWord}`}`}
+                    </option>
+                  );
+                })}
               </WrapSelect>
             </div>
             <label className="flex min-h-11 items-center gap-2 text-white/90 font-normal text-sm">
@@ -1209,8 +1276,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </div>
 
         <p className="mb-3 text-white/70 font-normal text-sm" data-testid="score-note">
-          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights. The list mixes types, so it is not strictly in score order. Double stars are not ranked; search finds them.
+          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights.{group.id === 'all' ? ' The list mixes types, so it is not strictly in score order.' : isSolar ? '' : ' This type is ranked over the whole catalog, best first.'} Double stars are not ranked; search finds them.
         </p>
+        {group.note !== undefined && <p className="mb-3 text-white/70 font-normal text-sm" data-testid="type-note">{group.note}</p>}
         {hasNight && midMoon !== null && midMoon > BRIGHT_MOON && (
           <p className="mb-3 text-white/90 font-normal text-sm" data-testid="bright-moon-note">
             Bright Moon ({(midMoon * 100).toFixed(0)}% lit at mid-night): faint nebulae and galaxies will wash out; clusters and bright objects hold up best. This is an estimate from the Moon&apos;s phase, not a sky reading.
@@ -1242,7 +1310,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           )
         ) : (
           <>
-            {type !== 'solar-system' && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
+            {!isSolar && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
             {(planetGroup.length > 0 || notUpGroup.length > 0) && (
               <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={groupOpen} onToggle={() => setPlanetsOpen(!groupOpen)}>
                 {planetGroup.length > 0 && <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" fitText={bodyFit} />}
@@ -1253,13 +1321,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
                 )}
               </Group>
             )}
-            {type === 'solar-system' ? (
-              planetGroup.length === 0 && <p className="text-white/90 font-normal">{`No Moon or planet is up ${nightWord} above your horizon and minimum altitude.`}</p>
+            {isSolar ? (
+              planetGroup.length === 0 ? <p className="text-white/90 font-normal" data-testid="list-empty">{`No Moon or planet is up ${nightWord} above your horizon and minimum altitude.`}</p> : topThree(planetGroup)
             ) : mainList.length === 0 ? (
-              <p className="text-white/90 font-normal">No targets match these filters.</p>
+              <p className="text-white/90 font-normal" data-testid="list-empty">{emptyText(ranked!.counts)}</p>
             ) : (
               <>
                 {planetGroup.length > 0 && <h3 className="mt-4 text-base font-medium text-white">Best deep-sky targets</h3>}
+                {topThree(mainList)}
                 <TargetList {...listProps} entries={mainList} label={`Targets ranked for ${nightWord}`} idPrefix="target" />
               </>
             )}
