@@ -6,6 +6,7 @@ import type { Site } from '@/planner/astro';
 import {
   MODE_ORDER,
   NO_STOP_TIME_NOTE,
+  SKY_LIMIT_K,
   SNR_ASSUMPTION,
   coreAdvice,
   planExposure,
@@ -63,6 +64,7 @@ const ACT_ON: Partial<Record<WarningCode, WarningAction>> = {
   'limited-by-usable-time': { sentence: 'Pick a night with more usable time to reach the mode\'s length.', controls: [CHANGE_DATE] },
   'meridian-flip': { sentence: 'Plan a pause to flip and re-centre at the crossing; its time is already counted.' },
   'target-ou4': { sentence: 'Pick a brighter target for a short session, or plan many nights of narrowband.' },
+  'short-session-faint': { sentence: 'Pick a brighter, more compact target for a short session, or choose Balanced or Deep Project.' },
 };
 
 /** Warnings to act on, and the rest, which fold into one closed line of Notes. */
@@ -282,7 +284,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
   }
 
   const selected = report.modes[mode];
-  const warnings = [...report.warnings, ...selected.warnings];
+  const warnings = selected.warnings;
   const core = coreAdvice(target, selected.subSeconds);
 
   return (
@@ -359,7 +361,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
         <p className="text-white/70 font-normal text-xs mt-1">{NO_STOP_TIME_NOTE}</p>
 
         <p className="text-white/60 font-normal text-xs mt-4" data-testid="exposure-inputs">
-          Inputs: f/{optics.focalRatio?.toFixed(2)}, {camera.pixelSizeUm} um pixels, read noise {report.readNoiseE} e (class {camera.readNoiseClass ?? 'not set, medium assumed'}), passband {report.bandwidthNm} nm, Bortle {bortle}, Moon {(entry.moonIllumination * 100).toFixed(0)}% lit and {entry.moonSeparation.toFixed(0)} degrees away{entry.moonUp ? '' : ' (down)'}, {Math.round(entry.usableMinutes)} usable minutes. Sky-limited sub about {Math.round(report.skyLimitedSeconds)} s before each mode&apos;s margin. Finish assumes imaging runs without a gap from the first usable minute; setup happens before it.
+          Inputs: f/{optics.focalRatio?.toFixed(2)}, {camera.pixelSizeUm} um pixels, read noise {report.readNoiseE} e (class {camera.readNoiseClass ?? 'not set, medium assumed'}), passband {report.bandwidthNm} nm, Bortle {bortle}, Moon {(entry.moonIllumination * 100).toFixed(0)}% lit and {entry.moonSeparation.toFixed(0)} degrees away{entry.moonUp ? '' : ' (down)'}, {Math.round(entry.usableMinutes)} usable minutes. Sky-limited sub about {Math.round(report.skyLimitedSeconds)} s at the standard margin (K = {SKY_LIMIT_K}); each mode&apos;s own margin and caps are applied to it. Finish assumes imaging runs without a gap from the first usable minute; setup happens before it.
         </p>
       </details>
     </section>

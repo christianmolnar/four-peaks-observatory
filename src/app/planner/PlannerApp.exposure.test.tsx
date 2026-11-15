@@ -17,8 +17,8 @@ const withTrain = (id: string) => {
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
 const HYPERSTAR = 'wide-c11-hyperstar-2600';
-const withBortle = (bortle: number) => {
-  const p = withTrain(HYPERSTAR);
+const withBortle = (bortle: number, train = HYPERSTAR) => {
+  const p = withTrain(train);
   return { ...p, sites: p.sites.map((x, i) => (i === 0 ? { ...x, bortle } : x)) };
 };
 const app = async (profile = withTrain(HYPERSTAR)) => {
@@ -88,7 +88,9 @@ describe('Exposure panel', () => {
         expect(warnings()).toMatch(/short-session rule|Surface brightness is not in the catalog/);
     await user.keyboard('{ArrowRight}{ArrowRight}');
     expect(radio(/Deep/).checked).toBe(true);
-        expect(warnings()).not.toMatch(/Surface brightness is not in the catalog/);
+    // Deep is not a short session: the ranking note goes; the assumption behind the stop point (no surface brightness in the catalog) stays.
+    expect(warnings()).not.toMatch(/short-session rule/);
+    expect(warnings()).toMatch(/the stop point assumes a medium one/);
   });
 
   it('a click on a card chooses it too', async () => {
@@ -99,14 +101,16 @@ describe('Exposure panel', () => {
   });
 
   it('a different Bortle class on the site changes the sub lengths', async () => {
+    // The 0.7x reducer train (f/7): on the HyperStar train every preset sits on the 15 s floor in any sky.
+    const reducer = 'deep-c11-reducer-2600';
     const subs = () => within(panel()).getAllByText(/^\d+ s \(range/).map((n) => n.textContent);
-    await app();
+    await app(withTrain(reducer));
     const before = subs();
     cleanup();
-    await app(withBortle(9));
+    await app(withBortle(9, reducer));
     expect(subs()).not.toEqual(before);
     cleanup();
-    await app(withBortle(2));
+    await app(withBortle(2, reducer));
     expect(subs()).not.toEqual(before);
   });
 
@@ -222,16 +226,16 @@ describe('Filter selector and its warnings', () => {
 // The flip rule is fed the real meridian crossing (hour angle zero), not the highest point while usable.
 // Dates and numbers come from the sample site on 2026-12-15 with the HyperStar train and no filter.
 describe('meridian flip, through the whole page', () => {
-  const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
+  const pick = async (user: ReturnType<typeof userEvent.setup>, name: RegExp, card = 'Quick & Beautiful', radioName = /Quick/) => {
     await user.click(nameButton(name));
-    await user.click(within(panel()).getByText('Quick & Beautiful'));
-    return radio(/Quick/).closest('label')!.textContent ?? '';
+    await user.click(within(panel()).getByText(card));
+    return radio(radioName).closest('label')!.textContent ?? '';
   };
-  it('North America Nebula already past the meridian: no flip, overhead 33.7 min (the peak is only the window start)', async () => {
+  it('North America Nebula already past the meridian: no flip, overhead 33 min (the peak is only the window start)', async () => {
     const user = userEvent.setup();
     await app();
     const quick = await pick(user, /North America Nebula/);
-    expect(quick).toMatch(/Overhead33\.7 min/);
+    expect(quick).toMatch(/Overhead33 min/);
     expect(quick).toMatch(/meridian flip 0$|meridian flip 0Elapsed/);
     expect(warnings()).not.toMatch(/meridian flip/i);
   });
@@ -245,7 +249,8 @@ describe('meridian flip, through the whole page', () => {
   it("Thor's Helmet crosses 43 minutes into its window: the flip is counted and noted", async () => {
     const user = userEvent.setup();
     await app();
-    const quick = await pick(user, /Thor's Helmet/);
+    // Balanced: Quick is now 30 min of light and ends before the crossing, 43 minutes in.
+    const quick = await pick(user, /Thor's Helmet/, 'Balanced', /Balanced/);
     expect(quick).toMatch(/meridian flip 10/);
     expect(warnings()).toMatch(/A meridian flip falls inside this session and adds 10 minutes/);
     expect(warnings()).not.toMatch(/highest point/);
@@ -281,7 +286,8 @@ describe('Gain column', () => {
 
     it('a flagged target shows one line with the estimate label and a three-bullet blend fold', async () => {
       const user = userEvent.setup();
-      await app(withTrain('deep-c11-reducer-2600'));
+      // The native C11 (f/10): Balanced is a 60 s sub in Bortle 6, four times the 15 s core sub, the least ratio that earns a core set.
+      await app(withTrain('deep-c11-2600'));
       await pick(user, /Hercules Globular Cluster/);
       const line = within(panel()).getByTestId('core-advice');
       expect(line.querySelector('p')!.textContent).toMatch(
@@ -355,8 +361,10 @@ describe('warnings: act on it, and Notes', () => {
     'sub-capped': 'note',
     'inputs-assumed': 'note',
     'below-mode-range': 'note',
-    'short-session-faint': 'note',
+    'short-session-faint': 'act',
     'short-session-unknown': 'note',
+    'sb-assumed': 'note',
+    'short-of-target': 'note',
     'filter-kind-unknown': 'note',
   };
 
@@ -420,7 +428,7 @@ describe('warnings: act on it, and Notes', () => {
     const user = userEvent.setup();
     await app();
     await user.click(nameButton(/Thor's Helmet/));
-    await user.click(within(panel()).getByText('Quick & Beautiful'));
+    await user.click(within(panel()).getByText('Balanced'));
     const item = screen.getByTestId('warning-meridian-flip');
     expect(item.textContent).toMatch(/^Warning/);
     expect(item.textContent).toMatch(/A meridian flip falls inside this session and adds 10 minutes/);

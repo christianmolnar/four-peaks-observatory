@@ -35,10 +35,12 @@ export const BORTLE_SQM: Readonly<Record<number, number>> = {
   1: 21.95, 2: 21.9, 3: 21.8, 4: 21.5, 5: 20.9, 6: 20.0, 7: 19.3, 8: 18.5, 9: 17.8,
 };
 /**
- * ASSUMPTION: the reference point of the rate model, chosen so that a low-noise colour camera
- * (1.2 e read noise) under Bortle 5, at f/5, 3.76 um pixels and a 300 nm passband lands near
- * 2 minutes (115 s), inside the 2 to 3 minutes amateurs commonly quote for that case.
- * Sky electrons per pixel per second at the reference point.
+ * ASSUMPTION: the reference point of the rate model, sky electrons per pixel per second at SQM 20.9,
+ * f/5, 3.76 um pixels and a 300 nm passband. Cross-check (research, section 1a): a V=0 flux of about
+ * 1000 photons/s/cm2/A over 300 nm at SQM 20.9 gives 2.5 photons/px/s at f/5; a colour sensor, QE, optics and
+ * obstruction pass about 10 to 12%, so 0.25 to 0.3 e. Agrees within about 1.5x. A measured background
+ * (median ADU x gain / exposure) would replace it; the profile does not store one yet.
+ * Source: ~/Token/research/fourpeaks-exposure-modes.md.
  */
 export const REF_SKY_E_PER_PX_S = 0.25;
 export const REF_SQM = 20.9;
@@ -46,13 +48,19 @@ export const REF_F_RATIO = 5;
 export const REF_PIXEL_UM = 3.76;
 export const REF_BANDWIDTH_NM = 300;
 /**
- * The sky-limited rule of thumb: sky signal per sub of at least K times read noise squared
- * (K = 20 keeps read noise to about 5% of the noise variance). Common practice in
- * amateur imaging, used here as an ASSUMPTION; no single published value.
+ * The sky-limited rule: sky electrons per sub at least K times read noise squared (t = K * RN^2 / S).
+ * The stack's noise then exceeds the ideal by sqrt(1 + 1/K): K = 5 gives +9.5%, K = 10 +4.9%, K = 20 +2.5%.
+ * K = 10 is the standard (SharpCap's "10 x RN^2 / rate"; Starizona offers 5, 10 or 15% and calls 5% usual;
+ * Clarkvision speaks of about a 5% loss). SharpCap's post calls K = 10 "10%"; the derivation says 4.9%, and
+ * that is what is used. Source: ~/Token/research/fourpeaks-exposure-modes.md section 1a. The presets use 5, 10 and 20.
  */
-export const SKY_LIMIT_K = 20;
-/** ASSUMPTION: read noise (electrons) behind each class; the profile stores the class, not a number. */
-export const READ_NOISE_E: Readonly<Record<'low' | 'medium' | 'high', number>> = { low: 1.2, medium: 3, high: 8 };
+export const SKY_LIMIT_K = 10;
+/**
+ * ASSUMPTION: read noise (electrons) behind each class; the profile stores the class, not a number.
+ * low = 1.0 e: the ASI2600MC Duo at gain 100 (HCG), "as low as 1.0 e" (ZWO); the other ZWO document says 0.9 to 4.2 e,
+ * and nothing replaces a measurement (SharpCap Sensor Analysis). medium and high are round numbers for older CMOS and CCD.
+ */
+export const READ_NOISE_E: Readonly<Record<'low' | 'medium' | 'high', number>> = { low: 1.0, medium: 3, high: 8 };
 /** ASSUMPTION: used when the camera has no read-noise class. The result is flagged as assumed. */
 export const DEFAULT_READ_NOISE_CLASS = 'medium' as const;
 /** ASSUMPTION: passband (nm) when neither the filter nor its kind says; 400 to 700 nm, no filter. */
@@ -82,42 +90,141 @@ export const VISUAL_OR_IMAGING_NAME = /sky ?glow/i;
  */
 export const MOON_GAIN = 3;
 export const MOON_FALLOFF_DEG = 90;
-/** ASSUMPTION: shortest and longest sub the heuristic returns (seconds); the long cap stands for guiding, wind and satellite-trail risk. */
-export const MIN_SUB_S = 10;
+/**
+ * Per-sub overhead in seconds (download, dither settle share): ASSUMPTION, 5 to 15 s in the research; 10 s.
+ * Efficiency of a sub is t / (t + overhead): 30 s keeps 75%, 15 s keeps 60%.
+ */
+export const OVERHEAD_PER_SUB_S = 10;
+/**
+ * ASSUMPTION: the shortest sub (seconds). Below this the overhead takes over 40% of the clock (research: HyperStar broadband
+ * wants 1 to 3 s by the swamp rule; "floor at 15 to 30 s"). The upper figure is left to the user as a custom value.
+ */
+export const MIN_SUB_S = 15;
+/**
+ * ASSUMPTION: the guiding ceiling (seconds): the longest sub the mount is trusted to hold round stars in. The research reports
+ * 10 to 15 minute subs on a C11 with an EQ6 and a guide scope, and a t_max of 180 to 300 s; the planner already capped at 300.
+ * A preset's risk cap can be lower, never higher.
+ */
 export const MAX_SUB_S = 300;
+/**
+ * ASSUMPTION: star saturation. One forum report says stars saturate "in less than 30 seconds" on an f/2-class system. Star flux per
+ * pixel scales with 1/N^2, so the ceiling is this many seconds at STAR_SATURATION_REF_F and grows with the square of the focal ratio
+ * (f/2 -> 30 s, f/6.3 -> about 300 s, f/10 -> 750 s: only a fast beam is limited). One report, no camera or full-well named.
+ */
+export const STAR_SATURATION_REF_S = 30;
+export const STAR_SATURATION_REF_F = 2;
+/**
+ * ASSUMPTION: a target flagged `brightCore` in the curated catalog (the core would clip in long subs) gets its long sub capped here;
+ * `coreAdvice` then adds the short set for the core. 120 s is the middle of "60 to 120 s for fast reflectors" (AstroBin) carried over
+ * to bright cores on any train.
+ */
+export const BRIGHT_CORE_SUB_CAP_S = 120;
 /** ASSUMPTION: the lengths a sub is rounded to (nearest on a log scale). */
-export const SUB_STEPS_S: readonly number[] = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300];
+export const SUB_STEPS_S: readonly number[] = [15, 20, 30, 45, 60, 90, 120, 180, 240, 300];
 /** ASSUMPTION: the sub-length range is this wide (factor each way) when every input is known. */
 export const SUB_RANGE_FACTOR = 1.5;
 /** ASSUMPTION: the sub-length range is this wide (factor each way) when an input was assumed. */
 export const SUB_RANGE_FACTOR_ASSUMED = 2;
 
-// ---- Modes ----------------------------------------------------------------
+// ---- Presets ----------------------------------------------------------------
 
+/**
+ * The preset ids. They are the saved names: an itinerary saved before the redesign holds 'quick', 'balanced' or 'deep',
+ * and each still means the preset of that id (`presetForSavedMode`). The labels are what the user reads.
+ */
 export type ExposureMode = 'quick' | 'balanced' | 'deep';
 export const MODE_ORDER: readonly ExposureMode[] = ['quick', 'balanced', 'deep'];
 
-export interface ModeSpec {
-  label: string;
-  /** Total integration range, minutes. */
-  rangeMin: readonly [number, number];
-  /** Where in the range the plan aims, minutes. */
-  targetMin: number;
-  /** Sub length as a multiple of the sky-limited minimum. */
-  subMargin: number;
-}
 /**
- * Quick 30 to 60 min, Balanced 60 to 120 min: the owner's ranges (planner spec section 07).
- * Deep Project 120 to 300 min is an ASSUMPTION (the spec gives no number; it asks to avoid marathons).
- * The target inside each range is the midpoint or an ASSUMPTION. subMargin is an ASSUMPTION:
- * a longer plan earns more margin over the sky-limited minimum (read noise a smaller share, fewer frames to dither and download);
- * the quick mode uses the minimum.
+ * A preset is a set of parameters, not a total. The code works sub length, count and total out of them for each object.
+ * No field is a number of minutes to shoot.
  */
-export const MODES: Readonly<Record<ExposureMode, ModeSpec>> = {
-  quick: { label: 'Quick & Beautiful', rangeMin: [30, 60], targetMin: 45, subMargin: 1 },
-  balanced: { label: 'Balanced', rangeMin: [60, 120], targetMin: 90, subMargin: 1.5 },
-  deep: { label: 'Deep Project', rangeMin: [120, 300], targetMin: 180, subMargin: 2 },
+export interface PresetSpec {
+  label: string;
+  /** One sentence for the user: what the preset asks for. */
+  summary: string;
+  /** Swamp factor: sub length = K * read noise^2 / sky rate. Read noise adds sqrt(1 + 1/K) - 1 to the noise (5 -> 9.5%, 10 -> 4.9%, 20 -> 2.5%). */
+  swampK: number;
+  /** Signal-to-noise wanted per resolution element (SNR_ELEMENT_ARCSEC wide); the object's surface brightness sets the time it takes. */
+  snrTarget: number;
+  /** Stop when one more half hour would add less than this share of the signal-to-noise (the diminishing-returns knee). */
+  maxNextHalfHourGain: number;
+  /** The longest sub this preset accepts, seconds: the loss of one sub to a trail, a gust or a cloud grows with its length. Never above MAX_SUB_S. */
+  riskCapS: number;
+  /** Dither every this many subs, and not more often than every minIntervalS seconds (short subs dither less often). */
+  dither: { everyFrames: number; minIntervalS: number };
+}
+
+/**
+ * ASSUMPTION for the three SNR targets: 20 is the research's own figure (table in section 1c: SNR 20 per 2.5 arcsec element, which
+ * takes a medium object, surface brightness 22, 26 minutes in Bortle 6 and under a minute for a bright one: a floor, a first look).
+ * Standard and Deep are 2x and 3x that, so time is 4x and 9x: the same medium object then takes about 1.7 h and 3.9 h in Bortle 6 with no
+ * filter, inside the research's "about 0.5 to 2.5 h" at the knee, and the old Balanced aimed at 1.5 h. They are not measured;
+ * the stop thresholds cap them (see maxNextHalfHourGain).
+ * ASSUMPTION for the loss model behind the risk caps (events at 1 per hour spoil a sub of length t
+ * with probability 1 - exp(-t / 1 h): 60 s costs 1.7%, 180 s 4.9%, 300 s 8%); the sources give the shape, not these numbers.
+ * K = 5, 10, 20 and the 20%, 10% and 5% stop thresholds are the research's table (section 5). 20% stops near 1.1 h, 10% near 2.4 h,
+ * 5% near 4.9 h of total light. Dither: every 3 subs and not more often than every 2 minutes, as before.
+ */
+export const PRESETS: Readonly<Record<ExposureMode, PresetSpec>> = {
+  quick: {
+    label: 'Quick & Beautiful',
+    summary: 'Short subs, the base signal-to-noise target, stops early. For a short night or a first look.',
+    swampK: 5,
+    snrTarget: 20,
+    maxNextHalfHourGain: 0.2,
+    riskCapS: 180,
+    dither: { everyFrames: 3, minIntervalS: 120 },
+  },
+  balanced: {
+    label: 'Balanced',
+    summary: 'Sub length from the sky, twice the base signal-to-noise target, stops where more time adds under 10% per half hour.',
+    swampK: SKY_LIMIT_K,
+    snrTarget: 40,
+    maxNextHalfHourGain: 0.1,
+    riskCapS: 300,
+    dither: { everyFrames: 3, minIntervalS: 120 },
+  },
+  deep: {
+    label: 'Deep Project',
+    summary: 'Longer subs, three times the base signal-to-noise target, stops where more time adds under 5% per half hour or the night ends.',
+    swampK: 20,
+    snrTarget: 60,
+    maxNextHalfHourGain: 0.05,
+    riskCapS: 300,
+    dither: { everyFrames: 3, minIntervalS: 120 },
+  },
 };
+
+/**
+ * ASSUMPTION: the resolution element the signal-to-noise target is measured over, 2.5 arcsec on a side (about typical backyard
+ * seeing), so 6.25 square arcsec. With SNR 20 it reproduces the research table (C11, Bortle 6, no filter, surface brightness 22: 26 min).
+ */
+export const SNR_ELEMENT_ARCSEC = 2.5;
+/** ASSUMPTION: the least total light worth the setup (SETUP_MIN is 30): the lower end of the owner's old Quick range (planner spec section 07). */
+export const MIN_TOTAL_MIN = 30;
+/** ASSUMPTION: the range around the planned total starts at this share of it (half the light still gives 71% of the signal-to-noise, sqrt(0.5)). */
+export const TOTAL_RANGE_LOW_FRACTION = 0.5;
+/** ASSUMPTION: share of an emission object's light a filter passes (the research: about 85% peak for a dual-band filter). Used for any filter. */
+export const FILTER_PEAK_THROUGHPUT = 0.85;
+/**
+ * ASSUMPTION: catalog types whose light is mostly emission lines (the filter passes their lines and cuts the sky, so their contrast
+ * rises as the passband narrows). Every other type is treated as continuum: the filter cuts the object and the sky alike.
+ * Reflection nebulae are in 'nebula' and are not emission; the catalog has no finer type.
+ */
+export const EMISSION_TYPES: readonly string[] = ['nebula', 'planetary-nebula', 'supernova-remnant'];
+/**
+ * ASSUMPTION: surface brightness classes from the catalog's mean surface brightness (mag/arcsec2, B band in OpenNGC, compared with the
+ * sky as if it were the same band): brighter than SB_HIGH_BELOW is 'high', fainter than or equal to SB_LOW_FROM is 'low'. The research table's rows
+ * are 20 (bright), 22 (medium) and 24 (faint); the class stands for that row when the number is missing.
+ */
+export const SB_HIGH_BELOW = 22;
+export const SB_LOW_FROM = 24;
+export const SB_CLASS_MU: Readonly<Record<'high' | 'medium' | 'low', number>> = { high: 20, medium: 22, low: 24 };
+/** ASSUMPTION: used when the target has neither a number nor a class: the medium row. The result says it was assumed. */
+export const UNKNOWN_SB_CLASS = 'medium' as const;
+/** The stop rule by diminishing returns, from the next-half-hour gain g: sqrt((T + 30) / T) - 1 < g. See `marginalKneeMin`. */
+export const KNEE_STEP_MIN = 30;
 
 // ---- Overhead (all ASSUMPTIONS) -------------------------------------------
 

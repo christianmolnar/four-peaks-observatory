@@ -5,7 +5,7 @@ import type { MutableRefObject } from 'react';
 import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { MODES, MODE_ORDER } from '@/planner/exposure';
+import { MODE_ORDER, PRESETS } from '@/planner/exposure';
 import type { ExposureMode } from '@/planner/exposure';
 import { usableWindowsOnTrack } from '@/planner/horizon';
 import type { HorizonPoint } from '@/planner/horizon';
@@ -556,7 +556,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
                     <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Mode for {s.name}</label>
                     <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
                       {MODE_ORDER.map((m) => (
-                        <option key={m} value={m}>{MODES[m].label}</option>
+                        <option key={m} value={m}>{PRESETS[m].label}</option>
                       ))}
                     </WrapSelect>
                   </div>
