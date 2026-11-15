@@ -102,7 +102,7 @@ import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { baseOf, presetLabel, rowExposure, withNumber, withPreset } from './rowExposure';
+import { MAX_SUBS, MAX_SUB_S, baseOf, presetLabel, rowExposure, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -1137,6 +1137,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const ref = planTargets.find((t) => t.id === id);
     const view = rowViews.get(id);
     if (ref === undefined || view?.kind !== 'ok' || view.customUnusable !== null || view.chosen.subCount < 1) return;
+    // The favorites store accepts a sub of at most 1 hour and 1 to 5,000 whole subs; a row outside that is refused here, so the store's own check is never reached.
+    const { subSeconds, subCount } = view.chosen;
+    if (!(subSeconds > 0 && subSeconds <= MAX_SUB_S) || !Number.isInteger(subCount) || subCount > MAX_SUBS) {
+      setNotice('The favorite was not saved: these numbers are outside what a favorite can hold (a sub of up to 1 hour, 1 to 5,000 subs).');
+      return;
+    }
     const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';
     const fav: Favorite = {
       id,
@@ -1335,7 +1341,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return {
       name: body ?? target?.displayName ?? target?.name ?? id,
       type: body !== undefined ? 'Solar system' : target !== undefined ? typeLabel(target.type) : '',
-      preset: body !== undefined ? '' : ref.preset === 'custom' ? 'Custom' : presetLabel(ref.preset),
+      preset: body !== undefined ? '' : ref.preset === 'custom' ? (view?.kind === 'ok' && view.customUnusable !== null ? `${presetLabel(baseOf(ref))} (custom not used)` : 'Custom') : presetLabel(ref.preset),
       subSeconds: ok?.subSeconds ?? null,
       subCount: ok?.subCount ?? null,
       lightMin: ok?.integrationMin ?? null,

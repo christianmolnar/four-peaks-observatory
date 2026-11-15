@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { sampleProfile } from '@/planner/state';
 import { FAVORITES_KEY } from '@/planner/state/favorites';
 import PlannerApp from './PlannerApp';
@@ -200,7 +200,7 @@ describe('round 4: a stored sub under the minimum, the timeline in the preset-us
   it('a stored 0.5 s sub is judged like an over-5,000 one: plain message, preset used on row and timeline, favorite refused', async () => {
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 0.5, subCount: 100 } }]);
     openPart('Night timeline');
-    expect(unusable('m31')).toBe('A sub of 0.5 s is shorter than 1 s: too short to be an exposure. Your custom numbers do not work on this night, so the Balanced preset is used.');
+    expect(unusable('m31')).toBe('The stored sub length is shorter than 1 s: too short to be an exposure. Your custom numbers do not work on this night, so the Balanced preset is used.');
     const row = parse(numbers('m31'));
     expect(row.sub).toBeGreaterThan(1);
     expect(slotNumbers(0)).toEqual(row);
@@ -231,5 +231,61 @@ describe('round 4: a stored sub under the minimum, the timeline in the preset-us
     expect(screen.getByTestId('plan-favorite-refused-m42').textContent).toBe('The favorite was not saved: this night gives no subs for this target. Pick another night or target.');
     expect(document.body.textContent).not.toMatch(VALIDATOR);
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBeNull();
+  });
+});
+
+describe('round 5: every stored custom value outside the limits is judged, never sent to the engine, never saved', () => {
+  const PLAIN = / Your custom numbers do not work on this night, so the Balanced preset is used\.$/;
+  it.each([
+    [{ subSeconds: 60, subCount: 0.5 }, /^The stored number of subs is not a whole number of 1 or more\./],
+    [{ subCount: 12.7 }, /^The stored number of subs is not a whole number of 1 or more\./],
+    [{ subSeconds: 3601 }, /^The stored sub length is longer than 3600 s/],
+    [{ subSeconds: 7200, subCount: 2 }, /^The stored sub length is longer than 3600 s/],
+  ])('stored %j: page loads, plain message, preset numbers on row and timeline, favorite refused, value kept', async (custom, message) => {
+    await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom }]);
+    openPart('Night timeline');
+    const text = unusable('m31')!;
+    expect(text).toMatch(message);
+    expect(text).toMatch(PLAIN);
+    const row = parse(numbers('m31'));
+    expect(slotNumbers(0)).toEqual(row);
+    fireEvent.click(favoriteBox('m31'));
+    expect(screen.getByTestId('plan-favorite-refused-m31').textContent).toMatch(/^The favorite was not saved/);
+    expect(document.body.textContent).not.toMatch(VALIDATOR);
+    expect(window.localStorage.getItem(FAVORITES_KEY)).toBeNull();
+    expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom });
+  });
+
+  it.each([{ subCount: 6000 }, { totalMin: 100000 }])('stored %j: the engine fits it to the night, so the row shows numbers inside the limits and a favorite saves without validator text', async (custom) => {
+    await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom }]);
+    expect(unusable('m31')).toBeNull();
+    const row = parse(numbers('m31'));
+    expect(row.subs).toBeGreaterThanOrEqual(1);
+    expect(row.subs).toBeLessThanOrEqual(5000);
+    expect(row.sub).toBeLessThanOrEqual(3600);
+    fireEvent.click(favoriteBox('m31'));
+    expect(document.body.textContent).not.toMatch(VALIDATOR);
+    expect(JSON.parse(window.localStorage.getItem(FAVORITES_KEY)!).favorites[0]).toMatchObject({ subSeconds: row.sub, subCount: row.subs });
+  });
+
+  it('typing a sub over a stored bad count replaces the bad count instead of sending it to the engine', async () => {
+    await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subCount: 0.5 } }]);
+    type(subBox('m31'), '60');
+    expect(unusable('m31')).toBeNull();
+    expect(parse(numbers('m31')).sub).toBe(60);
+    expect(storedPlan()!.targets[0].custom).toEqual({ subSeconds: 60 });
+  });
+
+  it('print labels a row whose custom value is not used as the preset it shows', async () => {
+    await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 7200 } }]);
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+    const sheet = screen.getByTestId('print-sheet').textContent ?? '';
+    expect(sheet).toContain('Balanced (custom not used)');
+    expect(sheet).not.toMatch(/Custom(?! not)/);
+    act(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
   });
 });

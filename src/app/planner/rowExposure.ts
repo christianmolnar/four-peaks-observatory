@@ -27,12 +27,29 @@ export type RowExposure =
       withNumber: (field: 'subSeconds' | 'subCount', value: number) => ExposureResult | null;
     };
 
+/** The stored custom numbers that are inside the limits: a number typed on a row replaces the custom value, so a stored one outside the limits is not carried along. */
+const keepUsable = (c: ExposureOverrides): ExposureOverrides => {
+  const out: ExposureOverrides = { ...c };
+  if (out.subSeconds !== undefined && (out.subSeconds < MIN_SUB_S_ROW || out.subSeconds > MAX_SUB_S)) delete out.subSeconds;
+  if (out.subCount !== undefined && (!Number.isInteger(out.subCount) || out.subCount < 1)) delete out.subCount;
+  return out;
+};
+
 /** The preset a target's numbers start from: its own preset, or for a Custom target the preset it was changed from (Balanced when none is kept). */
 export const baseOf = (ref: Pick<PlanTargetRef, 'preset' | 'base'>): ExposureMode => (ref.preset === 'custom' ? (ref.base ?? 'balanced') : ref.preset);
 
 /** The engine's choice for a plan target: its preset, with its own numbers over it when it is Custom. */
 export function choiceOf(ref: Pick<PlanTargetRef, 'preset' | 'base' | 'custom'>): ExposureChoice {
   return ref.preset === 'custom' ? { preset: baseOf(ref), overrides: ref.custom ?? {} } : { preset: ref.preset };
+}
+
+/** The plain reason a stored custom value is outside the limits (a sub under 1 s or over 1 hour, a count that is not a whole number), or null. */
+export function storedProblem(c: ExposureOverrides | undefined): string | null {
+  if (c === undefined) return null;
+  if (c.subSeconds !== undefined && c.subSeconds < MIN_SUB_S_ROW) return `The stored sub length is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.`;
+  if (c.subSeconds !== undefined && c.subSeconds > MAX_SUB_S) return `The stored sub length is longer than ${MAX_SUB_S} s (1 hour): too long for one sub.`;
+  if (c.subCount !== undefined && (!Number.isInteger(c.subCount) || c.subCount < 1)) return 'The stored number of subs is not a whole number of 1 or more.';
+  return null;
 }
 
 /** One edit of a plan target's exposure, as the fields to store. `custom` and `base` are removed when the target is back on a preset. */
@@ -52,7 +69,7 @@ export function withPreset(ref: PlanTargetRef, next: ExposureMode | 'custom'): P
 /** The target with its sub length or count changed: it becomes Custom (from the preset it was on), keeping any other number it already had. */
 export function withNumber(ref: PlanTargetRef, field: 'subSeconds' | 'subCount', value: number): PlanTargetRef {
   const to = withPreset(ref, 'custom');
-  to.custom = { ...to.custom, [field]: value } satisfies ExposureOverrides;
+  to.custom = { ...keepUsable(to.custom ?? {}), [field]: value } satisfies ExposureOverrides;
   return to;
 }
 
@@ -114,22 +131,24 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   };
   const rig = { train: { focalRatio: slot.optics.focalRatio, imageScale: slot.optics.imageScale }, camera: slot.camera, filter: slot.filter };
   const run = (choice: ExposureChoice) => exposureFor(slot.exposureTarget, rig, { bortle }, night, choice);
-  const own = run(choiceOf(ref));
-  if (!own.ok) return { kind: 'missing', reason: `The profile lacks ${own.missing.join(', ')}, so no exposure can be computed.` };
   const presets = {} as Record<ExposureMode, ExposureResult>;
   for (const m of MODE_ORDER) {
     const r = run({ preset: m });
     if (!r.ok) return { kind: 'missing', reason: `The profile lacks ${r.missing.join(', ')}, so no exposure can be computed.` };
     presets[m] = r;
   }
-  const storedSub = ref.preset === 'custom' ? ref.custom?.subSeconds : undefined;
-  const problem =
-    ref.preset !== 'custom'
-      ? null
-      : storedSub !== undefined && storedSub < MIN_SUB_S_ROW
-        ? `A sub of ${storedSub} s is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.`
-        : resultProblem(own, entry.usableMinutes, true);
-  const chosen = problem === null ? own : presets[baseOf(ref)];
+  // A stored custom number outside the limits never reaches the engine (it throws on a count that is not whole): the preset's numbers are used.
+  const stored = ref.preset === 'custom' ? storedProblem(ref.custom) : null;
+  let problem: string | null = stored;
+  let chosen = presets[baseOf(ref)];
+  if (ref.preset === 'custom' && stored === null) {
+    const own = run(choiceOf(ref));
+    if (!own.ok) return { kind: 'missing', reason: `The profile lacks ${own.missing.join(', ')}, so no exposure can be computed.` };
+    problem = resultProblem(own, entry.usableMinutes, true);
+    if (problem === null) chosen = own;
+  } else if (ref.preset !== 'custom') {
+    chosen = presets[ref.preset];
+  }
   const customUnusable = problem === null ? null : `${problem} Your custom numbers do not work on this night, so the ${presetLabel(baseOf(ref))} preset is used.`;
   const cam = slot.camera;
   const inputs = [
@@ -142,7 +161,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   ].join(', ');
   const withNumber = (field: 'subSeconds' | 'subCount', value: number): ExposureResult | null => {
     const base = choiceOf(ref);
-    const r = run({ preset: base.preset, overrides: { ...base.overrides, [field]: value } });
+    const r = run({ preset: base.preset, overrides: { ...keepUsable(base.overrides ?? {}), [field]: value } });
     return r.ok ? r : null;
   };
   return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, customUnusable, withNumber };
