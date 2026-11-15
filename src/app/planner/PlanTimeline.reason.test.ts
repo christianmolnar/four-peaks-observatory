@@ -6,7 +6,7 @@ const slot = (subSeconds: number, subCount: number, minutes: number) => ({ subSe
 describe('slotSubReason', () => {
   it('names the 500-sub cap only when the row was lengthened for it and the slot is shorter', () => {
     expect(slotSubReason(slot(15, 280, 110), { subSeconds: 20, subCount: 429, lengthenedForCap: true })).toBe(
-      "The target's row plans 20 s x 429 subs for the night. The row's sub is lengthened so the whole night stays within 500 subs; this slot has 110 minutes, which need no such stretch: 15 s x 280.",
+      "The target's row plans 20 s x 429 subs for the night. The row is held to 500 subs for the whole night; this slot has 110 minutes, which need no such limit: 15 s x 280.",
     );
   });
 

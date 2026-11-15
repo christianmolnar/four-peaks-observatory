@@ -1,13 +1,13 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { sampleProfile } from '@/planner/state';
 import { PLANS_KEY } from '@/planner/state/plans';
 import PlannerApp from './PlannerApp';
-import { openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
+import { fakeCatalog, openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
 
 // Start time, altitude per slot and the night graph, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 
@@ -385,12 +385,12 @@ describe('no suggested order', () => {
 });
 
 describe('a slot whose sub differs from its row', () => {
-  const CAP = /^The target's row plans \d+ s x \d+ subs for the night\. The row's sub is lengthened so the whole night stays within 500 subs; this slot has \d+ minutes, which need no such stretch: \d+ s x \d+\.$/;
+  const CAP = /^The target's row plans \d+ s x \d+ subs for the night\. The row is held to 500 subs for the whole night; this slot has \d+ minutes, which need no such limit: \d+ s x \d+\.$/;
   const NEUTRAL = /^The target's row plans \d+ s x \d+ subs for the night\. This slot is planned for the sky during its own time: \d+ s x \d+\.$/;
 
   it('every line is either the cap reason (only when the row was lengthened for it) or the neutral line, never the share', async () => {
     seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101'], null, 'deep');
-    await app('2026-12-08', 'wide-c11-hyperstar-2600');
+    await app('2026-12-31', 'wide-c11-hyperstar-2600');
     const said = slots().filter((li) => within(li).queryByTestId(/^slot-why-sub-/) !== null);
     expect(said.length).toBeGreaterThan(0);
     for (const li of said) expect(within(li).getByTestId(/^slot-why-sub-/).textContent).toMatch(new RegExp(`${CAP.source}|${NEUTRAL.source}`));
@@ -404,8 +404,19 @@ describe('a slot whose sub differs from its row', () => {
     await app('2026-12-27', 'deep-c11-reducer-533');
     const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
     expect(said.length).toBeGreaterThan(0);
-    for (const t of said) expect(t).toMatch(/^The target's row plans \d+ s x \d+ subs for the night\. (This slot is planned for the sky during its own time|The row's sub is lengthened)/);
+    for (const t of said) expect(t).toMatch(/^The target's row plans \d+ s x \d+ subs for the night\. (This slot is planned for the sky during its own time|The row is held to 500 subs)/);
     expect(document.body.textContent).not.toMatch(/\(its share\)|sized to that share/);
     expect(said.some((t) => NEUTRAL.test(t))).toBe(true);
+  });
+
+  it('a row held to 500 subs by the total cap (HyperStar, NGC 891) explains it in a shorter slot', async () => {
+    seed(2, ['m31', 'ngc891'], null, 'deep');
+    const catalog = fakeCatalog([{ id: 'ngc891', name: 'NGC 891', type: 'galaxy', raHours: 2.37, decDeg: 42.35, majorArcmin: 13, minorArcmin: 3, mag: 10, surfaceBrightness: 24.1, constellation: 'And' }]);
+    render(<PlannerApp {...pageProps} loadCatalogIndex={catalog.load} initialDate="2026-12-29" initialProfile={withTrain('wide-c11-hyperstar-2600')} />);
+    await ready();
+    openPart('Night timeline');
+    await within(section()).findByLabelText('Imaging can start at');
+    const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
+    expect(said.some((t) => CAP.test(t) && /plans 20 s x 500 subs/.test(t))).toBe(true);
   });
 });

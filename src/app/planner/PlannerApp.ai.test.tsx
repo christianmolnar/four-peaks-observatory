@@ -92,7 +92,6 @@ const readyOpen = async () => {
 };
 /** The button that asks the AI: "Ask the AI to order and time N targets" first, "Ask again" after an answer or an error. */
 const go = () => (within(panel()).queryByRole('button', { name: /^Ask the AI to order and time/ }) ?? within(panel()).getByRole('button', { name: 'Ask again' })) as HTMLButtonElement;
-const problemText = () => screen.getByTestId('ai-problem').textContent ?? '';
 const status = () => screen.getByTestId('ai-status');
 const result = () => screen.getByTestId('ai-result');
 const slotsText = () => within(result()).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-')).map((li) => li.textContent ?? '');

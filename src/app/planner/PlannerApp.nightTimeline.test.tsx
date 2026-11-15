@@ -78,7 +78,7 @@ describe('Night timeline', () => {
     expect(screen.getByTestId('itinerary-why').textContent).toMatch(/Why this order: One slot to place\./);
   });
 
-  it('has no Up or Down and no add box: the order is the plan\'s, and the suggested order is the way to change it', async () => {
+  it('has no Up or Down and no add box: the order is the plan\'s own', async () => {
     seed('m31', 'ic405');
     await app();
     expect(names()).toEqual(['Andromeda Galaxy', 'Flaming Star Nebula']);

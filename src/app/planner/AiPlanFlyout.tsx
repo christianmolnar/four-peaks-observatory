@@ -391,7 +391,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
             {done !== null ? (
               <p className={`rounded border px-3 py-2 text-sm font-normal ${done.result.status === 'verified' ? 'border-sky-300/40 text-white/90' : 'border-orange-300/40 bg-orange-400/15 text-orange-100'}`} data-testid="ai-checked">
                 {done.result.status === 'verified'
-                  ? `${done.result.repairRounds === 0 ? 'Passed. ' : `Repaired: the first answer failed the code's checks (a slot below your altitude or horizon, an overlap, or a target neither planned nor left out), so it was sent back ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'time' : 'times'}; the plan below is the corrected one and it passes now. `}${CHECKED_TEXT}`
+                  ? `${done.result.repairRounds === 0 ? 'Passed. ' : `Repaired: the first answer failed the code's checks, so it was sent back ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'time' : 'times'}; the plan below is the corrected one and passes now. `}${CHECKED_TEXT}`
                   : `Not fully checked: after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'try' : 'tries'} to fix it, the code still found problems with this plan (listed below). Treat it as a rough draft. The AI decided the order, times and light per target; the code only checks.`}
               </p>
             ) : null}

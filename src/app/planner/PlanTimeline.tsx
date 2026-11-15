@@ -77,7 +77,7 @@ export function slotSubReason(s: Slot, row: { subSeconds: number; subCount: numb
   const rowText = `The target's row plans ${row.subSeconds} s x ${row.subCount} subs for the night.`;
   const slotText = `${s.subSeconds} s x ${s.subCount}`;
   if (row.lengthenedForCap && s.subSeconds !== null && s.subSeconds < row.subSeconds) {
-    return `${rowText} The row's sub is lengthened so the whole night stays within ${MAX_SUBS} subs; this slot has ${Math.round((s.end.getTime() - s.start.getTime()) / 60000)} minutes, which need no such stretch: ${slotText}.`;
+    return `${rowText} The row is held to ${MAX_SUBS} subs for the whole night; this slot has ${Math.round((s.end.getTime() - s.start.getTime()) / 60000)} minutes, which need no such limit: ${slotText}.`;
   }
   return `${rowText} This slot is planned for the sky during its own time: ${slotText}.`;
 }

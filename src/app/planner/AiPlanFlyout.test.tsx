@@ -147,7 +147,8 @@ describe('step 3 and the result', () => {
     render(<AiPlanFlyout {...propsFor(fetching(reply(200, twoAnswer({ repairRounds: 2 }))))} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired: the first answer failed the code's checks \(a slot below your altitude or horizon, an overlap, or a target neither planned nor left out\), so it was sent back 2 times; the plan below is the corrected one and it passes now\./);
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired: the first answer failed the code's checks, so it was sent back 2 times; the plan below is the corrected one and passes now\./);
+    expect((screen.getByTestId('ai-checked').textContent ?? '').split('passes now.')[0]).not.toMatch(/altitude|horizon|overlap|neither planned/); // names no cause
   });
 
   it('targets left out are listed with why, and the checker\'s warnings are shown', async () => {
