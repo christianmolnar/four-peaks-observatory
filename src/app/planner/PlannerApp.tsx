@@ -12,9 +12,9 @@ import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { makeCsvTime, planToCsv } from '@/planner/export';
-import { arcToHorizonPoints, ProfileError, resolveTrain } from '@/planner/profile';
+import { arcToHorizonPoints, ProfileError } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
-import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
+import { DEFAULT_BORTLE, PRESETS } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
@@ -26,7 +26,6 @@ import {
   CAPTURED_KEY,
   DEFAULT_MIN_ALTITUDE,
   MIN_ALTITUDE_RANGE,
-  MAX_MY_PLAN,
   MY_PLAN_KEY,
   PROFILE_KEY,
   SELECTION_KEY,
@@ -39,12 +38,10 @@ import {
   newZoneFields,
   friendlyArcError,
   loadCaptured,
-  loadMyPlan,
   loadProfile,
   loadSelection,
   sampleProfile,
   saveCaptured,
-  saveMyPlan,
   sameFields,
   saveProfile,
   saveSelection,
@@ -52,15 +49,29 @@ import {
   withTrainFilter,
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
+import {
+  MAX_PLAN_TARGETS,
+  PLANS_KEY,
+  clearOldPlanKeys,
+  deletePlan,
+  duplicatePlan,
+  loadPlans,
+  migrateOldPlan,
+  newPlan,
+  openPlan as withOpenPlan,
+  renamePlan,
+  savePlans,
+  startPlans,
+  updatePlan,
+} from '@/planner/state/plans';
+import type { PlanDefaults, PlanTargetRef, PlansState } from '@/planner/state/plans';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AiPlanPanel from './AiPlanPanel';
-import CampaignPanel from './CampaignPanel';
 import AltitudeChart from './AltitudeChart';
+import AuthControl from './AuthControl';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
-import DisclosureChevron from './DisclosureChevron';
-import ExposurePanel from './ExposurePanel';
-import type { ControlId } from './ExposurePanel';
+import Collapsible from './Collapsible';
 import HorizonEditor, { describeOverlaps } from './HorizonEditor';
 import ItinerarySection from './ItinerarySection';
 import NumberSlider from './NumberSlider';
@@ -68,20 +79,20 @@ import OverflowMenu from './OverflowMenu';
 import SolarSystemDetail from './SolarSystemDetail';
 import PrintSheet from './PrintSheet';
 import { download } from './download';
-import type { IncomingItinerary, ItineraryReport } from './ItinerarySection';
-import type { CampaignPanelProps } from './CampaignPanel';
-import { ITINERARY_KEY } from '@/planner/itinerary';
+import type { ItineraryReport } from './ItinerarySection';
+import { ITINERARY_KEY, MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
 import ResetAll from './ResetAll';
-import MyPlan from './MyPlan';
-import type { MyPlanRow } from './MyPlan';
+import OpenPlan from './OpenPlan';
+import type { PlanRow } from './OpenPlan';
+import PlansBar from './PlansBar';
 import TargetList, { Group } from './TargetList';
 import type { RowDescription } from './TargetList';
 import TargetSearch from './TargetSearch';
 import { createNightScorer } from './nightScorer';
-import { addDays, designationOf, fitReason, nameList, nightDateText, nightStatus, peakText, scorePartsText, sizeText, typeLabel } from './catalogText';
+import { addDays, designationOf, fitReason, nameList, nightDateText, peakText, scorePartsText, sizeText, typeLabel, upRange } from './catalogText';
 import { useCatalog } from './useCatalog';
 import { useTonightList } from './useTonightList';
 
@@ -95,6 +106,11 @@ type RankedEntry = PlanEntry;
 
 /** Above this share of the Moon lit at mid-night, the list says so in words. */
 const BRIGHT_MOON = 0.8;
+
+const TABS = [
+  { id: 'plan', label: 'Plan' },
+  { id: 'gear', label: 'Gear and site' },
+] as const;
 
 /** Tonight's list holds at most this many targets. */
 const LIST_LIMIT = 100;
@@ -153,15 +169,13 @@ export interface PlannerAppProps {
   loadCatalogIndex?: () => Promise<CatalogIndex>;
   /** The AI night plan's request; defaults to the browser's fetch. A test stands in a fake. */
   aiFetch?: typeof fetch;
-  /** The several-night plan's worker; defaults to the bundled one. A test stands in a fake. */
-  campaignWorker?: CampaignPanelProps['createWorker'];
   /** Who is signed in (the owner sees the AI plan's review switch); defaults to the session endpoint the sign-in control reads. */
   loadAuth?: () => Promise<AuthState>;
 }
 
 /** How long a toast stays up. */
 const TOAST_MS = 6000;
-/** How long "Added, #3 in My plan" stays next to the button. */
+/** How long "Added, #3 in the plan" stays next to the button. */
 const ADDED_MS = 4000;
 /** "Add top 3" adds this many. */
 const TOP_N = 3;
@@ -175,13 +189,14 @@ const NO_ZONES: readonly BlockedArc[] = [];
 
 const fieldsOf = (arcs: readonly BlockedArc[]): HorizonFields[] => arcs.map(fieldsFromArc);
 
-export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog, aiFetch, campaignWorker, loadAuth = loadAuthState }: PlannerAppProps) {
+export default function PlannerApp({ initialDate, initialProfile, rank = rankTonightAsync, loadCatalogIndex = loadCatalog, aiFetch, loadAuth = loadAuthState }: PlannerAppProps) {
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
   const [notice, setNotice] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [date, setDate] = useState<string>(initialDate ?? '');
-  const [siteId, setSiteId] = useState<string>('');
-  const [trainId, setTrainId] = useState<string>('');
+  // The saved plans and which one is open. The open plan owns the night's date, site and train (and its targets); null until the saved ones are read.
+  const [plans, setPlans] = useState<PlansState | null>(null);
+  const plansRef = useRef<PlansState | null>(null);
+  const [tab, setTab] = useState<'plan' | 'gear'>('plan');
   // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
   const [fields, setFields] = useState<HorizonFields[]>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? []));
   // Each row's own last saved (or loaded) zone, in the same order as `fields`; null for a row added since. A bad box falls back to its own row's base only.
@@ -220,8 +235,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [added, setAdded] = useState<{ id: string; text: string; say: string } | null>(null);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
-  // My plan: catalog ids in the user's priority order; remembered in this browser like the site and train choice.
-  const [planIds, setPlanIds] = useState<readonly string[]>([]);
   const [zone, setZone] = useState<string>('');
   // The sticky strip: closed it is one line (date, site, train); open it holds the controls. The page's fixed header and the strip
   // are measured so the column titles and anchors stop below them.
@@ -232,15 +245,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [findSiteTick, setFindSiteTick] = useState(0);
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
-  // The itinerary section leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
+  // The night timeline leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
   const itineraryReport = useRef<ItineraryReport | null>(null);
-  // The AI plan offered to the itinerary, and who is waiting for its answer. The owner sees the AI review switch; a failed read leaves the page as a guest's.
-  const [incoming, setIncoming] = useState<IncomingItinerary | null>(null);
-  const incomingAnswer = useRef<((applied: boolean) => void) | null>(null);
-  const offers = useRef(0);
-  const [owner, setOwner] = useState(false);
-  // Reset all: remounts the itinerary (it reads storage when it mounts); the count asks for focus on the button once the page has settled.
-  const [itineraryKey, setItineraryKey] = useState(0);
+  // Who is signed in: the sign-in control at the top shows it, and the owner sees the AI plan's review switch; a failed read leaves the page as a guest's.
+  const [auth, setAuth] = useState<AuthState>({ kind: 'signedOut' });
+  const owner = auth.kind === 'signedIn' && auth.owner;
+  // Reset all: the count asks for focus on the button once the page has settled.
   const [resetFocus, setResetFocus] = useState(0);
   useEffect(() => {
     if (resetFocus > 0) document.getElementById('reset-all')?.focus();
@@ -248,13 +258,42 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   useEffect(() => {
     let live = true;
     loadAuth().then(
-      (a) => live && setOwner(a.kind === 'signedIn' && a.owner),
+      (a) => live && setAuth(a),
       (e) => console.error(e),
     );
     return () => {
       live = false;
     };
   }, [loadAuth]);
+
+  // The tabs follow the address: #plan and #gear, and a link to anything inside a tab (#horizon, #gear-heading) opens that tab first.
+  const land = useCallback(() => {
+    const id = window.location.hash.slice(1);
+    if (id === 'plan' || id === 'gear') {
+      setTab(id);
+      return;
+    }
+    const el = id === '' ? null : document.getElementById(id);
+    const panel = el?.closest<HTMLElement>('[role="tabpanel"]');
+    if (el && panel) {
+      setTab(panel.id === 'panel-gear' ? 'gear' : 'plan');
+      requestAnimationFrame(() => el.scrollIntoView());
+    }
+  }, []);
+  useEffect(() => {
+    land();
+    window.addEventListener('hashchange', land);
+    window.addEventListener('popstate', land);
+    return () => {
+      window.removeEventListener('hashchange', land);
+      window.removeEventListener('popstate', land);
+    };
+  }, [land]);
+  /** The one way a tab is chosen by the user: the address follows, so Back and a shared link return to it. */
+  const selectTab = (next: 'plan' | 'gear') => {
+    setTab(next);
+    if (window.location.hash !== `#${next}`) window.history.pushState(null, '', `#${next}`);
+  };
 
   const endMinAltRun = () => {
     if (minAltTimer.current) clearTimeout(minAltTimer.current);
@@ -277,16 +316,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     }
   };
 
-  // Browser-only state: saved profile, captured list, the clock.
+  // Browser-only state: saved profile, captured list, plans, the clock.
   useEffect(() => {
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     try {
       setCaptured(loadCaptured(window.localStorage));
-    } catch (e) {
-      setNotice((e as Error).message);
-    }
-    try {
-      setPlanIds(loadMyPlan(window.localStorage));
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -305,12 +339,44 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       setNotice((e as Error).message);
     }
     const home = loaded.sites.find((s) => s.id === remembered?.siteId) ?? loaded.sites[0];
-    if (home && home.id === remembered?.siteId) setSiteId(home.id);
-    if (loaded.trains.some((t) => t.id === remembered?.trainId)) setTrainId(remembered!.trainId);
+    const homeTrain = loaded.trains.find((t) => t.id === remembered?.trainId) ?? loaded.trains[0];
     setType(typeGroupOf(remembered?.typeId).id); // a type that no longer exists is All
     loadForm(home?.blockedArcs ?? [], true);
-    if (!initialDate) {
-      setDate(defaultDateForProfile(new Date(), home ? { ...loaded, sites: [home] } : loaded));
+    const startDate = initialDate ?? defaultDateForProfile(new Date(), home ? { ...loaded, sites: [home] } : loaded);
+    if (home && homeTrain) {
+      // The saved plans. None saved: the My plan list and night itinerary of before there were plans become the first plan (once; the old copies
+      // are removed when the plans are saved), or one empty plan starts, which is not saved until it is changed.
+      const defaults: PlanDefaults = { date: startDate, siteId: home.id, trainId: homeTrain.id, now: new Date().toISOString() };
+      let state: PlansState | null = null;
+      try {
+        state = loadPlans(window.localStorage);
+      } catch (e) {
+        setNotice((e as Error).message);
+      }
+      if (state === null) {
+        let migrated = null;
+        try {
+          const m = migrateOldPlan(window.localStorage, defaults);
+          migrated = m.plan;
+          if (m.problems.length > 0) setNotice(m.problems.join(' '));
+        } catch (e) {
+          setNotice((e as Error).message);
+        }
+        state = startPlans(defaults, migrated);
+        if (migrated !== null) {
+          try {
+            savePlans(window.localStorage, state);
+            clearOldPlanKeys(window.localStorage);
+          } catch (e) {
+            setNotice(`Your plan was carried over but not saved, so it is lost on reload: ${(e as Error).message}`);
+          }
+        }
+      }
+      plansRef.current = state;
+      setPlans(state);
+      const open = state.plans.find((p) => p.id === state.openId)!;
+      const openSite = loaded.sites.find((x) => x.id === open.siteId) ?? loaded.sites[0];
+      if (openSite && openSite.id !== home.id) loadForm(openSite.blockedArcs, true);
     }
   }, [initialDate, initialProfile]);
 
@@ -347,8 +413,36 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     }
   }, []);
 
-  const site = profile.sites.find((s) => s.id === siteId) ?? profile.sites[0];
-  const train = profile.trains.find((t) => t.id === trainId) ?? profile.trains[0];
+  const open = plans?.plans.find((p) => p.id === plans.openId) ?? null;
+  // The open plan's night, site and train; a site or train that is gone from the profile is the first, as before.
+  const date = open?.date ?? initialDate ?? '';
+  const site = profile.sites.find((s) => s.id === open?.siteId) ?? profile.sites[0];
+  const train = profile.trains.find((t) => t.id === open?.trainId) ?? profile.trains[0];
+  /** Makes the next state of the plans (a change that may be refused, say at the limit: said, nothing changes), keeps it and stores it. The horizon form follows the open plan's site. */
+  const commitPlans = (change: (s: PlansState) => PlansState): boolean => {
+    const prev = plansRef.current;
+    if (prev === null) return false;
+    let next: PlansState;
+    try {
+      next = change(prev);
+    } catch (e) {
+      setNotice((e as Error).message);
+      return false;
+    }
+    plansRef.current = next;
+    setPlans(next);
+    const siteOf = (st: PlansState) => profile.sites.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? profile.sites[0];
+    const to = siteOf(next);
+    if (to && siteOf(prev)?.id !== to.id) loadForm(to.blockedArcs, false);
+    try {
+      savePlans(window.localStorage, next);
+    } catch (e) {
+      setNotice(`Plans not saved, so they are lost on reload: ${(e as Error).message}`);
+    }
+    return true;
+  };
+  /** A change to the open plan: its date, site, train, start time or targets. */
+  const editOpen = (patch: Parameters<typeof updatePlan>[2]) => commitPlans((st) => updatePlan(st, st.openId, patch, new Date().toISOString()));
   const hasControls = site !== undefined && train !== undefined;
   useEffect(() => {
     if (!hasControls) return undefined;
@@ -436,7 +530,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   minAltRef.current = minAltitude;
   const minAltError = minCheck.ok ? null : `${minCheck.error} Planning with ${minAltitude} until fixed.`;
 
-  // The night is cheap and needed at once (the planets, the itinerary, the labels); the ranking over the catalog is not, so it runs off the main thread.
+  // The night is cheap and needed at once (the planets, the timeline, the labels); the ranking over the catalog is not, so it runs off the main thread.
   const nightInfo = useMemo(() => {
     if (siteLat === undefined || siteLon === undefined || date === '') return { night: null, error: null as string | null };
     try {
@@ -537,22 +631,23 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const isTonight = date === '' || date === tonightDate;
   const nightWord = isTonight ? 'tonight' : nightDateText(date);
 
-  // My plan resolved for the night: a catalog target or a planet, scored by the same single-target path as the search.
+  // The open plan's targets resolved for the night: a catalog target or a planet, scored by the same single-target path as the search.
+  const planTargets = useMemo((): readonly PlanTargetRef[] => open?.targets ?? [], [open]);
+  const planIds = useMemo(() => planTargets.map((t) => t.id), [planTargets]);
   const planItems = useMemo(
     () =>
-      planIds.map((id) => {
+      planTargets.map((ref) => {
+        const id = ref.id;
         const target = catalogById?.get(id);
         const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
         const entry = body !== undefined ? (scorer?.planet(body) ?? null) : target !== undefined ? (scorer?.target(target) ?? null) : null;
-        return { id, target, body, entry };
+        return { id, ref, target, body, entry };
       }),
-    [planIds, catalogById, scorer],
+    [planTargets, catalogById, scorer],
   );
 
   const planIdSet = useMemo(() => new Set(planIds), [planIds]);
 
-  // The Exposure panel follows the open row, else the best of the list.
-  const selected = openEntry ?? filtered[0];
   // The altitude chart is drawn in the open row only.
   const track = useMemo(() => {
     if (!stableNight || stableNight.kind !== 'normal' || !openEntry || !site) return null;
@@ -567,19 +662,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       10,
     );
   }, [stableNight, openEntry, site, horizon, minAltitude]);
-
-  // What the Exposure panel needs from the train: optics numbers, the camera record and the chosen filter.
-  const trainInfo = useMemo(() => {
-    if (!train || train.kind !== 'optical') return { optics: null, camera: null, filter: null };
-    try {
-      const r = resolveTrain(profile, train);
-      return { optics: planTrainFor(profile, train).optics, camera: r.cameraSpec ?? null, filter: r.filter ?? null };
-    } catch {
-      return { optics: null, camera: null, filter: null }; // the plan already reports an unresolved train
-    }
-  }, [profile, train]);
-  // A catalog entry has no curated flags (brightCore): the exposure panel treats the absence as no, not as a value.
-  const selectedTarget = selected ? catalogById?.get(selected.id) : undefined;
 
   /** Remembers the site and train chosen at the top, so a reload opens on them. */
   const rememberSelection = (nextSiteId: string, nextTrainId: string, nextType: string = type) => {
@@ -600,7 +682,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   /** The one way the Train changes: the select and the planetary note's button both end here. */
   const chooseTrain = (id: string) => {
     if (!site) return;
-    setTrainId(id);
+    editOpen({ trainId: id });
     rememberSelection(site.id, id);
   };
 
@@ -643,8 +725,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const stored: [string, string][] = [
       [PROFILE_KEY, 'profile'],
       [SELECTION_KEY, 'site and train choice'],
-      [MY_PLAN_KEY, 'plan'],
-      [ITINERARY_KEY, 'itinerary'],
+      [PLANS_KEY, 'plans'],
+      [MY_PLAN_KEY, 'old plan'],
+      [ITINERARY_KEY, 'old night timeline'],
       [CAPTURED_KEY, 'captured list'],
     ];
     for (const [key, what] of stored) {
@@ -654,24 +737,26 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         setNotice(`Could not clear the stored ${what}: ${(e as Error).message}`);
       }
     }
-    setPlanIds([]);
     setCaptured(new Set());
-    setItineraryKey((k) => k + 1); // the itinerary reads its storage when it mounts
     const sample = sampleProfile();
     setProfile(sample);
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
-    setSiteId('');
-    setTrainId('');
+    // One empty plan on tonight at the sample's first site and train, as on a first visit (not saved until it is changed).
+    const first = sample.sites[0];
+    const firstTrain = sample.trains[0];
+    const fresh = startPlans({ date: first ? defaultDateForProfile(new Date(), sample) : '', siteId: first?.id ?? '', trainId: firstTrain?.id ?? '', now: new Date().toISOString() });
+    plansRef.current = fresh;
+    setPlans(fresh);
     setType('all');
     setImportError(null);
     setNotice('Reset: the planner is back to its starting point.');
     setResetFocus((n) => n + 1);
   };
 
-  /** A warning's "Change the filter" and the like: opens the strip's controls and puts focus on the one it names. */
-  const goToControl = (id: ControlId) => {
+  /** "Change train": opens the strip's controls and puts focus on the Train select. */
+  const goToTrain = () => {
     flushSync(() => setControlsOpen(true));
-    document.getElementById(id)?.focus();
+    document.getElementById('plan-train')?.focus();
   };
 
   const toggleCaptured = (id: string) => {
@@ -686,52 +771,92 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     setCaptured(next);
   };
 
-  const commitPlan = (next: readonly string[]) => {
-    setPlanIds(next);
-    try {
-      saveMyPlan(window.localStorage, next);
-    } catch (e) {
-      setNotice(`Plan not saved, so it is lost on reload: ${(e as Error).message}`);
-    }
-  };
   const addToPlan = (id: string) => {
     if (planIds.includes(id)) return;
-    if (planIds.length >= MAX_MY_PLAN) {
-      setNotice(`My plan holds at most ${MAX_MY_PLAN} targets. Remove one to add another.`);
+    if (planIds.length >= MAX_PLAN_TARGETS) {
+      setNotice(`The plan holds at most ${MAX_PLAN_TARGETS} targets. Remove one to add another.`);
       return;
     }
-    commitPlan([...planIds, id]);
+    if (!editOpen({ targets: [...planTargets, { id, preset: 'balanced' }] })) return;
     const place = planIds.length + 1;
     const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
     const target = catalogById?.get(id);
     const name = body ?? target?.displayName ?? target?.name ?? [...mainList, ...planetGroup, ...notUpGroup, ...noFitList].find((e) => e.id === id)?.name ?? id;
-    setAdded({ id, text: `Added, #${place} in My plan`, say: `${name} added, number ${place} in My plan.` });
+    setAdded({ id, text: `Added, #${place} in the plan`, say: `${name} added, number ${place} in the plan.` });
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
   };
-  /** "Add top 3": the first three of the list that are not in My plan yet, in the list's order, as many as the plan has room for. */
+  /** "Add top 3": the first three of the list that are not in the plan yet, in the list's order, as many as the plan has room for. */
   const addTopThree = (list: readonly PlanEntry[]) => {
     const fresh = list.filter((e) => !planIdSet.has(e.id)).slice(0, TOP_N);
-    const picks = fresh.slice(0, Math.max(0, MAX_MY_PLAN - planIds.length));
+    const picks = fresh.slice(0, Math.max(0, MAX_PLAN_TARGETS - planIds.length));
     if (picks.length === 0) return;
-    commitPlan([...planIds, ...picks.map((e) => e.id)]);
+    if (!editOpen({ targets: [...planTargets, ...picks.map((e): PlanTargetRef => ({ id: e.id, preset: 'balanced' }))] })) return;
     const first = planIds.length + 1;
     const last = planIds.length + picks.length;
     const places = picks.length === 1 ? `#${first}` : `#${first} to #${last}`;
-    const short = picks.length < fresh.length ? ` My plan is full: ${fresh.length - picks.length} not added.` : '';
-    setAdded({ id: TOP_ADDED_ID, text: `Added ${picks.length}, ${places} in My plan.${short}`, say: `Added ${picks.length} to My plan, ${places}: ${nameList(picks.map((e) => e.name))}.${short}` });
+    const short = picks.length < fresh.length ? ` The plan is full: ${fresh.length - picks.length} not added.` : '';
+    setAdded({ id: TOP_ADDED_ID, text: `Added ${picks.length}, ${places} in the plan.${short}`, say: `Added ${picks.length} to the plan, ${places}: ${nameList(picks.map((e) => e.name))}.${short}` });
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
   };
-  const movePlan = (id: string, direction: 'up' | 'down') => {
-    const i = planIds.indexOf(id);
-    const j = direction === 'up' ? i - 1 : i + 1;
-    if (i < 0 || j < 0 || j >= planIds.length) return;
-    const next = [...planIds];
-    [next[i], next[j]] = [next[j], next[i]];
-    commitPlan(next);
+  const removeFromPlan = (id: string) => editOpen({ targets: planTargets.filter((t) => t.id !== id) });
+
+  // ---- My plans: the bar's actions. New starts empty on today at the open plan's site and train.
+  const newPlanDefaults = (): PlanDefaults => ({ date: tonightDate || date, siteId: site?.id ?? '', trainId: train?.id ?? '', now: new Date().toISOString() });
+  const openPlanById = (id: string) => commitPlans((st) => withOpenPlan(st, id));
+  const createPlan = () => commitPlans((st) => newPlan(st, newPlanDefaults()));
+  const renameOpenPlan = (name: string) => commitPlans((st) => renamePlan(st, st.openId, name));
+  const duplicateOpenPlan = () => commitPlans((st) => duplicatePlan(st, st.openId, new Date().toISOString()));
+  const deleteOpenPlan = () => commitPlans((st) => deletePlan(st, st.openId, newPlanDefaults()));
+
+  // ---- The timeline and the AI plan write back into the open plan.
+  /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all, a custom preset scheduled as balanced. */
+  const timelineItems = useMemo(
+    (): ItineraryItem[] =>
+      planTargets.slice(0, MAX_SLOTS).map((t) => ({
+        id: t.id,
+        targetId: t.id,
+        trainId: train?.id ?? '',
+        filterId: train?.kind === 'optical' ? (train.filterId ?? null) : null,
+        mode: t.preset === 'custom' ? 'balanced' : t.preset,
+        note: t.note ?? '',
+      })),
+    [planTargets, train],
+  );
+  /** A slot's changed preset or note goes onto its target; the slots' order is the plan's order; targets past the timeline's slots stay after them. */
+  const applyTimeline = (items: ItineraryItem[], startTime: string | null) => {
+    const byId = new Map(planTargets.map((t) => [t.id, t]));
+    const kept = items.flatMap((i): PlanTargetRef[] => {
+      const old = byId.get(i.id);
+      if (old === undefined) return [];
+      const next: PlanTargetRef = { ...old };
+      if (i.mode !== (old.preset === 'custom' ? 'balanced' : old.preset)) {
+        next.preset = i.mode;
+        delete next.custom;
+      }
+      if (i.note !== (old.note ?? '')) {
+        if (i.note === '') delete next.note;
+        else next.note = i.note;
+      }
+      return [next];
+    });
+    editOpen({ targets: [...kept, ...planTargets.slice(MAX_SLOTS)], startTime });
   };
-  const removeFromPlan = (id: string) => commitPlan(planIds.filter((x) => x !== id));
+  /** "Use this plan": the AI's order, presets and first start time go into the open plan; targets it left out follow, in their order. */
+  const applyAiPlan = (items: ItineraryItem[], startTime: string | null): Promise<boolean> => {
+    const byId = new Map(planTargets.map((t) => [t.id, t]));
+    const used = new Set<string>();
+    const ordered = items.flatMap((i): PlanTargetRef[] => {
+      const old = byId.get(i.targetId);
+      if (old === undefined || used.has(i.targetId)) return [];
+      used.add(i.targetId);
+      const next: PlanTargetRef = { ...old, preset: i.mode };
+      delete next.custom;
+      return [next];
+    });
+    return Promise.resolve(editOpen({ targets: [...ordered, ...planTargets.filter((t) => !used.has(t.id))], startTime }));
+  };
 
   const importProfile = async (file: File | undefined) => {
     if (!file) return;
@@ -745,15 +870,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return;
     }
     setProfile(next);
-    setPlanIds([]);
-    setDate(defaultDateForProfile(new Date(), next));
+    // The plans stay (their targets are catalog ids); the open one moves to the new profile's first site and train, on its first evening,
+    // because the old ids belong to the old profile. The others fall back to the first the same way.
+    const [first] = next.sites;
+    const [firstTrain] = next.trains;
+    if (first && firstTrain) editOpen({ date: defaultDateForProfile(new Date(), next), siteId: first.id, trainId: firstTrain.id });
     loadForm(next.sites[0]?.blockedArcs ?? [], true);
-    setSiteId('');
-    setTrainId('');
     setType('all');
     try {
       window.localStorage.removeItem(SELECTION_KEY); // the old ids belong to the old profile
-      window.localStorage.removeItem(MY_PLAN_KEY);
       saveProfile(window.localStorage, next);
       setNotice(`Imported ${file.name}.`);
     } catch (e) {
@@ -771,7 +896,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     );
   };
 
-  const planRows: MyPlanRow[] = planItems.map(({ id, target, body, entry }) => {
+  const planRows: PlanRow[] = planItems.map(({ id, ref, target, body, entry }) => {
     const name = body ?? target?.displayName ?? target?.name ?? id;
     const detail =
       body !== undefined
@@ -781,17 +906,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           : catalog.status === 'loading'
             ? 'Loading the catalog…'
             : 'Not in the bundled catalog.';
-    const status = entry !== null ? nightStatus(entry, nightWord, formatTime) : scorer === null && stableNight ? 'No astronomical night on this date.' : '';
-    return { id, name, detail, status };
+    const up =
+      entry !== null
+        ? entry.usableMinutes > 0
+          ? `Up ${upRange(entry, formatTime)}`
+          : `Not up ${nightWord}`
+        : scorer === null && stableNight
+          ? 'No astronomical night on this date.'
+          : '';
+    return { id, name, detail, up, score: entry !== null && entry.usableMinutes > 0 ? Math.round(entry.score.total) : null, preset: ref.preset === 'custom' ? 'Custom' : PRESETS[ref.preset].label };
   });
-  // What the itinerary may add: the plan's targets that resolved, with their clear time on the night.
-  const planOptions = planItems.flatMap(({ id, target, body, entry }) =>
-    body === undefined && target === undefined
-      ? []
-      : [{ id, name: body ?? target?.displayName ?? target?.name ?? id, isPlanet: body !== undefined, usableMinutes: entry?.usableMinutes ?? 0 }],
-  );
 
-  // The AI plan takes My plan's fixed objects in the user's order; planets move, so they stay out, and so does anything not yet resolved.
+  // The AI plan takes the open plan's fixed objects in the plan's order; planets move, so they stay out, and so does anything not yet resolved.
   const aiTargets = useMemo(
     (): PlanTarget[] => planItems.flatMap(({ id, target, body }) => (body === undefined && target !== undefined ? [{ id, name: target.displayName ?? target.name, raHours: target.raHours, decDeg: target.decDeg }] : [])),
     [planItems],
@@ -802,58 +928,25 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (!timeZone) return null;
     return { site: planning.base.site, timeZone, horizon: planning.base.horizon, minAltitude, date: planning.base.date, rig: rigOf(profile, train), bortle: site.bortle };
   }, [planning.base, train, site, zone, minAltitude, profile]);
-  // The several-night plan works each target's useful range out with the exposure engine, for this train and sky.
-  const campaignExposure = useMemo(() => ({ rig: { train: trainInfo.optics ?? {}, camera: trainInfo.camera ?? {}, filter: trainInfo.filter }, bortle: site?.bortle ?? DEFAULT_BORTLE }), [trainInfo, site?.bortle]);
   const planets = planItems.filter((p) => p.body !== undefined).length;
   const unresolved = planItems.length - planets - aiTargets.length;
   const aiBlocked =
     planIds.length === 0
-      ? 'Add at least one target to My plan first.'
+      ? 'Add at least one target to the plan first.'
       : !hasNight
         ? 'There is no astronomical night on this date, so there is nothing to plan.'
         : catalog.status === 'loading'
           ? 'The catalog is still loading.'
           : aiTargets.length === 0
-            ? 'My plan has no deep-sky targets the AI planner can use. It plans fixed objects, not the Moon and planets.'
+            ? 'The plan has no deep-sky targets the AI planner can use. It plans fixed objects, not the Moon and planets.'
             : aiBase === null
               ? 'The site or train is not ready.'
               : null;
   const aiLeftOut = [
     planets > 0 ? `${planets} solar-system ${planets === 1 ? 'body is' : 'bodies are'} left out: the AI plans fixed objects.` : '',
     unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
-    aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of My plan are sent.` : '',
+    aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of the plan are sent.` : '',
   ].filter((x) => x !== '').join(' ');
-  // The several-night plan takes the same fixed objects, with their catalog type (it picks each one's useful range). Planets and anything not yet resolved stay out.
-  const campaignTargets = useMemo(
-    () => planItems.flatMap(({ target, body }) => (body === undefined && target !== undefined ? [{ id: target.id, name: target.displayName ?? target.name, raHours: target.raHours, decDeg: target.decDeg, type: target.type, ...(target.surfaceBrightness === undefined ? {} : { surfaceBrightness: target.surfaceBrightness }) }] : [])),
-    [planItems],
-  );
-  const campaignBlocked =
-    planIds.length === 0
-      ? 'Add at least one target to My plan first.'
-      : catalog.status === 'loading'
-        ? 'The catalog is still loading.'
-        : campaignTargets.length === 0
-          ? 'My plan has no deep-sky targets to plan. This plans fixed objects, not the Moon and planets.'
-          : aiBase === null
-            ? 'The site or train is not ready.'
-            : train?.kind === 'smart'
-              ? "A smart scope plans its own exposures, so there is no estimate to size each target's useful range from. Pick an optical train."
-              : trainInfo.optics?.focalRatio === undefined || trainInfo.optics.imageScale === undefined || trainInfo.camera?.pixelSizeUm === undefined
-                ? "The chosen train's focal ratio, image scale or camera pixel size is missing; the useful range of each target is worked out from them."
-                : null;
-  const campaignLeftOut = [
-    planets > 0 ? `${planets} solar-system ${planets === 1 ? 'body is' : 'bodies are'} left out: the Moon and planets move across the sky from night to night, and this plan places fixed objects.` : '',
-    unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
-  ].filter((x) => x !== '').join(' ');
-  /** Gives the plan to the itinerary section and waits for its answer (it asks before replacing a plan that is there). */
-  const offerToItinerary = (items: ItineraryItem[], startTime: string | null, label?: string) =>
-    new Promise<boolean>((resolve) => {
-      incomingAnswer.current?.(false);
-      incomingAnswer.current = resolve;
-      setIncoming({ key: ++offers.current, items, startTime, label });
-    });
-
   const field =
     'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
   const btn =
@@ -917,12 +1010,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const groupOpen = planetsOpen ?? (planetary || isSolar);
   // "Not up" inside it: closed, unless nothing is up (then it is the only content).
   const notUpShown = notUpOpen ?? planetGroup.length === 0;
-  // The plan mixes kinds when the train is for one and My plan holds the other (adding is never blocked, the train never switches by itself).
+  // The plan mixes kinds when the train is for one and the open plan holds the other (adding is never blocked, the train never switches by itself).
   const trainNote =
     planetary && planItems.some((p) => p.body === undefined)
-      ? 'My plan mixes a solar-system train and deep-sky targets.'
+      ? 'The plan mixes a solar-system train and deep-sky targets.'
       : !planetary && planets > 0
-        ? 'My plan mixes a deep-sky train and solar-system bodies.'
+        ? 'The plan mixes a deep-sky train and solar-system bodies.'
         : null;
   // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
   const deepTrain = planetary ? (profile.trains.find((t) => t.kind === 'optical' && t.tag !== 'planetary') ?? profile.trains.find((t) => t.kind === 'smart')) : undefined;
@@ -1003,9 +1096,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   /** The Add top 3 row above a ranked list: the button, and in words what it did or why it cannot. */
   const topThree = (list: readonly PlanEntry[]) => {
-    const full = planIds.length >= MAX_MY_PLAN;
+    const full = planIds.length >= MAX_PLAN_TARGETS;
     const nothingNew = list.every((e) => planIdSet.has(e.id));
-    const why = full ? `My plan is full (${MAX_MY_PLAN} targets). Remove one to add more.` : nothingNew ? 'Everything in this list is already in My plan.' : '';
+    const why = full ? `The plan is full (${MAX_PLAN_TARGETS} targets). Remove one to add more.` : nothingNew ? 'Everything in this list is already in the plan.' : '';
     return (
       <div className="mb-2 mt-2 flex flex-wrap items-center gap-x-3" data-testid="top-three">
         <button
@@ -1015,7 +1108,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           onClick={() => addTopThree(list)}
           className={`${btn} min-h-11 disabled:cursor-default disabled:opacity-60`}
         >
-          Add top {TOP_N} to my plan
+          Add top {TOP_N} to the plan
         </button>
         <span id="top-three-note" className="min-w-0 text-sm font-normal text-white/80">
           {added?.id === TOP_ADDED_ID ? <span aria-hidden="true" className="text-emerald-300">{added.text}</span> : why}
@@ -1039,21 +1132,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       className="space-y-8 text-white print:hidden [&_h2]:scroll-mt-[calc(var(--planner-top,0px)+1rem)] [&_section[id]]:scroll-mt-[calc(var(--planner-top,0px)+1rem)]"
       style={{ '--planner-nav': `${stickyTop.nav}px`, '--planner-top': `${stickyTop.nav + stickyTop.strip}px` } as React.CSSProperties}
     >
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
-        <p className="text-white/90 font-normal text-sm mt-2 max-w-3xl">
-          A free guest tool, starting from a sample profile. Exposure and other worked-out values are estimates.
-        </p>
-        <details className="group mt-1 max-w-3xl">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm">
-            <DisclosureChevron />
-            More
-          </summary>
-          <p className="pb-2 text-white/90 font-normal text-sm">
-            Signing in is optional and only for owner features. Change the site, gear and horizon to plan your night.
-            Your profile and captured list stay in this browser and are never sent anywhere; export your profile to keep a copy.
-          </p>
-        </details>
+        <AuthControl state={auth} />
       </header>
 
       <p aria-live="polite" className="sr-only">{added?.say ?? ''}</p>
@@ -1075,6 +1156,31 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             Could not plan: {planError}
           </p>
         )}
+      </div>
+
+      <div role="tablist" aria-label="Planner" className="flex gap-2 border-b border-white/15">
+        {TABS.map((t, i) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => selectTab(t.id)}
+            onKeyDown={(e) => {
+              const to = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+              if (to < 0) return;
+              e.preventDefault();
+              selectTab(TABS[to].id);
+              document.getElementById(`tab-${TABS[to].id}`)?.focus();
+            }}
+            className={`min-h-11 rounded-t px-4 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-sky-400 ${tab === t.id ? 'border-b-2 border-sky-300 text-white' : 'text-white/70 hover:text-white'}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <section ref={stripRef} aria-labelledby="controls-heading" className="sticky top-[var(--planner-nav,0px)] z-30 rounded-lg border border-white/10 bg-black/95 backdrop-blur">
@@ -1099,10 +1205,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr]">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
-            <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+            <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && editOpen({ date: e.target.value })} />
             <div className="mt-1 flex flex-wrap gap-2" role="group" aria-label="Quick dates">
               {quickDates.map((q) => (
-                <button key={q.label} type="button" aria-pressed={date === q.date} onClick={() => setDate(q.date)} className={`${btn} min-h-11 ${date === q.date ? 'bg-white/15' : ''}`}>
+                <button key={q.label} type="button" aria-pressed={date === q.date} onClick={() => editOpen({ date: q.date })} className={`${btn} min-h-11 ${date === q.date ? 'bg-white/15' : ''}`}>
                   {q.label}
                 </button>
               ))}
@@ -1115,7 +1221,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               className="w-full"
               value={site.id}
               onChange={(e) => {
-                setSiteId(e.target.value);
+                editOpen({ siteId: e.target.value });
                 rememberSelection(e.target.value, train.id);
                 loadForm(profile.sites.find((x) => x.id === e.target.value)?.blockedArcs ?? [], true);
               }}
@@ -1127,7 +1233,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             <button
               type="button"
               onClick={() => {
-                setControlsOpen(false);
+                flushSync(() => {
+                  setControlsOpen(false);
+                  setTab('gear');
+                });
+                if (window.location.hash !== '#gear') window.history.pushState(null, '', '#gear');
                 setFindSiteTick((n) => n + 1);
               }}
               className="mt-1 inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
@@ -1161,7 +1271,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </WrapSelect>
             <p id="plan-filter-msg" className="mt-1 h-10 overflow-hidden text-sm leading-5 text-white/70 font-normal">
               {train.kind === 'optical' && profile.equipment.filters.length === 0
-                ? (<>No filters yet. <a href="#gear-heading" className="text-sky-300 underline underline-offset-2">Add one in the profile editor.</a></>)
+                ? (<>No filters yet. <a href="#gear-heading" className="text-sky-300 underline underline-offset-2">Add one in Gear and site.</a></>)
                 : ''}
             </p>
           </div>
@@ -1186,58 +1296,56 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </div>
         </div>
       </section>
-      <div className="-mt-4 space-y-1 px-1">
-        <p className="text-white/80 font-normal text-sm" data-testid="night-summary">
-          {nightText}
-          {zoneText}
-        </p>
-        <p className="text-white/80 font-normal text-sm" data-testid="horizon-summary">
-          {horizonText}{' '}
-          <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
-            Edit horizon
-          </a>
-        </p>
-        <p className="text-white/80 font-normal text-sm">
-          <a href="#campaign-heading" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
-            Plan several nights from this evening
-          </a>
-        </p>
-      </div>
-
-      <MyPlan rows={planRows} nightWord={nightWord} onMove={movePlan} onRemove={removeFromPlan} trainNote={trainNote} onChangeTrain={() => goToControl('plan-train')} />
-
-      <AiPlanPanel
-        base={aiBase}
-        targets={aiTargets}
-        blocked={aiBlocked}
-        leftOutNote={aiLeftOut}
-        profile={profile}
-        train={train}
-        siteName={site.name}
-        nightWord={nightWord}
-        night={hasNight ? (stableNight as AstronomicalNight) : null}
-        catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
-        formatTime={formatTime}
-        owner={owner}
-        fetchPlan={aiFetch}
-        onApply={offerToItinerary}
+      <div id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" hidden={tab !== 'plan'} className="space-y-8">
+      <PlansBar
+        plans={plans?.plans.map((p) => ({ id: p.id, name: p.name, targets: p.targets.length })) ?? []}
+        openId={plans?.openId ?? ''}
+        onOpen={openPlanById}
+        onNew={createPlan}
+        onRename={renameOpenPlan}
+        onDuplicate={duplicateOpenPlan}
+        onDelete={deleteOpenPlan}
       />
 
-      <CampaignPanel
-        base={aiBase}
-        targets={campaignTargets}
-        exposure={campaignExposure}
-        blocked={campaignBlocked}
-        leftOutNote={campaignLeftOut}
-        profile={profile}
-        train={train}
-        siteName={site.name}
-        catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
-        formatTime={formatTime}
-        createWorker={campaignWorker}
-        onUseDate={setDate}
-        onApply={offerToItinerary}
-      />
+      <OpenPlan name={open?.name ?? ''} rows={planRows} onRemove={removeFromPlan} trainNote={trainNote} onChangeTrain={goToTrain}>
+        <Collapsible id="night-and-horizon" title="Night and horizon">
+          <div className="space-y-1">
+            <p className="text-white/80 font-normal text-sm" data-testid="night-summary">
+              {nightText}
+              {zoneText}
+            </p>
+            <p className="text-white/80 font-normal text-sm" data-testid="horizon-summary">
+              {horizonText}{' '}
+              <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                Edit horizon
+              </a>
+            </p>
+          </div>
+        </Collapsible>
+        <Collapsible id="night-timeline" title="Night timeline">
+          {stableNight && astroSite && catalog.status !== 'loading' ? (
+            <ItinerarySection
+              profile={profile}
+              items={timelineItems}
+              startTime={open?.startTime ?? null}
+              unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
+              onChange={applyTimeline}
+              catalog={catalog.status === 'ready' ? catalog.index : null}
+              site={astroSite}
+              night={stableNight}
+              horizon={horizon}
+              minAltitude={minAltitude}
+              bortle={bortle}
+              formatTime={formatTime}
+              nightWord={nightWord}
+              timeZone={siteZone || zone || undefined}
+              report={itineraryReport}
+            />
+          ) : (
+            <p className="text-white/90 font-normal text-sm">The timeline appears once the date and the catalog have loaded.</p>
+          )}
+        </Collapsible>
+      </OpenPlan>
 
       <TargetSearch
         catalog={catalog}
@@ -1360,49 +1468,25 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
       </section>
 
-      {selected && (
-        <ExposurePanel
-          entry={selected}
-          target={selectedTarget ? exposureTargetFrom(selectedTarget) : { id: selected.id, name: selected.name }}
-          optics={trainInfo.optics}
-          camera={trainInfo.camera}
-          filter={trainInfo.filter}
-          site={site}
-          bortle={bortle}
-          bortleSet={site.bortle !== undefined}
-          formatTime={formatTime}
-          nightWord={nightWord}
-          onGoToControl={goToControl}
-        />
-      )}
+      <AiPlanPanel
+        base={aiBase}
+        targets={aiTargets}
+        blocked={aiBlocked}
+        leftOutNote={aiLeftOut}
+        profile={profile}
+        train={train}
+        siteName={site.name}
+        nightWord={nightWord}
+        night={hasNight ? (stableNight as AstronomicalNight) : null}
+        catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
+        formatTime={formatTime}
+        owner={owner}
+        fetchPlan={aiFetch}
+        onApply={applyAiPlan}
+      />
+      </div>
 
-      {stableNight && astroSite && catalog.status !== 'loading' && (
-        <ItinerarySection
-          key={itineraryKey}
-          profile={profile}
-          train={train}
-          planOptions={planOptions}
-          catalog={catalog.status === 'ready' ? catalog.index : null}
-          scorer={scorer}
-          site={astroSite}
-          night={stableNight}
-          horizon={horizon}
-          minAltitude={minAltitude}
-          bortle={bortle}
-          bortleSet={site.bortle !== undefined}
-          formatTime={formatTime}
-          nightWord={nightWord}
-          timeZone={siteZone || zone || undefined}
-          report={itineraryReport}
-          incoming={incoming}
-          onIncoming={(applied) => {
-            setIncoming(null);
-            incomingAnswer.current?.(applied);
-            incomingAnswer.current = null;
-          }}
-        />
-      )}
-
+      <div id="panel-gear" role="tabpanel" aria-labelledby="tab-gear" hidden={tab !== 'gear'} className="space-y-8">
       <HorizonEditor
         siteName={site.name}
         fields={fields}
@@ -1453,6 +1537,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           Imports are checked field by field; a rejected file changes nothing and the error names the field.
         </p>
       </section>
+      </div>
     </div>
     {printing && (
     <PrintSheet

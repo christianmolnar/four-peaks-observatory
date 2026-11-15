@@ -40,7 +40,7 @@ export interface TargetSearchProps {
   scorer: NightScorer | null;
   nightWord: string;
   formatTime: (d: Date) => string;
-  /** Ids already in my plan. */
+  /** Ids already in the open plan. */
   planIds: ReadonlySet<string>;
   /** Where the page lists a target ("#3 in the list below."), or undefined when it does not. */
   listedAs: (id: string) => string | undefined;
@@ -198,14 +198,14 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                     <div className="flex flex-col items-end">
                       <button
                         type="button"
-                        aria-label={inPlan ? `${r.name} is in my plan` : `Add ${r.name} to my plan`}
+                        aria-label={inPlan ? `${r.name} is in the plan` : `Add ${r.name} to the plan`}
                         aria-disabled={inPlan}
                         onClick={() => {
                           if (!inPlan) onAdd(r.id);
                         }}
                         className={`min-h-11 px-3 py-1.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 ${inPlan ? 'border-white/15 text-white/70' : 'border-white/30 text-white hover:bg-white/10'}`}
                       >
-                        {inPlan ? 'In my plan' : 'Add to my plan'}
+                        {inPlan ? 'In plan' : 'Add to plan'}
                       </button>
                       {added?.id === r.id && <span aria-hidden="true" className="mt-0.5 text-xs text-emerald-300">{added.text}</span>}
                     </div>

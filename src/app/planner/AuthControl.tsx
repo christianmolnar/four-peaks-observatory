@@ -1,27 +1,13 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import { signIn, signOut } from 'next-auth/react';
-import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
-
 
 const btn =
   'inline-flex items-center justify-center min-h-[44px] px-4 rounded border border-white/30 text-white/90 text-sm font-normal hover:bg-white/10';
 
-// Compact sign-in control. The planner works fully without it.
-export default function AuthControl() {
-  const [state, setState] = useState<AuthState>({ kind: 'signedOut' });
-
-  useEffect(() => {
-    let live = true;
-    loadAuthState()
-      .then((s) => live && setState(s))
-      .catch((e) => console.error(e));
-    return () => {
-      live = false;
-    };
-  }, []);
-
+// Compact sign-in control for the header row, one line. The page reads the session once and passes it in. The planner works fully without signing in.
+export default function AuthControl({ state }: { state: AuthState }) {
   const onSignIn = (e: FormEvent) => {
     e.preventDefault();
     void signIn('google');

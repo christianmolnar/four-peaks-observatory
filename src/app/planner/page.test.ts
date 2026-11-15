@@ -20,3 +20,11 @@ describe('planner page credits', () => {
     expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).toContain('<CatalogCredits />');
   });
 });
+
+describe('planner page sign-in', () => {
+  it('keeps no sign-in in the page footer: the control is in the planner header', () => {
+    const page = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
+    expect(page).not.toContain('AuthControl');
+    expect(readFileSync(join(__dirname, 'PlannerApp.tsx'), 'utf8')).toMatch(/<header[\s\S]*<AuthControl state=\{auth\} \/>[\s\S]*<\/header>/);
+  });
+});
