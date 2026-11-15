@@ -419,6 +419,16 @@ describe('the two tabs', () => {
     await waitFor(() => expect(document.activeElement?.closest('[role="tabpanel"]')?.id).toBe('panel-gear'));
   });
 
+  it('the strip\'s Search button, pressed on Gear and site, goes to the Plan tab and focuses the search box', async () => {
+    const user = userEvent.setup();
+    await app();
+    await user.click(tabs()[1]);
+    await user.click(screen.getByRole('button', { name: 'Find a target' }));
+    expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
+    expect(window.location.hash).toBe('#plan');
+    expect(document.activeElement).toBe(document.getElementById('target-search'));
+  });
+
   it('"Change train" (the plan mixes a deep-sky train and a planet) focuses the Train select in the strip, on the Plan tab', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter'] }));
     const user = userEvent.setup();

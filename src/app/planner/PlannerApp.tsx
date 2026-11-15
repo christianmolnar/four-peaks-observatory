@@ -1083,6 +1083,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     { label: '+1 week', date: addDays(tonightDate, 7) },
   ];
   const focusSearch = () => {
+    // The search is in the Plan tab; from Gear and site the button goes there first.
+    flushSync(() => setTab('plan'));
+    if (window.location.hash === '#gear') window.history.pushState(null, '', '#plan');
     const input = document.getElementById('target-search');
     if (!input) return;
     input.scrollIntoView({ block: 'center' });
