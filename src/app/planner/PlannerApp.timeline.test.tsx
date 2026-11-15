@@ -384,7 +384,8 @@ describe('altitude in each slot', () => {
 
 describe('night graph', () => {
   it('is on the page with one numbered segment per slot and its numbers collapsed', async () => {
-    seed(2, ['m31', 'm42', 'm33']);
+    // Flaming Star as the third: Triangulum after Andromeda and Orion no longer fits its window (Orion's Balanced is 105 min and ends 07:22).
+    seed(2, ['m31', 'm42', 'ic405']);
     await app();
     const g = within(section()).getByTestId('night-timeline');
     expect(g.querySelectorAll('svg polyline[stroke-width="5"]')).toHaveLength(3);

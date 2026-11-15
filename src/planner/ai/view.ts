@@ -1,7 +1,8 @@
 import type { AstronomicalNight, Site } from '../astro'
 import type { HorizonPoint } from '../horizon'
-import { MODES, MODE_ORDER } from '../exposure/constants'
+import { MODE_ORDER } from '../exposure/constants'
 import type { ExposureMode } from '../exposure/constants'
+import { presetNominalMin } from '../exposure'
 import { MAX_NOTE_CHARS, slotAltitudes } from '../itinerary'
 import type { ItineraryItem, ItineraryPlan, Slot, SlotInput } from '../itinerary'
 import type { AiPlanResult } from './plan'
@@ -89,12 +90,13 @@ const noteFor = (index: number, count: number): string => {
 /** The minutes the AI gives a slot: its exposureMinutes when it set them, else the slot's length. The night graph draws the same. */
 export const aiSlotMinutes = (s: { start: string; end: string; exposureMinutes?: number }): number => s.exposureMinutes ?? minutesBetween(s.start, s.end)
 
-/** The itinerary's own exposure mode whose range holds `minutes`; when none does, the mode with the nearest range (a tie goes to the shorter mode). */
+/**
+ * The itinerary's exposure preset nearest to `minutes`, on a log scale, measured from each preset's own aim (`presetNominalMin`:
+ * about 68, 143 and 293 min, the points where one more half hour adds under 20%, 10% and 5%). A tie goes to the shorter preset.
+ * Presets no longer have fixed ranges, so the old "range holds it" rule is this nearest-aim rule.
+ */
 export function modeForMinutes(minutes: number): ExposureMode {
-  const gap = (m: ExposureMode): number => {
-    const [lo, hi] = MODES[m].rangeMin
-    return minutes < lo ? lo - minutes : minutes > hi ? minutes - hi : 0
-  }
+  const gap = (m: ExposureMode): number => Math.abs(Math.log(Math.max(minutes, 1) / presetNominalMin(m)))
   return MODE_ORDER.reduce((best, m) => (gap(m) < gap(best) ? m : best))
 }
 

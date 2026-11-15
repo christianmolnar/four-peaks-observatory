@@ -22,7 +22,9 @@ import {
   planExposure,
   shortSessionPriority,
   skyLimitedSeconds,
+  readNoisePenalty,
   skyRate,
+  SKY_LIMIT_K,
   snapSub,
   surfaceBrightnessOf,
 } from './index';
@@ -36,10 +38,13 @@ const c533 = camera('asi533mc');
 const hyperstar = opticalTrain(...(() => { const r = resolveTrain(profile, profile.trains.find((t) => t.id === 'wide-c11-hyperstar-2600')!); return [r.scope, r.camera, r.accessory] as const; })());
 const codes = (ws: { code: string }[]) => ws.map((w) => w.code);
 
+// C11 + 0.7x reducer (1960 mm, f/7) on 3.76 um pixels: 206.265 * 3.76 / 1960 = 0.396 arcsec/px. The base train of these tests: slow enough that sub lengths are sky-limited, not floored.
+const F7 = { focalRatio: 7, imageScale: 0.396 };
+const F10 = { focalRatio: 10, imageScale: 0.277 };
 const START = new Date('2026-12-05T04:00:00Z');
 const base = (over: Partial<ExposureInput> = {}): ExposureInput => ({
   target: { id: 'x', name: 'Test nebula', type: 'nebula' },
-  train: { focalRatio: 1.93, imageScale: 1.4 },
+  train: F7,
   camera: duo,
   filter: filter('astronomik-cls-ccd'),
   sky: { bortle: 6, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false },
@@ -210,11 +215,21 @@ describe('sub length', () => {
     expect(skyRate({ ...ref, bandwidthNm: 150 })).toBeCloseTo(0.125, 10);
     expect(skyRate({ ...ref, sky: { ...sky, bortle: 6 } })).toBeCloseTo(0.25 * 10 ** (0.4 * 0.9), 10);
   });
-  it('sky-limited seconds is 20 x read noise squared over the rate', () => {
-    expect(skyLimitedSeconds(1.2, 0.25)).toBeCloseTo(115.2, 10);
+  it('sky-limited seconds is K x read noise squared over the rate, K = 10 by default (was 20)', () => {
+    expect(SKY_LIMIT_K).toBe(10);
+    expect(skyLimitedSeconds(1.0, 0.25)).toBeCloseTo(40, 10); // 10 * 1.0^2 / 0.25
+    expect(skyLimitedSeconds(1.0, 0.25, 5)).toBeCloseTo(20, 10);
+    expect(skyLimitedSeconds(1.0, 0.25, 20)).toBeCloseTo(80, 10);
   });
-  it('snapSub clamps to 10..300 s and snaps to the nearest step on a log scale', () => {
-    expect(snapSub(1)).toBe(10);
+  it('the read-noise penalty is sqrt(1 + 1/K) - 1: 9.5% at K = 5, 4.9% at K = 10, 2.5% at K = 20 (research section 1a)', () => {
+    for (const [k, pct] of [[5, 9.54], [10, 4.88], [20, 2.47]] as const) {
+      const rate = 0.25;
+      const t = skyLimitedSeconds(1.0, rate, k);
+      expect(readNoisePenalty(1.0, rate, t) * 100).toBeCloseTo(pct, 1);
+    }
+  });
+  it('snapSub clamps to 15..300 s (the floor was 10 s before the overhead floor) and snaps to the nearest step on a log scale', () => {
+    expect(snapSub(1)).toBe(15);
     expect(snapSub(5000)).toBe(300);
     expect(snapSub(18.7)).toBe(20);
     expect(snapSub(24)).toBe(20); // 24/20 = 1.2 < 30/24 = 1.25
@@ -234,7 +249,7 @@ describe('sub length', () => {
     expect(sub({ sky: { bortle: 3, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false } })).toBeGreaterThan(
       sub({ sky: { bortle: 8, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false } }),
     );
-    expect(sub({ train: { focalRatio: 7 } })).toBeGreaterThan(sub({ train: { focalRatio: 1.9 } }));
+    expect(sub({ train: F7 })).toBeGreaterThan(sub({ train: { focalRatio: 1.9, imageScale: 1.43 } }));
     expect(sub({ camera: { ...duo, pixelSizeUm: 2 } })).toBeGreaterThan(sub({ camera: { ...duo, pixelSizeUm: 6 } }));
   });
   it('a lit Moon near the target shortens the subs', () => {
@@ -307,29 +322,44 @@ describe('marginal benefit', () => {
 });
 
 describe('planExposure with fixed inputs', () => {
-  // CLS CCD on the Duo at f/1.93, Bortle 6, no Moon, 400 usable minutes. By hand:
-  // rate = 0.25 * (5/1.93)^2 * (120/300) * 10^(0.4*0.9) = 1.5376 e/px/s; floor = 20 * 1.2^2 / 1.5376 = 18.7 s.
+  // CLS CCD (120 nm) on the Duo (read noise class low = 1.0 e) at f/7, Bortle 6 (SQM 20.0), no Moon, 400 usable minutes, a nebula with no
+  // catalog surface brightness (the medium stand-in, 22 mag/arcsec2). By hand (python, ~/.cache/fourpeaks-exposure/hand.py):
+  // rate = 0.25 * (5/7)^2 * (120/300) * 10^(0.4*(20.9-20.0)) = 0.11688 e/px/s.
+  // swamp seconds = K * 1.0^2 / rate: K 5 -> 42.8 s (45), K 10 -> 85.6 s (90), K 20 -> 171.1 s (180).
+  // stop point (SNR 20/40/60 per 2.5" element, 120/300 band, 0.85 throughput, emission): 16.9 / 67.5 / 151.8 min,
+  // under the 68 / 143 / 293 min diminishing-returns points for the 20 / 40 / 60 SNR targets of the three presets, except Deep at 151.8 vs 292.7 (also under).
   const r = plan();
   const { quick, balanced, deep } = r.modes;
 
   it('matches the hand calculation', () => {
-    expect(r.skyElectronsPerPxS).toBeCloseTo(1.5376, 3);
-    expect(r.skyLimitedSeconds).toBeCloseTo(18.73, 2);
-    expect(r.readNoiseE).toBe(1.2);
+    expect(r.skyElectronsPerPxS).toBeCloseTo(0.11688, 4);
+    expect(r.skyLimitedSeconds).toBeCloseTo(85.557, 2);
+    expect(r.readNoiseE).toBe(1.0);
     expect(r.bandwidthNm).toBe(120);
+    expect([quick, balanced, deep].map((m) => m.swampSeconds)).toEqual([expect.closeTo(42.78, 2), expect.closeTo(85.56, 2), expect.closeTo(171.11, 2)]);
   });
-  it('quick: 20 s x 135 = 45 min, overhead 33.7, elapsed 78.7', () => {
-    expect([quick.subSeconds, quick.subCount, quick.integrationMin]).toEqual([20, 135, 45]);
-    expect(quick.overhead).toEqual({ setupMin: 30, ditherMin: 3.7, autofocusMin: 0, meridianFlipMin: 0, totalMin: 33.7 });
-    expect(quick.elapsedMin).toBe(78.7);
+  it('sub lengths: 45 s, 90 s, 180 s (K = 5, 10, 20, snapped)', () => {
+    expect([quick.subSeconds, balanced.subSeconds, deep.subSeconds]).toEqual([45, 90, 180]);
+    expect([quick, balanced, deep].map((m) => m.limitedBy.sub)).toEqual(['read-noise', 'read-noise', 'read-noise']);
+  });
+  it('totals come from the object: quick 30 min (the minimum, its 16.9 min stop point is below it), balanced 67.5 min, deep 153 min', () => {
+    expect(quick.knee.minutes).toBeCloseTo(16.87, 1);
+    expect(balanced.knee.minutes).toBeCloseTo(67.47, 1);
+    expect(deep.knee.minutes).toBeCloseTo(151.8, 1);
+    expect([quick.subCount, quick.integrationMin]).toEqual([40, 30]); // 1800 s / 45 s
+    expect([balanced.subCount, balanced.integrationMin]).toEqual([45, 67.5]); // ceil(67.47 * 60 / 90) = 45
+    expect([deep.subCount, deep.integrationMin]).toEqual([51, 153]); // ceil(151.8 * 60 / 180) = 51
+    expect(quick.limitedBy.total).toBe('minimum-total');
+    expect(balanced.limitedBy.total).toBe('snr-target');
+  });
+  it('overhead and finish follow from the counts: dither every 3 subs at 10 s, an autofocus per hour', () => {
+    expect(quick.overhead).toEqual({ setupMin: 30, ditherMin: 2.2, autofocusMin: 0, meridianFlipMin: 0, totalMin: 32.2 }); // 13 dithers
+    expect(balanced.overhead).toEqual({ setupMin: 30, ditherMin: 2.5, autofocusMin: 3, meridianFlipMin: 0, totalMin: 35.5 }); // 15 dithers, 1 autofocus
+    expect(deep.overhead).toEqual({ setupMin: 30, ditherMin: 2.8, autofocusMin: 6, meridianFlipMin: 0, totalMin: 38.8 }); // 17 dithers, 2 autofocus
+    expect(quick.elapsedMin).toBe(62.2);
     // imaging starts at the first usable minute and ends after the integration plus dithers
-    expect(quick.finish!.getTime()).toBe(START.getTime() + 48.7 * 60000);
-  });
-  it('balanced: 30 s x 180 = 90 min; deep: 45 s x 240 = 180 min', () => {
-    expect([balanced.subSeconds, balanced.subCount, balanced.integrationMin]).toEqual([30, 180, 90]);
-    expect([deep.subSeconds, deep.subCount, deep.integrationMin]).toEqual([45, 240, 180]);
-    expect(balanced.overhead.autofocusMin).toBe(3);
-    expect(deep.overhead.autofocusMin).toBe(9);
+    expect(quick.finish!.getTime()).toBe(START.getTime() + 32.2 * 60000);
+    expect([quick, balanced, deep].map((m) => m.ditherEveryFrames)).toEqual([3, 3, 3]);
   });
   it('changing mode changes subs, count, total, overhead and finish time', () => {
     for (const [a, b] of [[quick, balanced], [balanced, deep], [quick, deep]] as [ModeEstimate, ModeEstimate][]) {
@@ -341,14 +371,13 @@ describe('planExposure with fixed inputs', () => {
       expect(a.finish!.getTime()).not.toBe(b.finish!.getTime());
     }
   });
-  it('the three modes land in the owner ranges: quick 30-60, balanced 60-120', () => {
-    expect(quick.integrationMin).toBeGreaterThanOrEqual(30);
-    expect(quick.integrationMin).toBeLessThanOrEqual(60);
-    expect(balanced.integrationMin).toBeGreaterThanOrEqual(60);
-    expect(balanced.integrationMin).toBeLessThanOrEqual(120);
-    expect(quick.modeRangeMin).toEqual([30, 60]);
-    expect(balanced.modeRangeMin).toEqual([60, 120]);
+  it('the aim range is half to all of the planned total, and the presets keep their ids', () => {
+    expect(quick.modeRangeMin).toEqual([15, 30]);
+    expect(balanced.modeRangeMin).toEqual([34, 68]);
+    expect(deep.modeRangeMin).toEqual([77, 153]);
     expect(MODE_ORDER).toEqual(['quick', 'balanced', 'deep']);
+    expect([quick, balanced, deep].map((m) => m.mode)).toEqual(['quick', 'balanced', 'deep']);
+    expect([quick, balanced, deep].map((m) => m.modeLabel)).toEqual(['Quick & Beautiful', 'Balanced', 'Deep Project']);
   });
   it('subs times count is the integration, and elapsed is integration plus overhead', () => {
     for (const m of [quick, balanced, deep]) {
@@ -357,11 +386,12 @@ describe('planExposure with fixed inputs', () => {
       expect(m.overhead.totalMin).toBeCloseTo(m.overhead.setupMin + m.overhead.ditherMin + m.overhead.autofocusMin + m.overhead.meridianFlipMin, 1);
     }
   });
-  it('every output is labelled "estimate" and carries a range around its value', () => {
+  it('every output is labelled "estimate", says it is calculated, and carries a range around its value', () => {
     expect(r.label).toBe(ESTIMATE);
     expect(ESTIMATE).toBe('estimate');
     for (const m of [quick, balanced, deep]) {
       expect(m.label).toBe('estimate');
+      expect(m.source).toBe('calculated');
       const inside = (v: number, [lo, hi]: readonly [number, number]) => {
         expect(lo).toBeLessThanOrEqual(v);
         expect(hi).toBeGreaterThanOrEqual(v);
@@ -384,7 +414,7 @@ describe('planExposure with fixed inputs', () => {
       expect(m.subCountRange[0]).toBe(Math.floor(light / m.subSecondsRange[1]));
       expect(m.subCountRange[1]).toBe(Math.ceil(light / m.subSecondsRange[0]));
     }
-    expect(quick.subCountRange).toEqual([90, 208]); // 2700 s of light: 2700 / 30 s = 90, 2700 / 13 s = 207.7
+    expect(quick.subCountRange).toEqual([26, 60]); // 1800 s of light over the 30 to 68 s range: floor(1800 / 68) = 26, 1800 / 30 = 60
     const none = plan({ usableMinutes: 0 }).modes.quick;
     expect(none.subCountRange).toEqual([0, 0]);
   });
@@ -395,14 +425,16 @@ describe('planExposure with fixed inputs', () => {
       // setup starts 30 min before the first usable minute: finish = that + elapsed
       expect(hi.getTime()).toBe(st - 30 * 60000 + Math.round(m.elapsedRangeMin[1] * 60000));
       expect(lo.getTime()).toBeGreaterThanOrEqual(st + m.integrationMin * 60000);
-      expect((hi.getTime() - lo.getTime()) / 60000).toBeGreaterThan(10);
+      expect((hi.getTime() - lo.getTime()) / 60000).toBeGreaterThan(5);
     }
   });
   it('the sub-length range is wider when an input had to be assumed', () => {
     const known = quick.subSecondsRange;
-    const assumed = plan({ camera: { pixelSizeUm: 3.76 } }).modes.quick;
-    expect(known).toEqual([13, 30]); // 20 / 1.5, 20 * 1.5
-    expect(assumed.subSecondsRange[1] / assumed.subSeconds).toBeCloseTo(2, 5);
+    expect(known).toEqual([30, 68]); // 45 / 1.5, 45 * 1.5 = 67.5
+    // IDAS LPS-P2 has no stated width (150 nm assumed): 5 * 1.0^2 / (0.25 * (5/7)^2 * 0.5 * 2.2909) = 34.2 s -> 30 s, range 15 to 60 (factor 2)
+    const assumed = plan({ filter: filter('idas-lps-p2') }).modes.quick;
+    expect(assumed.subSeconds).toBe(30);
+    expect(assumed.subSecondsRange).toEqual([15, 60]);
     expect(codes(plan({ camera: { pixelSizeUm: 3.76 } }).warnings)).toContain('inputs-assumed');
     expect(codes(r.warnings)).not.toContain('inputs-assumed');
   });
@@ -414,13 +446,16 @@ describe('planExposure with fixed inputs', () => {
     const m = plan({ acquisitionStart: null }).modes.quick;
     expect(m.finish).toBeNull();
     expect(m.finishRange).toBeNull();
-    expect(m.elapsedMin).toBe(78.7);
+    expect(m.elapsedMin).toBe(62.2);
   });
-  it('narrowband at a slow beam hits the 300 s cap and says so', () => {
-    const m = plan({ train: { focalRatio: 10 }, filter: filter('optolong-lextreme') }).modes;
-    expect(m.quick.subSeconds).toBe(300);
+  it('narrowband at a slow beam hits the risk cap, says so, and reports the read-noise penalty at the cap', () => {
+    const m = plan({ train: F10, filter: filter('optolong-lextreme') }).modes;
+    expect(m.quick.subSeconds).toBe(180); // quick's risk cap
+    expect(m.balanced.subSeconds).toBe(300);
     expect(m.deep.subSeconds).toBe(300);
     expect(codes(m.quick.warnings)).toContain('sub-capped');
+    expect(m.quick.limitedBy.sub).toBe('risk-cap');
+    expect(m.quick.warnings.find((w) => w.code === 'sub-capped')!.text).toMatch(/capped at 180 s \(guiding, wind and satellite-trail risk\)\. Read noise adds about \d+% /);
   });
 });
 
@@ -429,15 +464,16 @@ describe('usable time limits the plan', () => {
     const m = plan({ usableMinutes: 100 }).modes.deep;
     expect(m.integrationMin).toBeLessThan(180);
     expect(m.integrationMin + m.overhead.ditherMin + m.overhead.autofocusMin + m.overhead.meridianFlipMin).toBeLessThanOrEqual(100);
-    expect(m.integrationMin + m.overhead.ditherMin + m.overhead.autofocusMin).toBeGreaterThan(100 - 1);
+    // one 180 s sub more would not fit: the session is within one sub of the usable minutes
+    expect(m.integrationMin + m.overhead.ditherMin + m.overhead.autofocusMin).toBeGreaterThan(100 - 180 / 60);
     expect(codes(m.warnings)).toContain('limited-by-usable-time');
   });
   it('a roomy night leaves the plan alone and adds no limit note', () => {
     expect(codes(plan({ usableMinutes: 1000 }).modes.deep.warnings)).not.toContain('limited-by-usable-time');
   });
-  it('below the mode range, say so', () => {
-    const m = plan({ usableMinutes: 20 }).modes.quick;
-    expect(m.integrationMin).toBeLessThan(20);
+  it('below the plan\'s range (half to all of the total the stop point asks for), say so', () => {
+    const m = plan({ usableMinutes: 30 }).modes.balanced; // aim [33, 66] min; 30 usable minutes leave about 27 of light
+    expect(m.integrationMin).toBeLessThan(m.modeRangeMin[0]);
     expect(codes(m.warnings)).toEqual(expect.arrayContaining(['limited-by-usable-time', 'below-mode-range']));
   });
   it('no usable time: zero frames, no finish, one clear warning, no range note', () => {
@@ -460,7 +496,7 @@ describe('meridian flip', () => {
   it('a crossing inside the session adds the flip and a note', () => {
     const m = plan({ transitTime: at(30) }).modes.quick;
     expect(m.overhead.meridianFlipMin).toBe(10);
-    expect(m.overhead.totalMin).toBe(43.7);
+    expect(m.overhead.totalMin).toBe(42.2); // setup 30 + 13 dithers 2.2 + flip 10
     expect(codes(m.warnings)).toContain('meridian-flip');
   });
   it('a crossing before the start, after the finish, or unknown adds nothing', () => {
@@ -517,11 +553,10 @@ describe('warnings from the target and the sky', () => {
     expect(codes(bright.warnings)).not.toContain('short-session-unknown');
     expect(codes(plan({ target: { type: 'galaxy', surfaceBrightness: 'medium' } }).modes.quick.warnings)).not.toContain('short-session-faint');
   });
-  it('image scale notes: oversampled, undersampled, silent in between and when unknown', () => {
-    expect(plan({ train: { focalRatio: 10, imageScale: 0.277 } }).warnings.find((w) => w.code === 'sampling')!.text).toMatch(/finer than typical seeing/);
+  it('image scale notes: oversampled, undersampled, silent in between', () => {
+    expect(plan({ train: F10 }).warnings.find((w) => w.code === 'sampling')!.text).toMatch(/finer than typical seeing/);
     expect(plan({ train: { focalRatio: 10, imageScale: 2.5 } }).warnings.find((w) => w.code === 'sampling')!.text).toMatch(/coarse/);
     expect(codes(plan({ train: { focalRatio: 10, imageScale: 1.4 } }).warnings)).not.toContain('sampling');
-    expect(codes(plan({ train: { focalRatio: 10 } }).warnings)).not.toContain('sampling');
     expect(codes(plan({ train: { focalRatio: 10, imageScale: 0.5 } }).warnings)).not.toContain('sampling'); // 0.5 is the edge, not below
     expect(codes(plan({ train: { focalRatio: 10, imageScale: 2 } }).warnings)).not.toContain('sampling');
   });
@@ -534,24 +569,24 @@ describe('warnings from the target and the sky', () => {
     expect(moon(0.8, 30, false)).not.toContain('moon-near');
   });
   it('filter warnings are part of the report', () => {
-    expect(codes(plan({ filter: filter('optolong-lextreme') }).warnings)).toContain('filter-rated-slower');
-    expect(codes(plan({ filter: null, camera: c533, train: { focalRatio: 7 } }).warnings)).toContain('filter-uvir-missing');
+    expect(codes(plan({ filter: filter('optolong-lextreme'), train: { focalRatio: 1.93, imageScale: 1.43 } }).warnings)).toContain('filter-rated-slower');
+    expect(codes(plan({ filter: null, camera: c533 }).warnings)).toContain('filter-uvir-missing');
   });
 });
 
 describe('acceptance on the sample profile', () => {
   const f19 = hyperstar.focalRatio as number;
   it('f/1.9 with the L-eXtreme (standard) raises the rated-slower warning', () => {
-    expect(codes(plan({ train: { focalRatio: f19 }, filter: filter('optolong-lextreme') }).warnings)).toContain('filter-rated-slower');
+    expect(codes(plan({ train: { focalRatio: f19, imageScale: 1.43 }, filter: filter('optolong-lextreme') }).warnings)).toContain('filter-rated-slower');
   });
   it('the ASI533MC with a filter that lacks UV/IR cut raises the IR warning', () => {
     for (const id of ['idas-lps-p2', 'ice-2in', 'zwo-duo-band', 'optolong-ha-7nm']) {
-      expect(codes(plan({ camera: c533, train: { focalRatio: 7 }, filter: filter(id) }).warnings)).toContain('filter-uvir-missing');
+      expect(codes(plan({ camera: c533, filter: filter(id) }).warnings)).toContain('filter-uvir-missing');
     }
   });
   it('the CLS CCD at f/1.9 raises neither', () => {
     for (const cam of [duo, c533]) {
-      const c = codes(plan({ camera: cam, train: { focalRatio: f19 }, filter: filter('astronomik-cls-ccd') }).warnings);
+      const c = codes(plan({ camera: cam, train: { focalRatio: f19, imageScale: 1.43 }, filter: filter('astronomik-cls-ccd') }).warnings);
       expect(c).not.toContain('filter-rated-slower');
       expect(c).not.toContain('filter-uvir-missing');
     }
@@ -560,9 +595,10 @@ describe('acceptance on the sample profile', () => {
 
 describe('input checks fail loudly', () => {
   it('missing optics are named, not guessed', () => {
-    expect(planExposure(base({ train: {} }))).toEqual({ ok: false, label: 'estimate', missing: ['train.focalRatio'] });
+    expect(planExposure(base({ train: {} }))).toEqual({ ok: false, label: 'estimate', missing: ['train.focalRatio', 'train.imageScale'] });
+    expect(planExposure(base({ train: { focalRatio: 7 } }))).toEqual({ ok: false, label: 'estimate', missing: ['train.imageScale'] }); // the stop point needs the aperture
     expect(planExposure(base({ camera: { colour: true } }))).toEqual({ ok: false, label: 'estimate', missing: ['camera.pixelSizeUm'] });
-    expect(planExposure(base({ train: {}, camera: {} }))).toEqual({ ok: false, label: 'estimate', missing: ['train.focalRatio', 'camera.pixelSizeUm'] });
+    expect(planExposure(base({ train: {}, camera: {} }))).toEqual({ ok: false, label: 'estimate', missing: ['train.focalRatio', 'train.imageScale', 'camera.pixelSizeUm'] });
   });
   it('rejects a bad Bortle class, usable time or Moon fraction', () => {
     const sky = (bortle: number) => ({ bortle, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false });
@@ -579,20 +615,20 @@ describe('input checks fail loudly', () => {
 describe('sub-length range stays inside the module limits', () => {
   const hot = (over: Partial<ExposureInput> = {}) =>
     plan({ sky: { bortle: 9, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false }, filter: null, camera: { ...duo, readNoiseClass: 'low' }, train: { focalRatio: 1.93, imageScale: 1.4 }, ...over });
-  it('a 10 s sub shows a range from 10 s, not below MIN_SUB_S', () => {
+  it('a floored 15 s sub shows a range from 15 s, not below MIN_SUB_S, and up to the star-saturation ceiling at most', () => {
     const r = hot();
-    for (const m of MODE_ORDER.map((k) => r.modes[k])) {
-      if (m.subSeconds === 10) expect(m.subSecondsRange[0]).toBe(10);
-      expect(m.subSecondsRange[0]).toBeGreaterThanOrEqual(10);
-    }
-    expect(r.modes.quick.subSeconds).toBe(10);
-    expect(r.modes.quick.subSecondsRange).toEqual([10, 15]);
+    for (const m of MODE_ORDER.map((k) => r.modes[k])) expect(m.subSecondsRange[0]).toBeGreaterThanOrEqual(15);
+    expect(r.modes.quick.subSeconds).toBe(15);
+    expect(r.modes.quick.limitedBy.sub).toBe('floor');
+    // f/1.93: star saturation ceiling 30 * (1.93 / 2)^2 = 27.9 s, so 15 * 1.5 = 22.5 -> 23 is inside it
+    expect(r.modes.quick.subSecondsRange).toEqual([15, 23]);
   });
   it('a 300 s sub shows a range up to 300 s, not beyond MAX_SUB_S', () => {
     const r = plan({ filter: filter('optolong-lextreme'), train: { focalRatio: 10, imageScale: 0.28 }, sky: { bortle: 1, moonIllumination: 0, moonSeparationDeg: 90, moonUp: false } });
     expect(r.modes.deep.subSeconds).toBe(300);
     expect(r.modes.deep.subSecondsRange).toEqual([200, 300]);
     expect(r.modes.deep.subSecondsRange[1]).toBeLessThanOrEqual(300);
+    expect(r.modes.quick.subSecondsRange[1]).toBeLessThanOrEqual(180); // quick's risk cap
   });
 });
 

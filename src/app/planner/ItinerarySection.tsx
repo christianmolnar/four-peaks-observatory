@@ -5,7 +5,7 @@ import type { MutableRefObject } from 'react';
 import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { MODES, MODE_ORDER } from '@/planner/exposure';
+import { MODE_ORDER, PRESETS } from '@/planner/exposure';
 import type { ExposureMode } from '@/planner/exposure';
 import { usableWindowsOnTrack } from '@/planner/horizon';
 import type { HorizonPoint } from '@/planner/horizon';
@@ -98,6 +98,7 @@ const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text
 /** How long the order search works before it lets the page paint and take input. */
 const SEARCH_SLICE_MS = 10;
 
+const EXPOSURE_NOTICE_KEY = 'fpo-planner-exposure-notice-v1';
 const MOON_ID = planetIdOf('Moon');
 
 const optionText = (e: AddOption, nightWord: string): string =>
@@ -171,6 +172,8 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
   const [loaded, setLoaded] = useState(false);
   // A rejected saved itinerary is an alert; a storage that cannot be read or written is a status (the page already reports blocked storage).
   const [problem, setProblem] = useState<{ text: string; urgent: boolean } | null>(null);
+  // One line, once: a saved itinerary now plans its totals from the exposure rules. Dismissing it is remembered.
+  const [showNotice, setShowNotice] = useState(false);
   const [addId, setAddId] = useState<string>('');
   // What is typed in "Search the catalog to add": its matches join the choices.
   const [addText, setAddText] = useState('');
@@ -187,6 +190,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
         const saved = parseItinerary(text);
         setItems(saved.items);
         setStartTime(saved.startTime);
+        if (saved.items.length > 0 && window.localStorage.getItem(EXPOSURE_NOTICE_KEY) === null) setShowNotice(true);
       }
     } catch (e) {
       setProblem(
@@ -197,6 +201,15 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
     }
     setLoaded(true);
   }, []);
+
+  const dismissNotice = () => {
+    setShowNotice(false);
+    try {
+      window.localStorage.setItem(EXPOSURE_NOTICE_KEY, '1');
+    } catch {
+      setProblem({ text: 'This browser would not remember that you read the notice, so it may show again.', urgent: false });
+    }
+  };
 
   const commit = (next: ItineraryItem[], focusId: string | null = null, nextStart: string | null = startTime) => {
     setItems(next);
@@ -457,6 +470,12 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
           {plan.startNote}
         </p>
       )}
+      {showNotice && (
+        <p className="mt-2 flex items-center justify-between gap-3 bg-sky-400/15 border border-sky-300/40 rounded px-3 py-2 text-white font-normal text-sm" data-testid="itinerary-exposure-notice">
+          <span>Saved nights and applied plans now plan their own totals from the exposure rules, so sub counts and times may differ from before.</span>
+          <button type="button" onClick={dismissNotice} className="shrink-0 min-h-11 min-w-11 px-2 underline">Dismiss</button>
+        </p>
+      )}
       {problem && (
         <p role={problem.urgent ? 'alert' : 'status'} className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm" data-testid="itinerary-problem">
           {problem.text}
@@ -556,7 +575,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
                     <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Mode for {s.name}</label>
                     <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
                       {MODE_ORDER.map((m) => (
-                        <option key={m} value={m}>{MODES[m].label}</option>
+                        <option key={m} value={m}>{PRESETS[m].label}</option>
                       ))}
                     </WrapSelect>
                   </div>

@@ -1,15 +1,16 @@
 import { modeForMinutes } from '../ai/view';
 import { arcToHorizonPoints } from '../profile';
-import { planCampaign } from './index';
+import { planCampaign, usefulRangeOf } from './index';
 import type { CampaignInput } from './index';
 import { clockOf } from '../itinerary/timeline';
 import { campaignInputOf, itineraryFromNight } from './view';
+import { TEST_EXPOSURE } from './testkit';
 import { FOUNTAIN_HILLS, subjects } from './testkit-real';
 
 const horizon = arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]);
 const targetsOf = (ids: string[]) => subjects(ids).map((s) => ({ ...s.targets[0], type: s.type }));
 const form = (ids: string[], over: Partial<Parameters<typeof campaignInputOf>[0]> = {}) => ({
-  targets: targetsOf(ids), limits: {}, site: FOUNTAIN_HILLS, timeZone: 'America/Phoenix', horizon, minAltitude: 20, startDate: '2026-11-14', nights: 3, ...over,
+  targets: targetsOf(ids), exposure: TEST_EXPOSURE, limits: {}, site: FOUNTAIN_HILLS, timeZone: 'America/Phoenix', horizon, minAltitude: 20, startDate: '2026-11-14', nights: 3, ...over,
 });
 
 describe('campaignInputOf', () => {
@@ -22,6 +23,25 @@ describe('campaignInputOf', () => {
     expect(input).toMatchObject({ timeZone: 'America/Phoenix', minAltitude: 20, startDate: '2026-11-14', nights: 3, site: FOUNTAIN_HILLS });
     expect(input.horizon).toBe(horizon);
     expect(() => planCampaign(input)).not.toThrow();
+  });
+});
+
+describe('campaignInputOf and the exposure engine', () => {
+  it('carries the catalog surface brightness and the rig and sky onto each subject, so a bright, a medium and a faint target get different ranges', () => {
+    const targets = [
+      { id: 'b', name: 'bright', raHours: 5.6, decDeg: -5.4, type: 'galaxy', surfaceBrightness: 20 },
+      { id: 'm', name: 'medium', raHours: 0.7, decDeg: 41.3, type: 'galaxy', surfaceBrightness: 22 },
+      { id: 'f', name: 'faint', raHours: 2.4, decDeg: 42.3, type: 'galaxy', surfaceBrightness: 24 },
+      { id: 'n', name: 'no number', raHours: 3.4, decDeg: 24.1, type: 'galaxy' },
+    ];
+    const input = campaignInputOf({ ...form([]), targets });
+    expect(input.subjects.map((s) => s.surfaceBrightnessMu)).toEqual([20, 22, 24, undefined]);
+    expect(input.subjects.every((s) => s.exposure === TEST_EXPOSURE)).toBe(true);
+    const [b, m, f, n] = input.subjects.map((s) => usefulRangeOf(s));
+    expect([b.maxMin, m.maxMin, f.maxMin].sort((x, y) => x - y)).toEqual([b.maxMin, m.maxMin, f.maxMin]);
+    expect(new Set([b.maxMin, m.maxMin, f.maxMin]).size).toBe(3);
+    expect(n).toEqual(m); // no number: the engine assumes a medium object
+    expect(planCampaign(input).perSubject.map((p) => p.maxUsefulMin)).toEqual([b.maxMin, m.maxMin, f.maxMin, n.maxMin]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { nextMeridianTransit, targetAltAz } from '../astro';
 import type { Site } from '../astro';
+import type { ExposureRig } from '../exposure';
 import { MERIDIAN_FLIP_MIN } from '../exposure/constants';
 import { limitAltitudeAt } from '../horizon';
 import { SLEW_CENTER_MIN } from '../itinerary/constants';
@@ -16,8 +17,12 @@ export const PHX: Site = { latitude: 33.6115, longitude: -111.719, elevationM: 0
 export const POR: Site = { latitude: 45.52, longitude: -122.68, elevationM: 0 };
 export const SYD: Site = { latitude: -33.87, longitude: 151.21, elevationM: 0 };
 
+/** The owner's C11 at f/10 with the ASI2600MC Duo, no filter, Bortle 6: what the subjects' useful ranges are worked out for. */
+export const TEST_RIG: ExposureRig = { train: { focalRatio: 10, imageScale: 0.277 }, camera: { colour: true, pixelSizeUm: 3.76, readNoiseClass: 'low' }, filter: null };
+export const TEST_EXPOSURE = { rig: TEST_RIG, bortle: 6 };
+
 export const subj = (id: string, raHours: number, decDeg: number, over: Partial<CampaignSubject> = {}): CampaignSubject => ({
-  id, name: id, targets: [{ id, name: id, raHours, decDeg }], ...over,
+  id, name: id, targets: [{ id, name: id, raHours, decDeg }], exposure: TEST_EXPOSURE, ...over,
 });
 
 export const base = (over: Partial<CampaignInput>): CampaignInput => ({

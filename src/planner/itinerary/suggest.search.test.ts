@@ -32,17 +32,22 @@ const rankOfOrder = (c: Case, order: string[]) => {
   return rankOf(buildItinerary({ ...c.input, slots: toInputs(order.map((id) => byId.get(id) as Case['items'][number])) } as BuildInput));
 };
 
-describe("the evaluator's 8 slot repro (sample site, 2026-12-21, Bortle 3): the old beam stopped at 575 min of light, the best order has 577", () => {
+// With the old fixed-total modes the beam (exactMax 6) stopped at 575 min and the exhaustive search found 577. The totals now come from the objects
+// (exposureFor), and on this set the beam reaches the same 605 min as the exhaustive search, so the repro no longer separates the two; the checks
+// that remain are that the exhaustive search runs to the end, that it finds 605, and that the beam is never above it.
+describe("the evaluator's 8 slot set (sample site, 2026-12-21, Bortle 3): the exhaustive search finds 605 min of light", () => {
   const items = [{"id": "s3", "targetId": "m82", "trainId": "deep-c11-2600", "filterId": "zwo-duo-band", "mode": "deep", "note": ""}, {"id": "s1", "targetId": "planet-moon", "trainId": "deep-c11-2600", "filterId": "zwo-duo-band", "mode": "deep", "note": ""}, {"id": "s0", "targetId": "planet-mars", "trainId": "planet-c11-676", "filterId": "apertura-moon-skyglow", "mode": "deep", "note": ""}, {"id": "s6", "targetId": "m42", "trainId": "wide-c11-hyperstar-2600", "filterId": "idas-lps-p3", "mode": "balanced", "note": ""}, {"id": "s2", "targetId": "markarians-chain", "trainId": "deep-c11-reducer-533", "filterId": "optolong-ha-7nm", "mode": "deep", "note": ""}, {"id": "s7", "targetId": "planet-mars", "trainId": "deep-c11-reducer-2600", "filterId": "apertura-moon-skyglow", "mode": "deep", "note": ""}, {"id": "s5", "targetId": "ngc2264", "trainId": "deep-c11-reducer-2600", "filterId": "astronomik-cls-ccd", "mode": "deep", "note": ""}, {"id": "s4", "targetId": "ic410", "trainId": "deep-c11-2600", "filterId": "astronomik-cls-ccd", "mode": "deep", "note": ""}] as Case['items'];
   const night = tonightsNight({ latitude: 33.6115, longitude: -111.719, elevationM: 500 }, '2026-12-21', 'America/Phoenix');
   const input = { site: { latitude: 33.6115, longitude: -111.719, elevationM: 500 }, night, horizon: arcToHorizonPoints([{ startAz: 120, endAz: 320, heightDeg: 42 }]), minAltitude: 20, bortle: 3, formatTime: (d: Date) => d.toISOString().slice(11, 16), slots: toInputs(items) } as BuildInput;
 
-  it('finds the 577 min order, says the search was exhaustive, and 575 is what the old beam gave', () => {
+  it('finds the 605 min order and says the search was exhaustive; the beam (exactMax 6) says it was not and is never above it', () => {
     const r = suggestOrder(input);
     expect(r.searched.exhaustive).toBe(true);
-    expect(r.suggestedLightMin).toBe(577);
-    expect(suggestOrder({ ...input, slots: toInputs(items) }, { exactMax: 6 }).searched.exhaustive).toBe(false);
-  }, 60000);
+    expect(r.suggestedLightMin).toBe(605);
+    const beam = suggestOrder({ ...input, slots: toInputs(items) }, { exactMax: 6 });
+    expect(beam.searched.exhaustive).toBe(false);
+    expect(beam.suggestedLightMin).toBeLessThanOrEqual(r.suggestedLightMin);
+  }, 120000);
 });
 
 describe('the order search on random 7 and 8 slot sets', () => {

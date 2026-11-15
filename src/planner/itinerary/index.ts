@@ -2,7 +2,7 @@ import { bodyAltAz, moonIllumination, moonSeparation, nextMeridianTransit } from
 import { nextBodyTransit } from '../astro/bodies';
 import type { CardBody } from '../astro/bodies';
 import type { AstronomicalNight, Site } from '../astro';
-import { AUTOFOCUS_MIN, MERIDIAN_FLIP_MIN, MODE_ORDER, planExposure } from '../exposure';
+import { AUTOFOCUS_MIN, MERIDIAN_FLIP_MIN, MODE_ORDER, exposureFor, presetForSavedMode } from '../exposure';
 import type { ExposureMode, ExposureTarget } from '../exposure';
 import { usableWindows, usableWindowsOnTrack } from '../horizon';
 import type { HorizonPoint, TimeWindow } from '../horizon';
@@ -87,10 +87,11 @@ export function validateItinerary(input: unknown): Itinerary {
     if (ids.has(raw.id as string)) throw new ItineraryError(`${at}.id`, `duplicate id "${raw.id}"`);
     ids.add(raw.id as string);
     if (raw.filterId !== null && (typeof raw.filterId !== 'string' || raw.filterId === '')) throw new ItineraryError(`${at}.filterId`, 'must be a filter id or null');
-    if (!MODE_ORDER.includes(raw.mode as ExposureMode)) throw new ItineraryError(`${at}.mode`, `must be one of ${MODE_ORDER.join(', ')}`);
+    const mode = presetForSavedMode(raw.mode);
+    if (mode === null) throw new ItineraryError(`${at}.mode`, `must be one of ${MODE_ORDER.join(', ')}`);
     if (typeof raw.note !== 'string') throw new ItineraryError(`${at}.note`, 'must be a string');
     if (raw.note.length > MAX_NOTE_CHARS) throw new ItineraryError(`${at}.note`, `at most ${MAX_NOTE_CHARS} characters`);
-    return { id: raw.id as string, targetId: raw.targetId as string, trainId: raw.trainId as string, filterId: raw.filterId as string | null, mode: raw.mode as ExposureMode, note: raw.note };
+    return { id: raw.id as string, targetId: raw.targetId as string, trainId: raw.trainId as string, filterId: raw.filterId as string | null, mode, note: raw.note };
   });
   return { version: ITINERARY_VERSION, items, startTime };
 }
@@ -455,20 +456,23 @@ export function makeScheduler(input: BuildInput): Scheduler {
       } else {
         if (source.kind !== 'fixed') throw new Error('unreachable: planets are handled above');
         const moonAlt = bodyAltAz('Moon', start, site).altitude;
-        const report = planExposure({
-          target: si.exposureTarget,
-          train: { focalRatio: si.optics?.focalRatio, imageScale: si.optics?.imageScale },
-          camera: si.camera as ProfileCamera,
-          filter: si.filter,
-          sky: { bortle, moonIllumination: moonIllumination(start), moonSeparationDeg: moonSeparation(source.raHours, source.decDeg, start, site), moonUp: moonAlt > 0 },
-          usableMinutes: remaining,
-          acquisitionStart: start,
-          transitTime: nextMeridianTransit(source.raHours, source.decDeg, start, site),
-        });
-        if (!report.ok) {
-          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${report.missing.join(', ')}, so no exposure can be planned.` };
+        const m = exposureFor(
+          si.exposureTarget,
+          { train: { focalRatio: si.optics?.focalRatio, imageScale: si.optics?.imageScale }, camera: si.camera as ProfileCamera, filter: si.filter },
+          { bortle },
+          {
+            moonIllumination: moonIllumination(start),
+            moonSeparationDeg: moonSeparation(source.raHours, source.decDeg, start, site),
+            moonUp: moonAlt > 0,
+            usableMinutes: remaining,
+            acquisitionStart: start,
+            transitTime: nextMeridianTransit(source.raHours, source.decDeg, start, site),
+          },
+          { preset: item.mode },
+        );
+        if (!m.ok) {
+          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${m.missing.join(', ')}, so no exposure can be planned.` };
         }
-        const m = report.modes[item.mode];
         subSeconds = m.subSeconds;
         subCount = m.subCount;
         integrationMin = m.integrationMin;

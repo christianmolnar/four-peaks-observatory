@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AstronomicalNight } from '@/planner/astro';
 import { MAX_TARGETS } from '@/planner/ai/facts';
+import type { AstronomicalNight } from '@/planner/astro';
 import { MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import { slotInputFor } from '@/planner/itinerary/resolve';
@@ -84,6 +84,8 @@ function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
 
 const CHECKED_TEXT =
   'Checked by code against the sky facts: every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, none crosses the meridian, and every target is either in the plan or left out. The AI decided the order, the times, how long each target gets and the reasons you read here; the code decides none of that, it only checks.';
+
+const FRAMES_NOTE = 'Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.';
 
 export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profile, train, siteName, nightWord, night, catalogTargets, formatTime, owner, fetchPlan, onApply }: AiPlanPanelProps) {
   const [run, setRun] = useState<Run>('idle');
@@ -362,12 +364,12 @@ function Result({
                     {i + 1}. {nameOf(s.id)} <span className="tabular-nums">{clockOfIso(s.start)} to {clockOfIso(s.end)}</span> <span className="text-white/70">({minutesBetween(s.start, s.end)} min)</span>
                   </p>
                   <p className="text-white/80">
-                    {exp ? `The AI wants about ${Math.round(exp.minutes)} min of light in ${exp.subSeconds} s subs.` : 'No exposure was given for this target.'}
+                    {exp ? `The AI wants about ${Math.round(exp.minutes)} min of light for this target.` : 'No exposure was given for this target.'}
                     {s.exposureMinutes !== undefined ? ` It plans ${Math.round(s.exposureMinutes)} min of light in this slot.` : ''}
                   </p>
                   {isLast && last !== null && (
                     <p className="mt-1">
-                      <span className="text-white/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'} ({last.frames} frames): </span>
+                      <span className="text-white/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'}: </span>
                       {last.reason}
                     </p>
                   )}
@@ -376,6 +378,9 @@ function Result({
             })}
           </ol>
         )}
+        <p className="mt-2 text-white/70 font-normal text-sm" data-testid="ai-frames-note">
+          {FRAMES_NOTE}
+        </p>
         {result.plan.notes && (
           <p className="mt-2 text-white/90 font-normal text-sm" data-testid="ai-notes">
             <span className="text-white/70">The AI&apos;s notes: </span>

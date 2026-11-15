@@ -6,8 +6,8 @@ import { MAX_NIGHTS, usefulRangeOf } from '@/planner/campaign';
 import type { CampaignInput, CampaignNight, CampaignResult, SubjectResult } from '@/planner/campaign';
 import { isCancelled, startCampaign } from '@/planner/campaign/run';
 import type { CampaignRun, CampaignRunOptions } from '@/planner/campaign/run';
-import { campaignInputOf, itineraryFromNight, lowAltitudeNotes, timelinePlanOfNight } from '@/planner/campaign/view';
-import type { CampaignTargetIn, TargetLimits } from '@/planner/campaign/view';
+import { campaignInputOf, itineraryFromNight, lowAltitudeNotes, subjectOf, timelinePlanOfNight } from '@/planner/campaign/view';
+import type { CampaignExposure, CampaignTargetIn, TargetLimits } from '@/planner/campaign/view';
 import type { HorizonPoint } from '@/planner/horizon';
 import { MAX_SLOTS, TREND_TEXT } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
@@ -38,6 +38,8 @@ export interface CampaignPanelProps {
   base: CampaignBase | null;
   /** My plan's fixed targets in the user's priority order. */
   targets: readonly CampaignTargetIn[];
+  /** The chosen train's optics, camera and filter, and the sky's Bortle class: what each target's useful range is worked out for. */
+  exposure: CampaignExposure;
   /** Why there is nothing to plan yet, in words for the user; null when there is. */
   blocked: string | null;
   /** What My plan holds that this plan leaves out (planets, targets not in the catalog); empty when nothing. */
@@ -121,7 +123,7 @@ export function readLimits(texts: Readonly<Record<string, LimitText>>, ids: read
   return { limits, errors };
 }
 
-export default function CampaignPanel({ base, targets, blocked, leftOutNote, profile, train, siteName, catalogTargets, formatTime, createWorker, onUseDate, onApply }: CampaignPanelProps) {
+export default function CampaignPanel({ base, targets, exposure, blocked, leftOutNote, profile, train, siteName, catalogTargets, formatTime, createWorker, onUseDate, onApply }: CampaignPanelProps) {
   const [nights, setNights] = useState(DEFAULT_NIGHTS);
   const [texts, setTexts] = useState<Record<string, LimitText>>({});
   const [run, setRun] = useState<Run>('idle');
@@ -143,8 +145,8 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
     (): CampaignInput | null =>
       base === null || blocked !== null || limitsProblem
         ? null
-        : campaignInputOf({ targets, limits, site: base.site, timeZone: base.timeZone, horizon: base.horizon, minAltitude: base.minAltitude, startDate: base.date, nights }),
-    [base, blocked, limitsProblem, targets, limits, nights],
+        : campaignInputOf({ targets, exposure, limits, site: base.site, timeZone: base.timeZone, horizon: base.horizon, minAltitude: base.minAltitude, startDate: base.date, nights }),
+    [base, blocked, limitsProblem, targets, exposure, limits, nights],
   );
   const parts = useMemo((): Record<string, string> | null => {
     if (base === null || blocked !== null) return null;
@@ -270,11 +272,12 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
           </summary>
           <div className="mt-2 space-y-3" data-testid="campaign-limits">
             <p className="text-white/70 font-normal text-sm">
-              Leave a box empty to use the default. The useful range is the least and the most minutes of light a target is worth; its default comes from the type of object.
+              Leave a box empty to use the default. The useful range is the least and the most minutes of light a target is worth; its default comes from the exposure estimate for the chosen train and the surface brightness of the object: the light the Quick and the Deep presets stop at.
             </p>
             {targets.map((t) => {
               const text = texts[t.id] ?? NO_TEXT;
-              const range = usefulRangeOf({ id: t.id, name: t.name, targets: [t], ...(t.type === undefined ? {} : { type: t.type }) });
+              // While the plan is blocked (a smart scope, optics missing) there is no estimate to show.
+              const range = blocked === null ? usefulRangeOf(subjectOf(t, exposure)) : null;
               const set = (patch: Partial<LimitText>) => setTexts((prev) => ({ ...prev, [t.id]: { ...(prev[t.id] ?? NO_TEXT), ...patch } }));
               const err = errors[t.id];
               return (
@@ -287,11 +290,11 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
                     </div>
                     <div>
                       <label htmlFor={`campaign-min-${t.id}`} className="block text-white/90 font-normal text-sm mb-1">Useful from (min)</label>
-                      <input id={`campaign-min-${t.id}`} inputMode="numeric" className={`${field} min-h-11 w-full`} value={text.min} placeholder={String(range.minMin)} onChange={(e) => set({ min: e.target.value })} aria-invalid={err !== undefined} aria-describedby={err ? `campaign-err-${t.id}` : undefined} />
+                      <input id={`campaign-min-${t.id}`} inputMode="numeric" className={`${field} min-h-11 w-full`} value={text.min} placeholder={range === null ? '' : String(range.minMin)} onChange={(e) => set({ min: e.target.value })} aria-invalid={err !== undefined} aria-describedby={err ? `campaign-err-${t.id}` : undefined} />
                     </div>
                     <div>
                       <label htmlFor={`campaign-max-${t.id}`} className="block text-white/90 font-normal text-sm mb-1">Full at (min)</label>
-                      <input id={`campaign-max-${t.id}`} inputMode="numeric" className={`${field} min-h-11 w-full`} value={text.max} placeholder={String(range.maxMin)} onChange={(e) => set({ max: e.target.value })} aria-invalid={err !== undefined} aria-describedby={err ? `campaign-err-${t.id}` : undefined} />
+                      <input id={`campaign-max-${t.id}`} inputMode="numeric" className={`${field} min-h-11 w-full`} value={text.max} placeholder={range === null ? '' : String(range.maxMin)} onChange={(e) => set({ max: e.target.value })} aria-invalid={err !== undefined} aria-describedby={err ? `campaign-err-${t.id}` : undefined} />
                     </div>
                   </div>
                   {err && (

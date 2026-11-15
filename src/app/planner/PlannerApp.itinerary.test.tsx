@@ -106,7 +106,11 @@ describe('Night itinerary', () => {
 
   it('a slot that starts late in a short window gives a visible overlap warning, in the slot and in the details', async () => {
     const user = userEvent.setup();
-    seed('m42', 'm33');
+    // California Nebula in Deep (249 min, ends 06:34), then Triangulum Galaxy in Balanced, whose only window closes 07:11.
+    seed('ngc1499', 'm33');
+    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!);
+    saved.items[0].mode = 'deep';
+    window.localStorage.setItem(ITINERARY_KEY, JSON.stringify(saved));
     await app();
     const second = slots()[1];
     expect(chips(second)).toMatch(/Warning: overlaps window/);
@@ -119,19 +123,23 @@ describe('Night itinerary', () => {
     const up = within(second).getByRole('button', { name: 'Move Triangulum Galaxy up' });
     up.focus();
     await user.keyboard('{Enter}');
-    expect(names()).toEqual(['Triangulum Galaxy', 'Orion Nebula']);
+    expect(names()).toEqual(['Triangulum Galaxy', 'California Nebula']);
     expect(chips(slots()[0])).not.toMatch(/overlaps window/);
   });
 
   it('a short first window is skipped for a longer later one, and the slot says so (Andromeda, then Orion)', async () => {
     const user = userEvent.setup();
+    // Andromeda in Quick (36 min, ends 02:28): Orion's first window, 03:17 to 04:06, gives 45 min of the Balanced aim 53 to 106. (Andromeda in Balanced is 142 min and ends after that window.)
     seed('m31', 'm42');
+    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!);
+    saved.items[0].mode = 'quick';
+    window.localStorage.setItem(ITINERARY_KEY, JSON.stringify(saved));
     await app();
     const second = slots()[1];
     expect(chips(second)).toMatch(/Note: waits/);
     expect(chips(second)).not.toMatch(/overlaps window/);
     await user.click(within(second).getByRole('button', { name: 'Details for Orion Nebula' }));
-    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 27 min of light\)/).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 45 min of light\)/).length).toBeGreaterThan(0);
   });
 
   it('a slot that never runs shows "No imaging is planned" and no "Before it" line', async () => {
@@ -203,6 +211,24 @@ describe('Night itinerary', () => {
     expect(chips(slots()[0])).toMatch(/Warning: problem/);
     expect((within(slots()[0]).getByLabelText('Filter for Andromeda Galaxy') as HTMLSelectElement).value).toBe('removed-filter');
     expect(slots()[1].textContent).toMatch(/Light: \d+ s x \d+ subs/);
+  });
+
+  it('a saved itinerary shows a one-line exposure notice once; dismissing it is remembered', async () => {
+    const user = userEvent.setup();
+    seed('m31');
+    const first = await app();
+    const notice = () => screen.queryByTestId('itinerary-exposure-notice');
+    expect(notice()!.textContent).toMatch(/Saved nights and applied plans now plan their own totals from the exposure rules/);
+    await user.click(within(notice()!).getByRole('button', { name: 'Dismiss' }));
+    expect(notice()).toBeNull();
+    first.unmount();
+    await app();
+    expect(notice()).toBeNull();
+  });
+
+  it('no exposure notice for an empty itinerary', async () => {
+    await app();
+    expect(screen.queryByTestId('itinerary-exposure-notice')).toBeNull();
   });
 
   it('Remove drops the slot and puts focus back on the Add box', async () => {

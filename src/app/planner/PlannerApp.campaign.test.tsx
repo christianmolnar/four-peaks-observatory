@@ -3,12 +3,13 @@
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MAX_NIGHTS, planCampaign } from '@/planner/campaign';
+import { MAX_NIGHTS, planCampaign, usefulRangeOf } from '@/planner/campaign';
 import type { CampaignInput, CampaignResult } from '@/planner/campaign';
 import { answerCampaign } from '@/planner/campaign/handler';
 import type { CampaignRequest, CampaignResponse } from '@/planner/campaign/handler';
 import type { CampaignWorkerLike } from '@/planner/campaign/run';
 import { modeForMinutes } from '@/planner/ai/view';
+import type { CatalogObject } from '@/planner/catalog/openngc';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { arcToHorizonPoints } from '@/planner/profile';
 import { sampleProfile, saveMyPlan } from '@/planner/state';
@@ -66,11 +67,16 @@ type Worker = ReturnType<typeof fakeCampaignWorker>;
 const SAMPLE_ARCS = [{ startAz: 120, endAz: 320, heightDeg: 42 }];
 const DATE = '2026-11-14';
 const THREE = ['m42', 'ngc1499', 'm81'];
+const SB_OBJECTS: CatalogObject[] = [
+  { id: 'ngc891', name: 'NGC 891', type: 'galaxy', raHours: 2.37, decDeg: 42.35, majorArcmin: 13, minorArcmin: 3, mag: 10, surfaceBrightness: 24.1, constellation: 'And' },
+  { id: 'ngc1023', name: 'NGC 1023', type: 'galaxy', raHours: 2.67, decDeg: 39.06, majorArcmin: 8.6, minorArcmin: 3.3, mag: 9.4, surfaceBrightness: 20.5, constellation: 'Per' },
+  { id: 'ngc7331', name: 'NGC 7331', type: 'galaxy', raHours: 22.62, decDeg: 34.42, majorArcmin: 10.5, minorArcmin: 3.7, mag: 9.5, surfaceBrightness: 22, constellation: 'Peg' },
+];
 const SIX = ['m42', 'ngc1499', 'm81', 'm31', 'm33', 'ngc2237'];
 
-const mount = (worker: Worker, { plan = THREE, profile = sampleProfile(), date = DATE }: { plan?: string[]; profile?: Profile; date?: string } = {}) => {
+const mount = (worker: Worker, { plan = THREE, profile = sampleProfile(), date = DATE, objects = [] }: { plan?: string[]; profile?: Profile; date?: string; objects?: CatalogObject[] } = {}) => {
   if (plan.length > 0) saveMyPlan(window.localStorage, plan);
-  const catalog = fakeCatalog();
+  const catalog = fakeCatalog(objects);
   const ranker = fakeWorkerRanker(catalog.load, { hold: false });
   return render(<PlannerApp initialDate={date} initialProfile={profile} rank={ranker.rank} loadCatalogIndex={catalog.load} campaignWorker={worker.createWorker} loadAuth={async (): Promise<AuthState> => ({ kind: 'signedOut' })} />);
 };
@@ -243,13 +249,44 @@ describe('limits per target', () => {
     expect(within(screen.getByTestId('campaign-target-m81')).getByText(/Useful: enough to process \(from 45 min\); more would help up to 150 min\.|Full: it reached its most useful length \(150 min\)\./)).toBeTruthy();
   });
 
-  it('shows each target\'s default range in the empty boxes', async () => {
+  it('shows each target\'s default range in the empty boxes: the exposure engine\'s, from the catalog surface brightness', async () => {
     mount(fakeCampaignWorker());
     await ready();
     openLimits();
     const m81 = within(screen.getByTestId('campaign-limit-m81'));
-    expect((m81.getByLabelText('Useful from (min)') as HTMLInputElement).placeholder).toBe('90'); // a galaxy: the medium class
-    expect((m81.getByLabelText('Full at (min)') as HTMLInputElement).placeholder).toBe('300');
+    const from = (m81.getByLabelText('Useful from (min)') as HTMLInputElement).placeholder;
+    const full = (m81.getByLabelText('Full at (min)') as HTMLInputElement).placeholder;
+    expect(Number(from)).toBeGreaterThanOrEqual(30);
+    expect(Number(full)).toBeGreaterThan(Number(from));
+  });
+
+  it('the subjects sent to the engine carry the catalog surface brightness and the page\'s rig and sky; a bright and a faint one get different ranges, shown in the boxes', async () => {
+    const w = fakeCampaignWorker();
+    mount(w, { plan: ['ngc891', 'ngc1023', 'ngc7331'], objects: SB_OBJECTS });
+    await ready();
+    openLimits();
+    await planned();
+    const input: CampaignInput = w.sent();
+    const by = (id: string) => input.subjects.find((s) => s.id === id) as CampaignInput['subjects'][number];
+    expect([by('ngc891').surfaceBrightnessMu, by('ngc1023').surfaceBrightnessMu, by('ngc7331').surfaceBrightnessMu]).toEqual([24.1, 20.5, 22]);
+    expect(by('ngc891').exposure?.bortle).toBe(6);
+    expect(by('ngc891').exposure?.rig.train.focalRatio).toBeCloseTo(10, 0);
+    const ranges = ['ngc891', 'ngc1023', 'ngc7331'].map((id) => usefulRangeOf(by(id)));
+    expect(new Set(ranges.map((r) => r.maxMin)).size).toBe(3);
+    expect(ranges[1].maxMin).toBeLessThan(ranges[2].maxMin);
+    expect(ranges[2].maxMin).toBeLessThan(ranges[0].maxMin);
+    for (const id of ['ngc891', 'ngc1023', 'ngc7331']) {
+      const box = within(screen.getByTestId(`campaign-limit-${id}`));
+      expect((box.getByLabelText('Useful from (min)') as HTMLInputElement).placeholder).toBe(String(usefulRangeOf(by(id)).minMin));
+      expect((box.getByLabelText('Full at (min)') as HTMLInputElement).placeholder).toBe(String(usefulRangeOf(by(id)).maxMin));
+    }
+  });
+
+  it('a smart scope blocks the plan and says why (no estimate to size the useful ranges from)', async () => {
+    mount(fakeCampaignWorker());
+    await ready();
+    fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'smart-seestar-s50' } });
+    expect(screen.getByTestId('campaign-reason').textContent).toMatch(/smart scope plans its own exposures/);
   });
 
   it.each([
@@ -767,8 +804,8 @@ describe('Use night N as my itinerary', () => {
     const w = fakeCampaignWorker();
     mount(w);
     await ready();
-    fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'smart-seestar-s50' } });
     await planned();
+    fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'smart-seestar-s50' } });
     expect((screen.getByTestId('campaign-apply-1') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('campaign-apply-note-1').textContent).toBe('Pick an optical train at the top of the page: a smart scope plans its own exposures.');
   });

@@ -1,4 +1,3 @@
-import { MODES, MODE_ORDER } from '../exposure/constants'
 import { parseBody } from './request'
 import { planNightWithAi } from './plan'
 import type { AiPlanResult } from './plan'
@@ -47,12 +46,15 @@ describe('itineraryFromAiPlan', () => {
 })
 
 describe('modeForMinutes', () => {
+  // Presets no longer have fixed minute ranges. Each aims at its diminishing-returns point (20%, 10%, 5% per half hour): 68, 143 and 293 min.
+  // A number of minutes takes the nearest aim on a log scale; the boundaries are the geometric means, 98.6 and 204.4 min.
+  // (The old rule used the ranges 30 to 60, 60 to 120 and 120 to 300: 90 min moves from balanced to quick, 150 min stays in balanced to deep at 205.)
   it.each([
-    [30, 'quick'], [45, 'quick'], [60, 'quick'], [61, 'balanced'], [90, 'balanced'], [120, 'balanced'], [121, 'deep'], [300, 'deep'],
-  ])('%i min holds in the %s range', (min, mode) => expect(modeForMinutes(min)).toBe(mode))
+    [30, 'quick'], [45, 'quick'], [68, 'quick'], [98, 'quick'], [99, 'balanced'], [143, 'balanced'], [204, 'balanced'], [205, 'deep'], [300, 'deep'],
+  ])('%i min is nearest the %s aim', (min, mode) => expect(modeForMinutes(min)).toBe(mode))
   it.each([
-    [5, 'quick'], [29, 'quick'], [400, 'deep'], [1000, 'deep'],
-  ])('%i min is in no range: the nearest range, %s', (min, mode) => expect(modeForMinutes(min)).toBe(mode))
+    [5, 'quick'], [0, 'quick'], [400, 'deep'], [1000, 'deep'],
+  ])('%i min is far from every aim: the nearest one, %s', (min, mode) => expect(modeForMinutes(min)).toBe(mode))
 })
 
 describe('applied modes follow the AI slot minutes', () => {
@@ -65,20 +67,14 @@ describe('applied modes follow the AI slot minutes', () => {
     })
     return { status: 'verified', plan: { plan, cut: [], exposures: [] }, violations: [], warnings: [] } as unknown as AiPlanResult
   }
-  it('a 2-target plan: 50 min is quick, 150 min is deep', () => {
-    const { items } = itineraryFromAiPlan(slotsOf([50, 150]), 'train-a', null)
+  it('a 2-target plan: 50 min is quick, 250 min is deep', () => {
+    const { items } = itineraryFromAiPlan(slotsOf([50, 250]), 'train-a', null)
     expect(items.map((i) => i.mode)).toEqual(['quick', 'deep'])
   })
-  it('a 6-target plan: each slot takes the mode whose range holds its minutes, or the nearest', () => {
-    const mins = [20, 45, 75, 120, 200, 400]
+  it('a 6-target plan: each slot takes the preset whose aim is nearest its minutes', () => {
+    const mins = [20, 45, 120, 150, 250, 400]
     const { items } = itineraryFromAiPlan(slotsOf(mins), 'train-a', null)
     expect(items.map((i) => i.mode)).toEqual(['quick', 'quick', 'balanced', 'balanced', 'deep', 'deep'])
-    items.forEach((it, k) => {
-      const [lo, hi] = MODES[it.mode].rangeMin
-      const inRange = mins[k] >= lo && mins[k] <= hi
-      const anyHolds = MODE_ORDER.some((m) => mins[k] >= MODES[m].rangeMin[0] && mins[k] <= MODES[m].rangeMin[1])
-      expect(inRange || !anyHolds).toBe(true)
-    })
   })
   it('uses exposureMinutes when the AI set them', () => {
     const r = slotsOf([150])

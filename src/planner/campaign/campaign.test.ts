@@ -2,14 +2,14 @@ import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { nextMeridianTransit } from '../astro';
 import { MERIDIAN_FLIP_MIN } from '../exposure/constants';
-import { surfaceBrightnessOf } from '../exposure';
+import { exposureFor } from '../exposure';
 import { SLEW_CENTER_MIN } from '../itinerary/constants';
 import { clockOf } from '../itinerary/timeline';
 import { tonightsNight } from '../plan';
 import { arcToHorizonPoints } from '../profile';
-import { MIN_SLOT_MIN, USEFUL_RANGE_MIN, planCampaign, scheduleNight, usefulRangeOf } from './index';
+import { MIN_SLOT_MIN, planCampaign, scheduleNight, usefulRangeOf } from './index';
 import type { CampaignSubject } from './index';
-import { MIN, POR, PHX, SYD, assertValidNight, base, bestWorth, reachedTonight, subj, usableAt, worthOf } from './testkit';
+import { MIN, POR, PHX, SYD, TEST_EXPOSURE, assertValidNight, base, bestWorth, reachedTonight, subj, usableAt, worthOf } from './testkit';
 
 const range = (minMin: number, maxMin: number): Partial<CampaignSubject> => ({ useful: { minMin, maxMin } });
 const ZERO = (n: number): number[] => new Array<number>(n).fill(0);
@@ -19,24 +19,71 @@ const expectBest = (input: ReturnType<typeof base>, night: ReturnType<typeof sch
 };
 
 describe('useful ranges', () => {
-  it('come from the surface brightness class, in minutes of integration', () => {
-    expect(USEFUL_RANGE_MIN).toEqual({
-      high: { minMin: 60, maxMin: 180 }, medium: { minMin: 90, maxMin: 300 }, low: { minMin: 120, maxMin: 480 }, unknown: { minMin: 90, maxMin: 300 },
-    });
-    expect(usefulRangeOf(subj('a', 1, 1, { surfaceBrightness: 'low' }))).toEqual({ minMin: 120, maxMin: 480 });
-    expect(usefulRangeOf(subj('a', 1, 1))).toEqual({ minMin: 90, maxMin: 300 });
+  const sb = (mu: number, over: Partial<CampaignSubject> = {}) => usefulRangeOf(subj('a', 1, 1, { type: 'galaxy', surfaceBrightnessMu: mu, ...over }));
+
+  it('come from the exposure engine: the least is where Quick stops, the most where Deep stops, on the 5 minute grid', () => {
+    // C11 f/10 broadband, Bortle 6 (TEST_EXPOSURE). Quick stops at 30 / 67.5 / 67.5 min, Deep at 30 / 238.x / 292.x min (exposureFor).
+    expect(sb(20)).toEqual({ minMin: 30, maxMin: 30 });
+    expect(sb(22)).toEqual({ minMin: 30, maxMin: 240 });
+    expect(sb(24)).toEqual({ minMin: 70, maxMin: 295 });
   });
 
-  it('read the catalog type through surfaceBrightnessOf (compact bright types are high)', () => {
-    const s = subj('a', 1, 1, { type: 'globular-cluster' });
-    expect(surfaceBrightnessOf(s)).toBe('high');
-    expect(usefulRangeOf(s)).toEqual({ minMin: 60, maxMin: 180 });
-    expect(usefulRangeOf(subj('b', 1, 1, { type: 'galaxy' }))).toEqual({ minMin: 90, maxMin: 300 });
+  it('differ between a bright, a medium and a faint subject (the catalog surface brightness reaches the engine)', () => {
+    const [bright, medium, faint] = [sb(20), sb(22), sb(24)];
+    expect(new Set([bright, medium, faint].map((r) => `${r.minMin}-${r.maxMin}`)).size).toBe(3);
+    expect(bright.maxMin).toBeLessThan(medium.maxMin);
+    expect(medium.maxMin).toBeLessThan(faint.maxMin);
+    expect(bright.minMin).toBeLessThanOrEqual(faint.minMin);
   });
 
-  it('an explicit class beats the type; a per-target override beats the class', () => {
-    expect(usefulRangeOf(subj('a', 1, 1, { type: 'globular-cluster', surfaceBrightness: 'low' }))).toEqual({ minMin: 120, maxMin: 480 });
-    expect(usefulRangeOf(subj('a', 1, 1, { surfaceBrightness: 'low', ...range(45, 100) }))).toEqual({ minMin: 45, maxMin: 100 });
+  it('match exposureFor for the same object, rig and sky (one entry point)', () => {
+    const rig = TEST_EXPOSURE.rig;
+    const night = { moonIllumination: 0, moonSeparationDeg: 180, moonUp: false, usableMinutes: 1440, acquisitionStart: null, transitTime: null };
+    for (const mu of [20, 21, 22, 23, 24]) {
+      const at = (preset: 'quick' | 'deep') => {
+        const r = exposureFor({ id: 'a', name: 'a', type: 'galaxy', surfaceBrightnessMu: mu }, rig, { bortle: 6 }, night, { preset });
+        if (!r.ok) throw new Error('not ok');
+        return r.integrationMin;
+      };
+      const r = sb(mu);
+      expect(r.minMin).toBeGreaterThanOrEqual(at('quick'));
+      expect(r.minMin - at('quick')).toBeLessThan(5);
+      expect(r.maxMin).toBeGreaterThanOrEqual(at('deep'));
+      expect(r.maxMin - at('deep')).toBeLessThan(5);
+    }
+  });
+
+  it('follow the rig and the filter: a narrowband filter shortens an emission object\'s range, and the sky lengthens it', () => {
+    const dual = { id: 'd', name: 'dual', passbandWidthNm: 50, kind: 'dual-band' as const, blocksUvIr: true };
+    const neb = (e: typeof TEST_EXPOSURE) => usefulRangeOf(subj('a', 1, 1, { type: 'nebula', surfaceBrightnessMu: 22, exposure: e }));
+    const plain = neb(TEST_EXPOSURE);
+    const filtered = neb({ ...TEST_EXPOSURE, rig: { ...TEST_EXPOSURE.rig, filter: dual } });
+    expect(filtered.maxMin).toBeLessThan(plain.maxMin);
+    expect(neb({ ...TEST_EXPOSURE, bortle: 8 }).maxMin).toBeGreaterThanOrEqual(plain.maxMin);
+  });
+
+  it('a subject with no surface brightness is a medium object (the engine assumes it), an explicit class stands for its row', () => {
+    expect(usefulRangeOf(subj('a', 1, 1, { type: 'galaxy' }))).toEqual(sb(22));
+    expect(usefulRangeOf(subj('a', 1, 1, { surfaceBrightness: 'low' }))).toEqual(sb(24));
+    expect(usefulRangeOf(subj('a', 1, 1, { type: 'globular-cluster' }))).toEqual(sb(20));
+  });
+
+  it('a per-target override beats the engine', () => {
+    expect(usefulRangeOf(subj('a', 1, 1, { surfaceBrightnessMu: 24, ...range(45, 100) }))).toEqual({ minMin: 45, maxMin: 100 });
+  });
+
+  it('a subject with neither an override nor an exposure to work from throws, naming the subject', () => {
+    expect(() => usefulRangeOf({ id: 'zz', name: 'zz', targets: [{ id: 'zz', name: 'zz', raHours: 1, decDeg: 1 }] })).toThrow(/Subject zz: no useful range and no exposure/);
+  });
+
+  it('planning a subject with neither an override nor an exposure throws, naming the subject (no silent default)', () => {
+    const bare = { id: 'zz', name: 'zz', targets: [{ id: 'zz', name: 'zz', raHours: 5.588, decDeg: -5.39 }] };
+    expect(() => planCampaign(base({ subjects: [bare] }))).toThrow(/Subject zz: no useful range and no exposure/);
+  });
+
+  it('a rig with missing optics throws, naming what is missing', () => {
+    const bad = subj('a', 1, 1, { exposure: { bortle: 6, rig: { train: {}, camera: {}, filter: null } } });
+    expect(() => usefulRangeOf(bad)).toThrow(/needs .*focalRatio/);
   });
 });
 
@@ -78,8 +125,8 @@ describe('a fit night: winter site, four zones, six targets', () => {
   const six = (over: Partial<CampaignSubject>): CampaignSubject[] =>
     [subj('t1', 5.588, -5.39, over), subj('t2', 0.712, 41.27, over), subj('t3', 6.52, 4.95, over), subj('t4', 3.79, 24.1, over), subj('t5', 1.564, 30.66, over), subj('t6', 5.575, 22.01, over)];
 
-  it('at 90 min each (unknown class) all six fit on one night; leftover lengthens, no slot is a token', () => {
-    const input = base({ subjects: six({}), horizon });
+  it('at 90 min each all six fit on one night; leftover lengthens, no slot is a token', () => {
+    const input = base({ subjects: six(range(90, 300)), horizon });
     const n = scheduleNight(input, 0);
     expect(reachedTonight(n, input, ZERO(6))).toBe(6);
     expect(n.outcomes.every((o) => o.gotMin >= 90)).toBe(true);
@@ -319,10 +366,11 @@ describe('meridian flip', () => {
       id: 'pair', name: 'pair',
       targets: [{ id: 'p1', name: 'p1', raHours: 5.588, decDeg: -5.39 }, { id: 'p2', name: 'p2', raHours: 5.585, decDeg: -4.84 }],
       aim: { raHours: 5.5865, decDeg: -5.1 },
+      exposure: TEST_EXPOSURE,
     };
     const n = scheduleNight(base({ subjects: [pair] }), 0);
     expect(n.subjects[0].transit?.getTime()).toBe(nextMeridianTransit(5.5865, -5.1, n.start as Date, PHX).getTime());
-    expect(n.slots[0].integrationMin).toBeGreaterThanOrEqual(90);
+    expect(n.slots[0].integrationMin).toBeGreaterThanOrEqual(usefulRangeOf(pair).minMin);
   });
 });
 
