@@ -23,7 +23,7 @@ describe('planner page', () => {
     expect(html).toContain('id="plan-date"');
     expect(html).toContain('value="2026-12-15"');
     expect(html).toContain('Fountain Hills, AZ');
-    expect(html).toContain('BEST TARGETS FOR');
+    expect(html).toContain('Best targets for');
     expect(html).toContain('Ranking the whole catalog');
     expect(html).not.toContain('data-testid="target-list"');
     expect(html).toContain('Search the catalog by name or number');

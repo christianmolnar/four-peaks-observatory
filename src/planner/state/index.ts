@@ -10,10 +10,12 @@ export const MY_PLAN_KEY = 'fpo-planner-my-plan-v1';
 /** Targets one plan can hold: a night has hours for a handful, and a stored list is read back from the browser, so it is bounded. */
 export const MAX_MY_PLAN = 50;
 
-/** The site and train last chosen at the top of the page; either may be gone from the profile by now. */
+/** The site and train last chosen at the top of the page, and the list's type; any may be gone by now (a removed train, a type the page no longer has). */
 export interface Selection {
   siteId: string;
   trainId: string;
+  /** The "Best [type] tonight" choice; absent in a selection saved before it existed. */
+  typeId?: string;
 }
 
 /**
@@ -43,11 +45,12 @@ export function loadSelection(storage: Pick<Storage, 'getItem' | 'removeItem'>):
     }
     throw new Error('Your saved site and train choice is damaged, so the first of each is used.');
   }
-  return { siteId: o.siteId, trainId: o.trainId };
+  // A type that is not text is dropped (All): the site and train beside it are still good.
+  return typeof o.typeId === 'string' ? { siteId: o.siteId, trainId: o.trainId, typeId: o.typeId } : { siteId: o.siteId, trainId: o.trainId };
 }
 
 export function saveSelection(storage: Pick<Storage, 'setItem'>, selection: Selection): void {
-  storage.setItem(SELECTION_KEY, JSON.stringify({ siteId: selection.siteId, trainId: selection.trainId }));
+  storage.setItem(SELECTION_KEY, JSON.stringify({ siteId: selection.siteId, trainId: selection.trainId, typeId: selection.typeId }));
 }
 
 /**

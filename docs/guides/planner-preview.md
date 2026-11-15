@@ -60,10 +60,19 @@ Reachable by URL only; not in the header, `noindex`. All state is in the browser
    - "Why this order" is one sentence: sorted by when each target clears the horizon, or your own order with the first pair that is out of order named.
    - Saved in this browser (`fpo-planner-itinerary-v1`, version 1). A saved itinerary that fails the check is reported with its field path (for example `$.items[0].mode`) and the stored text stays until you change something.
 
+12. Best [type] tonight (the list's one Type selector):
+   - Type offers All, Galaxies, Nebulae (emission, reflection, HII, dark, and clusters with nebulae), Planetary nebulae, Globular clusters, Open clusters, Supernova remnants, Galaxy groups and pairs, and Solar system. There is no choice for double stars or asterisms (search finds them; asterisms are still in All).
+   - Each deep-sky option shows how many fit the frame and are up for the chosen night, site, horizon and train ("Globular clusters · 12 fit tonight"); All and Solar system show how many are up. A type that is up but has nothing that fits reads "Supernova remnants · 7 up, none fit this frame" and can be picked: the list says "No supernova remnants that fit this frame are up tonight: 7 larger than this frame." and "Show targets that do not fit" lists them. Only a type with nothing up at all reads "none up tonight" and cannot be picked (its title says why), unless it is the chosen one. The counts go while a new night or train is being ranked and come back with it.
+   - A type is ranked over the whole catalog by the same ranker (the type goes in the request), best to worst, with the same score, why line and fit rule; it is never the mixed best 100 filtered afterwards. "Show 10 more" pages up to 100. All shows the mixed list as before. All and Solar system share one ranking.
+   - The heading follows: "Best globular clusters for tonight", or "... for Sat 21 Nov" on another date. A type with no rows says why: nothing of it is up long enough, or what is up is larger (or too small) for this frame, and the "Show targets that do not fit" box lists those for that type.
+   - "Add top 3 to my plan" (above the list) adds the first three of the list that are not in My plan, in order, and says what it added. It is disabled, with the reason, when My plan is full (50) or the whole list is already in it; with room for fewer than three it adds what fits and says how many were not added.
+   - The chosen type is remembered with the site and train (`fpo-planner-selection-v1`, field `typeId`); a type that no longer exists opens as All. "Reset all" and an import put it back to All.
+
 ## Automated
 
 - `npm test` covers the plan functions (including the fit sort), CSV, storage and validation helpers, a server render of the page for fixed dates, and DOM tests (user-event, jsdom).
 - `src/app/planner/HorizonEditor.test.tsx` types key by key through the whole page: every row of the round-2 and round-3 failure tables (bad values, Discard, Use sample horizon, Replace profile, site change, import, Minimum altitude after each), Save and reload, Enter, blur, tab order.
+- `src/app/planner/PlannerApp.types.test.tsx`, `src/planner/plan/type-groups.test.ts` and the "ranking one type" block of `src/planner/plan/rank.test.ts`: the Type selector, its counts against a direct catalog count, per-type ranking, heading, empty states, Add and Add top 3, the remembered choice, fast changes.
 - `src/app/planner/PlannerApp.fit.test.tsx`: targets that do not fit are hidden by default, sort last, and are not "recommended".
 - `src/app/planner/PlannerApp.wiring.test.tsx`: default date, blocked or full storage, CSV time format.
 - `src/planner/exposure/exposure.test.ts`: the estimate with fixed inputs, every warning branch, the edge-shift formula (f/1.9: Ha 5.3 nm, OIII 4.1 nm), the marginal table. `src/app/planner/PlannerApp.exposure.test.tsx`: the panel and Filter box with real key events, saved choice, smart scope, planets.

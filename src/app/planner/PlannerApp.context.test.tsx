@@ -151,20 +151,20 @@ describe('"tonight" only when the date is tonight', () => {
   it('says tonight on the default date', async () => {
     await app(base(), tonight());
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TONIGHT' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Best targets for tonight' })).toBeTruthy();
     expect(screen.getByTestId('target-list').getAttribute('aria-label')).toBe('Targets ranked for tonight');
   });
 
   it('says that night, with the date, on any other date, and follows the date picker both ways', async () => {
     await app(base(), '2026-12-15');
     expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TUE 15 DEC' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Best targets for Tue 15 Dec' })).toBeTruthy();
     expect(screen.getByTestId('target-list').getAttribute('aria-label')).toBe('Targets ranked for Tue 15 Dec');
     expect(screen.getByRole('list', { name: 'Targets ranked for Tue 15 Dec' })).toBeTruthy();
     expect(screen.queryByText(/usable tonight/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: tonight() } });
     await ready();
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR TONIGHT' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Best targets for tonight' })).toBeTruthy();
   });
 });

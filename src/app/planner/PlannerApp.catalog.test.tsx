@@ -62,7 +62,7 @@ describe('tonight\'s list over the whole catalog', () => {
     const { worker } = mount({ hold: true });
     expect(await screen.findByText(/Ranking the whole catalog for [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}/)).toBeTruthy();
     expect(screen.queryByTestId('target-list')).toBeNull();
-    expect(screen.getByRole('heading', { name: `BEST TARGETS FOR ${WORD.toUpperCase()}` })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: `Best targets for ${WORD}` })).toBeTruthy();
     await act(async () => { await worker.release(); });
     await ready();
     expect(screen.queryByText(/Ranking the whole catalog/)).toBeNull();
@@ -97,7 +97,7 @@ describe('tonight\'s list over the whole catalog', () => {
     await ready();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(/Superseded/)).toBeNull();
-    expect(screen.getByRole('heading', { name: 'BEST TARGETS FOR SAT 20 FEB' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Best targets for Sat 20 Feb' })).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Targets ranked for Sat 20 Feb' })).toBeTruthy();
   });
 

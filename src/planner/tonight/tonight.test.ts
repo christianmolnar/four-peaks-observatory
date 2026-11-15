@@ -148,6 +148,20 @@ describe('with a worker', () => {
     expect(out.map((r) => `${r.id}:${r.kind}`).sort()).toEqual(['1:superseded', '2:result']);
   });
 
+  it('a query by type goes through the worker and is answered as the direct ranking of that type; a newer type supersedes an older one', async () => {
+    const log: WorkerRequest[] = [];
+    const rankAsync = createTonightRanker({ createWorker: () => fakeWorker(log) });
+    const galaxies = rankAsync(query({ types: ['galaxy'] }));
+    const galaxiesOutcome = galaxies.then(() => 'resolved', (e) => (isSuperseded(e) ? 'superseded' : `failed: ${String(e)}`));
+    const clusters = await rankAsync(query({ types: ['open-cluster', 'globular-cluster'] }));
+    expect(await galaxiesOutcome).toBe('superseded');
+    expect(log.at(-1)?.query.types).toEqual(['open-cluster', 'globular-cluster']); // the older one may never have been posted
+    expect(clusters.entries).toEqual(direct(query({ types: ['open-cluster', 'globular-cluster'] })).entries);
+    expect(clusters.entries.every((e) => e.type === 'open-cluster' || e.type === 'globular-cluster')).toBe(true);
+    expect(clusters.typeCounts).toEqual(direct(query()).typeCounts);
+    expect(clusters.typeNotFit).toEqual(direct(query()).typeNotFit);
+  });
+
   it('a failure in the worker is a rejection with its message, not a silent fallback', async () => {
     const rankAsync = createTonightRanker({ createWorker: () => fakeWorker() });
     await expect(rankAsync(query({ limit: 0 }))).rejects.toThrow(/Tonight worker failed: limit must be a positive integer/);

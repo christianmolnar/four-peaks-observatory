@@ -139,11 +139,11 @@ describe('the Solar system group open rule', () => {
     expect(groupButton().getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('Type = Deep-sky shows neither the group nor the Not up rows', async () => {
+  it('a deep-sky type shows neither the group nor the Not up rows', async () => {
     const user = userEvent.setup();
     app();
     await ready();
-    await user.selectOptions(screen.getByLabelText('Type'), 'deep-sky');
+    await user.selectOptions(screen.getByLabelText('Type'), 'galaxies');
     expect(screen.queryByRole('button', { name: /^Solar system up/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Not up/ })).toBeNull();
     await user.selectOptions(screen.getByLabelText('Type'), 'all');

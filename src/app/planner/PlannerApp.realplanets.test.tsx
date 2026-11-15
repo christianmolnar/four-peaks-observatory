@@ -83,12 +83,12 @@ describe('planets on 2026-11-13 at Fountain Hills', () => {
     expect(screen.queryByTestId('hidden-note')).toBeNull();
   });
 
-  it('with a planetary train the solar-system group is open at the start; Type = Deep-sky leaves it out', async () => {
+  it('with a planetary train the solar-system group is open at the start; a deep-sky type leaves it out', async () => {
     mount('planet-c11-676');
     await ready();
     expect(planGroup().getAttribute('aria-expanded')).toBe('true');
     expect(rowNames('planet-list')).toEqual(expect.arrayContaining(FIVE));
-    await userEvent.setup().selectOptions(screen.getByLabelText('Type'), 'deep-sky');
+    await userEvent.setup().selectOptions(screen.getByLabelText('Type'), 'galaxies');
     expect(screen.queryByRole('button', { name: /^Solar system up/ })).toBeNull();
   });
 
@@ -212,7 +212,7 @@ describe('the label', () => {
     mount();
     await ready();
     const u = userEvent.setup();
-    expect([...(screen.getByLabelText('Type') as HTMLSelectElement).options].map((o) => o.textContent)).toContain('Solar system');
+    expect([...(screen.getByLabelText('Type') as HTMLSelectElement).options].map((o) => o.textContent ?? '').some((t) => t.startsWith('Solar system'))).toBe(true);
     expect(planGroup().textContent).toContain('Solar system up');
     expect(within(myPlan()).getByText('Solar system')).toBeTruthy();
     expect([...document.querySelectorAll('optgroup')].map((g) => g.label)).toContain('Solar system');
