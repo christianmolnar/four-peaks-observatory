@@ -193,7 +193,7 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
 });
 
 describe('the Night timeline does not offer to drop custom numbers', () => {
-  it('a Custom target shows "Custom" and no preset select; a preset target keeps its select', async () => {
+  it('a Custom target shows "Custom" and a preset target its preset, and neither slot has a preset select (it is on the row)', async () => {
     await app([
       { id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } },
       { id: 'ic405', preset: 'balanced' },
@@ -201,8 +201,9 @@ describe('the Night timeline does not offer to drop custom numbers', () => {
     openPart('Night timeline');
     const slots = timelineSlots();
     expect(within(slots[0]).queryByRole('combobox')).toBeNull();
-    expect(slots[0].textContent).toMatch(/Exposure preset for Andromeda Galaxy: Custom \(started from Deep\)\. Change it on this target.s row in the plan\./);
-    expect(within(slots[1]).getByRole('combobox', { name: /Exposure preset for Flaming Star Nebula/ })).toBeTruthy();
+    expect(slots[0].textContent).toMatch(/Exposure for Andromeda Galaxy: Custom \(started from Deep\)\. Change it on this target.s row in the plan\./);
+    expect(within(slots[1]).queryByRole('combobox')).toBeNull();
+    expect(slots[1].textContent).toMatch(/Exposure for Flaming Star Nebula: Balanced\. Change it on this target.s row in the plan\./);
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } });
   });
 });

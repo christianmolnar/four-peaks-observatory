@@ -840,8 +840,8 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   // The cap binds only when the night would have held more than MAX_SUBS (a shorter window already cuts the count below it, with its own note).
   const countCapped = uncappedCount > MAX_SUBS && count >= MAX_SUBS;
   if (countCapped) {
-    // "Use longer subs" only when one is allowed: the engine's own sub already sits at the top of what stars and risk allow.
-    const longerAllowed = o.subSeconds !== undefined && subSeconds < MAX_SUB_S;
+    // "Use longer subs" only when one is allowed: a user's sub below the ceiling that stars and risk set (not the 300 s limit), whole seconds.
+    const longerAllowed = o.subSeconds !== undefined && subSeconds < Math.floor(ceiling);
     const topOfSub = satCap < riskCap ? 'the longest sub before stars or a bright core clip' : 'the longest sub the planner allows';
     warnings.push({
       code: 'count-capped',
@@ -858,7 +858,7 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   const subRange: Range =
     o.subSeconds !== undefined
       ? [Math.max(1, Math.round(subSeconds / rangeFactor)), Math.max(1, Math.round(subSeconds * rangeFactor))]
-      : [Math.max(MIN_SUB_S, Math.round(subSeconds / rangeFactor)), Math.min(ceiling, Math.round(subSeconds * rangeFactor))];
+      : [Math.max(MIN_SUB_S, Math.round(subSeconds / rangeFactor)), Math.min(Math.floor(ceiling), Math.round(subSeconds * rangeFactor))];
   const integrationMin = round1((count * subSeconds) / 60);
   const inSessionOverhead = overhead.ditherMin + overhead.autofocusMin + overhead.meridianFlipMin;
   const elapsedMin = round1(integrationMin + overhead.totalMin);

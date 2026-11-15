@@ -337,12 +337,13 @@ describe('the night timeline reads the open plan', () => {
     expect(part().textContent).not.toMatch(/itinerary/i);
   });
 
-  it('writes a slot\'s preset back to the plan: the plan row says it and the plan is saved with it', async () => {
+  it('a preset chosen on the row goes to the plan and its slot says it: the plan is saved with it', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['ngc7331', 'ngc891'] }));
     mount();
     await ready();
     await waitFor(() => expect(slotHeadings()).toHaveLength(2));
-    fireEvent.change(within(part()).getByLabelText('Exposure preset for NGC 7331'), { target: { value: 'deep' } });
+    fireEvent.click(within(screen.getByRole('group', { name: 'Exposure preset for NGC 7331' })).getByRole('button', { name: 'Deep' }));
+    expect(within(part()).queryByRole('combobox')).toBeNull();
     expect(storedPlan()!.targets.map((t) => [t.id, t.preset])).toEqual([['ngc7331', 'deep'], ['ngc891', 'balanced']]);
     expect(screen.getByTestId('plan-row-preset-ngc7331').textContent).toBe('Deep Project');
   });

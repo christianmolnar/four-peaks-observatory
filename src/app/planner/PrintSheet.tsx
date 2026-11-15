@@ -2,7 +2,7 @@ import { fitLabel } from '@/planner/plan';
 import type { PlanEntry } from '@/planner/plan';
 import type { PlanExposureRow } from '@/planner/export';
 import { TREND_TEXT } from '@/planner/itinerary';
-import type { ItineraryReport } from './ItinerarySection';
+import type { PlanTimelineReport } from './PlanTimeline';
 import { peakText } from './catalogText';
 
 export interface PrintSheetProps {
@@ -17,7 +17,7 @@ export interface PrintSheetProps {
   captured: ReadonlySet<string>;
   formatTime: (d: Date) => string;
   /** The night itinerary as it stands, or null when there is none to show. */
-  itinerary?: ItineraryReport | null;
+  itinerary?: PlanTimelineReport | null;
 }
 
 /**

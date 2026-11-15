@@ -6,30 +6,20 @@ import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { sampleProfile } from '@/planner/state';
 import { PLANS_KEY } from '@/planner/state/plans';
-import { lightMinutes } from '@/planner/itinerary';
 import PlannerApp from './PlannerApp';
-import { unchangedAdviceText } from './ItinerarySection';
-import { randomCases } from '@/planner/itinerary/random-sets';
-import { suggestOrder } from '@/planner/itinerary/suggest';
-
-// Counts the order searches, to prove that a note does not start one.
-jest.mock('@/planner/itinerary/suggest', () => {
-  const actual = jest.requireActual('@/planner/itinerary/suggest');
-  return { ...actual, suggestOrderSteps: jest.fn(actual.suggestOrderSteps) };
-});
-import { suggestOrderSteps } from '@/planner/itinerary/suggest';
 import { openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
 
-// Start time, altitude per slot, the night graph and the suggested order, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
+// Start time, altitude per slot and the night graph, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 
 const withTrain = (id: string) => {
   const p = sampleProfile();
   return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
 };
-const app = async () => {
-  const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={withTrain('deep-c11-reducer-533')} />);
+const app = async (date = '2026-12-15', train = 'deep-c11-reducer-533') => {
+  const r = render(<PlannerApp {...pageProps} initialDate={date} initialProfile={withTrain(train)} />);
   await ready();
   openPart('Night timeline'); // closed by default
+  await within(section()).findByLabelText('Imaging can start at'); // the timeline appears once the catalog has loaded
   return r;
 };
 // Helsinki on 2027-04-20: a short night (00:55 to 01:41), where a start of 00:13 is before the night and shows the start note.
@@ -41,6 +31,7 @@ const helApp = async () => {
   const r = render(<PlannerApp {...pageProps} initialDate="2027-04-20" initialProfile={helsinki()} />);
   await ready();
   openPart('Night timeline');
+  await within(section()).findByLabelText('Imaging can start at');
   return r;
 };
 const section = () => document.getElementById('night-timeline-body') as HTMLElement;
@@ -48,8 +39,8 @@ const slots = timelineSlots;
 const names = () => slots().map((li) => li.querySelector('h3')!.textContent!.replace(/^\d+\. /, ''));
 const times = () => slots().map((li) => /(\d\d:\d\d) to (\d\d:\d\d)/.exec(li.textContent ?? '')!.slice(1, 3));
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
-const seed = (version: 1 | 2, targets: string[], startTime?: string | null) => {
-  const items = targets.map((targetId, i) => ({ id: `s${i + 1}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }));
+const seed = (version: 1 | 2, targets: string[], startTime?: string | null, mode = 'balanced') => {
+  const items = targets.map((targetId, i) => ({ id: `s${i + 1}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode, note: '' }));
   window.localStorage.setItem(ITINERARY_KEY, JSON.stringify(version === 1 ? { version, items } : { version, items, startTime: startTime ?? null }));
 };
 const startInput = () => within(section()).getByLabelText('Imaging can start at') as HTMLInputElement;
@@ -167,35 +158,29 @@ describe('start time', () => {
     expect(stored()).toBe('09:30');
   });
 
-  it.each([['2130', '21:30', app], ['0130', '01:30', helApp]])('typing %s key by key saves and searches nothing on the 3-digit prefix, and shows no start note', async (digits, clock, mount) => {
+  it.each([['2130', '21:30', app], ['0130', '01:30', helApp]])('typing %s key by key saves nothing on the 3-digit prefix, and shows no start note', async (digits, clock, mount) => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
-    mount();
-    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    await mount();
     const stored = () => storedPlan()!.startTime;
-    const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
     const input = startInput();
     await user.clear(input);
     await user.click(input);
-    const before = searches();
     for (const ch of digits.slice(0, 3)) {
       await user.keyboard(ch);
       expect(stored()).toBeNull();
       expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
     }
-    expect(searches()).toBe(before);
     await user.keyboard(digits[3]);
     expect(stored()).toBe(clock);
     expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
   });
 
-  it.each([['2130', app], ['0130', helApp]])('%s then Backspace: the 3 digits left are held, nothing is saved or searched, no start note', async (digits, mount) => {
+  it.each([['2130', app], ['0130', helApp]])('%s then Backspace: the 3 digits left are held, nothing is saved, no start note', async (digits, mount) => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
-    mount();
-    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
+    await mount();
     const stored = () => storedPlan()!.startTime;
-    const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
     const input = startInput();
     await user.clear(input);
     await user.click(input);
@@ -203,29 +188,24 @@ describe('start time', () => {
     const saved = stored();
     const writes = jest.spyOn(Storage.prototype, 'setItem');
     try {
-      const before = searches();
-      await user.keyboard('{Backspace}');
+        await user.keyboard('{Backspace}');
       expect(input.value).toBe(digits.slice(0, 3));
       expect(writes).not.toHaveBeenCalled();
       expect(stored()).toBe(saved);
-      expect(searches()).toBe(before);
-      expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
+        expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
     } finally {
       writes.mockRestore();
     }
   });
 
-  it('Helsinki, full-width ０１３０ key by key: nothing is saved, searched or noted on ０, ０１, ０１３; it is saved on the fourth digit', async () => {
+  it('Helsinki, full-width ０１３０ key by key: nothing is saved or noted on ０, ０１, ０１３; it is saved on the fourth digit', async () => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
     await helApp();
-    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => storedPlan()!.startTime;
-    const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
     const input = startInput();
     await user.clear(input);
     await user.click(input);
-    const before = searches();
     const writes = jest.spyOn(Storage.prototype, 'setItem');
     try {
       for (const ch of '０１３') {
@@ -234,8 +214,7 @@ describe('start time', () => {
         expect(stored()).toBeNull();
         expect(screen.queryByTestId('itinerary-start-note')).toBeNull();
       }
-      expect(searches()).toBe(before);
-    } finally {
+      } finally {
       writes.mockRestore();
     }
     await user.keyboard('０');
@@ -246,7 +225,6 @@ describe('start time', () => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
     await helApp();
-    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => storedPlan()!.startTime;
     const input = startInput();
     await user.clear(input);
@@ -282,7 +260,6 @@ describe('start time', () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'ic405'], '01:30');
     await helApp();
-    await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
     const stored = () => storedPlan()!.startTime;
     const input = startInput();
     await user.click(input);
@@ -395,81 +372,31 @@ describe('night graph', () => {
   });
 });
 
-describe('suggested order', () => {
-  it('on random 7 and 8 slot sets the unchanged message matches `exhaustive`: "the most light" only when every order was covered', () => {
-    for (const c of randomCases(4301, 10, (k) => 7 + (k % 2))) {
-      for (const exactMax of [8, 6]) {
-        const r = suggestOrder(c.input, { exactMax });
-        const text = unchangedAdviceText(r.searched.exhaustive);
-        expect(/the most light/.test(text)).toBe(r.searched.exhaustive);
-        expect(/not every order is tried/.test(text)).toBe(!r.searched.exhaustive);
-      }
-    }
-  }, 120000);
-
-  it('says "Looking for a better order..." while an 8 slot search runs, then gives the answer, and says "the most light" only for an exhaustive search', async () => {
-    seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101', 'ngc7000', 'm45']);
-    await app();
-    const advice = screen.getByTestId('order-advice');
-    await waitFor(() => expect(within(advice).queryByTestId('order-advice-searching')).toBeNull(), { timeout: 20000 });
-    expect(advice.textContent).not.toMatch(/Looking for/);
-    expect(advice.textContent).toMatch(/Use this order|already the best/);
-    expect(unchangedAdviceText(true)).toMatch(/the most light/);
-    expect(unchangedAdviceText(false)).not.toMatch(/the most light|already the best/);
-    expect(unchangedAdviceText(false)).toMatch(/not every order is tried/);
-  }, 60000);
-
-  it('the advice names the same Light as the totals line, now and after Use this order, and a note does not search again', async () => {
-    const user = userEvent.setup();
-    seed(2, ['m31', 'm42', 'planet-jupiter']);
-    await app();
-    const totalsLight = () => Number(/^Light (\d+) min/.exec(screen.getByTestId('itinerary-totals').textContent!)![1]);
-    const before = totalsLight();
-    const advice = screen.getByTestId('order-advice');
-    const gain = within(advice).queryByTestId('order-advice-gain');
-    if (gain) {
-      expect(gain.textContent).toContain(`${before} min`);
-      const promised = Number(/(\d+) min in this order/.exec(gain.textContent!)?.[1] ?? before);
-      await user.click(within(advice).getByRole('button', { name: 'Use this order' }));
-      expect(totalsLight()).toBe(promised);
-      expect(totalsLight()).toBeGreaterThanOrEqual(before);
-    }
-    const calls = (suggestOrderSteps as jest.Mock).mock.calls.length;
-    const note = within(slots()[0]).getByLabelText(/^Note for /);
-    await user.type(note, 'guide star');
-    expect((suggestOrderSteps as jest.Mock).mock.calls.length).toBe(calls);
-    expect(lightMinutes).toBeDefined();
-  });
-
-  it('needs two slots', async () => {
-    seed(2, ['m31']);
-    await app();
-    expect(screen.getByTestId('order-advice').textContent).toMatch(/Add two or more targets/);
-  });
-
-  it('keeps the order until the button is pressed, then applies it to the plan', async () => {
-    const user = userEvent.setup();
+describe('no suggested order', () => {
+  it('the plan has no "Use this order" suggestion: the order is the user\'s picks or the AI plan\'s, and nothing reorders it', async () => {
     seed(2, ['m31', 'm42', 'm33', 'ic405']);
     await app();
-    const advice = () => screen.getByTestId('order-advice');
-    await waitFor(() => expect(within(advice()).queryByTestId('order-advice-searching')).toBeNull());
     const before = names();
-    if (!within(advice()).queryByRole('button', { name: 'Use this order' })) {
-      expect(advice().textContent).toMatch(/already the best/);
-      return;
+    expect(screen.queryByTestId('order-advice')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Use this order' })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Use this order|Suggested order|itinerary/i);
+    expect(names()).toEqual(before);
+  });
+});
+
+describe('a slot whose sub differs from its row', () => {
+  it('says why: the row plans the whole night, the slot has its share of it', async () => {
+    // Six targets share the night, so a slot has less than the row's whole-night count allows for.
+    seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101'], null, 'deep');
+    await app('2026-12-08', 'wide-c11-hyperstar-2600');
+    const rows = slots().map((li) => li.textContent ?? '');
+    const said = slots().filter((li) => within(li).queryByTestId(/^slot-why-sub-/) !== null);
+    for (const li of said) {
+      expect(within(li).getByTestId(/^slot-why-sub-/).textContent).toMatch(/^The target's row plans \d+ s x \d+ subs for the night\. This slot has \d+ minutes of the night \(its share\), so the subs are sized to that share: \d+ s x \d+\.$/);
     }
-    expect(names()).toEqual(before); // advice alone changes nothing
-    const lines = within(advice()).getAllByRole('listitem').map((li) => li.textContent!);
-    expect(lines[0]).toMatch(/^Put .+ first: .+\.$/);
-    expect(lines[1]).toMatch(/^Then .+: .+\.$/);
-    await user.click(within(advice()).getByRole('button', { name: 'Use this order' }));
-    const asked = lines.map((l) => l.replace(/^(Put|Then) /, '').replace(/( first)?: .*$/, ''));
-    expect(names().slice(0, asked.length)).toEqual(asked);
-    expect(advice().textContent).toMatch(/already the best/);
-    expect(document.activeElement).toBe(advice());
-    // The order is the plan's now: the plan's rows list the same targets in the same order, and it is saved.
-    const planRows = within(screen.getByRole('list', { name: 'Targets in this plan, in order' })).getAllByRole('listitem').map((li) => li.querySelector('p')!.textContent!.replace(/^\d+\.\s*/, '').trim());
-    expect(planRows).toEqual(names());
-    expect(storedPlan()!.targets).toHaveLength(4);
+    // A slot that plans the row's own sub length says nothing.
+    for (const li of slots().filter((x) => !said.includes(x))) expect(within(li).queryByTestId(/^slot-why-sub-/)).toBeNull();
+    expect(said.length).toBeGreaterThan(0);
+    expect(rows.length).toBe(6);
   });
 });

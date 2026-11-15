@@ -56,6 +56,9 @@ export function storedProblem(c: ExposureOverrides | undefined): string | null {
 /** The plain line for a custom value that is not used: the number that fails, then what is used instead. */
 export const notUsedText = (problem: string, base: ExposureMode): string => `${problem} Your custom numbers do not work on this night, so the ${presetLabel(base)} preset is used.`;
 
+/** The plain line for a custom value that is not used when nothing is computed for the target (its profile lacks a number): no preset is named, none is used. */
+export const notUsedNoPresetText = (problem: string): string => `${problem} Your custom numbers are not used.`;
+
 /** One edit of a plan target's exposure, as the fields to store. `custom` and `base` are removed when the target is back on a preset. */
 export function withPreset(ref: PlanTargetRef, next: ExposureMode | 'custom'): PlanTargetRef {
   const out: PlanTargetRef = { ...ref, preset: next };

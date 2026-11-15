@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import type { AstronomicalNight } from '@/planner/astro';
 import { MAX_SLOTS } from '@/planner/itinerary';
@@ -32,7 +33,7 @@ export const CLIENT_TIMEOUT_MS = 130_000;
 
 const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
-export interface AiPlanPanelProps {
+export interface AiPlanFlyoutProps {
   /** Everything of the request except the targets; null when the page cannot plan (no night, no site). */
   base: Omit<AiPlanForm, 'targets'> | null;
   /** The open plan's fixed-position targets, in the plan's order. */
@@ -46,6 +47,12 @@ export interface AiPlanPanelProps {
   siteName: string;
   nightWord: string;
   night: AstronomicalNight | null;
+  /** The night in plain words (dark window, Moon), as the page shows it. */
+  nightText: string;
+  /** The horizon in plain words, as the page shows it. */
+  horizonText: string;
+  /** Each target's exposure preset as a label ("Balanced", "Custom"), by target id. */
+  presetLabels: ReadonlyMap<string, string>;
   catalogTargets: readonly SlotTarget[];
   formatTime: (d: Date) => string;
   /** Shown only to the owner. */
@@ -54,6 +61,8 @@ export interface AiPlanPanelProps {
   fetchPlan?: typeof fetch;
   /** Puts the AI plan's order and first start into the open plan; answers true when the plan took it, false when the page refused it. */
   onApply: (items: ItineraryItem[], startTime: string | null) => Promise<boolean>;
+  /** The user closed the flyout. Nothing in the plan has changed unless "Use this plan" was pressed. */
+  onClose: () => void;
 }
 
 type Run = 'idle' | 'loading' | 'cancelled' | 'superseded' | 'error';
@@ -83,11 +92,31 @@ function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
 }
 
 const CHECKED_TEXT =
-  'Checked by code against the sky facts: every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, none crosses the meridian, and every target is either in the plan or left out. The AI decided the order, the times, how long each target gets and the reasons you read here; the code decides none of that, it only checks.';
+  'Every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, none crosses the meridian, and every target is either in the plan or left out. The AI decided the order, the times, how long each target gets and the reasons you read here; the code decides none of that, it only checks.';
 
 const FRAMES_NOTE = 'Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.';
 
-export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profile, train, siteName, nightWord, night, catalogTargets, formatTime, owner, fetchPlan, onApply }: AiPlanPanelProps) {
+type StepState = 'done' | 'now' | 'waiting' | 'failed';
+const STEP_WORD: Record<StepState, string> = { done: 'done', now: 'now', waiting: 'waiting', failed: 'failed' };
+
+function Step({ n, title, state, children }: { n: number; title: string; state: StepState; children?: ReactNode }) {
+  return (
+    <li aria-current={state === 'now' || state === 'failed' ? 'step' : undefined} className={`rounded border p-3 ${state === 'now' ? 'border-sky-300/60' : state === 'failed' ? 'border-orange-300/50' : 'border-white/15'}`} data-testid={`ai-step-${n}`} data-state={state}>
+      <h3 className={`flex flex-wrap items-baseline gap-x-2 text-base font-normal ${state === 'waiting' ? 'text-white/60' : 'text-white'}`}>
+        <span>{n}. {title}</span>
+        <span className="text-xs text-white/70" data-testid={`ai-step-${n}-state`}>({STEP_WORD[state]})</span>
+      </h3>
+      {children !== undefined && <div className="mt-2 min-w-0 break-words">{children}</div>}
+    </li>
+  );
+}
+
+/**
+ * "Plan my night with AI": a flyout over the plan (a side sheet on a wide screen, the whole screen on a phone). Three steps: the night as
+ * the AI is given it, the AI ordering and timing the targets, the code checking every slot against the sky. It ends in a result; the open
+ * plan changes only when "Use this plan" is pressed. Closing it stops any request in flight.
+ */
+export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
   const [run, setRun] = useState<Run>('idle');
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -122,9 +151,8 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
   }, [key]);
   useEffect(() => () => flight.current?.controller.abort(), []);
 
-  // Focus follows the work: the Plan button goes disabled when planning starts, so Cancel takes focus; when it ends Cancel is gone,
-  // so focus goes back to the Plan button (unless the user already moved it somewhere else).
-  const planButton = useRef<HTMLButtonElement>(null);
+  // Focus follows the work: the flyout's heading on opening; Cancel while the AI works; the heading again when the answer (or the error) is in.
+  const heading = useRef<HTMLHeadingElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
   const wasLoading = useRef(false);
   const loadingNow = run === 'loading';
@@ -133,10 +161,11 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
       cancelButton.current?.focus();
     } else if (wasLoading.current) {
       const a = document.activeElement;
-      if (a === null || a === document.body || a === planButton.current) planButton.current?.focus();
+      if (a === null || a === document.body || a === cancelButton.current) heading.current?.focus();
     }
     wasLoading.current = loadingNow;
   }, [loadingNow]);
+  useEffect(() => heading.current?.focus(), []);
 
   const disabledReason = blocked ?? prepared?.tooLarge ?? null;
 
@@ -198,89 +227,182 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
     flight.current = null;
     setRun('cancelled');
   };
+  const close = () => {
+    flight.current?.controller.abort();
+    flight.current = null;
+    onClose();
+  };
 
   const loading = run === 'loading';
   const stale = done !== null && prepared !== null ? Object.keys(PART_LABELS).filter((k) => done.parts[k] !== prepared.parts[k]) : done !== null ? Object.keys(PART_LABELS) : [];
+  const count = Math.min(targets.length, MAX_TARGETS);
+  const noun = count === 1 ? 'target' : 'targets';
+  const step1: StepState = loading || done !== null || run === 'error' ? 'done' : 'now';
+  const step2: StepState = loading ? 'now' : run === 'error' ? 'failed' : done !== null ? 'done' : 'waiting';
+  const step3: StepState = done !== null ? (done.result.status === 'verified' ? 'done' : 'failed') : 'waiting';
   const status =
     loading
       ? `Planning ${nightWord}. The AI can take a minute or two.`
       : run === 'cancelled'
         ? 'Cancelled. Nothing was changed.'
         : run === 'superseded'
-          ? `You changed something while the AI was working, so its answer was dropped. Plan again to use your new choices.`
+          ? `You changed something while the AI was working, so its answer was dropped. Ask again to use your new choices.`
           : done !== null
             ? `Plan ready for ${nightWord}: ${done.result.plan.plan.length} ${done.result.plan.plan.length === 1 ? 'target' : 'targets'} planned, ${done.result.plan.cut.length} left out. ${done.result.status === 'verified' ? 'Checked by code.' : 'Not fully checked.'}`
             : '';
+  const canAsk = disabledReason === null && !loading;
+  const showAskAgain = done !== null || run === 'cancelled' || run === 'superseded' || (run === 'error' && problem?.retry === true);
 
-  const section = 'bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6';
+  const applyBlock =
+    done === null
+      ? null
+      : done.result.status !== 'verified'
+        ? 'This plan was not fully checked, so it cannot be used as your plan.'
+        : train.kind !== 'optical'
+          ? 'Pick an optical train at the top of the page: a smart scope plans its own exposures.'
+          : done.result.plan.plan.length === 0
+            ? 'This plan has no slots.'
+            : done.result.plan.plan.length > MAX_SLOTS
+              ? `The night timeline schedules at most ${MAX_SLOTS} targets and this AI plan has ${done.result.plan.plan.length}. Remove a target from the plan and ask again.`
+              : stale.length > 0
+                ? 'This plan is out of date. Ask again first.'
+                : null;
+
   return (
-    <section aria-labelledby="ai-plan-heading" className={section}>
-      <h2 id="ai-plan-heading" tabIndex={-1} className="text-xl font-light text-white tracking-[0.15em] mb-3 scroll-mt-24 focus:outline-none">
-        PLAN MY NIGHT WITH AI
-      </h2>
-      <p className="text-white/80 font-normal text-sm">
-        The AI picks the order, the times and how long each target gets, for the targets in the open plan, in the order they are listed. It uses the night, site, train, horizon and minimum altitude already chosen above; there is nothing to set again here. The Moon and planets (solar system) are not included.
-      </p>
-      {form !== null && (
-        <p className="mt-2 text-white/70 font-normal text-sm" data-testid="ai-inputs">
-          Will plan {nightWord} at {siteName}, with {train.name}, minimum altitude {form.minAltitude}°{form.horizon && form.horizon.length > 1 ? ', and your horizon' : ''}, for {Math.min(targets.length, MAX_TARGETS)} {targets.length === 1 ? 'target' : 'targets'} from the plan.
+    <div
+      role="dialog"
+      aria-labelledby="ai-plan-heading"
+      data-testid="ai-flyout"
+      className="fixed inset-0 z-50 flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          close();
+        }
+      }}
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
+        <h2 id="ai-plan-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-white focus:outline-none">
+          PLAN MY NIGHT WITH AI
+        </h2>
+        <p className="mb-3 text-sm font-normal text-white/80">
+          The AI picks the order and the times for the targets in the open plan. Exposure (sub length, count) is worked out by code, not by the AI. Nothing in your plan changes until you press Use this plan.
         </p>
-      )}
-      {leftOutNote !== '' && <p className="mt-1 text-white/70 font-normal text-sm" data-testid="ai-left-out-note">{leftOutNote}</p>}
+        <ol className="space-y-3" aria-label="Steps">
+          <Step n={1} title="Checking the night" state={step1}>
+            {form !== null ? (
+              <ul className="space-y-1 text-sm font-normal text-white/90" data-testid="ai-inputs">
+                <li>Night: {nightText.trim()}</li>
+                <li>Site: {siteName}, minimum altitude {form.minAltitude}°.</li>
+                <li>{horizonText}</li>
+                <li>Train: {train.name}.</li>
+                <li>
+                  {count} {noun}, in the plan&apos;s order:{' '}
+                  {targets.slice(0, MAX_TARGETS).map((t, i) => (
+                    <span key={t.id}>
+                      {i > 0 ? ', ' : ''}
+                      {t.name} ({presetLabels.get(t.id) ?? 'Balanced'})
+                    </span>
+                  ))}
+                  .
+                </li>
+              </ul>
+            ) : null}
+            {leftOutNote !== '' && <p className="mt-1 text-sm font-normal text-white/70" data-testid="ai-left-out-note">{leftOutNote}</p>}
+            {disabledReason !== null && (
+              <p id="ai-plan-reason" className="mt-1 text-sm font-normal text-orange-100" data-testid="ai-plan-reason">
+                {disabledReason}
+              </p>
+            )}
+            {owner && (
+              <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-normal text-white/90">
+                <input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} className="h-5 w-5 shrink-0 accent-sky-400" />
+                <span>Also ask the AI to review the plan (owner only; takes longer)</span>
+              </label>
+            )}
+            {done === null && run === 'idle' && (
+              <button type="button" className={`${btn44} mt-2`} onClick={() => void send()} disabled={!canAsk} aria-describedby={disabledReason !== null ? 'ai-plan-reason' : undefined}>
+                Ask the AI to order and time {count} {noun}
+              </button>
+            )}
+          </Step>
 
-      {owner && (
-        <label className="mt-3 flex min-h-11 items-center gap-2 text-white/90 font-normal text-sm">
-          <input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} className="h-5 w-5 accent-sky-400" />
-          Also ask the AI to review the plan (owner only; takes longer)
-        </label>
-      )}
+          <Step n={2} title={`Asking the AI to order and time ${count} ${noun}`} state={step2}>
+            <p aria-live="polite" aria-busy={loading} className="min-h-6 text-sm font-normal text-white" data-testid="ai-status">
+              {status}
+            </p>
+            {loading && (
+              <button ref={cancelButton} type="button" className={`${btn44} mt-2`} onClick={cancel}>
+                Cancel
+              </button>
+            )}
+            {run === 'error' && problem !== null && (
+              <div role="alert" className="mt-2 rounded border border-orange-300/40 bg-orange-400/15 px-3 py-2 text-sm font-normal text-orange-100" data-testid="ai-problem">
+                {problem.text}
+              </div>
+            )}
+          </Step>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button ref={planButton} type="button" className={btn44} onClick={() => void send()} disabled={disabledReason !== null || loading} aria-describedby={disabledReason !== null ? 'ai-plan-reason' : undefined}>
-          Plan my night with AI
-        </button>
-        {loading && (
-          <button ref={cancelButton} type="button" className={btn44} onClick={cancel}>
-            Cancel
-          </button>
+          <Step n={3} title="Checking the plan against the sky" state={step3}>
+            {done !== null ? (
+              <p className={`rounded border px-3 py-2 text-sm font-normal ${done.result.status === 'verified' ? 'border-sky-300/40 text-white/90' : 'border-orange-300/40 bg-orange-400/15 text-orange-100'}`} data-testid="ai-checked">
+                {done.result.status === 'verified'
+                  ? `${done.result.repairRounds === 0 ? 'Passed. ' : `Repaired: the code found problems in the first answer and sent it back ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'time' : 'times'}; it passes now. `}${CHECKED_TEXT}`
+                  : `Not fully checked: after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'try' : 'tries'} to fix it, the code still found problems with this plan (listed below). Treat it as a rough draft. The AI decided the order, times and exposures; the code only checks.`}
+              </p>
+            ) : null}
+          </Step>
+        </ol>
+
+        {done !== null && (
+          <Result
+            done={done}
+            stale={stale}
+            profile={profile}
+            base={base}
+            night={night}
+            catalogTargets={catalogTargets}
+            formatTime={formatTime}
+            nightWord={nightWord}
+            presetLabels={presetLabels}
+          />
         )}
       </div>
-      {disabledReason !== null && (
-        <p id="ai-plan-reason" className="mt-2 text-white/80 font-normal text-sm" data-testid="ai-plan-reason">
-          {disabledReason}
-        </p>
-      )}
 
-      <p aria-live="polite" aria-busy={loading} className="mt-3 min-h-6 text-white font-normal text-sm" data-testid="ai-status">
-        {status}
-      </p>
-      {run === 'error' && problem !== null && (
-        <div role="alert" className="mt-2 flex flex-wrap items-center gap-3 rounded border border-orange-300/40 bg-orange-400/15 px-3 py-2 text-orange-100 font-normal text-sm" data-testid="ai-problem">
-          <span className="min-w-0 break-words">{problem.text}</span>
-          {problem.retry && (
-            <button type="button" className={btn44} onClick={() => void send()} disabled={disabledReason !== null}>
-              Retry
+      <div className="border-t border-white/20 bg-slate-950 p-3" data-testid="ai-footer">
+        {done !== null && (
+          <p id="ai-apply-note" className="mb-2 text-xs font-normal text-white/70" data-testid="ai-apply-note">
+            {applyBlock ??
+              (applyNote === 'applied'
+                ? 'Done: the open plan now has this order and first start time. Each target keeps its own exposure. The night timeline times each target again with its own estimate, so its times can differ from the AI’s. The code check covers the AI’s times, not the timeline’s: the timeline shows its own flip and window notes.'
+                : applyNote === 'kept'
+                  ? 'The open plan was left as it was.'
+                  : 'This sets the open plan’s order and first start time, replacing the earlier times. Each target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow the others. The night timeline times each target again with its own estimate, so its times can differ from the AI’s. The code check covers the AI’s times, not the timeline’s: the timeline shows its own flip and window notes.')}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {done !== null && (
+            <button
+              type="button"
+              className={btn44}
+              onClick={() => void onApply(done.items, done.startTime).then((applied) => setApplyNote(applied ? 'applied' : 'kept'))}
+              disabled={applyBlock !== null}
+              aria-describedby="ai-apply-note"
+            >
+              Use this plan
             </button>
           )}
+          {showAskAgain && (
+            <button type="button" className={btn44} onClick={() => void send()} disabled={!canAsk}>
+              Ask again
+            </button>
+          )}
+          <button type="button" className={btn44} onClick={close}>
+            Close
+          </button>
         </div>
-      )}
-
-      {done !== null && (
-        <Result
-          done={done}
-          stale={stale}
-          profile={profile}
-          train={train}
-          base={base}
-          night={night}
-          catalogTargets={catalogTargets}
-          formatTime={formatTime}
-          applyNote={applyNote}
-          nightWord={nightWord}
-          onApply={() => void onApply(done.items, done.startTime).then((applied) => setApplyNote(applied ? 'applied' : 'kept'))}
-        />
-      )}
-    </section>
+      </div>
+    </div>
   );
 }
 
@@ -288,29 +410,24 @@ function Result({
   done,
   stale,
   profile,
-  train,
   base,
   night,
   catalogTargets,
   formatTime,
   nightWord,
-  applyNote,
-  onApply,
+  presetLabels,
 }: {
   done: Done;
   stale: string[];
   profile: Profile;
-  train: TrainEntry;
-  base: AiPlanPanelProps['base'];
+  base: AiPlanFlyoutProps['base'];
   night: AstronomicalNight | null;
   catalogTargets: readonly SlotTarget[];
   formatTime: (d: Date) => string;
   nightWord: string;
-  applyNote: 'applied' | 'kept' | null;
-  onApply: () => void;
+  presetLabels: ReadonlyMap<string, string>;
 }) {
   const { result, names, items } = done;
-  const verified = result.status === 'verified';
   const slots = [...result.plan.plan].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
   const nameOf = (id: string) => names.get(id) ?? id;
   const say = (m: string) => plainText(m, names);
@@ -325,32 +442,16 @@ function Result({
       ? 'The AI left it out, but the checker found free time where it could still fit (see the notes below).'
       : 'The AI judged it did not fit this night alongside the targets above.';
   const last = result.lastTarget;
-  const applyBlock =
-    !verified
-      ? 'This plan was not fully checked, so it cannot be used as your plan.'
-      : train.kind !== 'optical'
-        ? 'Pick an optical train at the top of the page: a smart scope plans its own exposures.'
-        : slots.length === 0
-          ? 'This plan has no slots.'
-          : slots.length > MAX_SLOTS
-            ? `The night timeline schedules at most ${MAX_SLOTS} targets and this AI plan has ${slots.length}. Remove a target from the plan and plan again.`
-            : stale.length > 0
-              ? 'This plan is out of date. Plan again first.'
-              : null;
 
   return (
     <div className="mt-3 space-y-4" data-testid="ai-result">
       {stale.length > 0 && (
         <p role="status" className="rounded border border-orange-300/40 bg-orange-400/15 px-3 py-2 text-orange-100 font-normal text-sm" data-testid="ai-stale">
-          Out of date: you changed {stale.map((k) => PART_LABELS[k]).join(' and ')} after this plan was made. Plan again to match.
+          Out of date: you changed {stale.map((k) => PART_LABELS[k]).join(' and ')} after this plan was made. Ask again to match.
         </p>
       )}
-      <p className={`rounded border px-3 py-2 font-normal text-sm ${verified ? 'border-sky-300/40 text-white/90' : 'border-orange-300/40 bg-orange-400/15 text-orange-100'}`} data-testid="ai-checked">
-        {verified ? CHECKED_TEXT : `Not fully checked: after ${result.repairRounds} ${result.repairRounds === 1 ? 'try' : 'tries'} to fix it, the code still found problems with this plan (listed below). Treat it as a rough draft. The AI decided the order, times and exposures; the code only checks.`}
-      </p>
-
       <div>
-        <h3 className="text-white font-normal text-base mb-2">Your night, in order</h3>
+        <h3 className="text-white font-normal text-base mb-2">The plan, in order</h3>
         {slots.length === 0 ? (
           <p className="text-white/90 font-normal text-sm">The AI planned no slots for this night.</p>
         ) : (
@@ -361,7 +462,7 @@ function Result({
               return (
                 <li key={`${s.id}-${s.start}`} className="rounded border border-white/15 p-3 text-sm font-normal text-white/90" data-testid={`ai-slot-${i}`}>
                   <p className="text-white">
-                    {i + 1}. {nameOf(s.id)} <span className="tabular-nums">{clockOfIso(s.start)} to {clockOfIso(s.end)}</span> <span className="text-white/70">({minutesBetween(s.start, s.end)} min)</span>
+                    {i + 1}. {nameOf(s.id)} <span className="tabular-nums">{clockOfIso(s.start)} to {clockOfIso(s.end)}</span> <span className="text-white/70">({minutesBetween(s.start, s.end)} min, {presetLabels.get(s.id) ?? 'Balanced'})</span>
                   </p>
                   <p className="text-white/80">
                     {exp ? `The AI wants about ${Math.round(exp.minutes)} min of light for this target.` : 'No exposure was given for this target.'}
@@ -447,19 +548,6 @@ function Result({
         </div>
       )}
 
-      <div>
-        <button type="button" className={btn44} onClick={onApply} disabled={applyBlock !== null} aria-describedby="ai-apply-note">
-          Use this plan
-        </button>
-        <p id="ai-apply-note" className="mt-1 text-white/70 font-normal text-xs" data-testid="ai-apply-note">
-          {applyBlock ??
-            (applyNote === 'applied'
-              ? 'Done: the open plan now has this AI plan\u2019s order, first start time, and every target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.'
-              : applyNote === 'kept'
-                ? 'The open plan was left as it was.'
-                : 'This sets the open plan\u2019s order, first start time, and every target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.')}
-        </p>
-      </div>
     </div>
   );
 }

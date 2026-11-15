@@ -39,6 +39,8 @@ export interface OpenPlanProps {
   pastDate: string | null;
   onMoveToTonight: () => void;
   find: FindSection;
+  /** Beside the plan's heading: the plan's main button ("Plan my night with AI"). */
+  action?: ReactNode;
   /** Beside the plan's heading (the More menu). */
   menu?: ReactNode;
   /** The plan's closed-by-default parts ("Night and horizon", "Night timeline"). */
@@ -53,7 +55,7 @@ const btn =
  * does on the night and its exposure, and the plan's own collapsible parts below. Find a target is open while the plan has no targets and one
  * line once it has some.
  */
-export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrain, pastDate, onMoveToTonight, find, menu, children }: OpenPlanProps) {
+export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrain, pastDate, onMoveToTonight, find, action, menu, children }: OpenPlanProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   // After a removal the pressed button is gone: the keyboard goes to the Remove of the row that took its place, else the one before, else the heading.
   const removedAt = useRef<number | null>(null);
@@ -70,7 +72,10 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrai
         <h2 ref={headingRef} tabIndex={-1} id="open-plan-heading" className="min-h-11 py-2 text-xl font-light text-white tracking-[0.15em] focus:outline-none">
           PLAN: {name} ({rows.length} {rows.length === 1 ? 'target' : 'targets'})
         </h2>
-        {menu}
+        <div className="flex flex-wrap items-center gap-x-2">
+          {action}
+          {menu}
+        </div>
       </div>
       {pastDate !== null && (
         <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-past">

@@ -79,20 +79,20 @@ import {
 } from '@/planner/state/plans';
 import type { PlanDefaults, PlanTargetRef, PlansState } from '@/planner/state/plans';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
-import AiPlanPanel from './AiPlanPanel';
+import AiPlanFlyout from './AiPlanFlyout';
 import AltitudeChart from './AltitudeChart';
 import AuthControl from './AuthControl';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
 import Collapsible from './Collapsible';
 import HorizonEditor, { describeOverlaps } from './HorizonEditor';
-import ItinerarySection from './ItinerarySection';
+import PlanTimeline from './PlanTimeline';
 import NumberSlider from './NumberSlider';
 import OverflowMenu from './OverflowMenu';
 import SolarSystemDetail from './SolarSystemDetail';
 import PrintSheet from './PrintSheet';
 import { download } from './download';
-import type { ItineraryReport } from './ItinerarySection';
+import type { PlanTimelineReport } from './PlanTimeline';
 import { ITINERARY_KEY, MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
@@ -102,7 +102,7 @@ import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { baseOf, notUsedText, presetLabel, rowExposure, storedProblem, withNumber, withPreset } from './rowExposure';
+import { baseOf, notUsedNoPresetText, presetLabel, rowExposure, storedProblem, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -312,7 +312,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
   // The night timeline leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
-  const itineraryReport = useRef<ItineraryReport | null>(null);
+  const itineraryReport = useRef<PlanTimelineReport | null>(null);
   // Who is signed in: the sign-in control at the top shows it, and the owner sees the AI plan's review switch; a failed read leaves the page as a guest's.
   const [auth, setAuth] = useState<AuthState>({ kind: 'signedOut' });
   const owner = auth.kind === 'signedIn' && auth.owner;
@@ -1201,7 +1201,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       // A stored value outside the limits is judged here whatever the row's kind (a profile without a pixel size gives no numbers, but the timeline still must not get the value).
       const stored = t.preset === 'custom' ? storedProblem(t.custom) : null;
       if (v?.kind === 'ok' && v.customUnusable !== null) used.set(t.id, v.customUnusable);
-      else if (stored !== null) used.set(t.id, notUsedText(stored, baseOf(t)));
+      else if (stored !== null) used.set(t.id, notUsedNoPresetText(stored));
     }
     return used;
   }, [planTargets, rowViews]);
@@ -1220,14 +1220,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       })),
     [planTargets, train, presetUsed],
   );
-  /** A slot's changed preset or note goes onto its target; the slots' order is the plan's order; targets past the timeline's slots stay after them. */
+  /** A slot's changed note goes onto its target, and the start time onto the plan; the slots' order is the plan's order; targets past the timeline's slots stay after them. */
   const applyTimeline = (items: ItineraryItem[], startTime: string | null) => {
     const byId = new Map(planTargets.map((t) => [t.id, t]));
     const kept = items.flatMap((i): PlanTargetRef[] => {
       const old = byId.get(i.id);
       if (old === undefined) return [];
-      // A slot whose preset was changed in the timeline takes that preset (its own numbers go); otherwise the target is kept as it is.
-      const next: PlanTargetRef = i.mode !== baseOf(old) ? withPreset(old, i.mode) : { ...old };
+      const next: PlanTargetRef = { ...old };
       if (i.note !== (old.note ?? '')) {
         if (i.note === '') delete next.note;
         else next.note = i.note;
@@ -1248,6 +1247,24 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     });
     return Promise.resolve(editOpen({ targets: [...ordered, ...planTargets.filter((t) => !used.has(t.id))], startTime }));
   };
+
+  // The AI flyout: open or closed. Closing puts the keyboard back on the button that opened it.
+  const [aiOpen, setAiOpen] = useState(false);
+  const closeAi = () => {
+    setAiOpen(false);
+    window.setTimeout(() => document.getElementById('ai-plan-open')?.focus(), 0);
+  };
+  /** Each plan target's preset as its row shows it; a Custom target whose numbers are not used on this night says so. */
+  const aiPresetLabels = useMemo(
+    () => new Map(planTargets.map((t) => [t.id, t.preset === 'custom' ? (presetUsed.has(t.id) ? `${presetLabel(baseOf(t))}, custom not used` : 'Custom') : presetLabel(t.preset)] as const)),
+    [planTargets, presetUsed],
+  );
+  /** What each target's own row plans for the whole night: the timeline's slot says why when its own sub differs. */
+  const rowNumbers = useMemo(() => {
+    const out = new Map<string, { subSeconds: number; subCount: number }>();
+    for (const [id, v] of rowViews) if (v.kind === 'ok' && v.chosen.subCount >= 1) out.set(id, { subSeconds: v.chosen.subSeconds, subCount: v.chosen.subCount });
+    return out;
+  }, [rowViews]);
 
   const importProfile = async (file: File | undefined) => {
     if (!file) return;
@@ -1907,6 +1924,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </>
           ),
         }}
+        action={
+          <button
+            type="button"
+            id="ai-plan-open"
+            className={`${btn} min-h-11`}
+            aria-haspopup="dialog"
+            aria-expanded={aiOpen}
+            onClick={() => setAiOpen(true)}
+          >
+            Plan my night with AI
+          </button>
+        }
         menu={
           <OverflowMenu
             label="More"
@@ -1934,10 +1963,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </Collapsible>
         <Collapsible id="night-timeline" title="Night timeline">
           {stableNight && astroSite && catalog.status !== 'loading' ? (
-            <ItinerarySection
+            <PlanTimeline
               profile={profile}
               items={timelineItems}
               presetUsed={presetUsed}
+              rowNumbers={rowNumbers}
               startTime={open?.startTime ?? null}
               unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
               onChange={applyTimeline}
@@ -1958,22 +1988,28 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </Collapsible>
       </OpenPlan>
 
-      <AiPlanPanel
-        base={aiBase}
-        targets={aiTargets}
-        blocked={aiBlocked}
-        leftOutNote={aiLeftOut}
-        profile={profile}
-        train={train}
-        siteName={site.name}
-        nightWord={nightWord}
-        night={hasNight ? (stableNight as AstronomicalNight) : null}
-        catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
-        formatTime={formatTime}
-        owner={owner}
-        fetchPlan={aiFetch}
-        onApply={applyAiPlan}
-      />
+      {aiOpen && (
+        <AiPlanFlyout
+          base={aiBase}
+          targets={aiTargets}
+          blocked={aiBlocked}
+          leftOutNote={aiLeftOut}
+          profile={profile}
+          train={train}
+          siteName={site.name}
+          nightWord={nightWord}
+          night={hasNight ? (stableNight as AstronomicalNight) : null}
+          nightText={nightText}
+          horizonText={horizonText}
+          presetLabels={aiPresetLabels}
+          catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
+          formatTime={formatTime}
+          owner={owner}
+          fetchPlan={aiFetch}
+          onApply={applyAiPlan}
+          onClose={closeAi}
+        />
+      )}
       </div>
 
       <div id="panel-gear" role="tabpanel" aria-labelledby="tab-gear" hidden={tab !== 'gear'} className="space-y-8">

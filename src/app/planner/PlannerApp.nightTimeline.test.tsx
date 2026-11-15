@@ -128,10 +128,12 @@ describe('Night timeline', () => {
     expect(slots()[1].textContent).toMatch(/Before it: 3 min/);
   });
 
-  it('changing a slot\'s preset or note changes the plan, which is saved with it, and it is still there after a reload', async () => {
+  it('a preset chosen on the target\'s row shows in its slot; a note written in the slot changes the plan, which is saved with it, and both are still there after a reload', async () => {
     seed('m31', 'ic405');
     const { unmount } = await app();
-    fireEvent.change(within(slots()[0]).getByLabelText('Exposure preset for Andromeda Galaxy'), { target: { value: 'deep' } });
+    expect(within(slots()[0]).queryByRole('combobox')).toBeNull(); // the preset is chosen on the row only
+    fireEvent.click(within(screen.getByRole('group', { name: 'Exposure preset for Andromeda Galaxy' })).getByRole('button', { name: 'Deep' }));
+    expect(slots()[0].textContent).toContain('Exposure for Andromeda Galaxy: Deep. Change it on this target\'s row in the plan.');
     fireEvent.change(within(slots()[0]).getByLabelText('Note for Andromeda Galaxy'), { target: { value: 'frame wide' } });
     const plan = storedPlan()!;
     expect(plan.targets).toEqual([
@@ -143,7 +145,7 @@ describe('Night timeline', () => {
     await app();
     expect(names()).toEqual(['Andromeda Galaxy', 'Flaming Star Nebula']);
     expect((within(slots()[0]).getByLabelText('Note for Andromeda Galaxy') as HTMLInputElement).value).toBe('frame wide');
-    expect((within(slots()[0]).getByLabelText('Exposure preset for Andromeda Galaxy') as HTMLSelectElement).value).toBe('deep');
+    expect(slots()[0].textContent).toContain('Exposure for Andromeda Galaxy: Deep.');
   });
 
   it('the start time is the plan\'s: it is saved in the plan and survives a reload', async () => {
@@ -188,15 +190,13 @@ describe('Night timeline', () => {
     expect(slots()[1].textContent).toMatch(/Light: \d+ s x \d+ subs/);
   });
 
-  it('Remove drops the slot from the timeline and the plan, and puts focus on the start box', async () => {
+  it('the timeline has no Remove: a target is removed on its row in the plan, and its slot goes with it', async () => {
     const user = userEvent.setup();
     seed('m31', 'ic405');
     await app();
-    const remove = within(part()).getByRole('button', { name: 'Remove Andromeda Galaxy' });
-    remove.focus();
-    await user.keyboard('{Enter}');
+    expect(within(part()).queryByRole('button', { name: /^Remove / })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Remove Andromeda Galaxy from the plan' }));
     expect(names()).toEqual(['Flaming Star Nebula']);
-    expect(document.activeElement).toBe(within(part()).getByLabelText('Imaging can start at'));
     expect(storedPlan()!.targets.map((t) => t.id)).toEqual(['ic405']);
   });
 

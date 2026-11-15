@@ -268,17 +268,19 @@ describe('the strip edits the open plan', () => {
     expect(screen.getByRole('heading', { name: 'Best targets for tonight' })).toBeTruthy();
   });
 
-  it('the AI panel and the night timeline read the open plan: its targets, its date', async () => {
+  it('the AI flyout and the night timeline read the open plan: its targets, its date', async () => {
     const user = userEvent.setup();
     await app();
     await addByHand(user, 'm31', 'Andromeda Galaxy');
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/^Will plan Tue 15 Dec at .*, for 1 target from the plan\.$/);
+    fireEvent.click(screen.getByRole('button', { name: 'Plan my night with AI' }));
+    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/1 target, in the plan's order: Andromeda Galaxy \(Balanced\)\./);
+    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/Night: Astronomical night/);
     expect(timelineSlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy']);
     await user.click(within(bar()).getByRole('button', { name: 'New' }));
     expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add at least one target to the plan first.');
     expect(timelineSlots()).toHaveLength(0);
     await user.selectOptions(planSwitch(), storedPlans()!.plans[0].id);
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/^Will plan Tue 15 Dec .*1 target from the plan\.$/);
+    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/1 target, in the plan's order: Andromeda Galaxy \(Balanced\)\./);
     expect(timelineSlots()).toHaveLength(1);
   });
 });
@@ -505,19 +507,21 @@ describe('what is no longer on the page', () => {
     expect(document.querySelector('header details')).toBeNull();
   });
 
-  it('keeps, in this order on the Plan tab: the plans bar, the open plan with Find a target and its list inside it, then the AI panel', async () => {
+  it('keeps, in this order on the Plan tab: the plans bar, the open plan with Find a target and its list inside it, with its "Plan my night with AI" button, and no separate AI panel after it', async () => {
     await app();
     const order = [
       screen.getByTestId('plans-bar'),
       screen.getByRole('region', { name: /^PLAN:/ }),
       screen.getByRole('region', { name: 'Find a target' }),
       screen.getByRole('region', { name: /^Best targets for/ }),
-      screen.getByRole('region', { name: 'PLAN MY NIGHT WITH AI' }),
     ];
     for (let i = 1; i < order.length; i++) expect(Boolean(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     const open = screen.getByRole('region', { name: /^PLAN:/ });
     expect(within(open).getByRole('button', { name: 'Night and horizon' })).toBeTruthy();
-    expect(within(open).getByRole('button', { name: 'Night timeline' })).toBeTruthy();
+    expect(within(open).getByRole('button', { name: 'Night timeline' }).getAttribute('aria-expanded')).toBe('false'); // closed by default
+    expect(within(open).getByRole('button', { name: 'Plan my night with AI' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'PLAN MY NIGHT WITH AI' })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull(); // the flyout opens on the button
     expect(within(screen.getByRole('region', { name: /^Best targets for/ })).getByRole('combobox', { name: 'Type' })).toBeTruthy();
   });
 });

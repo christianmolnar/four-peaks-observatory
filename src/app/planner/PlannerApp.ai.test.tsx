@@ -83,8 +83,16 @@ const mount = (ai: typeof fetch, { plan = ['m31', 'ic405'], auth = guestAuth, pr
   return render(<PlannerApp initialDate="2026-12-15" initialProfile={profile} rank={worker.rank} loadCatalogIndex={catalog.load} aiFetch={ai} loadAuth={auth} />);
 };
 
-const panel = () => screen.getByRole('region', { name: 'PLAN MY NIGHT WITH AI' });
-const go = () => within(panel()).getByRole('button', { name: 'Plan my night with AI' }) as HTMLButtonElement;
+const panel = () => screen.getByRole('dialog', { name: 'PLAN MY NIGHT WITH AI' });
+const trigger = () => within(screen.getByRole('region', { name: /^PLAN:/ })).getByRole('button', { name: 'Plan my night with AI' }) as HTMLButtonElement;
+/** Waits for the page, then opens the flyout from the plan's own button. */
+const readyOpen = async () => {
+  await ready();
+  fireEvent.click(trigger());
+};
+/** The button that asks the AI: "Ask the AI to order and time N targets" first, "Ask again" after an answer or an error. */
+const go = () => (within(panel()).queryByRole('button', { name: /^Ask the AI to order and time/ }) ?? within(panel()).getByRole('button', { name: 'Ask again' })) as HTMLButtonElement;
+const problemText = () => screen.getByTestId('ai-problem').textContent ?? '';
 const status = () => screen.getByTestId('ai-status');
 const result = () => screen.getByTestId('ai-result');
 const slotsText = () => within(result()).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-')).map((li) => li.textContent ?? '');
@@ -113,7 +121,7 @@ describe('empty plan', () => {
   it('disables the button and says why; nothing is sent', async () => {
     const f = fakeFetch(() => engine(null as never));
     mount(f.fn, { plan: [] });
-    await ready();
+    await readyOpen();
     expect(go().disabled).toBe(true);
     expect(go().getAttribute('aria-describedby')).toBe('ai-plan-reason');
     expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add at least one target to the plan first.');
@@ -124,7 +132,7 @@ describe('empty plan', () => {
   it('a plan of only planets says the AI plans fixed objects', async () => {
     const f = fakeFetch(() => engine(null as never));
     mount(f.fn, { plan: ['planet-jupiter'] });
-    await ready();
+    await readyOpen();
     expect(go().disabled).toBe(true);
     expect(screen.getByTestId('ai-plan-reason').textContent).toMatch(/not the Moon and planets/);
   });
@@ -134,7 +142,7 @@ describe('the request', () => {
   it('is the chosen night, site, horizon, minimum altitude, train and the plan in order, and the route accepts it', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { plan: ['ic405', 'm31'] });
-    await ready();
+    await readyOpen();
     await planned();
     expect(f.sent).toHaveLength(1);
     const input = okInput(f.sent[0]);
@@ -147,13 +155,18 @@ describe('the request', () => {
     expect(input.rig?.focalLengthMm).toBeGreaterThan(0); // the selected train
     expect(f.sent[0].body.qualityReview).toBeUndefined();
     expect(f.sent[0].body.startTime).toBeUndefined();
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/^Will plan Tue 15 Dec at Fountain Hills, AZ, with C11 f\/10 \+ ASI2600MC Duo, minimum altitude 20°, and your horizon, for 2 targets from the plan\.$/);
+    const inputs = screen.getByTestId('ai-inputs').textContent ?? '';
+    expect(inputs).toMatch(/Night: Astronomical night \d\d:\d\d to \d\d:\d\d \(\d+\.\d h\), Moon \d+% lit at mid-night\./);
+    expect(inputs).toContain('Site: Fountain Hills, AZ, minimum altitude 20°.');
+    expect(inputs).toMatch(/Horizon: blocked \d+° \(\w+\) to \d+° \(\w+\), \d+° high/);
+    expect(inputs).toContain('Train: C11 f/10 + ASI2600MC Duo.');
+    expect(inputs).toContain("2 targets, in the plan's order: Flaming Star Nebula (Balanced), Andromeda Galaxy (Balanced).");
   });
 
   it('uses the train that is selected, and a changed minimum altitude', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'deep-c11-reducer-533' } });
     fireEvent.change(screen.getByLabelText(/^Minimum altitude \(deg\)/), { target: { value: '35' } });
     await planned();
@@ -165,18 +178,18 @@ describe('the request', () => {
   it('leaves planets out of the request and says so', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { plan: ['m31', 'planet-jupiter', 'ic405'] });
-    await ready();
+    await readyOpen();
     expect(screen.getByTestId('ai-left-out-note').textContent).toMatch(/1 solar-system body is left out/);
     await planned();
     expect(okInput(f.sent[0]).targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
   });
 
-  it('focus moves to Cancel while planning and comes back to the Plan button when it ends', async () => {
+  it('focus moves to Cancel while planning and to the flyout heading when the answer is in', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const f = fakeFetch(async (s) => { await gate; return engine(okInput(s)); });
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     go().focus();
     await user.keyboard('{Enter}');
@@ -184,26 +197,26 @@ describe('the request', () => {
     await waitFor(() => expect(document.activeElement).toBe(cancel));
     release();
     await screen.findByTestId('ai-result', {}, { timeout: 20000 });
-    expect(document.activeElement).toBe(go());
+    expect(document.activeElement).toBe(within(panel()).getByRole('heading', { level: 2 }));
   });
 
-  it('focus returns to the Plan button after Cancel', async () => {
+  it('focus goes to the flyout heading after Cancel', async () => {
     const f = fakeFetch((s) => hang(s));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     go().focus();
     await user.keyboard('{Enter}');
     const cancel = await within(panel()).findByRole('button', { name: 'Cancel' });
     await waitFor(() => expect(document.activeElement).toBe(cancel));
     await user.keyboard('{Enter}');
-    await waitFor(() => expect(document.activeElement).toBe(go()));
+    await waitFor(() => expect(document.activeElement).toBe(within(panel()).getByRole('heading', { level: 2 })));
   });
 
   it('one key press on the focused button plans (keyboard operable)', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     go().focus();
     await user.keyboard('{Enter}');
@@ -216,15 +229,15 @@ describe('the result', () => {
   it('shows the slots with times and minutes, the AI\'s words, what was checked and what the AI decided, and the night graph', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => ({ ...planOf(i, validSlots(i)), notes: 'Both are high before midnight; the nebula goes first while the Moon is down.' })));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     const rows = slotsText();
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatch(/^1\. Andromeda Galaxy \d\d:\d\d to \d\d:\d\d \(60 min\)/);
+    expect(rows[0]).toMatch(/^1\. Andromeda Galaxy \d\d:\d\d to \d\d:\d\d \(60 min, Balanced\)/);
     expect(rows[0]).toMatch(/The AI wants about 60 min of light for this target\./);
     expect(rows[1]).toMatch(/Last slot, worth shooting: Enough frames to stack\./);
     expect(screen.getByTestId('ai-notes').textContent).toMatch(/the nebula goes first/);
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/Checked by code against the sky facts/);
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed\. Every slot is above your minimum altitude/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/The AI decided the order, the times, how long each target gets and the reasons/);
     expect(status().textContent).toBe('Plan ready for Tue 15 Dec: 2 targets planned, 0 left out. Checked by code.');
     expect(status().getAttribute('aria-live')).toBe('polite');
@@ -236,7 +249,7 @@ describe('the result', () => {
   it('shows no frame count, sub length or preset total on the card, and says where they come from', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     const text = result().textContent ?? '';
     expect(text).not.toMatch(/subs of/);
@@ -250,7 +263,7 @@ describe('the result', () => {
   it('after apply the plan\'s slots hold the AI plan\'s order and every target keeps the preset it had', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     // The user chose Deep for the nebula before asking; the AI's minutes do not change that choice.
     fireEvent.click(within(screen.getByRole('group', { name: 'Exposure preset for Flaming Star Nebula' })).getByRole('button', { name: 'Deep' }));
     const user = await planned();
@@ -268,7 +281,7 @@ describe('the result', () => {
       }),
     );
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     const cut = screen.getByTestId('ai-cut').textContent ?? '';
     expect(cut).toMatch(/^Andromeda Galaxy\./);
@@ -287,7 +300,7 @@ describe('the result', () => {
       return r;
     });
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     expect(screen.getByTestId('ai-checker').textContent).toMatch(/1 slot crosses the meridian, so the mount flips during it\./);
   });
@@ -301,7 +314,7 @@ describe('the result', () => {
       }),
     );
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Not fully checked/);
     expect(screen.getByTestId('ai-checker').textContent).toMatch(/Problem/);
@@ -315,12 +328,12 @@ describe('states', () => {
   it('loading announces itself, offers Cancel, and Cancel stops the request and leaves the page usable', async () => {
     const f = fakeFetch(hang);
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     await user.click(go());
     expect(status().textContent).toMatch(/^Planning Tue 15 Dec\. /);
     expect(status().getAttribute('aria-busy')).toBe('true');
-    expect(go().disabled).toBe(true);
+    expect(within(panel()).queryByRole('button', { name: /^Ask/ })).toBeNull(); // one request at a time
     await user.click(within(panel()).getByRole('button', { name: 'Cancel' }));
     expect(f.sent[0].signal.aborted).toBe(true);
     expect(status().textContent).toBe('Cancelled. Nothing was changed.');
@@ -339,7 +352,7 @@ describe('states', () => {
         }),
     );
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     await user.click(go());
     expect(status().textContent).toMatch(/^Planning/);
@@ -356,7 +369,7 @@ describe('states', () => {
   it('a new request after cancelling is sent clean and shows only its own answer', async () => {
     const f = fakeFetch((s, n) => (n === 1 ? hang(s) : engine(okInput(s))));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     await user.click(go());
     await user.click(within(panel()).getByRole('button', { name: 'Cancel' }));
@@ -369,35 +382,34 @@ describe('states', () => {
   it('429 says when to try again from Retry-After', async () => {
     const f = fakeFetch(() => ({ status: 429, json: { error: 'Hourly planner limit reached' }, headers: { 'Retry-After': '1500' } }));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
     expect(p.textContent).toMatch(/allowance for now\. Try again in about 25 minutes\./);
     expect(p.textContent).not.toMatch(/Hourly planner limit/);
-    expect(within(p).queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(within(panel()).queryByRole('button', { name: 'Ask again' })).toBeNull(); // asking again now would only be refused
     expect(p.getAttribute('role')).toBe('alert');
-    expect(go().disabled).toBe(false);
   });
 
   it('503 says the AI planner is not available right now, without the route text', async () => {
     const f = fakeFetch(() => ({ status: 503, json: { error: 'ANTHROPIC_API_KEY is not set' } }));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
     expect(p.textContent).toMatch(/The AI planner is not available right now/);
     expect(p.textContent).not.toMatch(/ANTHROPIC/);
   });
 
-  it('502 offers Retry, and Retry sends the same request again', async () => {
+  it('502 offers Ask again, and it sends the same request again', async () => {
     const f = fakeFetch((s, n) => (n === 1 ? { status: 502, json: { error: 'Model call failed: x' } } : engine(okInput(s))));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = userEvent.setup();
     await user.click(go());
     const p = await screen.findByTestId('ai-problem');
     expect(p.textContent).toMatch(/did not give a usable answer/);
-    await user.click(within(p).getByRole('button', { name: 'Retry' }));
+    await user.click(within(panel()).getByRole('button', { name: 'Ask again' }));
     await screen.findByTestId('ai-result', {}, { timeout: 20000 });
     expect(f.sent).toHaveLength(2);
     expect(f.sent[1].body).toEqual(f.sent[0].body);
@@ -407,27 +419,27 @@ describe('states', () => {
   it('422 explains that there is no usable night', async () => {
     const f = fakeFetch(() => ({ status: 422, json: { error: 'No astronomical night on 2026-12-15' } }));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/There is no usable night to plan.*Pick another night or site\./);
   });
 
-  it('a network failure is said in words and offers Retry', async () => {
+  it('a network failure is said in words and offers Ask again', async () => {
     const f = fakeFetch(() => {
       throw new TypeError('Failed to fetch');
     });
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
     expect(p.textContent).toMatch(/could not be reached\. Check your connection/);
-    expect(within(p).getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(within(panel()).getByRole('button', { name: 'Ask again' })).toBeTruthy();
   });
 
   it('a 200 that is not JSON (a proxy page) reads as an unreadable answer, not as a lost connection', async () => {
     const f = fakeFetch(() => ({ status: 200, unreadable: true }));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
     expect(p.textContent).toMatch(/answer could not be read/);
@@ -438,7 +450,7 @@ describe('states', () => {
   it('a 400 does not tell the user to remove targets', async () => {
     const f = fakeFetch(() => ({ status: 400, json: { error: 'rig.camera must be a short string' } }));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     const p = (await screen.findByTestId('ai-problem')).textContent ?? '';
     expect(p).toMatch(/could not accept this request/);
@@ -448,7 +460,7 @@ describe('states', () => {
   it('a 200 that is not a plan is an error, not a crash', async () => {
     const f = fakeFetch(() => ({ status: 200, json: { hello: 'world' } }));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await userEvent.setup().click(go());
     expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/answer could not be read/);
     expect(screen.queryByTestId('ai-result')).toBeNull();
@@ -459,7 +471,7 @@ describe('states', () => {
     try {
       const f = fakeFetch(hang);
       mount(f.fn);
-      await ready();
+      await readyOpen();
       fireEvent.click(go());
       expect(status().textContent).toMatch(/^Planning/);
       await act(async () => {
@@ -477,11 +489,11 @@ describe('a stale plan', () => {
   it('is marked when the plan changes, and the marker names what changed', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     expect(screen.queryByTestId('ai-stale')).toBeNull();
     fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Andromeda Galaxy from the plan' }));
-    expect(screen.getByTestId('ai-stale').textContent).toBe('Out of date: you changed the plan after this plan was made. Plan again to match.');
+    expect(screen.getByTestId('ai-stale').textContent).toBe('Out of date: you changed the plan after this plan was made. Ask again to match.');
     expect(apply().disabled).toBe(true);
     expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/out of date/);
   });
@@ -489,7 +501,7 @@ describe('a stale plan', () => {
   it('is marked when the train changes, and when the night changes', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     await planned();
     fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'deep-c11-reducer-533' } });
     expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the train after/);
@@ -502,7 +514,7 @@ describe('a stale plan', () => {
     const second = { ...profile.sites[0], id: 'second', name: 'Second site', latitude: 34.5, longitude: -112.2 };
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { profile: { ...profile, sites: [...profile.sites, second] } });
-    await ready();
+    await readyOpen();
     await planned();
     fireEvent.change(screen.getByLabelText('Site'), { target: { value: 'second' } });
     expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the site after/);
@@ -511,7 +523,7 @@ describe('a stale plan', () => {
   it('goes away when the user plans again', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = await planned();
     fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Andromeda Galaxy from the plan' }));
     expect(screen.getByTestId('ai-stale')).toBeTruthy();
@@ -526,7 +538,7 @@ describe('the owner\'s review switch', () => {
   it('is not there for a guest, and a guest\'s request never asks for a review', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     expect(within(panel()).queryByRole('checkbox')).toBeNull();
     await planned();
     expect(f.sent[0].body.qualityReview).toBeUndefined();
@@ -534,7 +546,7 @@ describe('the owner\'s review switch', () => {
 
   it('is not there for a signed-in visitor who is not the owner', async () => {
     mount(fakeFetch(() => engine(null as never)).fn, { auth: async () => ({ kind: 'signedIn', login: 'someone', owner: false }) });
-    await ready();
+    await readyOpen();
     await act(async () => {});
     expect(within(panel()).queryByRole('checkbox')).toBeNull();
   });
@@ -554,7 +566,7 @@ describe('the owner\'s review switch', () => {
       return { status: 200, json: result };
     });
     mount(f.fn, { auth: ownerAuth });
-    await ready();
+    await readyOpen();
     const box = (await within(panel()).findByRole('checkbox', { name: /review the plan/ })) as HTMLInputElement;
     expect(box.checked).toBe(false);
     await userEvent.setup().click(box);
@@ -569,10 +581,10 @@ describe('Use this plan', () => {
   it('puts the AI plan\'s order, presets and first start into the open plan, saved like the rest of the plan', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = await planned();
     expect(apply().disabled).toBe(false);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order, first start time, and every target keeps its own exposure/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order and first start time, replacing the earlier times\. Each target keeps its own exposure/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
@@ -581,7 +593,7 @@ describe('Use this plan', () => {
     expect(plan.trainId).toBe('deep-c11-2600'); // the plan's own train is not changed
     expect(plan.targets.every((t) => t.note === undefined)).toBe(true); // the AI's slot notes are not written over the user's own
     expect(plan.startTime).toMatch(/^\d\d:\d\d$/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this AI plan.s order, first start time, and every target keeps its own exposure/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this order and first start time\. Each target keeps its own exposure/);
     // The plan's own start box shows the AI plan's first start.
     expect((within(timeline()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(plan.startTime);
     expect(document.body.textContent).not.toMatch(/itinerary/i);
@@ -590,7 +602,7 @@ describe('Use this plan', () => {
   it('keeps the targets the AI left out (here a planet), after the ones it placed, with their own preset and note', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { plan: ['m31', 'planet-jupiter', 'ic405'] });
-    await ready();
+    await readyOpen();
     const user = await planned();
     await user.click(apply());
     await waitFor(() => expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done:/));
@@ -604,14 +616,14 @@ describe('Use this plan', () => {
   ])('%s: the plan keeps the AI order and first start, never prints AI times beside its own, and says the times are not kept', async (_name, plan, len) => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i, len))));
     mount(f.fn, { plan });
-    await ready();
+    await readyOpen();
     const user = await planned();
     expect(apply().disabled).toBe(false);
     const aiSlots = slotsText();
     expect(aiSlots).toHaveLength(plan.length);
     const aiTimes = aiSlots.map((t) => t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3));
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/times will not match the AI plan above/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check above covers the AI.s times, not the timeline.s: the timeline shows its own flip and window notes/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/its times can differ from the AI.s/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check covers the AI.s times, not the timeline.s: the timeline shows its own flip and window notes/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(plan.length));
     // The order and the first start are the AI's.
@@ -622,7 +634,7 @@ describe('Use this plan', () => {
     const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
     expect(shown.every((t) => /\(estimate\)/.test(t))).toBe(true);
     for (const t of saved.targets) expect(t.note ?? '').not.toMatch(/\d\d:\d\d|\d min/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/The AI.s times and exact lengths are not kept/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/its times can differ from the AI.s/);
     // The print sheet prints what the timeline shows.
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));
@@ -641,7 +653,7 @@ describe('Use this plan', () => {
   it('the print sheet carries the plan because the night timeline now holds it', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
-    await ready();
+    await readyOpen();
     const user = await planned();
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
@@ -664,23 +676,66 @@ describe('Use this plan', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: profile.sites[0].id, trainId: smart.id }));
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { profile });
-    await ready();
+    await readyOpen();
     await planned();
     expect(apply().disabled).toBe(true);
     expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/optical train/);
   });
 });
 
-describe('the plan and the AI panel', () => {
-  it('the AI panel is the last part of the Plan tab, after Find a target, and reads the open plan\'s targets', async () => {
+describe('the plan and the AI flyout', () => {
+  it('"Plan my night with AI" is a button in the open plan; the flyout is closed until it is pressed and there is no AI panel on the page', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
     await ready();
-    const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(follows(myPlan(), panel())).toBe(true);
-    expect(follows(screen.getByRole('region', { name: /^Best targets for/ }), panel())).toBe(true);
-    expect(within(myPlan()).queryByRole('link', { name: 'Plan my night with AI' })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'PLAN MY NIGHT WITH AI' })).toBeNull();
+    expect(trigger().getAttribute('aria-haspopup')).toBe('dialog');
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(trigger());
+    expect(trigger().getAttribute('aria-expanded')).toBe('true');
+    expect(panel()).toBeTruthy();
+    expect(f.mock).not.toHaveBeenCalled(); // opening asks nothing
     await planned();
     expect(okInput(f.sent[0]).targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
+  });
+
+  it('Close leaves the plan exactly as it was, returns the keyboard to the button, and a new opening starts at step 1', async () => {
+    const f = fakeFetch((s) => engine(okInput(s)));
+    mount(f.fn);
+    await ready();
+    const before = JSON.stringify(storedPlan());
+    fireEvent.click(trigger());
+    const user = await planned();
+    await user.click(within(panel()).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(trigger()));
+    expect(JSON.stringify(storedPlan())).toBe(before);
+    fireEvent.click(trigger());
+    expect(screen.getByTestId('ai-step-1').getAttribute('data-state')).toBe('now');
+    expect(screen.queryByTestId('ai-result')).toBeNull();
+  });
+
+  it('nothing in the plan changes before Use this plan; Use this plan replaces the earlier start time and the AI order stays (no other control reorders it)', async () => {
+    const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, [...validSlots(i)].reverse())));
+    mount(f.fn, { plan: ['m31', 'ic405'] });
+    await ready();
+    const user = userEvent.setup();
+    // The plan had an earlier start time.
+    await user.type(within(timeline()).getByLabelText('Imaging can start at'), '{Control>}a{/Control}2300{Enter}');
+    expect(storedPlan()!.startTime).toBe('23:00');
+    const before = JSON.stringify(storedPlan());
+    fireEvent.click(trigger());
+    await user.click(go());
+    await screen.findByTestId('ai-result', {}, { timeout: 20000 });
+    expect(JSON.stringify(storedPlan())).toBe(before);
+    await user.click(apply());
+    await waitFor(() => expect(storedPlan()!.startTime).not.toBe('23:00'));
+    const after = storedPlan()!;
+    expect(after.targets.map((t) => t.id)).toEqual(slotsText().map((t) => (t.includes('Andromeda') ? 'm31' : 'ic405')));
+    // The itinerary's own "Use this order" is gone, so nothing puts the order back.
+    expect(screen.queryByRole('button', { name: 'Use this order' })).toBeNull();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(storedPlan()!.targets.map((t) => t.id)).toEqual(after.targets.map((t) => t.id));
   });
 });

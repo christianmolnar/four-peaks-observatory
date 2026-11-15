@@ -4,9 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { MODE_ORDER } from '@/planner/exposure';
 import { presetLabel } from './rowExposure';
-import type { ExposureMode } from '@/planner/exposure';
 import type { HorizonPoint } from '@/planner/horizon';
 import {
   MAX_NOTE_CHARS,
@@ -21,17 +19,15 @@ import {
 } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan, Slot } from '@/planner/itinerary';
 import { clockFromText, couldBecomeClock, isThreeDigits } from '@/planner/itinerary/clock-text';
-import { EXACT_MAX_SLOTS, orderKey, suggestOrderSteps } from '@/planner/itinerary/suggest';
-import type { OrderSuggestion } from '@/planner/itinerary/suggest';
 import { itineraryToCsv, itineraryToJson, makeCsvTime } from '@/planner/export';
 import { slotInputFor } from '@/planner/itinerary/resolve';
 import type { Profile } from '@/planner/profile';
 import NightTimeline from './NightTimeline';
-import WrapSelect from './WrapSelect';
+import Collapsible from './Collapsible';
 import WrapText from './WrapText';
 import { download } from './download';
 
-export interface ItinerarySectionProps {
+export interface PlanTimelineProps {
   profile: Profile;
   /** The open plan's targets as slots, in the plan's order, all on the plan's train and its filter. */
   items: ItineraryItem[];
@@ -39,9 +35,11 @@ export interface ItinerarySectionProps {
   startTime: string | null;
   /** The slots (target ids) whose Custom numbers do not work, each with the plain reason naming the number that fails: they are scheduled with the preset's own numbers, and the slot says so. */
   presetUsed?: ReadonlyMap<string, string>;
+  /** What each target's own row plans for the whole night (sub length and count): a slot that plans something else says why. */
+  rowNumbers?: ReadonlyMap<string, { subSeconds: number; subCount: number }>;
   /** Targets of the plan past the first MAX_SLOTS: the timeline schedules no more, and says so. */
   unscheduled: number;
-  /** A change made here: the slots in their new order and the new start time. The plan keeps them. */
+  /** A change made here (a note, the start time): the slots as they are and the start time. The plan keeps them. */
   onChange: (items: ItineraryItem[], startTime: string | null) => void;
   /** The bundled catalog, for finding the slots' targets; null until it has loaded (or when it failed). */
   catalog: CatalogIndex | null;
@@ -57,11 +55,11 @@ export interface ItinerarySectionProps {
   /** IANA zone of the site (or the browser): the start time is a clock time in it. */
   timeZone?: string;
   /** The page's print sheet reads the current timeline from here; written on every change, so it never causes a render. */
-  report?: MutableRefObject<ItineraryReport | null>;
+  report?: MutableRefObject<PlanTimelineReport | null>;
 }
 
 /** What the print sheet and the exports need of the timeline. */
-export interface ItineraryReport {
+export interface PlanTimelineReport {
   plan: ItineraryPlan;
 }
 
@@ -70,14 +68,8 @@ const fieldBox = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-whit
 const field = `${fieldBox} text-sm`;
 const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
-/** How long the order search works before it lets the page paint and take input. */
-const SEARCH_SLICE_MS = 10;
-
-/** What the advice box says when the order is already the best the search found. */
-export const unchangedAdviceText = (exhaustive: boolean): string =>
-  exhaustive
-    ? 'Your order is already the best: the most light, and the targets as high as they can be. Nothing to move.'
-    : `Best order found. With more than ${EXACT_MAX_SLOTS} targets not every order is tried, so a better one may exist. Nothing better turned up.`;
+/** A slot whose sub length differs from what the target's own row plans for the whole night. */
+const differsFromRow = (s: Slot, row: { subSeconds: number; subCount: number } | undefined): boolean => row !== undefined && s.subSeconds !== null && s.subSeconds !== row.subSeconds;
 
 function Chip({ severity, label }: { severity: 'warning' | 'note'; label: string }) {
   return (
@@ -123,33 +115,25 @@ function Detail({
 
 /**
  * The open plan's night timeline: its targets in the plan's order, scheduled one after the other with the changeover between them.
- * The slots, their order, their presets and the start time belong to the plan; this shows the times and takes edits (a preset, a note, the
- * start, a removal, the suggested order) back to it. Subs and counts come from the exposure module; every time and number here is an
- * estimate.
+ * The slots, their order, their presets and the start time belong to the plan (a preset is chosen on the target's row, the order by the
+ * AI plan); this shows the times and takes the two edits that live here (a note, the start time) back to it. Subs and counts come from
+ * the exposure module; every time and number here is an estimate.
  */
-export default function ItinerarySection({ profile, items, startTime, presetUsed, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
+export default function PlanTimeline({ profile, items, startTime, presetUsed, rowNumbers, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report }: PlanTimelineProps) {
   // What is being typed in the start box; null: show the plan's start time.
   const [startDraft, setStartDraft] = useState<string | null>(null);
   // The start box complains when it is left or Enter is pressed, or when the text can no longer become a time; not on a half-typed "2".
   const [startChecked, setStartChecked] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const focusNext = useRef<string | null>(null);
   const startBox = useRef<HTMLInputElement>(null);
   const selectStart = useRef(false);
 
-  const commit = (next: ItineraryItem[], focusId: string | null = null, nextStart: string | null = startTime) => {
-    focusNext.current = focusId;
-    onChange(next, nextStart);
-  };
+  const commit = (next: ItineraryItem[], nextStart: string | null = startTime) => onChange(next, nextStart);
   // After "Use night start" the box text is selected, so the next digit replaces it instead of adding to it.
   useEffect(() => {
     if (selectStart.current) startBox.current?.select();
     selectStart.current = false;
   }, [startTime, startDraft]);
-  useEffect(() => {
-    if (focusNext.current) document.getElementById(focusNext.current)?.focus();
-    focusNext.current = null;
-  }, [items]);
 
   /** "21:30", "2130", "905" or "9:05" become a saved 24 h time; empty goes back to the night start; anything else is left in the box with a message. */
   const startError = startDraft !== null && startDraft.trim() !== '' && clockFromText(startDraft) === null && (startChecked || !couldBecomeClock(startDraft));
@@ -159,15 +143,15 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
     const holdThirdDigit = typed && isThreeDigits(text);
     setStartDraft(text);
     setStartChecked(false);
-    if (text.trim() === '') return commit([...items], null, null);
+    if (text.trim() === '') return commit([...items], null);
     const clock = clockFromText(text);
-    if (clock && !holdThirdDigit) commit([...items], null, clock);
+    if (clock && !holdThirdDigit) commit([...items], clock);
   };
   /** Leaving the box or pressing Enter: a time that works shows the saved value again; one that does not stays in the box with its message. */
   const settleStart = () => {
     if (startDraft === null || startDraft.trim() === '' || clockFromText(startDraft) !== null) {
       const clock = startDraft === null ? null : clockFromText(startDraft);
-      if (clock && clock !== startTime) commit([...items], null, clock);
+      if (clock && clock !== startTime) commit([...items], clock);
       setStartDraft(null);
       setStartChecked(false);
     } else setStartChecked(true);
@@ -183,49 +167,10 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
     [site, night, horizon, minAltitude, bortle, inputs, startAt, formatTime, windows],
   );
   const plan = useMemo(() => (buildInput ? buildItinerary(buildInput) : null), [buildInput]);
-  // The order advice: the search covers every order up to 8 slots, in small steps between frames so typing and taps never wait
-  // for it. A note does not change the order, so the search is keyed on the slots without their notes and does not run again
-  // when only a note changes. `adviceFor` changes exactly when the search has to run again; advice made for an older one is not shown.
-  const searchKey = orderKey(items);
-  const adviceFor = useMemo(
-    () => ({}),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchKey stands for the items, minus notes
-    [searchKey, site, night, horizon, minAltitude, bortle, startAt, formatTime, profile, windows],
-  );
-  const [advice, setAdvice] = useState<{ for: object; value: OrderSuggestion } | null>(null);
-  useEffect(() => {
-    if (!buildInput || !plan || items.length < 2) return;
-    const steps = suggestOrderSteps(buildInput, { currentPlan: plan });
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // The search starts after the page has painted and takes turns with it, about 10 ms at a time, so typing and taps never wait for it.
-    const run = () => {
-      const until = performance.now() + SEARCH_SLICE_MS;
-      for (;;) {
-        const r = steps.next();
-        if (r.done) return setAdvice({ for: adviceFor, value: r.value });
-        if (performance.now() >= until) break;
-      }
-      timer = setTimeout(run, 0);
-    };
-    timer = setTimeout(run, 0);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- adviceFor stands for everything the search reads
-  }, [adviceFor]);
-  const suggestion = items.length >= 2 && advice?.for === adviceFor ? advice.value : null;
   useEffect(() => {
     if (report) report.current = plan ? { plan } : null;
   }, [report, plan]);
-
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  const useOrder = () => {
-    if (!suggestion?.changed) return;
-    const byId = new Map(items.map((i) => [i.id, i]));
-    commit(suggestion.order.map((id) => byId.get(id) as ItineraryItem), 'it-order-advice');
-  };
-  const remove = (id: string) => {
-    commit(items.filter((i) => i.id !== id), 'it-start');
-    if (detailId === id) setDetailId(null);
-  };
 
   if (night.kind !== 'normal' || plan === null) {
     return <p className="text-white/90 font-normal text-sm">There is no astronomical night on this date, so there is nothing to schedule.</p>;
@@ -273,7 +218,7 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
             }}
           />
         </div>
-        <button type="button" className={btn44} disabled={startTime === null} onMouseDown={(e) => e.preventDefault() /* keep focus in the start box, so a held value is not saved on the way */} onClick={() => { selectStart.current = document.activeElement === startBox.current; setStartDraft(null); commit(items, null, null); }}>
+        <button type="button" className={btn44} disabled={startTime === null} onMouseDown={(e) => e.preventDefault() /* keep focus in the start box, so a held value is not saved on the way */} onClick={() => { selectStart.current = document.activeElement === startBox.current; setStartDraft(null); commit(items, null); }}>
           Use night start
         </button>
       </div>
@@ -300,44 +245,10 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
           : `Light ${lightMinutes(plan)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} train ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
       </p>
 
-      <div id="it-order-advice" tabIndex={-1} aria-live="polite" className="mt-3 rounded-lg border border-white/15 bg-black/40 p-4 focus:outline-none focus:ring-2 focus:ring-sky-400" data-testid="order-advice">
-        <h3 className="text-white font-normal text-base mb-1">Suggested order</h3>
-        {items.length < 2 ? (
-          <p className="text-white/90 font-normal text-sm">Add two or more targets to the plan to get advice on their order.</p>
-        ) : suggestion === null ? (
-          <p className="text-white/90 font-normal text-sm" data-testid="order-advice-searching">Looking for a better order...</p>
-        ) : !suggestion.changed ? (
-          <p className="text-white/90 font-normal text-sm" data-testid="order-advice-unchanged">{unchangedAdviceText(suggestion.searched.exhaustive)}</p>
-        ) : (
-          <>
-            <ol className="space-y-1 text-white font-normal text-sm">
-              {suggestion.steps.map((st, k) => (
-                <li key={st.id}>
-                  {k === 0 ? 'Put' : 'Then'} {st.name}{k === 0 ? ' first' : ''}: {st.reason}.
-                </li>
-              ))}
-            </ol>
-            <p className="mt-2 text-white/80 font-normal text-sm" data-testid="order-advice-gain">
-              {suggestion.improves === 'light'
-                ? suggestion.suggestedLightMin > suggestion.currentLightMin
-                  ? `Light: ${suggestion.currentLightMin} min now, ${suggestion.suggestedLightMin} min in this order.`
-                  : `Light is about the same (${suggestion.currentLightMin} min), a little more in this order.`
-                : suggestion.improves === 'altitude'
-                  ? `Same light (${suggestion.currentLightMin} min), with the targets higher in the sky.`
-                  : `Same light (${suggestion.currentLightMin} min) and height; this order ends ${suggestion.suggestedEnds ? formatTime(suggestion.suggestedEnds) : 'sooner'} instead of ${suggestion.currentEnds ? formatTime(suggestion.currentEnds) : 'later'}.`}
-            </p>
-            {!suggestion.searched.exhaustive && <p className="mt-1 text-white/80 font-normal text-sm">Best order found. With more than {EXACT_MAX_SLOTS} targets not every order is tried.</p>}
-            <button type="button" className={`${btn44} mt-2`} onClick={useOrder}>
-              Use this order
-            </button>
-            <p className="mt-1 text-white/70 font-normal text-xs">Your order stays until you press the button.</p>
-          </>
-        )}
-      </div>
-
       <div className="mt-4">
-        <h3 className="text-white font-normal text-base mb-2">Night graph</h3>
-        <NightTimeline plan={plan} inputs={inputs} night={night} site={site} horizon={horizon} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
+        <Collapsible id="night-graph" title="Night graph">
+          <NightTimeline plan={plan} inputs={inputs} night={night} site={site} horizon={horizon} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
+        </Collapsible>
       </div>
 
       {shown.length === 0 ? (
@@ -357,31 +268,18 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                     {timed ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'} <span className="text-white/70 text-xs">(estimate)</span>
                   </p>
                 </div>
-                <div className="mt-2 max-w-xs">
-                  {it.overrides !== undefined || presetUsed?.has(s.id) ? (
-                    // A Custom target keeps its own numbers; they are edited on the target's row in the plan, never here.
-                    <p className="text-white/90 text-sm" data-testid={`it-custom-${s.id}`}>
-                      Exposure preset for {s.name}: Custom (started from {presetLabel(it.mode)}). Change it on this target&apos;s row in the plan.
-                      {it.overrides === undefined && (
-                        <>
-                          <br />
-                          <span className="text-orange-200 text-xs" data-testid={`it-preset-used-${s.id}`}>
-                            {presetUsed?.get(s.id)}
-                          </span>
-                        </>
-                      )}
-                    </p>
+                <p className="mt-2 text-white/90 text-sm" data-testid={`slot-preset-${s.id}`}>
+                  {presetUsed?.has(s.id) ? (
+                    // The Custom numbers do not work on this night: the reason names the number that fails; the slot says nothing more about a preset.
+                    <span className="text-orange-200 text-xs" data-testid={`it-preset-used-${s.id}`}>
+                      {presetUsed.get(s.id)}
+                    </span>
+                  ) : it.overrides !== undefined ? (
+                    <>Exposure for {s.name}: Custom (started from {presetLabel(it.mode)}). Change it on this target&apos;s row in the plan.</>
                   ) : (
-                    <div>
-                      <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Exposure preset for {s.name}</label>
-                      <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
-                        {MODE_ORDER.map((m) => (
-                          <option key={m} value={m}>{presetLabel(m)}</option>
-                        ))}
-                      </WrapSelect>
-                    </div>
+                    <>Exposure for {s.name}: {presetLabel(it.mode)}. Change it on this target&apos;s row in the plan.</>
                   )}
-                </div>
+                </p>
                 <p className="mt-2 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
                   {s.subSeconds !== null && s.subCount !== null
                     ? `Light: ${s.subSeconds} s x ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min (estimate).`
@@ -390,6 +288,11 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                       : 'No imaging is planned for this slot.'}{' '}
                   {k > 0 && timed ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
                 </p>
+                {differsFromRow(s, rowNumbers?.get(s.id)) && (
+                  <p className="mt-1 text-white/80 font-normal text-sm" data-testid={`slot-why-sub-${s.id}`}>
+                    {`The target's row plans ${rowNumbers!.get(s.id)!.subSeconds} s x ${rowNumbers!.get(s.id)!.subCount} subs for the night. This slot has ${Math.round((s.end.getTime() - s.start.getTime()) / 60000)} minutes of the night (its share), so the subs are sized to that share: ${s.subSeconds} s x ${s.subCount}.`}
+                  </p>
+                )}
                 <p className="mt-1 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-altitude-${k}`}>
                   {s.altitudes
                     ? `Altitude: ${Math.round(s.altitudes.start.altitude)}° ${s.altitudes.start.direction} at the start, ${Math.round(s.altitudes.middle.altitude)}° ${s.altitudes.middle.direction} in the middle, ${Math.round(s.altitudes.end.altitude)}° ${s.altitudes.end.direction} at the end; ${TREND_TEXT[s.altitudes.trend]}.`
@@ -422,9 +325,6 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className={btn44} aria-pressed={detailSlot?.id === s.id} aria-label={`Details for ${s.name}`} onClick={() => setDetailId(s.id)}>
                       Details
-                    </button>
-                    <button type="button" className={btn44} aria-label={`Remove ${s.name}`} onClick={() => remove(s.id)}>
-                      Remove
                     </button>
                   </div>
                 </div>

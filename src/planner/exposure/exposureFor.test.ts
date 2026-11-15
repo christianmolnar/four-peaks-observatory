@@ -557,6 +557,26 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
     }
   });
 
+  it('HyperStar sub range ends are whole seconds (the star-saturation ceiling is not shown unrounded)', () => {
+    for (const cam of [lowerRn, highRn]) {
+      for (const preset of ['quick', 'balanced', 'deep'] as const) {
+        const r = run(galaxy(24), rig(TRAINS.hs, null, cam), 4, night({ usableMinutes: 600 }), { preset });
+        expect(Number.isInteger(r.subSecondsRange[0])).toBe(true);
+        expect(Number.isInteger(r.subSecondsRange[1])).toBe(true);
+        expect(r.subSecondsRange[1]).toBeGreaterThanOrEqual(r.subSeconds);
+      }
+    }
+  });
+
+  it('"use longer subs" is advised only below the star-saturation ceiling, not below 300 s', () => {
+    // HyperStar: stars clip past about 28 s. A user sub of 28 s is already at the top: no advice to lengthen.
+    const top = run(galaxy(24), rig(TRAINS.hs, null, lowerRn), 4, night({ usableMinutes: 900 }), { preset: 'deep', overrides: { subSeconds: 28, totalMin: 400 } });
+    expect(top.warnings.find((w) => w.code === 'count-capped')!.text).toBe(`That would need 858 subs; the plan stops at ${MAX_SUBS}.`);
+    // A shorter user sub still has room under the ceiling: the advice stays.
+    const room = run(galaxy(24), rig(TRAINS.hs, null, lowerRn), 4, night({ usableMinutes: 900 }), { preset: 'deep', overrides: { subSeconds: 20, totalMin: 400 } });
+    expect(room.warnings.find((w) => w.code === 'count-capped')!.text).toMatch(/Use longer subs\.$/);
+  });
+
   it('a user sub below the longest allowed one still gets "use longer subs" when the count limit cuts a total light they asked for', () => {
     const r = run(galaxy(24), rig(TRAINS.f63), 6, night({ usableMinutes: 900 }), { preset: 'deep', overrides: { subSeconds: 20, totalMin: 400 } });
     expect(r.warnings.find((w) => w.code === 'count-capped')!.text).toBe(`That would need 1200 subs; the plan stops at ${MAX_SUBS}. Use longer subs.`);
