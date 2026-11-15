@@ -95,3 +95,27 @@ All live in `src/planner/exposure/constants.ts`, each with its reason.
 
 Every code the module produces is reachable (tests cover each): the filter-fit ones, `inputs-assumed`, `sampling`, `moon-near`, `target-ou4`, `no-usable-time`, `limited-by-usable-time`, `below-mode-range`, `short-session-faint` (a warning, in Quick, now that the catalog's surface brightness reaches it), `short-session-unknown`, `sb-assumed`, `short-of-target`, `sub-capped` and `meridian-flip`.
 `below-mode-range` now means the plan is under half of the total the stop point asked for.
+
+## Act-on warnings: to return in stage 2
+
+The page used to show the warnings a reader can act on, each with "What to change" and a button to the control that changes it.
+They left the page with the global Exposure module (the planner reset, stage 1); the night timeline shows schedule warnings only.
+Stage 2 brings them back as an engine-side module (the split into "act on" and "notes", and the sentence for each code), shown per target in the plan.
+This is the spec, copied from `src/app/planner/ExposurePanel.tsx` as it was on main (`c3a531a`), so the text is not lost.
+The code list is nine, not eight.
+
+| Code | What to change (sentence) | Buttons that went with it |
+|---|---|---|
+| `filter-rated-slower` | Pick a filter rated for this speed, or another train. | Change the filter, Change the train |
+| `filter-uvir-missing` | Pick a filter that blocks UV/IR, or add a UV/IR cut filter to the train. | Change the filter |
+| `filter-visual-colour` | Pick an imaging filter instead. | Change the filter |
+| `moon-near` | Pick a night when the Moon is farther away or down, or a target farther from it. | Change the date |
+| `no-usable-time` | Pick another date or another target. | Change the date |
+| `limited-by-usable-time` | Pick a night with more usable time to reach the mode's length. | Change the date |
+| `meridian-flip` | Plan a pause to flip and re-centre at the crossing; its time is already counted. | none |
+| `target-ou4` | Pick a brighter target for a short session, or plan many nights of narrowband. | none |
+| `short-session-faint` | Pick a brighter, more compact target for a short session, or choose Balanced or Deep Project. | none |
+
+- Every other code is context only and went to one closed "Notes (N)" line.
+- Each act-on warning showed the badge "Warning", the warning's own text, then "What to change:" and the sentence above.
+- The buttons moved focus to the plan's own date, train or filter control (`plan-date`, `plan-train`, `plan-filter`).

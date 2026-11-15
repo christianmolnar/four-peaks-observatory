@@ -24,6 +24,9 @@ export interface OpenPlanProps {
   trainNote: string | null;
   /** Focuses the Train select. */
   onChangeTrain: () => void;
+  /** The plan's date as text ("Tue 10 Nov") when it has passed, else null: one line says so, with "Move to tonight". */
+  pastDate: string | null;
+  onMoveToTonight: () => void;
   /** The plan's closed-by-default parts ("Night and horizon", "Night timeline"). */
   children?: ReactNode;
 }
@@ -35,7 +38,7 @@ const btn =
  * The open plan: its targets in the plan's order (the user's picks; the AI plan orders them), each with what it does on the night and
  * its exposure preset, and the plan's own collapsible parts below. Targets come from Find a target further down the page.
  */
-export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrain, children }: OpenPlanProps) {
+export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrain, pastDate, onMoveToTonight, children }: OpenPlanProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   // After a removal the pressed button is gone: the keyboard goes to the Remove of the row that took its place, else the one before, else the heading.
   const removedAt = useRef<number | null>(null);
@@ -51,6 +54,21 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrai
       <h2 ref={headingRef} tabIndex={-1} id="open-plan-heading" className="min-h-11 py-2 text-xl font-light text-white tracking-[0.15em] focus:outline-none">
         PLAN: {name} ({rows.length} {rows.length === 1 ? 'target' : 'targets'})
       </h2>
+      {pastDate !== null && (
+        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-past">
+          <span>This plan is for {pastDate}, which has passed.</span>
+          <button
+            type="button"
+            className={btn}
+            onClick={() => {
+              onMoveToTonight();
+              headingRef.current?.focus();
+            }}
+          >
+            Move to tonight
+          </button>
+        </p>
+      )}
       {trainNote !== null && (
         <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-train-note">
           <span>{trainNote}</span>

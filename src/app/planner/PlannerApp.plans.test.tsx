@@ -189,15 +189,13 @@ describe('My plans', () => {
     expect(storedPlan()!.targets).toHaveLength(50);
   });
 
-  it('a damaged saved set of plans is reported once, removed, and one empty plan starts', async () => {
+  it('a damaged saved set of plans is reported, copied to the backup, and one empty plan starts; the text is not removed', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
-    const first = await app();
-    expect((await screen.findByRole('status')).textContent).toBe('Your saved plans are damaged, so they start over with one empty plan.');
-    expect(window.localStorage.getItem(PLANS_KEY)).toBeNull();
-    expect(heading()).toBe('PLAN: My plan (0 targets)');
-    first.unmount();
     await app();
-    expect(screen.queryByRole('status')).toBeNull();
+    expect((await screen.findByRole('status')).textContent).toBe('Your saved plans could not be read, so they start over with one empty plan. A copy of what was stored is kept in this browser.');
+    expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
+    expect(window.localStorage.getItem('fpo-planner-plans-v1.bak')).toBe('{nope');
+    expect(heading()).toBe('PLAN: My plan (0 targets)');
   });
 
   it('plans that cannot be saved say so, and the edit stays on screen', async () => {
@@ -302,11 +300,12 @@ describe('what was there before plans moves into the first plan', () => {
     expect(plan.name).toBe('My plan');
     expect(plan.date).toBe('2026-12-15');
     expect(plan.startTime).toBe('21:30');
+    // The itinerary's slots first, in slot order; then the rest of My plan in its order.
     expect(plan.targets).toEqual([
-      { id: 'ngc7000', preset: 'balanced' },
       { id: 'm31', preset: 'deep', note: 'long one' },
-      { id: 'planet-jupiter', preset: 'balanced' },
       { id: 'm42', preset: 'quick' },
+      { id: 'ngc7000', preset: 'balanced' },
+      { id: 'planet-jupiter', preset: 'balanced' },
     ]);
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull();

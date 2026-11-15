@@ -51,10 +51,14 @@ import {
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
 import {
   MAX_PLAN_TARGETS,
+  PLANS_BACKUP_KEY,
   PLANS_KEY,
+  EXPOSURE_NOTICE_KEY,
+  adoptStored,
   clearOldPlanKeys,
   deletePlan,
   duplicatePlan,
+  keepCopy,
   loadPlans,
   migrateOldPlan,
   newPlan,
@@ -103,6 +107,15 @@ const clockIn = (timeZone?: string): ((d: Date) => string) => {
 };
 
 type RankedEntry = PlanEntry;
+
+/** The plans text in storage, or null when there is none or storage cannot be read (a read that fails is said where plans are loaded). */
+function readPlansText(): string | null {
+  try {
+    return window.localStorage.getItem(PLANS_KEY);
+  } catch {
+    return null;
+  }
+}
 
 /** Above this share of the Moon lit at mid-night, the list says so in words. */
 const BRIGHT_MOON = 0.8;
@@ -196,6 +209,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The saved plans and which one is open. The open plan owns the night's date, site and train (and its targets); null until the saved ones are read.
   const [plans, setPlans] = useState<PlansState | null>(null);
   const plansRef = useRef<PlansState | null>(null);
+  // The plans text this tab last read or wrote: a different text in storage is another tab's save, taken up before this tab writes.
+  const savedText = useRef<string | null>(null);
+  // Stored plans made by a newer version of the planner: never written over until the user chooses (Replace the saved plans). Their text is kept here.
+  const [heldPlans, setHeldPlans] = useState<string | null>(null);
+  const heldRef = useRef<string | null>(null);
+  heldRef.current = heldPlans;
   const [tab, setTab] = useState<'plan' | 'gear'>('plan');
   // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
   const [fields, setFields] = useState<HorizonFields[]>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? []));
@@ -348,33 +367,63 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       // are removed when the plans are saved), or one empty plan starts, which is not saved until it is changed.
       const defaults: PlanDefaults = { date: startDate, siteId: home.id, trainId: homeTrain.id, now: new Date().toISOString() };
       let state: PlansState | null = null;
+      const said: string[] = [];
+      let held: string | null = null;
       try {
-        state = loadPlans(window.localStorage);
+        const r = loadPlans(window.localStorage, startDate);
+        state = r.state;
+        said.push(...r.notices);
+        if (r.unusable?.kind === 'newer') held = r.unusable.text;
+        else if (r.unusable !== null) {
+          // Damaged or repaired: the text stays in storage until the next save, so a copy goes to the backup key first.
+          try {
+            keepCopy(window.localStorage, r.unusable.text);
+            if (state !== null) said.push('A copy of the saved plans as they were is kept in this browser.');
+          } catch (e) {
+            said.push(`A copy of the saved plans could not be kept (${(e as Error).message}), so what was left out is lost when a plan next changes.`);
+          }
+        }
       } catch (e) {
-        setNotice((e as Error).message);
+        said.push((e as Error).message);
       }
       if (state === null) {
+        // The My plan list and night itinerary of before there were plans become the first plan (once), or one empty plan starts, which is not
+        // saved until it is changed. Nothing is carried over while newer-version plans are held: the old keys wait.
         let migrated = null;
-        let problems: string[] = [];
-        try {
-          const m = migrateOldPlan(window.localStorage, defaults);
-          migrated = m.plan;
-          problems = m.problems;
-          if (problems.length > 0) setNotice(problems.join(' '));
-        } catch (e) {
-          setNotice((e as Error).message);
+        let clear: string[] = [];
+        if (held === null) {
+          try {
+            const m = migrateOldPlan(window.localStorage, defaults);
+            migrated = m.plan;
+            clear = m.clear;
+            said.push(...m.problems);
+          } catch (e) {
+            said.push((e as Error).message);
+          }
         }
         state = startPlans(defaults, migrated);
-        if (migrated !== null || problems.length > 0) {
-          // What was readable is saved as the first plan; the old copies, readable or damaged (said above), go so they are not read or reported again.
+        if (migrated !== null || clear.length > 0) {
+          // What was readable is saved as the first plan; only then are the old copies that were carried over or damaged removed (one that could not be read stays).
+          let saved = false;
           try {
             if (migrated !== null) savePlans(window.localStorage, state);
-            clearOldPlanKeys(window.localStorage);
+            saved = true;
           } catch (e) {
-            setNotice(`Your plan was carried over but not saved, so it is lost on reload: ${(e as Error).message}`);
+            said.push(`Your plan was carried over but could not be saved: ${(e as Error).message}. Your old plan stays in this browser and is carried over again the next time the page opens.`);
+          }
+          if (saved) {
+            try {
+              clearOldPlanKeys(window.localStorage, clear);
+            } catch (e) {
+              said.push(`Your plan was saved, but ${(e as Error).message}. The saved plan is used from now on, so nothing you see changes.`);
+            }
           }
         }
       }
+      if (said.length > 0) setNotice(said.join(' '));
+      setHeldPlans(held);
+      heldRef.current = held;
+      savedText.current = readPlansText();
       plansRef.current = state;
       setPlans(state);
       const open = state.plans.find((p) => p.id === state.openId)!;
@@ -397,7 +446,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // Toasts clear themselves, so none of them stays over a button.
   useEffect(() => {
     if (!notice) return;
-    const t = setTimeout(() => setNotice(null), TOAST_MS);
+    // A long message about saved plans needs time to read: about 60 ms a character, never under the usual time.
+    const t = setTimeout(() => setNotice(null), Math.max(TOAST_MS, notice.length * 60));
     return () => clearTimeout(t);
   }, [notice]);
   useEffect(() => {
@@ -423,8 +473,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const train = profile.trains.find((t) => t.id === open?.trainId) ?? profile.trains[0];
   /** Makes the next state of the plans (a change that may be refused, say at the limit: said, nothing changes), keeps it and stores it. The horizon form follows the open plan's site. */
   const commitPlans = (change: (s: PlansState) => PlansState): boolean => {
-    const prev = plansRef.current;
+    let prev = plansRef.current;
     if (prev === null) return false;
+    // Another tab may have saved since this one last looked: start from its plans, or this write would erase them.
+    if (heldRef.current === null) {
+      const text = readPlansText();
+      const theirs = text !== null && text !== savedText.current ? adoptStored(prev, text) : null;
+      if (theirs !== null) prev = theirs;
+    }
     let next: PlansState;
     try {
       next = change(prev);
@@ -437,12 +493,54 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const siteOf = (st: PlansState) => profile.sites.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? profile.sites[0];
     const to = siteOf(next);
     if (to && siteOf(prev)?.id !== to.id) loadForm(to.blockedArcs, false);
+    if (heldRef.current !== null) {
+      setNotice('Not saved: the saved plans were made by a newer version of the planner and are left untouched. Use "Replace the saved plans" to save from here.');
+      return true;
+    }
     try {
       savePlans(window.localStorage, next);
+      savedText.current = readPlansText();
     } catch (e) {
       setNotice(`Plans not saved, so they are lost on reload: ${(e as Error).message}`);
     }
     return true;
+  };
+  // Another tab saved plans: this tab shows them (its own open plan stays open). Kept in a ref so the one listener reads this render's profile.
+  const onStorage = useRef<(e: StorageEvent) => void>(() => undefined);
+  onStorage.current = (e: StorageEvent) => {
+    if (e.key !== PLANS_KEY || e.newValue === null || heldRef.current !== null) return;
+    const prev = plansRef.current;
+    if (prev === null) return;
+    const next = adoptStored(prev, e.newValue);
+    if (next === null) return;
+    savedText.current = e.newValue;
+    plansRef.current = next;
+    setPlans(next);
+    const siteOf = (st: PlansState) => profile.sites.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? profile.sites[0];
+    const to = siteOf(next);
+    if (to && siteOf(prev)?.id !== to.id) loadForm(to.blockedArcs, false);
+  };
+  useEffect(() => {
+    const on = (e: StorageEvent) => onStorage.current(e);
+    window.addEventListener('storage', on);
+    return () => window.removeEventListener('storage', on);
+  }, []);
+  /** "Replace the saved plans": the user chose to start over from the plans on screen; the newer version's text is copied to the backup key first. */
+  const replaceHeldPlans = () => {
+    const text = heldRef.current;
+    const st = plansRef.current;
+    if (text === null || st === null) return;
+    try {
+      keepCopy(window.localStorage, text);
+      savePlans(window.localStorage, st);
+    } catch (e) {
+      setNotice(`Not replaced, the saved plans are untouched: ${(e as Error).message}`);
+      return;
+    }
+    savedText.current = readPlansText();
+    heldRef.current = null;
+    setHeldPlans(null);
+    setNotice('The saved plans were replaced. A copy of the ones made by the newer version is kept in this browser.');
   };
   /** A change to the open plan: its date, site, train, start time or targets. */
   const editOpen = (patch: Parameters<typeof updatePlan>[2]) => commitPlans((st) => updatePlan(st, st.openId, patch, new Date().toISOString()));
@@ -729,6 +827,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       [PROFILE_KEY, 'profile'],
       [SELECTION_KEY, 'site and train choice'],
       [PLANS_KEY, 'plans'],
+      [PLANS_BACKUP_KEY, 'plans backup'],
+      [EXPOSURE_NOTICE_KEY, 'old exposure notice'],
       [MY_PLAN_KEY, 'old plan'],
       [ITINERARY_KEY, 'old night timeline'],
       [CAPTURED_KEY, 'captured list'],
@@ -749,6 +849,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const firstTrain = sample.trains[0];
     const fresh = startPlans({ date: first ? defaultDateForProfile(new Date(), sample) : '', siteId: first?.id ?? '', trainId: firstTrain?.id ?? '', now: new Date().toISOString() });
     plansRef.current = fresh;
+    savedText.current = null;
+    heldRef.current = null;
+    setHeldPlans(null);
     setPlans(fresh);
     setType('all');
     setImportError(null);
@@ -812,6 +915,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const renameOpenPlan = (name: string) => commitPlans((st) => renamePlan(st, st.openId, name));
   const duplicateOpenPlan = () => commitPlans((st) => duplicatePlan(st, st.openId, new Date().toISOString()));
   const deleteOpenPlan = () => commitPlans((st) => deletePlan(st, st.openId, newPlanDefaults()));
+  const moveToTonight = () => editOpen({ date: tonightDate });
 
   // ---- The timeline and the AI plan write back into the open plan.
   /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all, a custom preset scheduled as balanced. */
@@ -877,15 +981,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     // because the old ids belong to the old profile. The others fall back to the first the same way.
     const [first] = next.sites;
     const [firstTrain] = next.trains;
-    if (first && firstTrain) editOpen({ date: defaultDateForProfile(new Date(), next), siteId: first.id, trainId: firstTrain.id });
+    let moved = '';
+    if (first && firstTrain) {
+      const evening = defaultDateForProfile(new Date(), next);
+      if (editOpen({ date: evening, siteId: first.id, trainId: firstTrain.id })) {
+        moved = ` The open plan${open ? ` "${open.name}"` : ''} moved to ${first.name}, ${firstTrain.name}, ${nightDateText(evening)}.${(plans?.plans.length ?? 1) > 1 ? ' Other plans whose site or train is not in this profile use its first.' : ''}`;
+      }
+    }
     loadForm(next.sites[0]?.blockedArcs ?? [], true);
     setType('all');
     try {
       window.localStorage.removeItem(SELECTION_KEY); // the old ids belong to the old profile
       saveProfile(window.localStorage, next);
-      setNotice(`Imported ${file.name}.`);
+      setNotice(`Imported ${file.name}.${moved}`);
     } catch (e) {
-      setNotice(`Imported ${file.name}. Not saved, so it is lost on reload: ${(e as Error).message}`);
+      setNotice(`Imported ${file.name}.${moved} Not saved, so it is lost on reload: ${(e as Error).message}`);
     }
   };
 
@@ -1138,8 +1248,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       className="space-y-8 text-white print:hidden [&_h2]:scroll-mt-[calc(var(--planner-top,0px)+1rem)] [&_section[id]]:scroll-mt-[calc(var(--planner-top,0px)+1rem)]"
       style={{ '--planner-nav': `${stickyTop.nav}px`, '--planner-top': `${stickyTop.nav + stickyTop.strip}px` } as React.CSSProperties}
     >
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <h1 className="text-3xl md:text-4xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
+      <header className="flex items-center justify-between gap-x-4">
+        <h1 className="shrink-0 text-xl font-light tracking-[0.15em] text-white sm:text-3xl sm:tracking-[0.2em] md:text-4xl">IMAGING PLANNER</h1>
         <AuthControl state={auth} />
       </header>
 
@@ -1303,6 +1413,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </div>
       </section>
       <div id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" hidden={tab !== 'plan'} className="space-y-8">
+      {heldPlans !== null && (
+        <div role="group" aria-labelledby="held-plans-title" data-testid="plans-held" className="rounded-lg border border-orange-300/50 bg-black/80 p-4">
+          <p id="held-plans-title" className="text-sm font-normal text-white">Your saved plans were made by a newer version of the planner.</p>
+          <p className="mt-1 text-sm font-normal text-white/90">They are left untouched. What you do here is not saved until you replace them; a copy of them is kept first.</p>
+          <button type="button" className={`${btn} mt-3 min-h-11`} onClick={replaceHeldPlans}>Replace the saved plans</button>
+        </div>
+      )}
       <PlansBar
         plans={plans?.plans.map((p) => ({ id: p.id, name: p.name, targets: p.targets.length })) ?? []}
         openId={plans?.openId ?? ''}
@@ -1313,7 +1430,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         onDelete={deleteOpenPlan}
       />
 
-      <OpenPlan name={open?.name ?? ''} rows={planRows} onRemove={removeFromPlan} trainNote={trainNote} onChangeTrain={goToTrain}>
+      <OpenPlan
+        name={open?.name ?? ''}
+        rows={planRows}
+        onRemove={removeFromPlan}
+        trainNote={trainNote}
+        onChangeTrain={goToTrain}
+        pastDate={open !== null && tonightDate !== '' && open.date < tonightDate ? nightDateText(open.date) : null}
+        onMoveToTonight={moveToTonight}
+      >
         <Collapsible id="night-and-horizon" title="Night and horizon">
           <div className="space-y-1">
             <p className="text-white/80 font-normal text-sm" data-testid="night-summary">
@@ -1540,7 +1665,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <ResetAll onConfirm={resetAll} />
         </div>
         <p className="text-white/60 font-normal text-xs mt-3">
-          Your profile, plans and captured list stay in this browser; export your profile to keep a copy. Imports are checked field by field; a rejected file changes nothing and the error names the field.
+          Your profile, plans and captured list stay in this browser. Export your profile to keep a copy of the profile; plans are not part of that export. Imports are checked field by field; a rejected file changes nothing and the error names the field.
         </p>
       </section>
       </div>

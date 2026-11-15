@@ -1,13 +1,18 @@
-import { ITINERARY_KEY } from '../itinerary';
-import { MY_PLAN_KEY } from './index';
+import { ITINERARY_KEY, serializeItinerary } from '../itinerary';
+import type { ItineraryItem } from '../itinerary';
+import { MY_PLAN_KEY, saveMyPlan } from './index';
 import {
+  EXPOSURE_NOTICE_KEY,
   MAX_PLANS,
   MAX_PLAN_TARGETS,
+  PLANS_BACKUP_KEY,
   PLANS_KEY,
   PlansError,
+  adoptStored,
   clearOldPlanKeys,
   deletePlan,
   duplicatePlan,
+  keepCopy,
   loadPlans,
   migrateOldPlan,
   newPlan,
@@ -149,17 +154,18 @@ describe('plans: limits', () => {
 });
 
 describe('plans: stored copy', () => {
+  const TODAY = '2026-11-14';
   it('round-trips through storage, with the open plan id', () => {
     let s = newPlan(startPlans(ctx), ctx);
     s = updatePlan(s, s.openId, { targets: [target('m31'), { id: 'm42', preset: 'custom', custom: { subSeconds: 120, totalMin: 90 }, start: '22:00', end: '23:30', note: 'wide' }], notes: 'bring the heater' }, NOW);
     const m = memory();
     savePlans(m, s);
     expect(JSON.parse(m.data.get(PLANS_KEY) as string).version).toBe(1);
-    expect(loadPlans(m)).toEqual(s);
+    expect(loadPlans(m, TODAY)).toEqual({ state: s, notices: [], unusable: null });
   });
 
   it('is null when nothing is stored', () => {
-    expect(loadPlans(memory())).toBeNull();
+    expect(loadPlans(memory(), TODAY)).toEqual({ state: null, notices: [], unusable: null });
   });
 
   it('falls back to the first plan when the open id is gone', () => {
@@ -168,118 +174,230 @@ describe('plans: stored copy', () => {
     expect(loaded.openId).toBe(s.plans[0].id);
   });
 
-  const good = JSON.stringify(startPlans(ctx));
-  const bad = (patch: (p: Record<string, unknown>) => void) => {
-    const o = JSON.parse(good);
-    patch(o.plans[0]);
-    return JSON.stringify(o);
+  const five = (patch: (plans: Record<string, unknown>[]) => void) => {
+    const plans = [1, 2, 3, 4, 5].map((n) => ({ ...planWith(n, ['m31', 'm42']) })) as unknown as Record<string, unknown>[];
+    patch(plans);
+    return JSON.stringify({ version: 1, openId: 'plan-3', plans });
   };
+
   it.each([
     ['not json', '{nope'],
     ['an array', '[]'],
     ['null', 'null'],
-    ['a wrong version', JSON.stringify({ ...JSON.parse(good), version: 2 })],
-    ['no plans', JSON.stringify({ ...JSON.parse(good), plans: [] })],
-    ['plans that are not a list', JSON.stringify({ ...JSON.parse(good), plans: {} })],
-    ['too many plans', JSON.stringify({ ...JSON.parse(good), plans: Array.from({ length: MAX_PLANS + 1 }, (_, i) => ({ ...JSON.parse(good).plans[0], id: `p${i}` })) })],
-    ['a repeated plan id', JSON.stringify({ ...JSON.parse(good), plans: [JSON.parse(good).plans[0], JSON.parse(good).plans[0]] })],
-    ['an empty name', bad((p) => { p.name = ''; })],
-    ['a bad date', bad((p) => { p.date = '14/11/2026'; })],
-    ['a bad start time', bad((p) => { p.startTime = '9pm'; })],
-    ['an unknown preset', bad((p) => { p.targets = [{ id: 'm31', preset: 'huge' }]; })],
-    ['too many targets', bad((p) => { p.targets = Array.from({ length: MAX_PLAN_TARGETS + 1 }, (_, i) => ({ id: `t${i}`, preset: 'deep' })); })],
-    ['a custom value that is not a positive number', bad((p) => { p.targets = [{ id: 'm31', preset: 'custom', custom: { subSeconds: -5 } }]; })],
-    ['a target time that is not a time', bad((p) => { p.targets = [{ id: 'm31', preset: 'deep', start: '25:99' }]; })],
-    ['notes that are not text', bad((p) => { p.notes = 4; })],
-  ])('says damaged storage is damaged and removes it: %s', (_what, text) => {
+    ['no plans', JSON.stringify({ version: 1, openId: 'x', plans: [] })],
+    ['plans that are not a list', JSON.stringify({ version: 1, openId: 'x', plans: {} })],
+    ['a version that is not a number', JSON.stringify({ version: 'one', openId: 'x', plans: [planWith(1)] })],
+    ['the only plan with an empty name', JSON.stringify({ version: 1, openId: 'plan-1', plans: [{ ...planWith(1), name: '' }] })],
+  ])('damaged storage (%s) starts over in memory and is never removed', (_what, text) => {
     const m = memory({ [PLANS_KEY]: text });
-    expect(() => loadPlans(m)).toThrow(/Your saved plans are damaged/);
-    expect(m.data.has(PLANS_KEY)).toBe(false);
+    const r = loadPlans(m, TODAY);
+    expect(r.state).toBeNull();
+    expect(r.notices.join(' ')).toMatch(/could not be read, so they start over/);
+    expect(r.unusable).toEqual({ kind: 'damaged', text });
+    expect(m.data.get(PLANS_KEY)).toBe(text);
   });
 
-  it('says so when damaged storage cannot be removed, and when it cannot be read', () => {
-    expect(() => loadPlans({ getItem: () => 'x', removeItem: () => { throw new Error('denied'); } })).toThrow(/damaged and could not be cleared.*denied/);
-    expect(() => loadPlans({ getItem: () => { throw new Error('denied'); }, removeItem: () => {} })).toThrow(/could not be read.*denied/);
+  it('a version above 1 is "made by a newer version", is never removed, and is not called damaged', () => {
+    const v2 = JSON.stringify({ ...JSON.parse(JSON.stringify(startPlans(ctx))), version: 2 });
+    const m = memory({ [PLANS_KEY]: v2 });
+    const r = loadPlans(m, TODAY);
+    expect(r.state).toBeNull();
+    expect(r.unusable).toEqual({ kind: 'newer', text: v2 });
+    expect(r.notices.join(' ')).toMatch(/made by a newer version of the planner/);
+    expect(r.notices.join(' ')).not.toMatch(/damaged/);
+    expect(m.data.get(PLANS_KEY)).toBe(v2);
+  });
+
+  it('one plan with an unknown preset among five: all five load, the preset is Balanced, and it is said', () => {
+    const text = five((p) => { p[2].targets = [{ id: 'm31', preset: 'huge', custom: { subSeconds: 60 } }, { id: 'm42', preset: 'deep' }]; });
+    const m = memory({ [PLANS_KEY]: text });
+    const r = loadPlans(m, TODAY);
+    expect(r.state!.plans.map((p) => p.id)).toEqual(['plan-1', 'plan-2', 'plan-3', 'plan-4', 'plan-5']);
+    expect(r.state!.plans[2].targets).toEqual([{ id: 'm31', preset: 'balanced' }, { id: 'm42', preset: 'deep' }]);
+    expect(r.state!.openId).toBe('plan-3');
+    expect(r.notices).toEqual(['In the plan "Plan 3", 1 target had a preset this version does not know, so it is set to Balanced.']);
+    expect(r.unusable).toEqual({ kind: 'repaired', text });
+    expect(m.data.get(PLANS_KEY)).toBe(text);
+  });
+
+  it('a plan with a bad date is set to today, alone, and said', () => {
+    const r = loadPlans(memory({ [PLANS_KEY]: five((p) => { p[0].date = '14/11/2026'; }) }), TODAY);
+    expect(r.state!.plans).toHaveLength(5);
+    expect(r.state!.plans[0].date).toBe(TODAY);
+    expect(r.notices).toEqual([`The plan "Plan 1" had no usable date, so it is set to ${TODAY}.`]);
+  });
+
+  it('a plan that cannot be repaired is left out alone, by name, and the other four load', () => {
+    const r = loadPlans(memory({ [PLANS_KEY]: five((p) => { p[3].startTime = '9pm'; }) }), TODAY);
+    expect(r.state!.plans.map((p) => p.id)).toEqual(['plan-1', 'plan-2', 'plan-3', 'plan-5']);
+    expect(r.notices).toHaveLength(1);
+    expect(r.notices[0]).toMatch(/^The plan "Plan 4" could not be read and is left out \(\$\.plans\[3\]\.startTime/);
+    expect(r.unusable!.kind).toBe('repaired');
+  });
+
+  it('a repeated plan id and more than 50 plans are left out, said, and the rest load', () => {
+    const dup = loadPlans(memory({ [PLANS_KEY]: five((p) => { p[1].id = 'plan-1'; }) }), TODAY);
+    expect(dup.state!.plans).toHaveLength(4);
+    expect(dup.notices[0]).toMatch(/repeated the id of another plan and is left out/);
+    const many = JSON.stringify({ version: 1, openId: 'p0', plans: Array.from({ length: MAX_PLANS + 2 }, (_, i) => ({ ...planWith(1), id: `p${i}`, name: `P${i}` })) });
+    const over = loadPlans(memory({ [PLANS_KEY]: many }), TODAY);
+    expect(over.state!.plans).toHaveLength(MAX_PLANS);
+    expect(over.notices).toEqual([`Plans hold at most ${MAX_PLANS} plans, so 2 more in the saved copy are left out.`]);
+  });
+
+  it('says so when storage cannot be read', () => {
+    expect(() => loadPlans({ getItem: () => { throw new Error('denied'); } }, TODAY)).toThrow(/could not be read.*denied/);
+  });
+
+  it('keepCopy writes the text to the one backup key, and the latest copy replaces an earlier one', () => {
+    const m = memory();
+    keepCopy(m, 'first');
+    keepCopy(m, 'second');
+    expect(m.data.get(PLANS_BACKUP_KEY)).toBe('second');
+    expect(PLANS_BACKUP_KEY).toBe('fpo-planner-plans-v1.bak');
+  });
+
+  it('adoptStored takes the plans another tab saved and keeps this tab\'s open plan when it is still there', () => {
+    const mine = { ...newPlan(startPlans(ctx), ctx), openId: 'plan-1' };
+    const other = newPlan(newPlan(startPlans(ctx), ctx), ctx); // plan-1..3, opened plan-3
+    const adopted = adoptStored(mine, JSON.stringify(other))!;
+    expect(adopted.plans.map((p) => p.id)).toEqual(['plan-1', 'plan-2', 'plan-3']);
+    expect(adopted.openId).toBe('plan-1');
+    expect(adoptStored({ ...mine, openId: 'plan-9' }, JSON.stringify(other))!.openId).toBe('plan-3');
+    expect(adoptStored(mine, '{nope')).toBeNull();
+    expect(adoptStored(mine, JSON.stringify({ ...other, version: 2 }))).toBeNull();
   });
 
   it('validatePlans names the first problem with its path', () => {
     expect(() => validatePlans({ version: 1, openId: 'a', plans: [{ ...planWith(1), date: 'x' }] })).toThrow(PlansError);
     expect(() => validatePlans({ version: 1, openId: 'a', plans: [{ ...planWith(1), date: 'x' }] })).toThrow(/\$\.plans\[0\]\.date/);
+    expect(() => validatePlans({ version: 2, openId: 'a', plans: [planWith(1)] })).toThrow(/\$\.version/);
+    expect(() => savePlans(memory(), { version: 1, openId: 'a', plans: [{ ...planWith(1), targets: [{ id: 'm31', preset: 'huge' as never }] }] })).toThrow(/preset/);
   });
 });
 
-describe('plans: migration from the old My plan and itinerary', () => {
-  const oldMyPlan = '{"version":1,"ids":["ngc7000","m31","planet-jupiter"]}';
-  const itineraryV2 = JSON.stringify({
-    version: 2,
-    startTime: '21:30',
-    items: [
-      { id: 's1', targetId: 'm31', trainId: 't1', filterId: null, mode: 'deep', note: 'long one' },
-      { id: 's2', targetId: 'm42', trainId: 't1', filterId: 'f1', mode: 'quick', note: '' },
-      { id: 's3', targetId: 'm31', trainId: 't1', filterId: null, mode: 'quick', note: 'again' },
-    ],
-  });
+/** The old page's own writers: `saveMyPlan` and `serializeItinerary`, as main wrote them. */
+const slot = (n: number, targetId: string, mode: ItineraryItem['mode'], note = ''): ItineraryItem => ({ id: `s${n}`, targetId, trainId: 't1', filterId: null, mode, note });
+const oldBrowser = (myPlan: string[] | null, items: ItineraryItem[] | null, startTime: string | null = null) => {
+  const m = memory();
+  if (myPlan !== null) saveMyPlan(m, myPlan);
+  if (items !== null) m.setItem(ITINERARY_KEY, serializeItinerary(items, startTime));
+  return m;
+};
+const ids = (plan: Plan | null) => plan!.targets.map((t) => t.id);
 
+describe('plans: migration from the old My plan and itinerary', () => {
   it('is nothing when neither old key is stored', () => {
-    expect(migrateOldPlan(memory(), ctx)).toEqual({ plan: null, problems: [] });
+    expect(migrateOldPlan(memory(), ctx)).toEqual({ plan: null, problems: [], clear: [] });
   });
 
   it('turns the My plan list into one plan named My plan, targets in order, balanced', () => {
-    const { plan, problems } = migrateOldPlan(memory({ [MY_PLAN_KEY]: oldMyPlan }), ctx);
+    const { plan, problems, clear } = migrateOldPlan(oldBrowser(['ngc7000', 'm31', 'planet-jupiter'], null), ctx);
     expect(problems).toEqual([]);
+    expect(clear).toEqual([MY_PLAN_KEY]);
     expect(plan).toMatchObject({ name: 'My plan', date: '2026-11-14', siteId: 'home', trainId: 't1', startTime: null });
     expect(plan!.targets).toEqual([target('ngc7000'), target('m31'), target('planet-jupiter')]);
   });
 
-  it('carries the itinerary onto the same targets: modes become presets, notes stay, the start time stays, itinerary-only targets follow, repeats are dropped', () => {
-    const { plan, problems } = migrateOldPlan(memory({ [MY_PLAN_KEY]: oldMyPlan, [ITINERARY_KEY]: itineraryV2 }), ctx);
+  it('case A: the itinerary\'s slots come first in slot order, then the rest of My plan; presets, notes and start time stay', () => {
+    const m = oldBrowser(['m31', 'ngc7000', 'm42', 'm13'], [slot(1, 'm42', 'deep', 'first'), slot(2, 'm31', 'quick')], '21:30');
+    const { plan, problems, clear } = migrateOldPlan(m, ctx);
     expect(problems).toEqual([]);
+    expect(clear).toEqual([MY_PLAN_KEY, ITINERARY_KEY]);
     expect(plan!.startTime).toBe('21:30');
     expect(plan!.targets).toEqual([
+      { id: 'm42', preset: 'deep', note: 'first' },
+      { id: 'm31', preset: 'quick' },
       { id: 'ngc7000', preset: 'balanced' },
-      { id: 'm31', preset: 'deep', note: 'long one' },
-      { id: 'planet-jupiter', preset: 'balanced' },
-      { id: 'm42', preset: 'quick' },
+      { id: 'm13', preset: 'balanced' },
     ]);
   });
 
+  it('case B: My plan longer than 8 and itinerary-only targets: the first 8 of the plan are the old timeline', () => {
+    const mine = Array.from({ length: 10 }, (_, i) => `a${i}`);
+    const { plan } = migrateOldPlan(oldBrowser(mine, [slot(1, 'm42', 'deep'), slot(2, 'm45', 'quick')]), ctx);
+    expect(ids(plan).slice(0, 2)).toEqual(['m42', 'm45']);
+    expect(ids(plan)).toEqual(['m42', 'm45', ...mine]);
+  });
+
+  it('case C: two slots for one target merge: first mode, notes joined, and a plain line says so', () => {
+    const { plan, problems } = migrateOldPlan(oldBrowser(null, [slot(1, 'm42', 'deep', 'Ha pass'), slot(2, 'm13', 'balanced'), slot(3, 'm42', 'quick', 'OIII pass')]), ctx);
+    expect(plan!.targets).toEqual([{ id: 'm42', preset: 'deep', note: 'Ha pass / OIII pass' }, target('m13')]);
+    expect(problems).toEqual(["A repeated slot in your night timeline was merged into one (m42): the first slot's preset is kept and the notes are joined."]);
+  });
+
+  it('joined notes are cut at the 200-character note limit', () => {
+    const { plan } = migrateOldPlan(oldBrowser(null, [slot(1, 'm42', 'deep', 'a'.repeat(150)), slot(2, 'm42', 'deep', 'b'.repeat(150))]), ctx);
+    expect(plan!.targets[0].note).toHaveLength(200);
+    expect(() => validatePlans(startPlans(ctx, plan))).not.toThrow();
+  });
+
   it('reads an itinerary of the first version (no start time) and an itinerary with no My plan', () => {
-    const v1 = JSON.stringify({ version: 1, items: [{ id: 's1', targetId: 'm13', trainId: 't1', filterId: null, mode: 'balanced', note: '' }] });
-    const { plan } = migrateOldPlan(memory({ [ITINERARY_KEY]: v1 }), ctx);
+    const m = memory({ [ITINERARY_KEY]: JSON.stringify({ version: 1, items: [slot(1, 'm13', 'balanced')] }) });
+    const { plan } = migrateOldPlan(m, ctx);
     expect(plan!.startTime).toBeNull();
     expect(plan!.targets).toEqual([target('m13')]);
   });
 
-  it('migrates nothing for an empty old plan and an empty itinerary', () => {
-    expect(migrateOldPlan(memory({ [MY_PLAN_KEY]: '{"version":1,"ids":[]}', [ITINERARY_KEY]: '{"version":2,"items":[],"startTime":null}' }), ctx).plan).toBeNull();
+  it('migrates nothing for an empty old plan and an empty itinerary; both keys are still cleared', () => {
+    const r = migrateOldPlan(oldBrowser([], []), ctx);
+    expect(r.plan).toBeNull();
+    expect(r.clear).toEqual([MY_PLAN_KEY, ITINERARY_KEY]);
   });
 
-  it('keeps what is readable and says what was not, when one old key is damaged', () => {
-    const a = migrateOldPlan(memory({ [MY_PLAN_KEY]: '{nope', [ITINERARY_KEY]: itineraryV2 }), ctx);
+  it('keeps what is readable and says what was not, when one old key is damaged; the damaged key is cleared', () => {
+    const itin = serializeItinerary([slot(1, 'm31', 'deep'), slot(2, 'm42', 'quick')], null);
+    const a = migrateOldPlan(memory({ [MY_PLAN_KEY]: '{nope', [ITINERARY_KEY]: itin }), ctx);
     expect(a.problems).toEqual([expect.stringMatching(/saved plan is damaged/)]);
-    expect(a.plan!.targets.map((t) => t.id)).toEqual(['m31', 'm42']);
-    const b = migrateOldPlan(memory({ [MY_PLAN_KEY]: oldMyPlan, [ITINERARY_KEY]: '{"version":9}' }), ctx);
+    expect(ids(a.plan)).toEqual(['m31', 'm42']);
+    expect(a.clear).toEqual([MY_PLAN_KEY, ITINERARY_KEY]);
+    const b = migrateOldPlan(memory({ [MY_PLAN_KEY]: JSON.stringify({ version: 1, ids: ['ngc7000', 'm31'] }), [ITINERARY_KEY]: '{"version":9}' }), ctx);
     expect(b.problems).toEqual(['Your saved night timeline could not be read, so it was not carried over.']);
-    expect(b.plan!.targets.map((t) => t.id)).toEqual(['ngc7000', 'm31', 'planet-jupiter']);
+    expect(ids(b.plan)).toEqual(['ngc7000', 'm31']);
+    expect(b.clear).toEqual([MY_PLAN_KEY, ITINERARY_KEY]);
   });
 
-  it('keeps at most 50 targets', () => {
-    const many = JSON.stringify({ version: 1, ids: Array.from({ length: 50 }, (_, i) => `a${i}`) });
-    const itin = JSON.stringify({ version: 1, items: [{ id: 's1', targetId: 'extra', trainId: 't1', filterId: null, mode: 'deep', note: '' }] });
-    const { plan } = migrateOldPlan(memory({ [MY_PLAN_KEY]: many, [ITINERARY_KEY]: itin }), ctx);
+  it('case J: a My plan key the browser cannot read is not cleared; the itinerary still migrates', () => {
+    const m = oldBrowser(['m31'], [slot(1, 'm42', 'deep')]);
+    const get = m.getItem;
+    const r = migrateOldPlan({ getItem: (k) => { if (k === MY_PLAN_KEY) throw new Error('denied'); return get(k); }, removeItem: m.removeItem }, ctx);
+    expect(ids(r.plan)).toEqual(['m42']);
+    expect(r.problems).toEqual([expect.stringMatching(/could not be read.*denied/)]);
+    expect(r.clear).toEqual([ITINERARY_KEY]);
+  });
+
+  it('case K: an itinerary key the browser cannot read is not cleared; My plan still migrates', () => {
+    const m = oldBrowser(['m31'], [slot(1, 'm42', 'deep')]);
+    const get = m.getItem;
+    const r = migrateOldPlan({ getItem: (k) => { if (k === ITINERARY_KEY) throw new Error('denied'); return get(k); }, removeItem: m.removeItem }, ctx);
+    expect(ids(r.plan)).toEqual(['m31']);
+    expect(r.problems).toEqual([expect.stringMatching(/night timeline could not be read.*denied/)]);
+    expect(r.clear).toEqual([MY_PLAN_KEY]);
+  });
+
+  it('case O: past 50 targets, the end of My plan is cut, and the cut ones are named', () => {
+    const many = Array.from({ length: 50 }, (_, i) => `a${i}`);
+    const { plan, problems } = migrateOldPlan(oldBrowser(many, [slot(1, 'extra', 'deep')]), ctx);
     expect(plan!.targets).toHaveLength(MAX_PLAN_TARGETS);
+    expect(ids(plan)[0]).toBe('extra');
+    expect(ids(plan)).not.toContain('a49');
+    expect(problems).toEqual(['A plan holds at most 50 targets, so 1 was left out: a49.']);
   });
 
-  it('leaves the old keys alone when reading, and clearOldPlanKeys removes both', () => {
-    const m = memory({ [MY_PLAN_KEY]: oldMyPlan, [ITINERARY_KEY]: itineraryV2 });
-    migrateOldPlan(m, ctx);
+  it('leaves the old keys alone when reading; clearOldPlanKeys removes the ones named and the orphan exposure notice', () => {
+    const m = oldBrowser(['m31'], [slot(1, 'm42', 'deep')]);
+    m.setItem(EXPOSURE_NOTICE_KEY, '1');
+    const { clear } = migrateOldPlan(m, ctx);
     expect(m.data.has(MY_PLAN_KEY) && m.data.has(ITINERARY_KEY)).toBe(true);
-    clearOldPlanKeys(m);
-    expect(m.data.has(MY_PLAN_KEY) || m.data.has(ITINERARY_KEY)).toBe(false);
+    clearOldPlanKeys(m, clear);
+    expect([MY_PLAN_KEY, ITINERARY_KEY, EXPOSURE_NOTICE_KEY].some((k) => m.data.has(k))).toBe(false);
+    const n = oldBrowser(['m31'], null);
+    clearOldPlanKeys(n, [ITINERARY_KEY]);
+    expect(n.data.has(MY_PLAN_KEY)).toBe(true); // not named: kept
   });
 
   it('startPlans with a migrated plan opens it', () => {
-    const { plan } = migrateOldPlan(memory({ [MY_PLAN_KEY]: oldMyPlan }), ctx);
+    const { plan } = migrateOldPlan(oldBrowser(['m31'], null), ctx);
     const s: PlansState = startPlans(ctx, plan);
     expect(s.plans).toEqual([plan]);
     expect(s.openId).toBe(plan!.id);

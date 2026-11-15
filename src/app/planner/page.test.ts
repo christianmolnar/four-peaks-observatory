@@ -22,9 +22,8 @@ describe('planner page credits', () => {
 });
 
 describe('planner page sign-in', () => {
+  // That the control is in the planner's header row is a rendered check: PlannerApp.plans.test.tsx "has sign-in in the header row".
   it('keeps no sign-in in the page footer: the control is in the planner header', () => {
-    const page = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
-    expect(page).not.toContain('AuthControl');
-    expect(readFileSync(join(__dirname, 'PlannerApp.tsx'), 'utf8')).toMatch(/<header[\s\S]*<AuthControl state=\{auth\} \/>[\s\S]*<\/header>/);
+    expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).not.toContain('AuthControl');
   });
 });

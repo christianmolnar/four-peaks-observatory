@@ -107,7 +107,7 @@ describe('storage that cannot be read or written', () => {
     });
     const u = userEvent.setup();
     await u.upload(screen.getByLabelText('Import profile (JSON)'), jsonFile(sydney()));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported profile\.json\. Not saved, so it is lost on reload: denied/));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported profile\.json\..* Not saved, so it is lost on reload: denied/));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByLabelText('Site').textContent).toContain('Sydney');
   });

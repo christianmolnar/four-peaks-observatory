@@ -11,7 +11,8 @@ export interface PlansBarProps {
   onNew: () => void;
   onRename: (name: string) => void;
   onDuplicate: () => void;
-  onDelete: () => void;
+  /** Returns whether the plan was deleted. */
+  onDelete: () => boolean;
 }
 
 const btn =
@@ -20,7 +21,7 @@ const btn =
 /**
  * My plans: the saved plans, one open at a time. The switcher opens another; New, Rename, Duplicate and Delete act on the open one
  * (New starts empty). Rename and the delete confirmation are in the page, not a browser dialog: Rename takes focus to its box,
- * Delete to Cancel, the safe choice, and both put focus back on their button when they close.
+ * Delete to Cancel, the safe choice, and both put focus back on their button when they close; after a delete, focus goes to the switcher.
  */
 export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDuplicate, onDelete }: PlansBarProps) {
   const open = plans.find((p) => p.id === openId) ?? plans[0];
@@ -39,6 +40,13 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
   }, [mode]);
   // Opening another plan closes whatever was asked of the one before.
   useEffect(() => setMode(null), [openId]);
+  // After a delete the pressed button is gone: focus goes to the switcher, which shows the plan that took its place.
+  const focusSwitch = useRef(false);
+  useEffect(() => {
+    if (!focusSwitch.current) return;
+    focusSwitch.current = false;
+    document.getElementById('plan-switch')?.focus();
+  });
   if (!open) return null;
 
   const close = (back: HTMLButtonElement | null) => {
@@ -121,7 +129,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
               className={btn}
               onClick={() => {
                 setMode(null);
-                onDelete();
+                focusSwitch.current = onDelete();
               }}
             >
               Yes, delete {open.name}
