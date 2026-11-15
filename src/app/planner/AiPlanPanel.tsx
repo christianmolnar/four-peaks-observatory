@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import type { AstronomicalNight } from '@/planner/astro';
-import { bodyAltAz, moonIllumination, moonSeparation, nextMeridianTransit } from '@/planner/astro';
-import { DEFAULT_BORTLE, exposureFor } from '@/planner/exposure';
 import { MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import { slotInputFor } from '@/planner/itinerary/resolve';
@@ -17,10 +15,8 @@ import {
   NETWORK_PROBLEM,
   TIMEOUT_PROBLEM,
   UNREADABLE_PROBLEM,
-  aiSlotMinutes,
   clockOfIso,
   itineraryFromAiPlan,
-  modeForMinutes,
   minutesBetween,
   plainText,
   problemFor,
@@ -88,6 +84,8 @@ function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
 
 const CHECKED_TEXT =
   'Checked by code against the sky facts: every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, none crosses the meridian, and every target is either in the plan or left out. The AI decided the order, the times, how long each target gets and the reasons you read here; the code decides none of that, it only checks.';
+
+const FRAMES_NOTE = 'Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.';
 
 export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profile, train, siteName, nightWord, night, catalogTargets, formatTime, owner, fetchPlan, onApply }: AiPlanPanelProps) {
   const [run, setRun] = useState<Run>('idle');
@@ -318,30 +316,6 @@ function Result({
   const say = (m: string) => plainText(m, names);
   const exposureOf = (id: string) => result.plan.exposures.find((e) => e.id === id);
   const inputs = useMemo(() => items.map((it) => slotInputFor(it, profile, catalogTargets)), [items, profile, catalogTargets]);
-  const bortle = base?.bortle ?? DEFAULT_BORTLE;
-  // The sub length and count for a slot come from the exposure engine, not from the model: the preset the itinerary will use
-  // for the slot's minutes (`modeForMinutes`), with the Moon at the slot's start, so the card and the applied itinerary agree.
-  const engineFor = (i: number, s: { start: string; end: string; exposureMinutes?: number }) => {
-    const input = inputs[i];
-    if (!input || base === null || input.problem !== undefined || input.optics === null || input.camera === null || input.source.kind !== 'fixed') return null;
-    const start = new Date(s.start);
-    const out = exposureFor(
-      input.exposureTarget,
-      { train: input.optics, camera: input.camera, filter: input.filter },
-      { bortle },
-      {
-        moonIllumination: moonIllumination(start),
-        moonSeparationDeg: moonSeparation(input.source.raHours, input.source.decDeg, start, base.site),
-        moonUp: bodyAltAz('Moon', start, base.site).altitude > 0,
-        usableMinutes: Math.max(minutesBetween(s.start, s.end), 1),
-        acquisitionStart: start,
-        transitTime: nextMeridianTransit(input.source.raHours, input.source.decDeg, start, base.site),
-      },
-      { preset: modeForMinutes(aiSlotMinutes(s)) },
-    );
-    return out.ok ? out : null;
-  };
-  const bortleText = base?.bortle === undefined ? `Bortle ${DEFAULT_BORTLE} assumed` : `Bortle ${base.bortle}`;
   const timeline = useMemo(
     () => (base !== null && night !== null ? timelinePlanOf({ items, inputs, result, site: base.site, horizon: base.horizon, minAltitude: base.minAltitude, night }) : null),
     [items, inputs, result, base, night],
@@ -383,7 +357,6 @@ function Result({
           <ol className="space-y-2" aria-label="AI plan, in time order">
             {slots.map((s, i) => {
               const exp = exposureOf(s.id);
-              const calc = engineFor(i, s);
               const isLast = i === slots.length - 1 && last !== null && last.id === s.id;
               return (
                 <li key={`${s.id}-${s.start}`} className="rounded border border-white/15 p-3 text-sm font-normal text-white/90" data-testid={`ai-slot-${i}`}>
@@ -394,14 +367,9 @@ function Result({
                     {exp ? `The AI wants about ${Math.round(exp.minutes)} min of light for this target.` : 'No exposure was given for this target.'}
                     {s.exposureMinutes !== undefined ? ` It plans ${Math.round(s.exposureMinutes)} min of light in this slot.` : ''}
                   </p>
-                  {calc !== null && (
-                    <p className="text-white/80" data-testid={`ai-slot-calc-${i}`}>
-                      For {Math.round(aiSlotMinutes(s))} min of light the itinerary uses {calc.modeLabel}: {calc.subCount} subs of {calc.subSeconds} s, {calc.integrationMin} min (calculated, {bortleText}).
-                    </p>
-                  )}
                   {isLast && last !== null && (
                     <p className="mt-1">
-                      <span className="text-white/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'}{calc !== null ? ` (${calc.subCount} frames of ${calc.subSeconds} s)` : ''}: </span>
+                      <span className="text-white/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'}: </span>
                       {last.reason}
                     </p>
                   )}
@@ -410,6 +378,9 @@ function Result({
             })}
           </ol>
         )}
+        <p className="mt-2 text-white/70 font-normal text-sm" data-testid="ai-frames-note">
+          {FRAMES_NOTE}
+        </p>
         {result.plan.notes && (
           <p className="mt-2 text-white/90 font-normal text-sm" data-testid="ai-notes">
             <span className="text-white/70">The AI&apos;s notes: </span>

@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import type { CatalogObject } from '@/planner/catalog/openngc';
 import { planNightWithAi } from '@/planner/ai/plan';
+import { modeForMinutes } from '@/planner/ai/view';
 import type { AiPlanResult } from '@/planner/ai/plan';
 import { parseBody } from '@/planner/ai/request';
 import type { AiPlanInput } from '@/planner/ai/facts';
@@ -223,9 +224,7 @@ describe('the result', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatch(/^1\. Andromeda Galaxy \d\d:\d\d to \d\d:\d\d \(60 min\)/);
     expect(rows[0]).toMatch(/The AI wants about 60 min of light for this target\./);
-    expect(rows[0]).not.toMatch(/120 s subs/); // the model's sub length is not shown; the estimate's is
-    expect(rows[0]).toMatch(/For 60 min of light the itinerary uses (Quick & Beautiful|Balanced|Deep Project): \d+ subs of \d+ s, [\d.]+ min \(calculated, Bortle \d( assumed)?\)\./);
-    expect(rows[1]).toMatch(/Last slot, worth shooting \(\d+ frames of \d+ s\): Enough frames to stack\./);
+    expect(rows[1]).toMatch(/Last slot, worth shooting: Enough frames to stack\./);
     expect(screen.getByTestId('ai-notes').textContent).toMatch(/the nebula goes first/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/Checked by code against the sky facts/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/The AI decided the order, the times, how long each target gets and the reasons/);
@@ -236,32 +235,31 @@ describe('the result', () => {
     expect(within(result()).getByText('Left out (0)')).toBeTruthy();
   });
 
-  it('shows one frame count per slot: no frame count on the card differs from the calculated one', async () => {
+  it('shows no frame count, sub length or preset total on the card, and says where they come from', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
     await ready();
     await planned();
-    const rows = slotsText();
-    for (const [i, row] of rows.entries()) {
-      const calc = within(result()).queryByTestId(`ai-slot-calc-${i}`)?.textContent?.match(/: (\d+) subs of (\d+) s/);
-      expect(calc).not.toBeNull();
-      const counts = [...row.matchAll(/\b(\d+) (?:frames|subs)\b/g)].map((m) => m[1]);
-      expect(counts.length).toBeGreaterThan(0);
-      for (const c of counts) expect(c).toBe(calc![1]); // the model's own count (its own sub length) is not on the card
-    }
-    expect(rows[1]).not.toMatch(/\(\d+ frames\)/);
+    const text = result().textContent ?? '';
+    expect(text).not.toMatch(/subs of/);
+    expect(text).not.toMatch(/\b\d+ (frames|subs)\b/);
+    expect(text).not.toMatch(/\d+ s\b/);
+    expect(text).not.toMatch(/the itinerary uses/);
+    expect(within(result()).queryByTestId('ai-slot-calc-0')).toBeNull();
+    expect(within(result()).getByTestId('ai-frames-note').textContent).toBe('Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.');
   });
 
-  it('the card and the itinerary it becomes agree on sub length and count for the first slot', async () => {
+  it('after apply the itinerary slots hold the plan\'s order and minutes', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
     await ready();
     const user = await planned();
-    const calc = within(result()).getByTestId('ai-slot-calc-0').textContent ?? '';
-    const [, subs, secs] = calc.match(/: (\d+) subs of (\d+) s/) as RegExpMatchArray;
+    const planMinutes = slotsText().map((t) => Number(t.match(/\((\d+) min\)/)![1]));
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
-    expect(itinerarySlots()[0].textContent).toContain(`${secs} s x ${subs} subs`);
+    expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
+    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string);
+    expect(saved.items.map((i: { mode: string }) => i.mode)).toEqual(planMinutes.map((m) => modeForMinutes(m)));
   });
 
   it('lists what was left out with why, and the checker\'s warning in plain words (no ids, no ISO times)', async () => {
