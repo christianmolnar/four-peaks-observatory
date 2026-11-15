@@ -341,14 +341,14 @@ describe('the two tabs', () => {
     expect(document.getElementById('panel-gear')!.getAttribute('aria-labelledby')).toBe('tab-gear');
     expect(within(panel).getByTestId('plans-bar')).toBeTruthy();
     expect(within(panel).getByTestId('target-list')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: /^SITE AND GEAR$/ })).toBeNull(); // in the other, hidden, tab
+    expect(screen.queryByRole('heading', { name: /^GEAR$/ })).toBeNull(); // in the other, hidden, tab
   });
 
   it('Gear and site holds the horizon editor, the site and gear editor, trains, export, import and Reset all; Plan holds none of them', async () => {
     await app();
     openGear();
     const panel = screen.getByRole('tabpanel', { name: 'Gear and site' });
-    for (const name of [/^HORIZON/, 'SITE AND GEAR', 'PROFILE']) expect(within(panel).getByRole('heading', { name })).toBeTruthy();
+    for (const name of [/^HORIZON/, 'GEAR', 'PROFILE']) expect(within(panel).getByRole('heading', { name })).toBeTruthy();
     expect(within(panel).getByRole('button', { name: 'Reset all' })).toBeTruthy();
     expect(within(panel).getByRole('button', { name: 'Export profile (JSON)' })).toBeTruthy();
     expect(within(panel).getByLabelText('Import profile (JSON)')).toBeTruthy();

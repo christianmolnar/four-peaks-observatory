@@ -165,6 +165,15 @@ export const openGear = (): void => {
   fireEvent.click(screen.getByRole('tab', { name: 'Gear and site' }));
 };
 
+/** Picks a class in the Gear section ("Sites", "Trains", "Scopes", ...) and opens the Change form of its nth card; returns that card. */
+export const openGearItem = (label: string, index = 0): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${label} \\(\\d+\\)$`) }));
+  const card = [...document.querySelectorAll<HTMLElement>('#gear-heading ~ ul > li[data-testid^="gear-card-"]')][index];
+  const change = [...card.querySelectorAll('button')].find((b) => b.textContent === 'Change') as HTMLButtonElement;
+  if (change.getAttribute('aria-expanded') !== 'true') fireEvent.click(change);
+  return card;
+};
+
 /** Opens a closed part of the open plan ("Night and horizon", "Night timeline"); does nothing when it is open. */
 export const openPart = (name: string): void => {
   const button = screen.getByRole('button', { name });

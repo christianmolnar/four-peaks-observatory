@@ -97,6 +97,7 @@ import { ITINERARY_KEY, MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
+import { missingOf } from '@/planner/state/gear';
 import ResetAll from './ResetAll';
 import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
@@ -972,6 +973,32 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     rememberSelection(site.id, id);
   };
 
+  /** What each saved plan points at, for the Gear section's "used by" check. */
+  const planRefs = useMemo(() => plans?.plans.map((p) => ({ name: p.name, siteId: p.siteId, trainId: p.trainId })) ?? [], [plans]);
+  /** The open plan's site or train that is no longer in the gear: said in the plan, with what is shown instead; nothing is changed until the user keeps or picks one. */
+  const staleNotes = useMemo(() => {
+    const m = missingOf(profile, open);
+    const notes: { key: string; text: string; keepLabel: string; onKeep: () => void }[] = [];
+    if (m.train && train) {
+      notes.push({
+        key: 'train',
+        text: `This plan was made with a train that is no longer in your gear. It shows "${train.name}" for now.`,
+        keepLabel: `Keep ${train.name}`,
+        onKeep: () => chooseTrain(train.id),
+      });
+    }
+    if (m.site && site) {
+      notes.push({
+        key: 'site',
+        text: `This plan was made for a site that is no longer in your gear. It shows "${site.name}" for now.`,
+        keepLabel: `Keep ${site.name}`,
+        onKeep: () => void editOpen({ siteId: site.id }),
+      });
+    }
+    return notes;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, open, train, site]);
+
   const chooseFilter = (filterId: string) => {
     if (!train) return;
     try {
@@ -1799,6 +1826,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         rows={planRows}
         onRemove={removeFromPlan}
         trainNote={trainNote}
+        staleNotes={staleNotes}
         onChangeTrain={() => goToControl('train')}
         pastDate={open !== null && tonightDate !== '' && open.date < tonightDate ? nightDateText(open.date) : null}
         onMoveToTonight={moveToTonight}
@@ -2052,7 +2080,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         }}
       />
 
-      <ProfileEditor profile={profile} onChange={applyProfile} findSite={{ siteId: site.id, tick: findSiteTick }} />
+      <ProfileEditor profile={profile} onChange={applyProfile} findSite={{ siteId: site.id, tick: findSiteTick }} plans={planRefs} openTrainId={train.id} onUseTrain={chooseTrain} />
 
       <section aria-labelledby="profile-heading" className={panel}>
         <h2 id="profile-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">PROFILE</h2>

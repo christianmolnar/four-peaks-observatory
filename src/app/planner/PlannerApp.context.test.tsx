@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { PROFILE_KEY, SELECTION_KEY, defaultTonightDate, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { openGear, openPlanTab, pageProps, ready, resetAll, storedPlans } from './testkit';
+import { openGear, openGearItem, openPlanTab, pageProps, ready, resetAll, storedPlans } from './testkit';
 
 // Nothing is asked twice: the sky darkness belongs to the site, the page opens on the gear last chosen,
 // and the wording follows the date picked.
@@ -29,14 +29,6 @@ const siteSelect = () => screen.getByLabelText('Site') as HTMLSelectElement;
 const timeline = () => document.getElementById('night-timeline-body') as HTMLElement;
 const bortleSelects = () => screen.queryAllByLabelText(/^Sky darkness, Bortle class \(1 to 9, 1 is darkest\)$/) as HTMLSelectElement[];
 
-/** jsdom does not toggle a <details> on a click, so open it the way the browser would. */
-const openList = (summary: string) => {
-  const d = screen.getByText(summary).closest('details') as HTMLDetailsElement;
-  d.open = true;
-  fireEvent(d, new Event('toggle'));
-  return d;
-};
-
 /** Picks a class in the site editor and presses that form's Save (fireEvent: a whole-page userEvent step is slow in jsdom). */
 const saveBortle = (value: string) => {
   const form = bortleSelects()[0].closest('form') as HTMLElement;
@@ -58,7 +50,7 @@ describe('Bortle class belongs to the site', () => {
     expect(document.getElementById('exposure-bortle')).toBeNull();
     expect(document.getElementById('it-bortle')).toBeNull();
     expect(bortleSelects()).toHaveLength(0); // the editor's lists are closed
-    openList('Site (1)');
+    openGearItem('Sites');
     expect(bortleSelects()).toHaveLength(1);
     expect([...bortleSelects()[0].options].map((o) => o.textContent)[0]).toBe('Not set (6 assumed)');
   });
@@ -71,7 +63,7 @@ describe('Bortle class belongs to the site', () => {
     await app();
     const timelineBefore = timeline().textContent;
     openGear();
-    openList('Site (1)');
+    openGearItem('Sites');
     saveBortle('1');
     expect(timeline().textContent).not.toEqual(timelineBefore);
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).sites[0].bortle).toBe(1);
@@ -81,7 +73,7 @@ describe('Bortle class belongs to the site', () => {
     const p = base();
     await app({ ...p, sites: p.sites.map((s, i) => (i === 0 ? { ...s, bortle: 3 } : s)) });
     openGear();
-    openList('Site (1)');
+    openGearItem('Sites');
     expect(bortleSelects()[0].value).toBe('3');
     saveBortle('');
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string).sites[0].bortle).toBeUndefined();

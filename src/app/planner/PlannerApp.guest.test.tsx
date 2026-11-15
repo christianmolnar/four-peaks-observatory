@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testi
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { chooseMore, listRows, openGear, openPlanTab, pageProps, ready, resetAll, rowName, showAll } from './testkit';
+import { chooseMore, listRows, openGear, openGearItem, openPlanTab, pageProps, ready, resetAll, rowName, showAll } from './testkit';
 
 // A fresh visitor: no stored data, no props. The page loads the sample, edits go to localStorage, reload keeps them.
 
@@ -41,12 +41,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-/** Opens a disclosure by its summary text. */
-async function open(u: ReturnType<typeof userEvent.setup>, name: RegExp) {
-  const summary = screen.getByText(name, { selector: 'summary' });
-  const details = summary.closest('details') as HTMLElement;
-  if (!(details as HTMLDetailsElement).open) await u.click(summary);
-  return details;
+/** Picks a gear class by its name and opens the Change form of its first card (fewer clicks: the card is returned whole). */
+async function open(_u: unknown, name: RegExp) {
+  const label = /Site/.test(name.source) ? 'Sites' : (/^\^(\w+)/.exec(name.source)?.[1] as string);
+  return openGearItem(label);
 }
 
 describe('guest start', () => {
@@ -133,18 +131,21 @@ describe('editing site and gear', () => {
     expect(stored().equipment.scopes[0].focalLengthMm).toBe(2000);
   });
 
-  it('adds a filter, and refuses to remove a camera a train uses', async () => {
+  it('adds a filter, and refuses to remove a camera a train uses, saying which trains', async () => {
     const u = userEvent.setup();
     await app();
-    const filters = await open(u, /^Filters \(/);
-    const n = within(filters).getAllByRole('button', { name: 'Save' }).length;
-    await u.click(within(filters).getByRole('button', { name: 'Add filter' }));
-    expect(within(filters).getAllByRole('button', { name: 'Save' })).toHaveLength(n + 1);
+    const first = await open(u, /^Filters \(/);
+    const n = sampleProfile().equipment.filters.length;
+    await u.click(screen.getByRole('button', { name: 'Add filter' }));
     expect(stored().equipment.filters).toHaveLength(n + 1);
+    expect(screen.getByRole('button', { name: `Filters (${n + 1})` })).toBeTruthy();
+    expect(first.isConnected).toBe(true);
 
     const cameras = await open(u, /^Cameras \(/);
-    await u.click(within(cameras).getAllByRole('button', { name: 'Remove' })[0]);
-    expect(within(cameras).getByRole('alert').textContent).toMatch(/Cannot remove it: .* still uses it/);
+    expect(within(cameras).getByText(/^Used by \d+ trains?: /)).toBeTruthy();
+    await u.click(within(cameras).getByRole('button', { name: 'Remove' }));
+    expect(within(cameras).getByRole('alert').textContent).toMatch(/^! Not removed\. Used by \d+ trains?: ".*"( and \d+ more)?\. Change or remove (that train|those trains) first\.$/);
+    expect(stored().equipment.cameras).toHaveLength(sampleProfile().equipment.cameras.length);
   });
 
   it('a changed horizon is stored and survives a reload', async () => {

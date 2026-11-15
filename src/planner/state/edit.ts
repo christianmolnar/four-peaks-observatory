@@ -2,6 +2,8 @@ import { PROFILE_VERSION, ProfileError, migrateProfile, validateProfile } from '
 import type { Profile, TrainEntry } from '../profile';
 import { resolveTrain } from '../profile';
 import { DEFAULT_BORTLE } from '../exposure';
+import { isUsed, refusalText, usesOf } from './gear';
+import type { PlanRef } from './gear';
 
 /** The lists a guest can edit item by item. */
 export type ListKey = 'sites' | 'scopes' | 'accessories' | 'cameras' | 'smartScopes' | 'filters';
@@ -193,30 +195,11 @@ export function addItem(profile: Profile, list: ListKey): Profile {
   return validateProfile(withItems(profile, list, [...items, item as Item]));
 }
 
-/** Trains and plans that still use an item. */
-function usedBy(profile: Profile, list: ListKey, id: string): string[] {
-  if (list === 'sites') return profile.plans.filter((p) => p.siteId === id).map((p) => p.name);
-  return profile.trains
-    .filter((t) => {
-      if (t.kind === 'smart') return list === 'smartScopes' && t.smartScopeId === id;
-      return (
-        (list === 'scopes' && t.scopeId === id) ||
-        (list === 'cameras' && t.cameraId === id) ||
-        (list === 'filters' && t.filterId === id) ||
-        (list === 'accessories' && t.accessoryIds.includes(id))
-      );
-    })
-    .map((t) => t.name);
-}
-
-/** A copy without the item. Refuses when a train or plan uses it, or it is the last site. */
-export function removeItem(profile: Profile, list: ListKey, id: string): Profile {
+/** A copy without the item. Refuses, in words, when a train or plan uses it, or it is the last site. `plans` are the saved plans. */
+export function removeItem(profile: Profile, list: ListKey, id: string, plans: readonly PlanRef[] = []): Profile {
   if (list === 'sites' && profile.sites.length <= 1) throw new Error('The planner needs at least one site.');
-  const users = usedBy(profile, list, id);
-  if (users.length > 0) {
-    const shown = users.slice(0, 3).map((n) => `"${n}"`).join(', ');
-    throw new Error(`Cannot remove it: ${shown}${users.length > 3 ? ` and ${users.length - 3} more` : ''} still uses it. Change or remove that first.`);
-  }
+  const use = usesOf(profile, plans, list, id);
+  if (isUsed(use)) throw new Error(refusalText(use, list === 'sites' ? 'site' : 'gear'));
   return validateProfile(withItems(profile, list, itemsOf(profile, list).filter((x) => x.id !== id)));
 }
 
@@ -279,10 +262,10 @@ export function addTrain(profile: Profile, kind: 'optical' | 'smart'): Profile {
   return checkTrains(profile, [...profile.trains, { kind: 'optical', id, name: 'New train', scopeId: scope.id, accessoryIds: [], cameraId: camera.id }]);
 }
 
-export function removeTrain(profile: Profile, id: string): Profile {
+export function removeTrain(profile: Profile, id: string, plans: readonly PlanRef[] = []): Profile {
   if (profile.trains.length <= 1) throw new Error('The planner needs at least one train.');
-  const plans = profile.plans.filter((p) => p.trainId === id).map((p) => p.name);
-  if (plans.length > 0) throw new Error(`Cannot remove it: plan ${plans.map((n) => `"${n}"`).join(', ')} uses it.`);
+  const use = usesOf(profile, plans, 'trains', id);
+  if (isUsed(use)) throw new Error(refusalText(use, 'train'));
   return checkTrains(profile, profile.trains.filter((t) => t.id !== id));
 }
 

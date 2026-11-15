@@ -149,12 +149,11 @@ describe('a bright Moon is said in words', () => {
 });
 
 describe('Change or find a site', () => {
-  it('opens the Site list on the site, focuses its Find box, and closes the strip', async () => {
+  it('opens the Sites class on the site, focuses its Find box, and closes the strip', async () => {
     await app();
-    const summary = screen.getByText(/^Site \(1\)$/).closest('summary')!;
-    expect(summary.closest('details')!.open).toBe(false);
+    const sites = () => screen.getByRole('button', { name: /^Sites \(1\)$/ });
     fireEvent.click(screen.getByRole('button', { name: 'Change or find a site' }));
-    expect(summary.closest('details')!.open).toBe(true);
+    expect(sites().getAttribute('aria-pressed')).toBe('true');
     expect(document.activeElement).toBe(document.getElementById(`site-find-${SITE.id}`));
     expect(strip().getAttribute('aria-expanded')).toBe('false');
     // Pressed again, it does the same (the box is already there).
@@ -164,23 +163,11 @@ describe('Change or find a site', () => {
     expect(document.activeElement).toBe(document.getElementById(`site-find-${SITE.id}`));
   });
 
-  it('opening the Site list by hand does not take the focus', async () => {
+  it('picking the Sites class by hand does not take the focus', async () => {
     await app();
-    const details = screen.getByText(/^Site \(1\)$/).closest('details')!;
-    details.open = true;
-    fireEvent(details, new Event('toggle'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Gear and site' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sites \(1\)$/ }));
     expect(document.activeElement).not.toBe(document.getElementById(`site-find-${SITE.id}`));
-  });
-
-  it('every disclosure shows a chevron that follows its state', async () => {
-    await app();
-    const summaries = [...document.querySelectorAll('#gear-heading ~ details > summary')];
-    expect(summaries.length).toBeGreaterThanOrEqual(7);
-    for (const s of summaries) expect(s.querySelector('[aria-hidden="true"]')!.textContent).toBe('▸');
-    const site = screen.getByText(/^Site \(1\)$/).closest('details')!;
-    site.open = true;
-    fireEvent(site, new Event('toggle'));
-    expect(site.querySelector('summary [aria-hidden="true"]')!.textContent).toBe('▾');
   });
 });
 

@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { sampleProfile } from '@/planner/state';
 import ProfileEditor from './ProfileEditor';
 import SiteFinder from './SiteFinder';
+import { openGearItem } from './testkit';
 
 const PHOENIX = { name: 'Phoenix', admin: 'Arizona', country: 'United States', latitude: 33.44838, longitude: -112.07404, elevationM: 331, timeZone: 'America/Phoenix', source: 'open-meteo' };
 const reply = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body }) as unknown as Response;
@@ -20,11 +21,9 @@ afterEach(cleanup);
 /** The editor with the Site list open and the first site's form in view. */
 function open() {
   const onChange = jest.fn();
-  render(<ProfileEditor profile={sampleProfile()} onChange={onChange} />);
-  fireEvent.click(screen.getByText(/^Site \(\d+\)/));
-  const details = screen.getByText(/^Site \(\d+\)/).closest('details') as HTMLDetailsElement;
-  fireEvent(details, new Event('toggle'));
-  return { onChange, form: () => within(details) };
+  render(<ProfileEditor profile={sampleProfile()} onChange={onChange} plans={[]} openTrainId="" onUseTrain={() => {}} />);
+  const card = openGearItem('Sites');
+  return { onChange, form: () => within(card) };
 }
 const box = (label: RegExp) => screen.getByRole('textbox', { name: label }) as HTMLTextAreaElement | HTMLInputElement;
 
