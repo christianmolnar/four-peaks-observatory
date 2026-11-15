@@ -1,18 +1,27 @@
 import type { Site } from '../astro';
 import { modeForMinutes } from '../ai/view';
+import type { ExposureRig } from '../exposure';
 import type { HorizonPoint } from '../horizon';
 import { MAX_NOTE_CHARS, WARNING_TEXT } from '../itinerary';
 import type { ItineraryItem, ItineraryPlan, Slot, SlotInput } from '../itinerary';
 import { clockOf, slotAltitudes } from '../itinerary/timeline';
 import type { CampaignInput, CampaignNight, CampaignSubject } from './types';
 
-/** One fixed target of My plan, as the page knows it (`type` is the catalog type, which picks the useful range). */
+/** One fixed target of My plan, as the page knows it (`type` and `surfaceBrightness` are the catalog's, and with the rig they give the useful range). */
 export interface CampaignTargetIn {
   id: string;
   name: string;
   raHours: number;
   decDeg: number;
   type?: string;
+  /** The catalog's mean surface brightness, mag per square arcsec. Absent when the catalog has none. */
+  surfaceBrightness?: number;
+}
+
+/** The rig and sky the useful ranges are worked out for (the page's chosen train and Bortle class). */
+export interface CampaignExposure {
+  rig: ExposureRig;
+  bortle: number;
 }
 
 /** The two per-target limits the engine takes; absent means none. */
@@ -23,6 +32,7 @@ export interface TargetLimits {
 
 export interface CampaignForm {
   targets: readonly CampaignTargetIn[];
+  exposure: CampaignExposure;
   limits: Readonly<Record<string, TargetLimits>>;
   site: Site;
   timeZone: string;
@@ -33,19 +43,23 @@ export interface CampaignForm {
   nights: number;
 }
 
+/** One subject from a target of My plan, carrying what the exposure engine needs to give its useful range. */
+export function subjectOf(t: CampaignTargetIn, exposure: CampaignExposure, limits: TargetLimits = {}): CampaignSubject {
+  return {
+    id: t.id,
+    name: t.name,
+    targets: [{ id: t.id, name: t.name, raHours: t.raHours, decDeg: t.decDeg }],
+    ...(t.type === undefined ? {} : { type: t.type }),
+    ...(t.surfaceBrightness === undefined ? {} : { surfaceBrightnessMu: t.surfaceBrightness }),
+    exposure,
+    ...(limits.hoursPerNight === undefined ? {} : { hoursPerNight: limits.hoursPerNight }),
+    ...(limits.useful === undefined ? {} : { useful: limits.useful }),
+  };
+}
+
 /** The engine's input from what the page holds: My plan in its order, one subject per target, nothing the user did not choose. */
 export function campaignInputOf(form: CampaignForm): CampaignInput {
-  const subjects = form.targets.map((t): CampaignSubject => {
-    const limits = form.limits[t.id] ?? {};
-    return {
-      id: t.id,
-      name: t.name,
-      targets: [{ id: t.id, name: t.name, raHours: t.raHours, decDeg: t.decDeg }],
-      ...(t.type === undefined ? {} : { type: t.type }),
-      ...(limits.hoursPerNight === undefined ? {} : { hoursPerNight: limits.hoursPerNight }),
-      ...(limits.useful === undefined ? {} : { useful: limits.useful }),
-    };
-  });
+  const subjects = form.targets.map((t) => subjectOf(t, form.exposure, form.limits[t.id]));
   return { subjects, site: form.site, timeZone: form.timeZone, horizon: form.horizon, minAltitude: form.minAltitude, startDate: form.startDate, nights: form.nights };
 }
 

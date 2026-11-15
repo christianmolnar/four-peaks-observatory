@@ -767,6 +767,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (!timeZone) return null;
     return { site: planning.base.site, timeZone, horizon: planning.base.horizon, minAltitude, date: planning.base.date, rig: rigOf(profile, train), bortle: site.bortle };
   }, [planning.base, train, site, zone, minAltitude, profile]);
+  // The several-night plan works each target's useful range out with the exposure engine, for this train and sky.
+  const campaignExposure = useMemo(() => ({ rig: { train: trainInfo.optics ?? {}, camera: trainInfo.camera ?? {}, filter: trainInfo.filter }, bortle: site?.bortle ?? DEFAULT_BORTLE }), [trainInfo, site?.bortle]);
   const planets = planItems.filter((p) => p.body !== undefined).length;
   const unresolved = planItems.length - planets - aiTargets.length;
   const aiBlocked =
@@ -788,7 +790,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   ].filter((x) => x !== '').join(' ');
   // The several-night plan takes the same fixed objects, with their catalog type (it picks each one's useful range). Planets and anything not yet resolved stay out.
   const campaignTargets = useMemo(
-    () => planItems.flatMap(({ target, body }) => (body === undefined && target !== undefined ? [{ id: target.id, name: target.displayName ?? target.name, raHours: target.raHours, decDeg: target.decDeg, type: target.type }] : [])),
+    () => planItems.flatMap(({ target, body }) => (body === undefined && target !== undefined ? [{ id: target.id, name: target.displayName ?? target.name, raHours: target.raHours, decDeg: target.decDeg, type: target.type, ...(target.surfaceBrightness === undefined ? {} : { surfaceBrightness: target.surfaceBrightness }) }] : [])),
     [planItems],
   );
   const campaignBlocked =
@@ -800,7 +802,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           ? 'My plan has no deep-sky targets to plan. This plans fixed objects, not the Moon and planets.'
           : aiBase === null
             ? 'The site or train is not ready.'
-            : null;
+            : train?.kind === 'smart'
+              ? "A smart scope plans its own exposures, so there is no estimate to size each target's useful range from. Pick an optical train."
+              : trainInfo.optics?.focalRatio === undefined || trainInfo.optics.imageScale === undefined || trainInfo.camera?.pixelSizeUm === undefined
+                ? "The chosen train's focal ratio, image scale or camera pixel size is missing; the useful range of each target is worked out from them."
+                : null;
   const campaignLeftOut = [
     planets > 0 ? `${planets} solar-system ${planets === 1 ? 'body is' : 'bodies are'} left out: the Moon and planets move across the sky from night to night, and this plan places fixed objects.` : '',
     unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
@@ -1154,6 +1160,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       <CampaignPanel
         base={aiBase}
         targets={campaignTargets}
+        exposure={campaignExposure}
         blocked={campaignBlocked}
         leftOutNote={campaignLeftOut}
         profile={profile}

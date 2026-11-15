@@ -1,5 +1,6 @@
 import targets from '../data/targets.json';
 import type { Site } from '../astro';
+import { TEST_EXPOSURE } from './testkit';
 import type { CampaignSubject } from './types';
 
 /** Test helpers for suites that plan real curated targets at the owner's site. Nothing imports this but tests. */
@@ -14,5 +15,5 @@ export const subjects = (ids: readonly string[]): CampaignSubject[] =>
   ids.map((id) => {
     const t = CURATED.find((x) => x.id === id);
     if (!t) throw new Error(`No curated target ${id}`);
-    return { id, name: t.name, targets: [{ id, name: t.name, raHours: t.raHours, decDeg: t.decDeg }], type: t.type };
+    return { id, name: t.name, targets: [{ id, name: t.name, raHours: t.raHours, decDeg: t.decDeg }], type: t.type, exposure: TEST_EXPOSURE };
   });

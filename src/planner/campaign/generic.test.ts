@@ -1,7 +1,6 @@
-import { surfaceBrightnessOf } from '../exposure';
 import { arcToHorizonPoints } from '../profile';
 import targetsData from '../data/targets.json';
-import { planCampaign } from './index';
+import { planCampaign, usefulRangeOf } from './index';
 import type { CampaignInput, CampaignResult, CampaignSubject } from './index';
 import { PHX, POR, SYD, assertValidNight, base as baseInput, bestWorth, reachedTonight, subj, worthOf } from './testkit';
 
@@ -108,11 +107,11 @@ describe('tiny, huge and mixed lists at 3 sites and 3 dates (date shifted by lis
     expect(fitCount('high')).toBeGreaterThan(0);
   });
 
-  it('catalog types feed the class: a list of catalog objects reports the class range of each type', () => {
+  it('catalog types feed the exposure engine: a list of catalog objects reports the engine\'s range for each', () => {
     const r = planCampaign(base(SITES[0], { subjects: LISTS['five tiny (catalog)'], startDate: DATES[0] }));
     LISTS['five tiny (catalog)'].forEach((s, i) => {
-      const cls = surfaceBrightnessOf(s);
-      expect(r.perSubject[i].minUsefulMin).toBe(cls === 'high' ? 60 : 90);
+      expect(r.perSubject[i].minUsefulMin).toBe(usefulRangeOf(s).minMin);
+      expect(r.perSubject[i].maxUsefulMin).toBe(usefulRangeOf(s).maxMin);
     });
   });
 });

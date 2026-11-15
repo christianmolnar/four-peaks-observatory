@@ -222,7 +222,9 @@ describe('the result', () => {
     const rows = slotsText();
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatch(/^1\. Andromeda Galaxy \d\d:\d\d to \d\d:\d\d \(60 min\)/);
-    expect(rows[0]).toMatch(/The AI wants about 60 min of light in 120 s subs\./);
+    expect(rows[0]).toMatch(/The AI wants about 60 min of light for this target\./);
+    expect(rows[0]).not.toMatch(/120 s subs/); // the model's sub length is not shown; the estimate's is
+    expect(rows[0]).toMatch(/For 60 min of light, the exposure estimate says \d+ subs of \d+ s \(calculated, Bortle \d( assumed)?\)\./);
     expect(rows[1]).toMatch(/Last slot, worth shooting \(\d+ frames\): Enough frames to stack\./);
     expect(screen.getByTestId('ai-notes').textContent).toMatch(/the nebula goes first/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/Checked by code against the sky facts/);

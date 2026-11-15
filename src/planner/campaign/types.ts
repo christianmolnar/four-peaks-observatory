@@ -1,5 +1,5 @@
 import type { Site } from '../astro';
-import type { SurfaceBrightness } from '../exposure';
+import type { ExposureRig, SurfaceBrightness } from '../exposure';
 import type { HorizonPoint, TimeWindow } from '../horizon';
 
 /** One catalog object (or any fixed J2000 position) that goes into a subject. */
@@ -21,11 +21,18 @@ export interface CampaignSubject {
   targets: CampaignTarget[];
   /** Required when there are two or more targets; absent for one target. */
   aim?: { raHours: number; decDeg: number };
-  /** Catalog type (e.g. 'galaxy'), read with `surfaceBrightness` by `surfaceBrightnessOf` to pick the useful range. */
+  /** Catalog type (e.g. 'galaxy'): emission types gain from a narrow filter, the rest do not. Read by `exposureFor`. */
   type?: string;
-  /** Surface brightness class. Absent: from `type`, else 'unknown'. */
+  /** The catalog's mean surface brightness (mag per square arcsec); the stop point of the exposure engine uses it. */
+  surfaceBrightnessMu?: number;
+  /** Surface brightness class. Absent: from the number, else `type`, else 'unknown' (the engine then assumes a medium object). */
   surfaceBrightness?: SurfaceBrightness;
-  /** Per-target override of the useful range (minutes of integration, multiples of 5, min <= max). Absent: the class range. */
+  /**
+   * The rig and sky the useful range is worked out for, by `exposureFor`: the least is Quick's stop point, the most Deep's.
+   * Required unless `useful` is given.
+   */
+  exposure?: { rig: ExposureRig; bortle: number };
+  /** Per-target override of the useful range (minutes of integration, multiples of 5, min <= max). Absent: the engine's range. */
   useful?: { minMin: number; maxMin: number };
   /** Marginal gain of more integration once the target is useful; higher is lengthened first. Absent: the list order (earlier is higher). */
   value?: number;

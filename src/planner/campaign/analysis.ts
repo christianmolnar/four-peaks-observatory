@@ -1,11 +1,10 @@
 import { nextMeridianTransit, targetAltAz } from '../astro';
-import { surfaceBrightnessOf } from '../exposure';
+import { exposureFor } from '../exposure';
 import { MERIDIAN_FLIP_MIN } from '../exposure/constants';
 import { usableWindows } from '../horizon';
 import type { TimeWindow } from '../horizon';
 import { clockToInstant } from '../itinerary/timeline';
 import { parseLocalDate, tonightsNight } from '../plan';
-import { USEFUL_RANGE_MIN } from './constants';
 import type { UsefulRange } from './constants';
 import type { CampaignInput, CampaignSubject, ShortReason, SubjectNight } from './types';
 
@@ -14,8 +13,41 @@ export const GRID_MS = GRID_MIN * 60000;
 export const MAX_NIGHTS = 14;
 export { MERIDIAN_FLIP_MIN };
 
-/** The target's useful range: its own override, else the range of its surface brightness class. */
-export const usefulRangeOf = (s: CampaignSubject): UsefulRange => s.useful ?? USEFUL_RANGE_MIN[surfaceBrightnessOf(s)];
+const roundUp5 = (m: number): number => Math.ceil(m / GRID_MIN - 1e-9) * GRID_MIN;
+
+/** One whole dark night with no Moon and room for the whole plan: the range is about the object, not about one night's window. */
+const OPEN_NIGHT = { moonIllumination: 0, moonSeparationDeg: 180, moonUp: false, usableMinutes: 24 * 60, acquisitionStart: null, transitTime: null } as const;
+
+/** The exposure engine's answer per subject object, kept so the schedule's many lookups run it once. */
+const engineRanges = new WeakMap<CampaignSubject, UsefulRange>();
+
+/**
+ * The target's useful range: its own override, else the exposure engine's. The least is the light Quick stops at, the most the
+ * light Deep stops at (`exposureFor`, so the same numbers as the exposure panel), each rounded up to the 5 minute grid. A subject with
+ * neither an override nor an `exposure` to work from is an error: there is no fixed table to fall back on.
+ */
+export function usefulRangeOf(s: CampaignSubject): UsefulRange {
+  if (s.useful) return s.useful;
+  const known = engineRanges.get(s);
+  if (known) return known;
+  if (!s.exposure) throw new RangeError(`Subject ${s.id}: no useful range and no exposure (rig and Bortle) to work one out from`);
+  const target = {
+    id: s.id,
+    name: s.name,
+    ...(s.type === undefined ? {} : { type: s.type }),
+    ...(s.surfaceBrightnessMu === undefined ? {} : { surfaceBrightnessMu: s.surfaceBrightnessMu }),
+    ...(s.surfaceBrightness === undefined ? {} : { surfaceBrightness: s.surfaceBrightness }),
+  };
+  const stop = (preset: 'quick' | 'deep'): number => {
+    const r = exposureFor(target, s.exposure!.rig, { bortle: s.exposure!.bortle }, OPEN_NIGHT, { preset });
+    if (!r.ok) throw new RangeError(`Subject ${s.id}: the exposure needs ${r.missing.join(', ')}`);
+    return roundUp5(r.integrationMin);
+  };
+  const minMin = stop('quick');
+  const range = { minMin, maxMin: Math.max(minMin, stop('deep')) };
+  engineRanges.set(s, range);
+  return range;
+}
 
 export const aimOf = (s: CampaignSubject): { raHours: number; decDeg: number } => s.aim ?? s.targets[0];
 
@@ -39,7 +71,8 @@ export function validateInput(input: CampaignInput): void {
         throw new RangeError(`Subject ${s.id}: hoursPerNight must be positive and a multiple of ${GRID_MIN} minutes: ${s.hoursPerNight}`);
       }
     }
-    const { minMin, maxMin } = usefulRangeOf(s);
+    // A caller that only reads windows (the AI facts) gives neither a range nor an exposure; the schedule asks for one and throws if it is missing.
+    const { minMin, maxMin } = s.useful || s.exposure ? usefulRangeOf(s) : { minMin: GRID_MIN, maxMin: GRID_MIN };
     if (!Number.isFinite(minMin) || !Number.isFinite(maxMin) || minMin <= 0 || minMin > maxMin || minMin % GRID_MIN !== 0 || maxMin % GRID_MIN !== 0) {
       throw new RangeError(`Subject ${s.id}: the useful range must be positive multiples of ${GRID_MIN} minutes with min <= max: ${minMin} to ${maxMin}`);
     }
@@ -121,16 +154,19 @@ export function analyseSubject(input: CampaignInput, subject: CampaignSubject, s
   }
 
   // Same start grid and rules as the scheduler: a flip is unavoidable when no clean slot of the minUseful length fits but a straddling one (flip included) does.
-  const lengthMin = usefulRangeOf(subject).minMin;
+  // Needs the useful range. A caller that only reads windows and transit (the AI facts) has no range and no exposure: it gets false, and
+  // nothing there reads it. The scheduler never gets here without one: it asks `usefulRangeOf` first, which throws.
+  const lengthMin = subject.useful || subject.exposure ? usefulRangeOf(subject).minMin : null;
   const spans = windows.map((w) => ({ s: w.start.getTime(), e: w.end.getTime() }));
   const t0 = start.getTime();
   const fits = (flip: boolean): boolean => {
+    if (lengthMin === null) return false;
     const dur = (lengthMin + (flip ? MERIDIAN_FLIP_MIN : 0)) * 60000;
     for (let s = t0; s + dur <= end.getTime(); s += GRID_MS) {
       if (spans.some((w) => s >= w.s && s + dur <= w.e) && slotCrossesMeridian(transit, new Date(s), lengthMin) === flip) return true;
     }
     return false;
   };
-  const unavoidableFlip = transit !== null && !fits(false) && fits(true);
+  const unavoidableFlip = lengthMin !== null && transit !== null && !fits(false) && fits(true);
   return { subjectId: subject.id, subject, windows, usableMin: windows.reduce((a, w) => a + minutes(w), 0), transit, unavoidableFlip, alt, noWindowReason };
 }

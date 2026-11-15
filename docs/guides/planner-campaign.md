@@ -10,6 +10,12 @@ Code decides all of it (the engine in `src/planner/campaign/`): no AI, no cost, 
   The only control of its own is **Number of nights** (default 3, 1 to 14).
 - **Limits per target** (optional, closed by default): hours per night at most, and a useful range (least and most minutes).
   These are the engine's own `hoursPerNight` and `useful` fields. Empty boxes use the defaults; the default range shows in the box.
+- **The default useful range comes from the exposure engine** (`exposureFor`, `planner-exposure.md`), not from a table of its own.
+  For each target, on the chosen train, filter and Bortle class: the least is the light the Quick preset stops at, the most is the light Deep stops at, each rounded up to the 5 minute grid (`usefulRangeOf`, `src/planner/campaign/analysis.ts`).
+  The target's catalog surface brightness reaches it (`subject.surfaceBrightnessMu`), so a bright, a medium and a faint target get different ranges: on a C11 at f/10, broadband, Bortle 6, 30 to 30, 30 to 240 and 70 to 295 minutes for surface brightness 20, 22 and 24.
+  The ranges are the same ones the exposure panel shows for the presets.
+  Beyond about surface brightness 22.5 in Bortle 6 every faint target stops at the same diminishing-returns point (68 and 293 minutes before rounding).
+- **A smart scope blocks the plan**: it plans its own exposures and the profile holds no optics for the estimate, so there is nothing to size the ranges from. Pick an optical train. A train with no focal ratio, image scale or pixel size blocks it too.
 - **Seasonal lists are not a filter.** Change *Evening of* and plan again; night 1 is always the evening you chose.
 - **Planets** are left out (they move; the engine places fixed objects), and the panel says so. Targets not in the catalog are left out too.
 
@@ -25,7 +31,7 @@ Code decides all of it (the engine in `src/planner/campaign/`): no AI, no cost, 
 ## Use night N as my itinerary
 
 Offers that night's slots to the itinerary through the same hand-off as the AI plan (asks before replacing slots that are there).
-Each slot takes the exposure preset whose aim is nearest its minutes on a log scale (`modeForMinutes`, shared with the AI apply; the aims are 68, 143 and 293 minutes, see `planner-exposure.md`) and the first slot's clock time becomes the start.
+Each slot takes the exposure preset whose aim is nearest its minutes on a log scale (`modeForMinutes`, shared with the AI apply; the aims are 68, 143 and 293 minutes, see `planner-exposure.md`). The itinerary then plans each slot's preset for its own object, so a bright object may plan fewer minutes than the campaign gave the slot and the first slot's clock time becomes the start.
 The itinerary times its slots again, so its times differ. Using a night also sets *Evening of* to that night's date (only when the itinerary took it), so its clocks, altitudes and flip notes are for that night. The result stays on screen and usable: it is tied to its own first night, so that move does not mark it out of date; a date change you make yourself does.
 
 ## How it runs
