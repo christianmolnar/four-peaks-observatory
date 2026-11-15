@@ -25,7 +25,7 @@ Code decides all of it (the engine in `src/planner/campaign/`): no AI, no cost, 
 ## Use night N as my itinerary
 
 Offers that night's slots to the itinerary through the same hand-off as the AI plan (asks before replacing slots that are there).
-Each slot takes the exposure mode closest to its minutes (`modeForMinutes`, shared with the AI apply) and the first slot's clock time becomes the start.
+Each slot takes the exposure preset whose aim is nearest its minutes on a log scale (`modeForMinutes`, shared with the AI apply; the aims are 68, 143 and 293 minutes, see `planner-exposure.md`) and the first slot's clock time becomes the start.
 The itinerary times its slots again, so its times differ. Using a night also sets *Evening of* to that night's date (only when the itinerary took it), so its clocks, altitudes and flip notes are for that night. The result stays on screen and usable: it is tied to its own first night, so that move does not mark it out of date; a date change you make yourself does.
 
 ## How it runs
