@@ -1261,8 +1261,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   );
   /** What each target's own row plans for the whole night: the timeline's slot says why when its own sub differs. */
   const rowNumbers = useMemo(() => {
-    const out = new Map<string, { subSeconds: number; subCount: number }>();
-    for (const [id, v] of rowViews) if (v.kind === 'ok' && v.chosen.subCount >= 1) out.set(id, { subSeconds: v.chosen.subSeconds, subCount: v.chosen.subCount });
+    const out = new Map<string, { subSeconds: number; subCount: number; lengthenedForCap: boolean }>();
+    for (const [id, v] of rowViews) if (v.kind === 'ok' && v.chosen.subCount >= 1) out.set(id, { subSeconds: v.chosen.subSeconds, subCount: v.chosen.subCount, lengthenedForCap: v.chosen.limitedBy.sub === 'count-cap' });
     return out;
   }, [rowViews]);
 

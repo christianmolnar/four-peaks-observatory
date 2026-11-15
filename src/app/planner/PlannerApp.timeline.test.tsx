@@ -385,18 +385,27 @@ describe('no suggested order', () => {
 });
 
 describe('a slot whose sub differs from its row', () => {
-  it('says why: the row plans the whole night, the slot has its share of it', async () => {
-    // Six targets share the night, so a slot has less than the row's whole-night count allows for.
+  const CAP = /^The target's row plans \d+ s x \d+ subs for the night\. The row's sub is lengthened so the whole night stays within 500 subs; this slot has \d+ minutes, which need no such stretch: \d+ s x \d+\.$/;
+  const NEUTRAL = /^The target's row plans \d+ s x \d+ subs for the night\. This slot is planned for the sky during its own time: \d+ s x \d+\.$/;
+
+  it('every line is either the cap reason (only when the row was lengthened for it) or the neutral line, never the share', async () => {
     seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101'], null, 'deep');
     await app('2026-12-08', 'wide-c11-hyperstar-2600');
-    const rows = slots().map((li) => li.textContent ?? '');
     const said = slots().filter((li) => within(li).queryByTestId(/^slot-why-sub-/) !== null);
-    for (const li of said) {
-      expect(within(li).getByTestId(/^slot-why-sub-/).textContent).toMatch(/^The target's row plans \d+ s x \d+ subs for the night\. This slot has \d+ minutes of the night \(its share\), so the subs are sized to that share: \d+ s x \d+\.$/);
-    }
+    expect(said.length).toBeGreaterThan(0);
+    for (const li of said) expect(within(li).getByTestId(/^slot-why-sub-/).textContent).toMatch(new RegExp(`${CAP.source}|${NEUTRAL.source}`));
+    expect(document.body.textContent).not.toMatch(/\(its share\)|sized to that share/);
     // A slot that plans the row's own sub length says nothing.
     for (const li of slots().filter((x) => !said.includes(x))) expect(within(li).queryByTestId(/^slot-why-sub-/)).toBeNull();
+  });
+
+  it('a slot whose sub differs for another reason (the sky at its own start) gets the neutral line, never the share', async () => {
+    seed(2, ['m31', 'm42', 'm33', 'ngc891', 'm1'], null, 'balanced');
+    await app('2026-12-27', 'deep-c11-reducer-533');
+    const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
     expect(said.length).toBeGreaterThan(0);
-    expect(rows.length).toBe(6);
+    for (const t of said) expect(t).toMatch(/^The target's row plans \d+ s x \d+ subs for the night\. (This slot is planned for the sky during its own time|The row's sub is lengthened)/);
+    expect(document.body.textContent).not.toMatch(/\(its share\)|sized to that share/);
+    expect(said.some((t) => NEUTRAL.test(t))).toBe(true);
   });
 });

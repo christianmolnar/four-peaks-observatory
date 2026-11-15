@@ -5,6 +5,7 @@ import type { MutableRefObject } from 'react';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { presetLabel } from './rowExposure';
+import { MAX_SUBS } from '@/planner/exposure/constants';
 import type { HorizonPoint } from '@/planner/horizon';
 import {
   MAX_NOTE_CHARS,
@@ -36,7 +37,7 @@ export interface PlanTimelineProps {
   /** The slots (target ids) whose Custom numbers do not work, each with the plain reason naming the number that fails: they are scheduled with the preset's own numbers, and the slot says so. */
   presetUsed?: ReadonlyMap<string, string>;
   /** What each target's own row plans for the whole night (sub length and count): a slot that plans something else says why. */
-  rowNumbers?: ReadonlyMap<string, { subSeconds: number; subCount: number }>;
+  rowNumbers?: ReadonlyMap<string, { subSeconds: number; subCount: number; lengthenedForCap: boolean }>;
   /** Targets of the plan past the first MAX_SLOTS: the timeline schedules no more, and says so. */
   unscheduled: number;
   /** A change made here (a note, the start time): the slots as they are and the start time. The plan keeps them. */
@@ -69,7 +70,17 @@ const field = `${fieldBox} text-sm`;
 const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 aria-disabled:opacity-40';
 
 /** A slot whose sub length differs from what the target's own row plans for the whole night. */
-const differsFromRow = (s: Slot, row: { subSeconds: number; subCount: number } | undefined): boolean => row !== undefined && s.subSeconds !== null && s.subSeconds !== row.subSeconds;
+const differsFromRow = (s: Slot, row: { subSeconds: number } | undefined): boolean => row !== undefined && s.subSeconds !== null && s.subSeconds !== row.subSeconds;
+
+/** Why a slot's sub differs from its row's. The cause is named only when it is known: the row's sub was lengthened to stay within MAX_SUBS for the whole night and this slot's minutes need no such stretch. Any other cause (the Moon at the slot's start, its altitude) gets a neutral line. */
+export function slotSubReason(s: Slot, row: { subSeconds: number; subCount: number; lengthenedForCap: boolean }): string {
+  const rowText = `The target's row plans ${row.subSeconds} s x ${row.subCount} subs for the night.`;
+  const slotText = `${s.subSeconds} s x ${s.subCount}`;
+  if (row.lengthenedForCap && s.subSeconds !== null && s.subSeconds < row.subSeconds) {
+    return `${rowText} The row's sub is lengthened so the whole night stays within ${MAX_SUBS} subs; this slot has ${Math.round((s.end.getTime() - s.start.getTime()) / 60000)} minutes, which need no such stretch: ${slotText}.`;
+  }
+  return `${rowText} This slot is planned for the sky during its own time: ${slotText}.`;
+}
 
 function Chip({ severity, label }: { severity: 'warning' | 'note'; label: string }) {
   return (
@@ -290,7 +301,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                 </p>
                 {differsFromRow(s, rowNumbers?.get(s.id)) && (
                   <p className="mt-1 text-white/80 font-normal text-sm" data-testid={`slot-why-sub-${s.id}`}>
-                    {`The target's row plans ${rowNumbers!.get(s.id)!.subSeconds} s x ${rowNumbers!.get(s.id)!.subCount} subs for the night. This slot has ${Math.round((s.end.getTime() - s.start.getTime()) / 60000)} minutes of the night (its share), so the subs are sized to that share: ${s.subSeconds} s x ${s.subCount}.`}
+                    {slotSubReason(s, rowNumbers!.get(s.id)!)}
                   </p>
                 )}
                 <p className="mt-1 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-altitude-${k}`}>

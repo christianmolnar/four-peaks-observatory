@@ -87,13 +87,14 @@ function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
     night: form.date,
     site: JSON.stringify([form.site, form.timeZone, form.bortle ?? null]),
     train: JSON.stringify([train.id, train.kind === 'optical' ? (train.filterId ?? null) : null, form.rig ?? null]),
-    plan: form.targets.map((t) => t.id).join(','),
+    // The set of ids, not their order: the AI's plan reorders the open plan, and applying it must not make the result stale against itself.
+    plan: form.targets.map((t) => t.id).sort().join(','),
     sky: JSON.stringify([form.horizon, form.minAltitude]),
   };
 }
 
 const CHECKED_TEXT =
-  'Every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, none crosses the meridian, and every target is either in the plan or left out. The AI decided the order, the times, how long each target gets and the reasons you read here; the code decides none of that, it only checks.';
+  'Every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, and every target is either in the plan or left out. The AI decided the order, the times, how much light each target gets and the reasons you read here; the code only checks them. Sub length and count are worked out by code when you use the plan. Meridian crossings, if any, are listed below.';
 
 const FRAMES_NOTE = 'Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.';
 
@@ -167,6 +168,19 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
     wasLoading.current = loadingNow;
   }, [loadingNow]);
   useEffect(() => heading.current?.focus(), []);
+
+  // The page behind is inert while the flyout is open: Tab and screen readers stay inside it, and Escape (heard here) always reaches it.
+  const dialog = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const own = dialog.current;
+    const made: Element[] = [];
+    for (const el of Array.from(document.body.children)) {
+      if (el === own || el.hasAttribute('inert')) continue;
+      el.setAttribute('inert', '');
+      made.push(el);
+    }
+    return () => made.forEach((el) => el.removeAttribute('inert'));
+  }, []);
 
   const disabledReason = blocked ?? prepared?.tooLarge ?? null;
 
@@ -277,7 +291,9 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
 
   return createPortal(
     <div
+      ref={dialog}
       role="dialog"
+      aria-modal="true"
       aria-labelledby="ai-plan-heading"
       data-testid="ai-flyout"
       className="fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
@@ -354,8 +370,8 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
             {done !== null ? (
               <p className={`rounded border px-3 py-2 text-sm font-normal ${done.result.status === 'verified' ? 'border-sky-300/40 text-white/90' : 'border-orange-300/40 bg-orange-400/15 text-orange-100'}`} data-testid="ai-checked">
                 {done.result.status === 'verified'
-                  ? `${done.result.repairRounds === 0 ? 'Passed. ' : `Repaired: the code found problems in the first answer and sent it back ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'time' : 'times'}; it passes now. `}${CHECKED_TEXT}`
-                  : `Not fully checked: after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'try' : 'tries'} to fix it, the code still found problems with this plan (listed below). Treat it as a rough draft. The AI decided the order, times and exposures; the code only checks.`}
+                  ? `${done.result.repairRounds === 0 ? 'Passed. ' : `Repaired: the first answer failed the code's checks (a slot below your altitude or horizon, an overlap, or a target neither planned nor left out), so it was sent back ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'time' : 'times'}; the plan below is the corrected one and it passes now. `}${CHECKED_TEXT}`
+                  : `Not fully checked: after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'try' : 'tries'} to fix it, the code still found problems with this plan (listed below). Treat it as a rough draft. The AI decided the order, times and light per target; the code only checks.`}
               </p>
             ) : null}
           </Step>

@@ -238,7 +238,7 @@ describe('the result', () => {
     expect(rows[1]).toMatch(/Last slot, worth shooting: Enough frames to stack\./);
     expect(screen.getByTestId('ai-notes').textContent).toMatch(/the nebula goes first/);
     expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed\. Every slot is above your minimum altitude/);
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/The AI decided the order, the times, how long each target gets and the reasons/);
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/The AI decided the order, the times, how much light each target gets and the reasons/);
     expect(status().textContent).toBe('Plan ready for Tue 15 Dec: 2 targets planned, 0 left out. Checked by code.');
     expect(status().getAttribute('aria-live')).toBe('polite');
     // The page's own night graph, drawn for these slots.
@@ -578,6 +578,40 @@ describe('the owner\'s review switch', () => {
 });
 
 describe('Use this plan', () => {
+  it('an answer that CHANGES the order stays usable after Use this plan and says Done', async () => {
+    // The AI puts m31 first although the user's plan has ic405 first.
+    const f = fakeFetch((s) =>
+      engine(okInput(s), (i) => {
+        const a = earliestSlot(i, 'm31', night(i).start.getTime(), 60);
+        const b = earliestSlot(i, 'ic405', a.end + 5 * 60000, 60);
+        return planOf(i, [['m31', clock(a.start, i.timeZone), clock(a.end, i.timeZone)], ['ic405', clock(b.start, i.timeZone), clock(b.end, i.timeZone)]]);
+      }),
+    );
+    mount(f.fn, { plan: ['ic405', 'm31'] });
+    await readyOpen();
+    expect(storedPlan()!.targets.map((t) => t.id)).toEqual(['ic405', 'm31']);
+    const user = await planned();
+    await user.click(apply());
+    await waitFor(() => expect(storedPlan()!.targets.map((t) => t.id)).not.toEqual(['ic405', 'm31']));
+    expect(storedPlan()!.targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
+    // The result is not out of date against the plan it just made, and the footer says what happened.
+    expect(screen.queryByTestId('ai-stale')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('ai-apply-note').textContent).toBe('Done: the open plan now has this order and first start time.'));
+    expect(apply().disabled).toBe(false);
+  });
+
+  it('the page behind the flyout is inert while it is open and free again after Close', async () => {
+    const f = fakeFetch((s) => engine(okInput(s)));
+    mount(f.fn);
+    await readyOpen();
+    const behind = Array.from(document.body.children).filter((el) => el !== panel());
+    expect(behind.length).toBeGreaterThan(0);
+    expect(behind.every((el) => el.hasAttribute('inert'))).toBe(true);
+    expect(panel().getAttribute('aria-modal')).toBe('true');
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(Array.from(document.body.children).some((el) => el.hasAttribute('inert'))).toBe(false));
+  });
+
   it('puts the AI plan\'s order, presets and first start into the open plan, saved like the rest of the plan', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);

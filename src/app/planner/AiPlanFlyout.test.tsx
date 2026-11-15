@@ -147,7 +147,7 @@ describe('step 3 and the result', () => {
     render(<AiPlanFlyout {...propsFor(fetching(reply(200, twoAnswer({ repairRounds: 2 }))))} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired: the code found problems in the first answer and sent it back 2 times; it passes now\./);
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired: the first answer failed the code's checks \(a slot below your altitude or horizon, an overlap, or a target neither planned nor left out\), so it was sent back 2 times; the plan below is the corrected one and it passes now\./);
   });
 
   it('targets left out are listed with why, and the checker\'s warnings are shown', async () => {
@@ -190,6 +190,35 @@ describe('Use this plan, Ask again, Close', () => {
     expect(startTime).toBe('19:00');
     await screen.findByText('Done: the open plan now has this order and first start time.');
     expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('an answer that reorders the plan stays usable after Use this plan and says Done', async () => {
+    const reversed = [twoSlots[1], twoSlots[0]].map((sl, i) => ({ ...sl, start: twoSlots[i].start, end: twoSlots[i].end }));
+    const first = propsFor(fetching(reply(200, twoAnswer({ plan: { exposures: [], plan: reversed, cut: [], fitsAll: true, notes: '' } }))));
+    const view = render(<AiPlanFlyout {...first} />);
+    const user = userEvent.setup();
+    await user.click(ask());
+    await screen.findByTestId('ai-result');
+    // Applying reorders the open plan: the page hands the flyout the same targets in the AI's order.
+    const onApply = jest.fn(async () => {
+      view.rerender(<AiPlanFlyout {...first} targets={[...first.targets].reverse()} />);
+      return true;
+    });
+    view.rerender(<AiPlanFlyout {...first} onApply={onApply} />);
+    await user.click(screen.getByRole('button', { name: 'Use this plan' }));
+    await screen.findByText('Done: the open plan now has this order and first start time.');
+    expect(screen.queryByTestId('ai-stale')).toBeNull();
+    expect((screen.getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('a target added after the answer still makes it out of date', async () => {
+    const first = propsFor(fetching(reply(200, twoAnswer())));
+    const view = render(<AiPlanFlyout {...first} />);
+    await userEvent.setup().click(ask());
+    await screen.findByTestId('ai-result');
+    const more = starterTargets[2];
+    view.rerender(<AiPlanFlyout {...first} targets={[...first.targets, { id: more.id, name: more.name, raHours: more.raHours, decDeg: more.decDeg }]} />);
+    expect(screen.getByTestId('ai-stale').textContent).toMatch(/the plan/);
   });
 
   it('when the page refuses it the flyout says the plan was left as it was', async () => {
