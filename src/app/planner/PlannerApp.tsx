@@ -1136,7 +1136,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const saveFavorite = (id: string) => {
     const ref = planTargets.find((t) => t.id === id);
     const view = rowViews.get(id);
-    if (ref === undefined || view?.kind !== 'ok' || view.customUnusable !== null) return;
+    if (ref === undefined || view?.kind !== 'ok' || view.customUnusable !== null || view.chosen.subCount < 1) return;
     const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';
     const fav: Favorite = {
       id,

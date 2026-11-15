@@ -149,6 +149,9 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
     subCount: errors.subCount !== undefined && draft.subCount !== undefined ? (judge('subCount', draft.subCount).problem ?? undefined) : undefined,
   };
   const unusable = ok?.customUnusable ?? null;
+  // A row that gives no subs on this night cannot be saved as a favorite: refused in plain words, never sent to the store.
+  const noSubs = unusable === null && chosen !== null && chosen.subCount < 1;
+  const refuse = unusable !== null || noSubs;
   const split = chosen === null ? null : splitWarnings(chosen.warnings);
   const dropFavoriteFocus = () => requestAnimationFrame(() => document.getElementById(`plan-fav-${id}`)?.focus());
   const summary = favorite === null ? '' : exposureSummary(favorite);
@@ -317,7 +320,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               if (favorite !== null) {
                 setConfirmUpdate(false);
                 setConfirmRemove(true);
-              } else if (unusable !== null) setRefusedFavorite(true);
+              } else if (refuse) setRefusedFavorite(true);
               else {
                 setRefusedFavorite(false);
                 onSaveFavorite();
@@ -328,12 +331,14 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
         </label>
         {favorite !== null && <span className="rounded border border-white/20 px-1.5 py-0.5 text-xs font-normal text-white/80">Favorite saved</span>}
         {favorite !== null && differsFromFavorite && favoritesBlocked === null && prompt !== 'ask' && !confirmUpdate && (
-          <button type="button" className={btn} onClick={() => { setConfirmRemove(false); if (unusable !== null) setRefusedFavorite(true); else setConfirmUpdate(true); }}>Update favorite to these numbers</button>
+          <button type="button" className={btn} onClick={() => { setConfirmRemove(false); if (refuse) setRefusedFavorite(true); else setConfirmUpdate(true); }}>Update favorite to these numbers</button>
         )}
       </div>
-      {refusedFavorite && unusable !== null && (
+      {refusedFavorite && refuse && (
         <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-favorite-refused-${id}`}>
-          The favorite was not saved: your custom numbers do not work on this night. Change the sub length or the number of subs, or go back to the preset.
+          {unusable !== null
+            ? 'The favorite was not saved: your custom numbers do not work on this night. Change the sub length or the number of subs, or go back to the preset.'
+            : 'The favorite was not saved: this night gives no subs for this target. Pick another night or target.'}
         </p>
       )}
       {favoritesBlocked !== null && <p className="text-sm font-normal text-orange-100" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}

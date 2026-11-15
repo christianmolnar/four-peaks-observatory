@@ -122,7 +122,13 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
     if (!r.ok) return { kind: 'missing', reason: `The profile lacks ${r.missing.join(', ')}, so no exposure can be computed.` };
     presets[m] = r;
   }
-  const problem = ref.preset === 'custom' ? resultProblem(own, entry.usableMinutes, true) : null;
+  const storedSub = ref.preset === 'custom' ? ref.custom?.subSeconds : undefined;
+  const problem =
+    ref.preset !== 'custom'
+      ? null
+      : storedSub !== undefined && storedSub < MIN_SUB_S_ROW
+        ? `A sub of ${storedSub} s is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.`
+        : resultProblem(own, entry.usableMinutes, true);
   const chosen = problem === null ? own : presets[baseOf(ref)];
   const customUnusable = problem === null ? null : `${problem} Your custom numbers do not work on this night, so the ${presetLabel(baseOf(ref))} preset is used.`;
   const cam = slot.camera;

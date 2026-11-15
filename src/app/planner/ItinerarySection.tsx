@@ -358,10 +358,18 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                   </p>
                 </div>
                 <div className="mt-2 max-w-xs">
-                  {it.overrides !== undefined ? (
+                  {it.overrides !== undefined || presetUsedIds?.has(s.id) ? (
                     // A Custom target keeps its own numbers; they are edited on the target's row in the plan, never here.
                     <p className="text-white/90 text-sm" data-testid={`it-custom-${s.id}`}>
                       Exposure preset for {s.name}: Custom (started from {presetLabel(it.mode)}). Change it on this target&apos;s row in the plan.
+                      {it.overrides === undefined && (
+                        <>
+                          <br />
+                          <span className="text-orange-200 text-xs" data-testid={`it-preset-used-${s.id}`}>
+                            Your custom sub length does not work on this night, so the preset is used.
+                          </span>
+                        </>
+                      )}
                     </p>
                   ) : (
                     <div>
@@ -371,11 +379,6 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                           <option key={m} value={m}>{presetLabel(m)}</option>
                         ))}
                       </WrapSelect>
-                      {presetUsedIds?.has(s.id) && (
-                        <p className="mt-1 text-orange-200 text-xs" data-testid={`it-preset-used-${s.id}`}>
-                          Your custom sub length does not work on this night, so the preset is used. Change it on this target&apos;s row in the plan.
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>

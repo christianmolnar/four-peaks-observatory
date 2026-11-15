@@ -195,3 +195,41 @@ describe('plain words', () => {
     expect(numbers('m31')).toMatch(/^1 s × 1 sub · under 1 min of light/);
   });
 });
+
+describe('round 4: a stored sub under the minimum, the timeline in the preset-used state, a 0-sub favorite', () => {
+  it('a stored 0.5 s sub is judged like an over-5,000 one: plain message, preset used on row and timeline, favorite refused', async () => {
+    await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 0.5, subCount: 100 } }]);
+    openPart('Night timeline');
+    expect(unusable('m31')).toBe('A sub of 0.5 s is shorter than 1 s: too short to be an exposure. Your custom numbers do not work on this night, so the Balanced preset is used.');
+    const row = parse(numbers('m31'));
+    expect(row.sub).toBeGreaterThan(1);
+    expect(slotNumbers(0)).toEqual(row);
+    fireEvent.click(favoriteBox('m31'));
+    expect(screen.getByTestId('plan-favorite-refused-m31').textContent).toMatch(/^The favorite was not saved/);
+    expect(document.body.textContent).not.toMatch(VALIDATOR);
+    expect(window.localStorage.getItem(FAVORITES_KEY)).toBeNull();
+    expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 0.5, subCount: 100 } });
+  });
+
+  it('the timeline offers no preset select for a custom value that is not used, so the stored value cannot be deleted; moving the night back keeps it', async () => {
+    await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'balanced' }]);
+    openPart('Night timeline');
+    type(subBox('m31'), '1');
+    fireEvent.change(dateBox(), { target: { value: JAN } });
+    expect(screen.getByTestId('it-preset-used-m31')).toBeTruthy();
+    expect(screen.queryByLabelText('Exposure preset for Andromeda Galaxy', { selector: 'select' })).toBeNull();
+    fireEvent.change(dateBox(), { target: { value: MAY } });
+    expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 1 } });
+    expect(parse(numbers('m31')).sub).toBe(1);
+  });
+
+  it('Save as favorite on a row with 0 subs (no usable time) is refused in plain words, no validator text', async () => {
+    await app('2026-06-15', 'deep-c11-reducer-2600', null, [{ id: 'm42', preset: 'balanced' }]);
+    const box = favoriteBox('m42');
+    expect((box as HTMLInputElement).disabled).toBe(false);
+    fireEvent.click(box);
+    expect(screen.getByTestId('plan-favorite-refused-m42').textContent).toBe('The favorite was not saved: this night gives no subs for this target. Pick another night or target.');
+    expect(document.body.textContent).not.toMatch(VALIDATOR);
+    expect(window.localStorage.getItem(FAVORITES_KEY)).toBeNull();
+  });
+});
