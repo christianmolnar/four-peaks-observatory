@@ -1,6 +1,6 @@
 # Planner exposure: what is computed and what is assumed
 
-Every exposure number the exposure panel, the itinerary and the several-night plan show comes from `exposureFor` in `src/planner/exposure/index.ts`. A model does not set it.
+Every exposure number the night timeline, the AI plan card and the several-night engine give comes from `exposureFor` in `src/planner/exposure/index.ts`. A model does not set it.
 The AI plan is the one place where a model's numbers still show: see "Who uses it" below.
 Every number is an estimate. Research and sources: `~/Token/research/fourpeaks-exposure-modes.md`.
 Starting parameters for the owner's rigs: `planner-exposure-table.md` (regenerate with `node scripts/planner-exposure-table.mjs --out docs/guides/planner-exposure-table.md`).
@@ -20,13 +20,12 @@ Starting parameters for the owner's rigs: `planner-exposure-table.md` (regenerat
 
 ## Who uses it
 
-- **The exposure panel** (`planExposure`) calls it once per preset.
-- **The itinerary** calls it for each slot's preset. Export CSV and JSON read the itinerary's integration.
-- **The several-night plan** works each target's useful range out with it: the least is where Quick stops, the most where Deep stops (`usefulRangeOf`, `planner-campaign.md`). There is no second table.
+- **The night timeline** calls it for each slot's preset. Export CSV and JSON read the timeline's integration. (The page's global Exposure module with its three comparison cards is gone; `planExposure` stays in the engine for the per-target exposure that comes back in the plan's rows.)
+- **The several-night engine** (no longer on the page) works each target's useful range out with it: the least is where Quick stops, the most where Deep stops (`usefulRangeOf`, `planner-campaign.md`). There is no second table.
 - **The AI plan panel** shows two things for each slot: the model's numbers (the minutes it wants for the target, and the minutes it plans in the slot, which stay the plan's allocation) and, from `exposureFor`, the sub length and count for those slot minutes
   (the preset `modeForMinutes` picks for the slot's minutes, which is the one "Use this plan" gives it; the Moon at the slot's start; marked "calculated" with the Bortle class). The last-slot line shows that same count, keeping the model's usefulness word. The model's own sub length and frame count are not shown.
   Still the model's: the minutes per target and per slot, and the `subSeconds` it must return (the checker's last-slot frame count uses that `subSeconds`, so it can differ from the count the panel calculates).
-  Applying an AI plan to the itinerary keeps only a preset per slot (`modeForMinutes`), and the itinerary then plans each slot's own numbers.
+  Applying an AI plan to the open plan keeps only a preset per slot (`modeForMinutes`), and the night timeline then plans each slot's own numbers.
 
 ## Sub length
 
