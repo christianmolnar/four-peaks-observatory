@@ -31,9 +31,15 @@ const seed = (date: string, trainId: string, filterId: string | null, targets: r
   for (const t of profile.trains) if (t.kind === 'optical' && filterId !== null) (t as { filterId?: string }).filterId = filterId;
   return profile;
 };
-const app = async (date: string, trainId: string, filterId: string | null, targets: readonly object[]) => {
-  render(<PlannerApp {...pageProps} initialDate={date} initialProfile={seed(date, trainId, filterId, targets)} />);
+const app = async (date: string, trainId: string, filterId: string | null, targets: readonly object[], edit?: (profile: ReturnType<typeof sampleProfile>) => void) => {
+  const profile = seed(date, trainId, filterId, targets);
+  edit?.(profile);
+  render(<PlannerApp {...pageProps} initialDate={date} initialProfile={profile} />);
   await ready();
+};
+/** The profile's cameras without a pixel size: the engine cannot compute an exposure, but the page must still load. */
+const withoutPixelSize = (profile: ReturnType<typeof sampleProfile>) => {
+  for (const c of profile.equipment.cameras) delete (c as { pixelSizeUm?: number }).pixelSizeUm;
 };
 const dateBox = () => screen.getByLabelText('Evening of') as HTMLInputElement;
 const subBox = (id: string) => screen.getByLabelText(`Sub length (s) for ${NAMES[id]}`) as HTMLInputElement;
@@ -84,7 +90,7 @@ describe('an accepted sub length that stops working when the night changes', () 
     expect(row.sub).toBeGreaterThan(10);
     // The timeline schedules the same preset numbers and says so.
     expect(slotNumbers(0)).toEqual(row);
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(/Your custom sub length does not work on this night, so the preset is used/);
+    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(/Your custom numbers do not work on this night, so the Balanced preset is used/);
     // The stored value stays stored.
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 10 } });
     // Save as favorite is refused in plain words, with no validator text anywhere.
@@ -144,8 +150,11 @@ describe('an accepted sub length that stops working when the night changes', () 
                 fireEvent.click(favoriteBox(id));
                 expect(screen.queryByTestId(`plan-favorite-refused-${id}`)).toBeNull();
               }
-              // The timeline gives each slot its own part of the night, so its count may be cut; its sub length is the row's, and never over the limit.
-              if (timelineSlots()[k].textContent?.includes('Light:')) expect([where, slotNumbers(k).sub, slotNumbers(k).subs <= MAX_SUBS]).toEqual([where, row.sub, true]);
+              // The timeline gives each slot its own part of the night, so its count may be cut, and the count limit is tested against that smaller window: its sub is the row's or shorter, never over the limit.
+              if (timelineSlots()[k].textContent?.includes('Light:')) {
+                const slot = slotNumbers(k);
+                expect([where, slot.sub <= row.sub, slot.sub <= MAX_SUB_S, slot.subs <= MAX_SUBS]).toEqual([where, true, true, true]);
+              }
             });
             expect(document.body.textContent).not.toMatch(VALIDATOR);
             cleanup();
@@ -286,5 +295,56 @@ describe('round 5: every stored custom value outside the limits is judged, never
     act(() => {
       window.dispatchEvent(new Event('afterprint'));
     });
+  });
+});
+
+describe('round 7: a stored value outside the limits never reaches the engine, whatever the profile lacks', () => {
+  it.each([{ subCount: 0.5 }, { subCount: 12.7 }, { subSeconds: 60, subCount: 0.5 }, { subSeconds: 60, subCount: 12.7 }])(
+    'profile without a pixel size, stored %j: the page loads, the row gives the profile message, the timeline names the failing number',
+    async (custom) => {
+      await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom }], withoutPixelSize);
+      openPart('Night timeline');
+      expect(screen.getByTestId('plan-numbers-m31').textContent).toMatch(/The profile lacks .*camera\.pixelSizeUm, so no exposure can be computed\./);
+      expect(screen.getByTestId('it-preset-used-m31').textContent).toBe(
+        'The stored number of subs is not a whole number of 1 or more. Your custom numbers do not work on this night, so the Balanced preset is used.',
+      );
+      expect(document.body.textContent).not.toMatch(VALIDATOR);
+      expect(storedPlan()!.targets[0].custom).toEqual(custom);
+    },
+  );
+
+  it('the timeline names the sub length when that is what fails, and the count when that is', async () => {
+    await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 7200 } }]);
+    openPart('Night timeline');
+    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(/^The stored sub length is longer than 300 s: too long for one sub\. Your custom numbers do not work/);
+    cleanup();
+    window.localStorage.clear();
+    await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subCount: MAX_SUBS + 1 } }]);
+    openPart('Night timeline');
+    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(new RegExp(`^The stored number of subs is more than ${MAX_SUBS}: too many for one plan\\. Your custom numbers do not work`));
+  });
+});
+
+describe('round 7: a favorite saved under older limits stays saved and is shown as not usable', () => {
+  const stored = (id: string, subSeconds: number, subCount: number) => ({ id, preset: 'deep', subSeconds, subCount, filterName: 'No filter', trainName: 'C11', savedAt: '2026-12-01T00:00:00.000Z' });
+
+  it('a 600 s favorite does not wipe out the list: the other favorite is offered, the old one says why it is not, and the store text is untouched', async () => {
+    const text = JSON.stringify({ version: 1, favorites: [stored('m31', 600, 12), stored('m42', 120, 30)] });
+    window.localStorage.setItem(FAVORITES_KEY, text);
+    await app('2026-12-08', 'deep-c11-reducer-2600', null, [
+      { id: 'm31', preset: 'balanced', favorite: 'ask' },
+      { id: 'm42', preset: 'balanced', favorite: 'ask' },
+    ]);
+    expect(document.body.textContent).not.toMatch(/could not be read|start over/);
+    expect(document.body.textContent).not.toMatch(VALIDATOR);
+    expect(screen.getByTestId('plan-favorite-unusable-m31').textContent).toMatch(
+      /^Your saved exposure for this object \(Deep, 600 s × 12 \(2 h\)\) cannot be used: its sub length is longer than the 300 s a sub can be\./,
+    );
+    expect(screen.queryByTestId('plan-favorite-ask-m31')).toBeNull();
+    expect(screen.queryByTestId('plan-favorite-unusable-m42')).toBeNull();
+    expect(screen.getByTestId('plan-favorite-ask-m42').textContent).toMatch(/Restore favorite\?/);
+    fireEvent.click(within(screen.getByTestId('plan-favorite-ask-m42')).getByRole('button', { name: 'Restore' }));
+    expect(storedPlan()!.targets[1]).toMatchObject({ id: 'm42', preset: 'custom', custom: { subSeconds: 120, subCount: 30 } });
+    expect(window.localStorage.getItem(FAVORITES_KEY)).toBe(text);
   });
 });

@@ -53,6 +53,9 @@ export function storedProblem(c: ExposureOverrides | undefined): string | null {
   return null;
 }
 
+/** The plain line for a custom value that is not used: the number that fails, then what is used instead. */
+export const notUsedText = (problem: string, base: ExposureMode): string => `${problem} Your custom numbers do not work on this night, so the ${presetLabel(base)} preset is used.`;
+
 /** One edit of a plan target's exposure, as the fields to store. `custom` and `base` are removed when the target is back on a preset. */
 export function withPreset(ref: PlanTargetRef, next: ExposureMode | 'custom'): PlanTargetRef {
   const out: PlanTargetRef = { ...ref, preset: next };
@@ -150,7 +153,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   } else if (ref.preset !== 'custom') {
     chosen = presets[ref.preset];
   }
-  const customUnusable = problem === null ? null : `${problem} Your custom numbers do not work on this night, so the ${presetLabel(baseOf(ref))} preset is used.`;
+  const customUnusable = problem === null ? null : notUsedText(problem, baseOf(ref));
   const cam = slot.camera;
   const inputs = [
     `f/${(slot.optics.focalRatio ?? 0).toFixed(2)}`,

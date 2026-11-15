@@ -526,7 +526,7 @@ export interface ExposureDifference {
 /** What held the sub length where it is. */
 export type SubLimit = 'read-noise' | 'risk-cap' | 'saturation' | 'floor' | 'count-cap' | 'user';
 /** What held the total where it is. */
-export type TotalLimit = 'snr-target' | 'diminishing-returns' | 'minimum-total' | 'usable-window' | 'user';
+export type TotalLimit = 'snr-target' | 'diminishing-returns' | 'minimum-total' | 'usable-window' | 'count-cap' | 'user';
 
 export interface Knee {
   /** The stop point in minutes: where the preset's SNR target is reached or one more half hour stops paying, whichever comes first (not below MIN_TOTAL_MIN in the plan). */
@@ -751,6 +751,18 @@ function filterNoteFor(filter: ProfileFilter | null, bw: Bandwidth, emission: bo
 
 const NO_GAIN_NOTE = "No gain suggestion: the profile stores no gain or high-conversion-gain point for this camera. Use the maker's recommended gain.";
 
+/** How many subs of `subSeconds` (at most `wanted`) the usable window holds with the dithers, autofocus and flip counted, and the overhead that goes with them. */
+function fitSubs(usableMinutes: number, subSeconds: number, wanted: number, flip: boolean, dither: { everyFrames: number; minIntervalS: number }): { count: number; overhead: Overhead } {
+  // Start at the most the window could hold (plus one), not at a huge override: the loop below then runs a few times, not a million.
+  let count = Math.min(wanted, Math.floor((usableMinutes * 60) / subSeconds) + 1);
+  for (;;) {
+    const oh = overheadFor(subSeconds, count, flip, dither);
+    const sessionMin = (count * subSeconds) / 60 + oh.ditherMin + oh.autofocusMin + oh.meridianFlipMin;
+    if (count === 0 || sessionMin <= usableMinutes) return { count, overhead: oh };
+    count -= 1;
+  }
+}
+
 function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, night: ExposureNight, c: Context, choice: ExposureChoice): ExposureResult {
   const spec = PRESETS[choice.preset];
   const o = choice.overrides ?? {};
@@ -777,40 +789,40 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     const wanted = Math.min(Math.max(swampSeconds, MIN_SUB_S), ceiling);
     subSeconds = pickSub(c.readNoiseE, c.rate, wanted, ceiling);
   }
+  // ---- Total light: the stop point of the object, then the window.
+  const knee = kneeFor(object, c, rig.filter, sky, choice.preset);
+  const stopMin = Math.max(MIN_TOTAL_MIN, knee.minutes);
+  const wantedMin = o.totalMin ?? stopMin;
+  // Rounded up: the plan reaches the stop point (and the 30 minute minimum) instead of falling up to one sub short; the window still cuts it.
+  // More than MAX_SUBS frames is never recommended: when the light this night can hold at the sky-limited sub (the smaller of the stop point and the usable window)
+  // would need more than MAX_SUBS, the engine's own sub is lengthened (never past the ceiling) until it fits. A night that never reaches MAX_SUBS keeps its sub.
+  const dither = spec.dither;
+  const holds = (t: number, wantedSubs: number): number => fitSubs(night.usableMinutes, t, wantedSubs, false, dither).count;
+  const needsLonger = (t: number): boolean => holds(t, Math.min(Math.ceil((wantedMin * 60) / t - 1e-9), MAX_SUBS + 1)) > MAX_SUBS;
+  if (o.subSeconds === undefined && o.subCount === undefined && needsLonger(subSeconds)) {
+    const longer = SUB_STEPS_S.find((t) => t >= subSeconds && t <= ceiling && !needsLonger(t));
+    if (longer !== undefined) {
+      subSeconds = longer;
+      subLimit = 'count-cap';
+    } else {
+      // No allowed step is long enough: the sub stays at the top of what stars and risk allow, and says so.
+      subSeconds = snapSubDown(ceiling);
+      if (subLimit === 'read-noise' || subLimit === 'floor') subLimit = satCap < riskCap ? 'saturation' : 'risk-cap';
+    }
+  }
   const penalty = readNoisePenalty(c.readNoiseE, c.rate, subSeconds);
   if (o.subSeconds === undefined && swampSeconds > ceiling) {
-    const why = subLimit === 'saturation' ? 'stars or a bright core would clip' : 'guiding, wind and satellite-trail risk';
+    const why = satCap < riskCap ? 'stars or a bright core would clip' : 'guiding, wind and satellite-trail risk';
     warnings.push({
       code: 'sub-capped',
       severity: 'note',
       text: `Sky-limited length is about ${Math.round(swampSeconds)} s; capped at ${subSeconds} s (${why}). Read noise adds about ${(penalty * 100).toFixed(0)}% to the noise at ${subSeconds} s (estimate).`,
     });
   }
-
-  // ---- Total light: the stop point of the object, then the window.
-  const knee = kneeFor(object, c, rig.filter, sky, choice.preset);
-  const stopMin = Math.max(MIN_TOTAL_MIN, knee.minutes);
-  const wantedMin = o.totalMin ?? stopMin;
-  // Rounded up: the plan reaches the stop point (and the 30 minute minimum) instead of falling up to one sub short; the window still cuts it.
-  // More than MAX_SUBS frames is never recommended: the engine's own sub is lengthened (never past the ceiling) until the light fits in MAX_SUBS.
-  if (o.subSeconds === undefined && o.subCount === undefined && Math.ceil((wantedMin * 60) / subSeconds - 1e-9) > MAX_SUBS) {
-    subSeconds = SUB_STEPS_S.find((t) => t >= subSeconds && t <= ceiling && Math.ceil((wantedMin * 60) / t - 1e-9) <= MAX_SUBS) ?? snapSubDown(ceiling);
-    subLimit = 'count-cap';
-  }
   const uncappedCount = o.subCount ?? Math.ceil((wantedMin * 60) / subSeconds - 1e-9);
   const desiredCount = Math.min(uncappedCount, MAX_SUBS);
-  const dither = spec.dither;
 
-  const fit = (flip: boolean): { count: number; overhead: Overhead } => {
-    // Start at the most the window could hold (plus one), not at a huge override: the loop below then runs a few times, not a million.
-    let count = Math.min(desiredCount, Math.floor((night.usableMinutes * 60) / subSeconds) + 1);
-    for (;;) {
-      const oh = overheadFor(subSeconds, count, flip, dither);
-      const sessionMin = (count * subSeconds) / 60 + oh.ditherMin + oh.autofocusMin + oh.meridianFlipMin;
-      if (count === 0 || sessionMin <= night.usableMinutes) return { count, overhead: oh };
-      count -= 1;
-    }
-  };
+  const fit = (flip: boolean) => fitSubs(night.usableMinutes, subSeconds, desiredCount, flip, dither);
   let { count, overhead } = fit(false);
   const sessionMinOf = (n: number, oh: Overhead) => (n * subSeconds) / 60 + oh.ditherMin + oh.autofocusMin + oh.meridianFlipMin;
   if (night.acquisitionStart && night.transitTime && count > 0) {
@@ -826,8 +838,20 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     }
   }
   // The cap binds only when the night would have held more than MAX_SUBS (a shorter window already cuts the count below it, with its own note).
-  if (uncappedCount > MAX_SUBS && count >= MAX_SUBS) {
-    warnings.push({ code: 'count-capped', severity: 'note', text: `That would need ${uncappedCount} subs; the plan stops at ${MAX_SUBS}. Use longer subs.` });
+  const countCapped = uncappedCount > MAX_SUBS && count >= MAX_SUBS;
+  if (countCapped) {
+    // "Use longer subs" only when one is allowed: the engine's own sub already sits at the top of what stars and risk allow.
+    const longerAllowed = o.subSeconds !== undefined && subSeconds < MAX_SUB_S;
+    const topOfSub = satCap < riskCap ? 'the longest sub before stars or a bright core clip' : 'the longest sub the planner allows';
+    warnings.push({
+      code: 'count-capped',
+      severity: 'note',
+      text: longerAllowed
+        ? `That would need ${uncappedCount} subs; the plan stops at ${MAX_SUBS}. Use longer subs.`
+        : o.subSeconds !== undefined
+          ? `That would need ${uncappedCount} subs; the plan stops at ${MAX_SUBS}.`
+          : `That would need ${uncappedCount} subs; the plan stops at ${MAX_SUBS}, which is ${round1((MAX_SUBS * subSeconds) / 60)} minutes of light at ${subSeconds} s (${topOfSub}).`,
+    });
   }
   // The range stays inside the module's own limits: no sub shorter than MIN_SUB_S, none longer than the ceiling (a user's own sub may sit outside; the range then collapses onto it).
   const rangeFactor = c.bw.assumed || c.rnAssumed ? SUB_RANGE_FACTOR_ASSUMED : SUB_RANGE_FACTOR;
@@ -849,11 +873,13 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
         ]
       : null;
 
-  const aimMin = round1((desiredCount * subSeconds) / 60);
-  const modeRangeMin: Range = [Math.round(aimMin * TOTAL_RANGE_LOW_FRACTION), Math.round(aimMin)];
   const windowCut = count < desiredCount && night.usableMinutes > 0;
+  // What the stop point asks for: when the window cuts the plan, the light it asked for, not the MAX_SUBS share of it.
+  const aimMin = round1(((windowCut ? uncappedCount : desiredCount) * subSeconds) / 60);
+  const modeRangeMin: Range = [Math.round(aimMin * TOTAL_RANGE_LOW_FRACTION), Math.round(aimMin)];
   let totalLimit: TotalLimit;
   if (windowCut) totalLimit = 'usable-window';
+  else if (countCapped) totalLimit = 'count-cap';
   else if (o.totalMin !== undefined || o.subCount !== undefined) totalLimit = 'user';
   else if (knee.minutes < MIN_TOTAL_MIN) totalLimit = 'minimum-total';
   else totalLimit = knee.setBy;
@@ -883,10 +909,16 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
           : rig.filter && c.bw.nm < REF_BANDWIDTH_NM
             ? '; no filter or a darker sky changes it more than time does (this object is mostly continuum, so the filter cuts the object with the sky).'
             : '; a darker sky changes it more than time does (a narrower filter would not help: this object is mostly continuum, so it cuts the object with the sky).';
+    const stopsBecause =
+      totalLimit === 'usable-window'
+        ? 'where the night ends'
+        : totalLimit === 'count-cap'
+          ? `the most that ${MAX_SUBS} subs of ${subSeconds} s give`
+          : 'where more time pays little';
     warnings.push({
       code: 'short-of-target',
       severity: 'note',
-      text: `At this sky and filter, ${spec.label} would need ${needText(knee.snrTimeMin)} for its signal-to-noise target on this object; the plan stops at ${integrationMin} minutes, where more time pays little or the night ends. Expect a noisy result (estimate)${advice}`,
+      text: `At this sky and filter, ${spec.label} would need ${needText(knee.snrTimeMin)} for its signal-to-noise target on this object; the plan stops at ${integrationMin} minutes, ${stopsBecause}. Expect a noisy result (estimate)${advice}`,
     });
   }
   if (knee.surfaceBrightnessFrom === 'assumed') {

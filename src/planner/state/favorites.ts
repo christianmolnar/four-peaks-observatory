@@ -53,11 +53,12 @@ function checkFavorite(raw: unknown, path: string): Favorite {
   if (!isRecord(raw)) throw new FavoritesError(path, 'must be an object');
   if (typeof raw.id !== 'string' || raw.id === '' || raw.id.length > MAX_NAME) throw new FavoritesError(`${path}.id`, 'must be a non-empty id');
   if (!PRESETS.includes(raw.preset as PlanPreset)) throw new FavoritesError(`${path}.preset`, `must be one of ${PRESETS.join(', ')}`);
-  if (typeof raw.subSeconds !== 'number' || !Number.isFinite(raw.subSeconds) || raw.subSeconds < MIN_CUSTOM_SUB_S || raw.subSeconds > MAX_SUB_S) {
-    throw new FavoritesError(`${path}.subSeconds`, `must be a number from ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S}`);
+  // The store only checks the shape: a favorite saved under older limits stays in the store and is shown as not usable (`favoriteProblem`), it never empties the list.
+  if (typeof raw.subSeconds !== 'number' || !Number.isFinite(raw.subSeconds) || raw.subSeconds <= 0) {
+    throw new FavoritesError(`${path}.subSeconds`, 'must be a number above 0');
   }
-  if (typeof raw.subCount !== 'number' || !Number.isInteger(raw.subCount) || raw.subCount < 1 || raw.subCount > MAX_SUBS) {
-    throw new FavoritesError(`${path}.subCount`, `must be a whole number from 1 to ${MAX_SUBS}`);
+  if (typeof raw.subCount !== 'number' || !Number.isInteger(raw.subCount) || raw.subCount < 1) {
+    throw new FavoritesError(`${path}.subCount`, 'must be a whole number of 1 or more');
   }
   if (raw.base !== undefined && !MODE_ORDER.includes(raw.base as ExposureMode)) throw new FavoritesError(`${path}.base`, `must be one of ${MODE_ORDER.join(', ')}`);
   if (typeof raw.savedAt !== 'string' || Number.isNaN(Date.parse(raw.savedAt))) throw new FavoritesError(`${path}.savedAt`, 'must be a date and time');
@@ -153,11 +154,21 @@ export const keepFavoritesCopy = (storage: Pick<Storage, 'length' | 'key' | 'get
 /** Every favorites copy in storage, oldest first. */
 export const listFavoritesBackups = (storage: Pick<Storage, 'length' | 'key' | 'getItem'>): Backup[] => listBackups(storage, FAVORITES_BACKUP_PREFIX);
 
+/** The plain reason a favorite's numbers are outside today's limits (a sub under MIN_CUSTOM_SUB_S or over MAX_SUB_S, more than MAX_SUBS subs), or null when it can be used. */
+export function favoriteProblem(f: Pick<Favorite, 'subSeconds' | 'subCount'>): string | null {
+  if (f.subSeconds < MIN_CUSTOM_SUB_S) return `its sub length is shorter than ${MIN_CUSTOM_SUB_S} s`;
+  if (f.subSeconds > MAX_SUB_S) return `its sub length is longer than the ${MAX_SUB_S} s a sub can be`;
+  if (f.subCount > MAX_SUBS) return `its number of subs is more than the ${MAX_SUBS} a plan holds`;
+  return null;
+}
+
 /** The favorite of this object, or null. */
 export const favoriteOf = (s: FavoritesState, id: string): Favorite | null => s.favorites.find((f) => f.id === id) ?? null;
 
 /** Adds the favorite, or replaces the one of the same object. Throws, in words, at the limit. */
 export function withFavorite(s: FavoritesState, f: Favorite): FavoritesState {
+  const problem = favoriteProblem(f);
+  if (problem !== null) throw new Error(`The favorite was not saved: ${problem}.`);
   const others = s.favorites.filter((x) => x.id !== f.id);
   if (others.length >= MAX_FAVORITES) throw new Error(`Favorites hold at most ${MAX_FAVORITES} exposures. Remove one to save another.`);
   const next = { ...s, favorites: [...others, f] };

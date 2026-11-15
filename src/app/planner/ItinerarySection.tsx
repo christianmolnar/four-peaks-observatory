@@ -37,8 +37,8 @@ export interface ItinerarySectionProps {
   items: ItineraryItem[];
   /** The plan's "imaging can start at"; null: when the night starts. */
   startTime: string | null;
-  /** The slots (target ids) whose Custom numbers do not work on this night: they are scheduled with the preset's own numbers, and the slot says so. */
-  presetUsedIds?: ReadonlySet<string>;
+  /** The slots (target ids) whose Custom numbers do not work, each with the plain reason naming the number that fails: they are scheduled with the preset's own numbers, and the slot says so. */
+  presetUsed?: ReadonlyMap<string, string>;
   /** Targets of the plan past the first MAX_SLOTS: the timeline schedules no more, and says so. */
   unscheduled: number;
   /** A change made here: the slots in their new order and the new start time. The plan keeps them. */
@@ -127,7 +127,7 @@ function Detail({
  * start, a removal, the suggested order) back to it. Subs and counts come from the exposure module; every time and number here is an
  * estimate.
  */
-export default function ItinerarySection({ profile, items, startTime, presetUsedIds, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
+export default function ItinerarySection({ profile, items, startTime, presetUsed, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
   // What is being typed in the start box; null: show the plan's start time.
   const [startDraft, setStartDraft] = useState<string | null>(null);
   // The start box complains when it is left or Enter is pressed, or when the text can no longer become a time; not on a half-typed "2".
@@ -358,7 +358,7 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                   </p>
                 </div>
                 <div className="mt-2 max-w-xs">
-                  {it.overrides !== undefined || presetUsedIds?.has(s.id) ? (
+                  {it.overrides !== undefined || presetUsed?.has(s.id) ? (
                     // A Custom target keeps its own numbers; they are edited on the target's row in the plan, never here.
                     <p className="text-white/90 text-sm" data-testid={`it-custom-${s.id}`}>
                       Exposure preset for {s.name}: Custom (started from {presetLabel(it.mode)}). Change it on this target&apos;s row in the plan.
@@ -366,7 +366,7 @@ export default function ItinerarySection({ profile, items, startTime, presetUsed
                         <>
                           <br />
                           <span className="text-orange-200 text-xs" data-testid={`it-preset-used-${s.id}`}>
-                            Your custom sub length does not work on this night, so the preset is used.
+                            {presetUsed?.get(s.id)}
                           </span>
                         </>
                       )}

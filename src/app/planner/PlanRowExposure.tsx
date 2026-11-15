@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { MODE_ORDER, needText } from '@/planner/exposure';
+import { MAX_SUBS, MODE_ORDER, needText } from '@/planner/exposure';
 import type { ExposureMode, ExposureResult } from '@/planner/exposure';
+import { favoriteProblem } from '@/planner/state/favorites';
 import type { Favorite } from '@/planner/state/favorites';
 import type { PlanPreset } from '@/planner/state/plans';
 import { ACT_ON, checkNumber, differsText, exposureSummary, minutesText, presetLabel, resultProblem, splitWarnings } from './rowExposure';
@@ -25,6 +26,7 @@ const TOTAL_LIMIT: Record<ExposureResult['limitedBy']['total'], string> = {
   'diminishing-returns': 'diminishing returns (another half hour adds too little)',
   'minimum-total': 'the 30 minute minimum',
   'usable-window': 'the time the target is usable on this night',
+  'count-cap': `the limit of ${MAX_SUBS} subs (more light would need more subs than a plan holds)`,
   user: 'your choice',
 };
 const GO_LABEL = { date: 'Change the date', train: 'Change the train', filter: 'Change the filter' } as const;
@@ -156,6 +158,8 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
   const split = chosen === null ? null : splitWarnings(chosen.warnings);
   const dropFavoriteFocus = () => requestAnimationFrame(() => document.getElementById(`plan-fav-${id}`)?.focus());
   const summary = favorite === null ? '' : exposureSummary(favorite);
+  // A favorite saved under older limits stays saved but is not offered: the row says why.
+  const favoriteUnusable = favorite === null ? null : favoriteProblem(favorite);
   const differsFromFavorite =
     favorite !== null && chosen !== null && (favorite.subSeconds !== chosen.subSeconds || favorite.subCount !== chosen.subCount);
   const base: ExposureMode | null = chosen === null ? null : chosen.mode;
@@ -294,7 +298,12 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
         </Fold>
       )}
 
-      {prompt === 'ask' && favorite !== null && (
+      {favorite !== null && favoriteUnusable !== null && (
+        <p className="text-sm font-normal text-orange-200" data-testid={`plan-favorite-unusable-${id}`}>
+          Your saved exposure for this object ({summary}) cannot be used: {favoriteUnusable}. It stays saved; save new numbers to replace it, or remove it.
+        </p>
+      )}
+      {prompt === 'ask' && favorite !== null && favoriteUnusable === null && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-ask-${id}`}>
           <span>You saved an exposure for this object: {summary}. Restore favorite?</span>
           <span className="flex gap-2">
@@ -303,7 +312,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
           </span>
         </p>
       )}
-      {prompt === 'restored' && favorite !== null && (
+      {prompt === 'restored' && favorite !== null && favoriteUnusable === null && (
         <p className="text-sm font-normal text-white/90" data-testid={`plan-favorite-restored-${id}`}>
           Your saved exposure for this object was restored automatically: {summary}.
         </p>

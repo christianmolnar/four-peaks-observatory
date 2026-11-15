@@ -51,7 +51,7 @@ import {
   withTrainFilter,
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
-import { FAVORITES_KEY, favoriteOf, listFavoritesBackups, withFavorite, withoutFavorite } from '@/planner/state/favorites';
+import { FAVORITES_KEY, favoriteOf, favoriteProblem, listFavoritesBackups, withFavorite, withoutFavorite } from '@/planner/state/favorites';
 import type { Favorite } from '@/planner/state/favorites';
 import {
   MAX_PLAN_TARGETS,
@@ -102,7 +102,7 @@ import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { baseOf, presetLabel, rowExposure, withNumber, withPreset } from './rowExposure';
+import { baseOf, notUsedText, presetLabel, rowExposure, storedProblem, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -1083,7 +1083,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const newRef = (id: string): PlanTargetRef => {
     const ref: PlanTargetRef = { id, preset: 'balanced' };
     const fav = favoriteOf(favs.state, id);
-    if (fav === null || SLOT_BODIES.some((b) => planetIdOf(b) === id)) return ref;
+    // A favorite outside today's limits is not offered or restored; the row shows it as not usable.
+    if (fav === null || favoriteProblem(fav) !== null || SLOT_BODIES.some((b) => planetIdOf(b) === id)) return ref;
     if (!alwaysRestore) return { ...ref, favorite: 'ask' };
     const entry = catalogById?.get(id) !== undefined ? (scorer?.target(catalogById.get(id)!) ?? null) : null;
     return { ...restoredRef(ref, fav, viewOf(ref, entry)), favorite: 'restored' };
@@ -1169,7 +1170,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const restoreFavorite = (id: string) => {
     const fav = favoriteOf(favs.state, id);
     const view = rowViews.get(id);
-    if (fav !== null && view !== undefined) editTarget(id, (t) => restoredRef(t, fav, view));
+    if (fav !== null && favoriteProblem(fav) === null && view !== undefined) editTarget(id, (t) => restoredRef(t, fav, view));
   };
   const notNow = (id: string) =>
     editTarget(id, (t) => {
@@ -1193,7 +1194,17 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
   // ---- The timeline and the AI plan write back into the open plan.
   /** The Custom targets whose stored numbers do not work on this night (the preset's numbers are used instead). */
-  const presetUsedIds = useMemo(() => new Set([...rowViews].filter(([, v]) => v.kind === 'ok' && v.customUnusable !== null).map(([id]) => id)), [rowViews]);
+  const presetUsed = useMemo(() => {
+    const used = new Map<string, string>();
+    for (const t of planTargets) {
+      const v = rowViews.get(t.id);
+      // A stored value outside the limits is judged here whatever the row's kind (a profile without a pixel size gives no numbers, but the timeline still must not get the value).
+      const stored = t.preset === 'custom' ? storedProblem(t.custom) : null;
+      if (v?.kind === 'ok' && v.customUnusable !== null) used.set(t.id, v.customUnusable);
+      else if (stored !== null) used.set(t.id, notUsedText(stored, baseOf(t)));
+    }
+    return used;
+  }, [planTargets, rowViews]);
   /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all; a Custom target is scheduled with its own numbers over the preset it differs from. */
   const timelineItems = useMemo(
     (): ItineraryItem[] =>
@@ -1204,10 +1215,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         filterId: train?.kind === 'optical' ? (train.filterId ?? null) : null,
         mode: baseOf(t),
         // A Custom value that does not work on this night is not scheduled: the slot uses the preset's own numbers (the row says so); the value stays stored.
-        ...(t.preset === 'custom' && t.custom && !presetUsedIds.has(t.id) ? { overrides: t.custom } : {}),
+        ...(t.preset === 'custom' && t.custom && !presetUsed.has(t.id) ? { overrides: t.custom } : {}),
         note: t.note ?? '',
       })),
-    [planTargets, train, presetUsedIds],
+    [planTargets, train, presetUsed],
   );
   /** A slot's changed preset or note goes onto its target; the slots' order is the plan's order; targets past the timeline's slots stay after them. */
   const applyTimeline = (items: ItineraryItem[], startTime: string | null) => {
@@ -1926,7 +1937,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             <ItinerarySection
               profile={profile}
               items={timelineItems}
-              presetUsedIds={presetUsedIds}
+              presetUsed={presetUsed}
               startTime={open?.startTime ?? null}
               unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
               onChange={applyTimeline}

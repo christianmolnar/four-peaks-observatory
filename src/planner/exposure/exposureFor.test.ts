@@ -527,13 +527,68 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
     expect(codes(r.warnings)).toContain('count-capped');
   });
 
-  it('a preset whose light would need more than MAX_SUBS short subs lengthens the sub instead', () => {
-    // A bright sky floors the sub at MIN_SUB_S (15 s); a faint object in a long night then wants far more than MAX_SUBS frames at 15 s.
-    const r = run(galaxy(24), rig(TRAINS.hs), 9, night({ usableMinutes: 900 }), { preset: 'deep' });
+  it('a preset whose light would need more than MAX_SUBS short subs lengthens the sub instead, and says the count limit did it', () => {
+    // C11 f/10, Bortle 8, low read noise, Deep, a long night: the sky-limited sub is 35 s and 30 s would need 587 frames, so the sub goes to 45 s.
+    const r = run(galaxy(24), rig(TRAINS.f10, null, lowerRn), 8, night({ usableMinutes: 600 }), { preset: 'deep' });
+    expect(r.subSeconds).toBe(45);
     expect(r.subCount).toBeLessThanOrEqual(MAX_SUBS);
-    expect(r.subSeconds).toBeGreaterThan(15);
     expect(r.limitedBy.sub).toBe('count-cap');
-    expect(r.integrationMin * 60).toBeLessThanOrEqual(MAX_SUBS * r.subSeconds + 0.05 * 60);
+    expect(r.limitedBy.total).not.toBe('count-cap');
+    expect(codes(r.warnings)).not.toContain('count-capped');
+    // The read-noise figure belongs to the sub the plan uses (45 s), not to the one it started from.
+    const swampK = PRESETS.deep.swampK;
+    expect(r.readNoisePenalty).toBeCloseTo(Math.sqrt(1 + r.swampSeconds / (swampK * 45)) - 1, 10);
+  });
+
+  it('HyperStar train (f/1.93, Deep): the cap at the longest sub before stars clip is named as the total limit, with true text and no advice to lengthen', () => {
+    for (const cam of [lowerRn, highRn]) {
+      const r = run(galaxy(24), rig(TRAINS.hs, null, cam), 4, night({ usableMinutes: 600 }), { preset: 'deep' });
+      expect(r.subSeconds).toBe(20);
+      expect(r.subCount).toBe(MAX_SUBS);
+      expect(r.integrationMin).toBe(166.7);
+      expect(r.limitedBy).toEqual({ sub: 'saturation', total: 'count-cap' });
+      const capped = r.warnings.find((w) => w.code === 'count-capped')!;
+      expect(capped.text).toBe(`That would need 879 subs; the plan stops at ${MAX_SUBS}, which is 166.7 minutes of light at 20 s (the longest sub before stars or a bright core clip).`);
+      expect(capped.text).not.toMatch(/longer subs/i);
+      const short = r.warnings.find((w) => w.code === 'short-of-target')!;
+      expect(short.text).toContain(`the plan stops at 166.7 minutes, the most that ${MAX_SUBS} subs of 20 s give.`);
+      expect(short.text).not.toMatch(/pays little|night ends/);
+      expect(r.warnings.map((w) => w.text).join(' ')).not.toMatch(/diminishing|Use longer subs/);
+    }
+  });
+
+  it('a user sub below the longest allowed one still gets "use longer subs" when the count limit cuts a total light they asked for', () => {
+    const r = run(galaxy(24), rig(TRAINS.f63), 6, night({ usableMinutes: 900 }), { preset: 'deep', overrides: { subSeconds: 20, totalMin: 400 } });
+    expect(r.warnings.find((w) => w.code === 'count-capped')!.text).toBe(`That would need 1200 subs; the plan stops at ${MAX_SUBS}. Use longer subs.`);
+    expect(r.limitedBy.total).toBe('count-cap');
+  });
+
+  it('a night that never reaches MAX_SUBS keeps its sub: a 60 minute window at C11 f/10, Bortle 8, Deep is 30 s x 111, as before the cap', () => {
+    const r = run(galaxy(24), rig(TRAINS.f10, null, lowerRn), 8, night({ usableMinutes: 60 }), { preset: 'deep' });
+    expect(r.subSeconds).toBe(30);
+    expect(r.subCount).toBe(111);
+    expect(r.limitedBy).toEqual({ sub: 'read-noise', total: 'usable-window' });
+    expect(codes(r.warnings)).not.toContain('count-capped');
+    expect(r.warnings.find((w) => w.code === 'limited-by-usable-time')!.text).toContain('minutes of light, not 293.');
+    const short = r.warnings.find((w) => w.code === 'short-of-target')!;
+    expect(short.text).toContain('where the night ends');
+    expect(short.text).not.toMatch(/pays little/);
+  });
+
+  it('through exposureFor the shorter-sub rule acts and never lengthens a sub past the nearest step to the sky-limited length', () => {
+    let shortened = 0;
+    for (let i = 0; i <= 100; i += 1) {
+      const ill = i / 100;
+      for (const preset of MODE_ORDER) {
+        for (const cam of [lowerRn, duo]) {
+          const r = run(galaxy(22), rig(TRAINS.f10, null, cam), 1, night({ moonUp: true, moonIllumination: ill, moonSeparationDeg: 60, usableMinutes: 600 }), { preset });
+          const nearest = snapNearestFor(Math.min(r.swampSeconds, MAX_SUB_S));
+          expect(r.subSeconds).toBeLessThanOrEqual(Math.max(nearest, r.limitedBy.sub === 'count-cap' ? 300 : 0));
+          if (r.subSeconds < nearest) shortened += 1;
+        }
+      }
+    }
+    expect(shortened).toBeGreaterThan(0);
   });
 
   it('prefers the shorter sub when it gives the same stacked noise', () => {

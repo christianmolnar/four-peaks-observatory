@@ -6,6 +6,7 @@ import {
   MAX_FAVORITES,
   FavoritesError,
   favoriteOf,
+  favoriteProblem,
   inspectFavorites,
   keepFavoritesCopy,
   listFavoritesBackups,
@@ -63,10 +64,7 @@ describe('the favorites store', () => {
     const bad = (f: object) => () => validateFavorites({ version: 1, favorites: [f] });
     expect(bad({ ...fav('a'), subSeconds: 0 })).toThrow(FavoritesError);
     expect(bad({ ...fav('a'), subSeconds: -5 })).toThrow(/subSeconds/);
-    expect(bad({ ...fav('a'), subSeconds: 99999 })).toThrow(/subSeconds/);
-    expect(bad({ ...fav('a'), subSeconds: MAX_SUB_S + 1 })).toThrow(/subSeconds/);
-    expect(bad({ ...fav('a'), subSeconds: MIN_CUSTOM_SUB_S / 2 })).toThrow(/subSeconds/);
-    expect(bad({ ...fav('a'), subCount: MAX_SUBS + 1 })).toThrow(/subCount/);
+    expect(bad({ ...fav('a'), subSeconds: Number.NaN })).toThrow(/subSeconds/);
     expect(() => validateFavorites({ version: 1, favorites: [{ ...fav('a'), subSeconds: MAX_SUB_S, subCount: MAX_SUBS }] })).not.toThrow();
     expect(bad({ ...fav('a'), subCount: 2.5 })).toThrow(/subCount/);
     expect(bad({ ...fav('a'), subCount: 0 })).toThrow(/subCount/);
@@ -74,6 +72,30 @@ describe('the favorites store', () => {
     expect(bad({ ...fav('a'), base: 'ultra' })).toThrow(/base/);
     expect(bad({ ...fav('a'), savedAt: 'not a date' })).toThrow(/savedAt/);
     expect(() => validateFavorites({ version: 1, favorites: [fav('a'), fav('a')] })).toThrow(/duplicate/);
+  });
+
+  it('keeps a favorite saved under older limits: the store loads whole, and the favorite is judged by favoriteProblem, in plain words', () => {
+    const old = { version: 1, favorites: [fav('m31', { subSeconds: 600 }), fav('m42'), fav('m33', { subSeconds: MIN_CUSTOM_SUB_S / 2 }), fav('m81', { subCount: MAX_SUBS + 1 })] };
+    const s = memory({ [FAVORITES_KEY]: JSON.stringify(old) });
+    const loaded = loadFavorites(s);
+    expect(loaded.unusable).toBeNull();
+    expect(loaded.state!.favorites.map((f) => f.id)).toEqual(['m31', 'm42', 'm33', 'm81']);
+    const problems = loaded.state!.favorites.map((f) => favoriteProblem(f));
+    expect(problems).toEqual([
+      `its sub length is longer than the ${MAX_SUB_S} s a sub can be`,
+      null,
+      `its sub length is shorter than ${MIN_CUSTOM_SUB_S} s`,
+      `its number of subs is more than the ${MAX_SUBS} a plan holds`,
+    ]);
+    expect(() => saveFavorites(memory(), loaded.state!)).not.toThrow(); // removing another favorite writes the list back, old one included
+    expect(withoutFavorite(loaded.state!, 'm42').favorites.map((f) => f.id)).toEqual(['m31', 'm33', 'm81']);
+  });
+
+  it('a new favorite over the limits is refused in words and the store is unchanged', () => {
+    const before = state('m31');
+    expect(() => withFavorite(before, fav('m42', { subSeconds: MAX_SUB_S + 1 }))).toThrow(/^The favorite was not saved: its sub length is longer/);
+    expect(() => withFavorite(before, fav('m42', { subCount: MAX_SUBS + 1 }))).toThrow(/more than the 500/);
+    expect(before).toEqual(state('m31'));
   });
 
   it('holds at most 500 favorites: the 501st is refused in words and the store is unchanged', () => {
