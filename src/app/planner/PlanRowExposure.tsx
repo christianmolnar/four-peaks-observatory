@@ -85,6 +85,8 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
   const [errors, setErrors] = useState<{ subSeconds?: string; subCount?: string }>({});
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmUpdate, setConfirmUpdate] = useState(false);
+  // Set when Save or Update favorite is pressed while the row's own numbers do not work on this night.
+  const [refusedFavorite, setRefusedFavorite] = useState(false);
   const clear = () => {
     setDraft({});
     setErrors({});
@@ -92,27 +94,30 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
   const ok = view.kind === 'ok' ? view : null;
   const chosen = ok?.chosen ?? null;
 
+  /** The plain reason a typed number cannot be used, or null: the engine's own result for it, judged against the night as it is now. */
+  const judge = (field: 'subSeconds' | 'subCount', text: string): { problem: string | null; value: number } => {
+    const c = checkNumber(field, text);
+    if (!c.ok) return { problem: c.message, value: 0 };
+    // The light the engine gives for this number (it recomputes the count when only the sub length is set), not the stored count times the new length.
+    const result = ok?.withNumber(field, c.value) ?? null;
+    return { problem: result === null ? 'The engine could not compute numbers for that.' : resultProblem(result, ok?.usableMinutes ?? 0), value: c.value };
+  };
   const apply = (field: 'subSeconds' | 'subCount') => {
     const text = draft[field];
     if (text === undefined || chosen === null) return;
-    const c = checkNumber(field, text);
-    if (!c.ok) {
-      setErrors((e) => ({ ...e, [field]: c.message }));
-      return;
-    }
-    // The light the engine gives for this number (it recomputes the count when only the sub length is set), not the stored count times the new length.
-    const result = ok?.withNumber(field, c.value) ?? null;
-    const problem = result === null ? 'The engine could not compute numbers for that.' : resultProblem(result);
+    const { problem, value } = judge(field, text);
     if (problem !== null) {
       setErrors((e) => ({ ...e, [field]: problem }));
       return;
     }
+    const c = { value };
     setErrors((e) => ({ ...e, [field]: undefined }));
     setDraft((d) => ({ ...d, [field]: undefined }));
     if (c.value !== (field === 'subSeconds' ? chosen.subSeconds : chosen.subCount)) onNumber(field, c.value);
   };
   const box = (field: 'subSeconds' | 'subCount', label: string) => {
-    const err = errors[field];
+    // A refusal is judged again on every render: it goes when the other box's number (or the night) makes the draft valid.
+    const err = liveError[field];
     return (
       <div>
         <label htmlFor={`plan-${field}-${id}`} className="block text-xs font-normal text-white/80">{label}</label>
@@ -139,6 +144,11 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
     );
   };
 
+  const liveError = {
+    subSeconds: errors.subSeconds !== undefined && draft.subSeconds !== undefined ? (judge('subSeconds', draft.subSeconds).problem ?? undefined) : undefined,
+    subCount: errors.subCount !== undefined && draft.subCount !== undefined ? (judge('subCount', draft.subCount).problem ?? undefined) : undefined,
+  };
+  const unusable = ok?.customUnusable ?? null;
   const split = chosen === null ? null : splitWarnings(chosen.warnings);
   const dropFavoriteFocus = () => requestAnimationFrame(() => document.getElementById(`plan-fav-${id}`)?.focus());
   const summary = favorite === null ? '' : exposureSummary(favorite);
@@ -175,19 +185,22 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
             {box('subSeconds', 'Sub length (s)')}
             {box('subCount', 'Subs')}
           </div>
-          {(errors.subSeconds || errors.subCount) && (
+          {(liveError.subSeconds || liveError.subCount) && (
             <p role="alert" className="text-sm font-normal text-orange-200">
-              {errors.subSeconds && <span id={`plan-subSeconds-err-${id}`} className="block">{errors.subSeconds}</span>}
-              {errors.subCount && <span id={`plan-subCount-err-${id}`} className="block">{errors.subCount}</span>}
+              {liveError.subSeconds && <span id={`plan-subSeconds-err-${id}`} className="block">{liveError.subSeconds}</span>}
+              {liveError.subCount && <span id={`plan-subCount-err-${id}`} className="block">{liveError.subCount}</span>}
             </p>
           )}
+          {ok?.customUnusable != null && (
+            <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
+          )}
           <p className="text-sm font-normal text-white/90" data-testid={`plan-numbers-${id}`}>
-            {chosen.subSeconds} s × {chosen.subCount} subs · {minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
+            {chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'} · {chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
             {chosen.finish !== null && <> · finish about {formatTime(chosen.finish)} if it starts when the target is up</>}
           </p>
           {preset === 'custom' && base !== null && (
             <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-custom-${id}`}>
-              <span>{differsText(chosen)}</span>
+              <span>{unusable === null ? differsText(chosen) : 'Custom: not used on this night.'}</span>
               <button type="button" className={btn} onClick={() => { clear(); onBack(); requestAnimationFrame(() => document.getElementById(`plan-preset-${id}-${base}`)?.focus()); }}>
                 Back to {presetLabel(base)}
               </button>
@@ -300,15 +313,29 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
             className="h-5 w-5 shrink-0 accent-sky-400"
             checked={favorite !== null}
             disabled={favoritesBlocked !== null || (favorite === null && chosen === null)}
-            onChange={() => (favorite === null ? onSaveFavorite() : (setConfirmUpdate(false), setConfirmRemove(true)))}
+            onChange={() => {
+              if (favorite !== null) {
+                setConfirmUpdate(false);
+                setConfirmRemove(true);
+              } else if (unusable !== null) setRefusedFavorite(true);
+              else {
+                setRefusedFavorite(false);
+                onSaveFavorite();
+              }
+            }}
           />
           <span>Save as favorite</span>
         </label>
         {favorite !== null && <span className="rounded border border-white/20 px-1.5 py-0.5 text-xs font-normal text-white/80">Favorite saved</span>}
         {favorite !== null && differsFromFavorite && favoritesBlocked === null && prompt !== 'ask' && !confirmUpdate && (
-          <button type="button" className={btn} onClick={() => { setConfirmRemove(false); setConfirmUpdate(true); }}>Update favorite to these numbers</button>
+          <button type="button" className={btn} onClick={() => { setConfirmRemove(false); if (unusable !== null) setRefusedFavorite(true); else setConfirmUpdate(true); }}>Update favorite to these numbers</button>
         )}
       </div>
+      {refusedFavorite && unusable !== null && (
+        <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-favorite-refused-${id}`}>
+          The favorite was not saved: your custom numbers do not work on this night. Change the sub length or the number of subs, or go back to the preset.
+        </p>
+      )}
       {favoritesBlocked !== null && <p className="text-sm font-normal text-orange-100" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
       {confirmUpdate && favorite !== null && differsFromFavorite && prompt !== 'ask' && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-update-confirm-${id}`}>

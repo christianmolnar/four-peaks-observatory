@@ -17,6 +17,12 @@ export type RowExposure =
       marginal: MarginalRow[];
       inputs: string;
       usableMinutes: number;
+      /**
+       * Set when the row is Custom and its stored numbers give an unusable result on this night (more than MAX_SUBS subs, or no subs).
+       * The rule: such a custom value is never scheduled; `chosen` is then the base preset's own numbers (so the row, the timeline, print and CSV agree),
+       * and this is the plain reason. The stored value stays stored: the user may move the night back.
+       */
+      customUnusable: string | null;
       /** What the engine would give if the row's sub length or count were this number (the row's other own numbers kept); null when it cannot compute. */
       withNumber: (field: 'subSeconds' | 'subCount', value: number) => ExposureResult | null;
     };
@@ -108,14 +114,17 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   };
   const rig = { train: { focalRatio: slot.optics.focalRatio, imageScale: slot.optics.imageScale }, camera: slot.camera, filter: slot.filter };
   const run = (choice: ExposureChoice) => exposureFor(slot.exposureTarget, rig, { bortle }, night, choice);
-  const chosen = run(choiceOf(ref));
-  if (!chosen.ok) return { kind: 'missing', reason: `The profile lacks ${chosen.missing.join(', ')}, so no exposure can be computed.` };
+  const own = run(choiceOf(ref));
+  if (!own.ok) return { kind: 'missing', reason: `The profile lacks ${own.missing.join(', ')}, so no exposure can be computed.` };
   const presets = {} as Record<ExposureMode, ExposureResult>;
   for (const m of MODE_ORDER) {
     const r = run({ preset: m });
     if (!r.ok) return { kind: 'missing', reason: `The profile lacks ${r.missing.join(', ')}, so no exposure can be computed.` };
     presets[m] = r;
   }
+  const problem = ref.preset === 'custom' ? resultProblem(own, entry.usableMinutes, true) : null;
+  const chosen = problem === null ? own : presets[baseOf(ref)];
+  const customUnusable = problem === null ? null : `${problem} Your custom numbers do not work on this night, so the ${presetLabel(baseOf(ref))} preset is used.`;
   const cam = slot.camera;
   const inputs = [
     `f/${(slot.optics.focalRatio ?? 0).toFixed(2)}`,
@@ -130,7 +139,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
     const r = run({ preset: base.preset, overrides: { ...base.overrides, [field]: value } });
     return r.ok ? r : null;
   };
-  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, withNumber };
+  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, customUnusable, withNumber };
 }
 
 /** The longest sub, the most subs, and the most light one plan row accepts: past these a number is a typing slip, not an exposure. */
@@ -155,12 +164,12 @@ export function checkNumber(field: 'subSeconds' | 'subCount', text: string): Num
     if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, message: 'Enter the sub length in seconds as a number, for example 120.' };
     const v = Number(t);
     if (v < MIN_SUB_S_ROW) return { ok: false, message: `A sub of ${v} s is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.` };
-    if (v > MAX_SUB_S) return { ok: false, message: `A sub of ${v} s is longer than ${MAX_SUB_S} s (1 hour): too long for one sub.` };
+    if (v > MAX_SUB_S) return { ok: false, message: `${t.length > 10 ? 'That sub length' : `A sub of ${v} s`} is longer than ${MAX_SUB_S} s (1 hour): too long for one sub.` };
     return { ok: true, value: v };
   }
   if (!/^\d+$/.test(t)) return { ok: false, message: 'Enter the number of subs as a whole number, for example 30.' };
   const v = Number(t);
-  if (v > MAX_SUBS) return { ok: false, message: `${v} subs is more than ${MAX_SUBS}: too many for one plan.` };
+  if (v > MAX_SUBS) return { ok: false, message: `${t.length > 10 ? 'That many subs' : `${v} subs`} is more than ${MAX_SUBS}: too many for one plan.` };
   return { ok: true, value: v };
 }
 
@@ -170,10 +179,16 @@ export function exposureSummary(f: { preset: PlanTargetRef['preset']; base?: Exp
   return `${name}, ${f.subSeconds} s × ${f.subCount} (${minutesText((f.subSeconds * f.subCount) / 60)})`;
 }
 
-/** The plain reason the engine's numbers for a typed value cannot be used (more subs than a favorite or a plan holds, or more than a day of light), or null when they can. */
-export function resultProblem(r: ExposureResult): string | null {
-  if (r.subCount > MAX_SUBS) return `That would need more than ${MAX_SUBS.toLocaleString('en-US')} subs; use longer subs.`;
-  if (r.subCount < 1) return 'There is no usable time on this night for that, so it would give no subs.';
+/**
+ * The plain reason the engine's numbers for a custom value cannot be used (more subs than a favorite or a plan holds, a sub that does not fit the night,
+ * or more than a day of light), or null when they can. `onNight`: the value is already stored and the night changed, so the message says "on this night".
+ */
+export function resultProblem(r: ExposureResult, usableMinutes: number, onNight = false): string | null {
+  if (r.subCount > MAX_SUBS) return `That would need more than ${MAX_SUBS.toLocaleString('en-US')} subs${onNight ? ' on this night' : ''}; use longer subs.`;
+  if (r.subCount < 1) {
+    if (usableMinutes <= 0) return 'There is no usable time on this night for that, so it would give no subs.';
+    return `A ${r.subSeconds} s sub does not fit in the ${Math.floor(usableMinutes)} usable minutes of this night; use shorter subs.`;
+  }
   if (r.subSeconds * r.subCount > MAX_LIGHT_S) return 'That is more than 24 hours of light, so it is not used.';
   return null;
 }

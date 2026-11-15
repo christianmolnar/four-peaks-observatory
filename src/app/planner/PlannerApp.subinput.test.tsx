@@ -30,7 +30,7 @@ const subBox = () => screen.getByLabelText(`Sub length (s) for ${NAME}`) as HTML
 const countBox = () => screen.getByLabelText(`Subs for ${NAME}`) as HTMLInputElement;
 const numbers = () => screen.getByTestId('plan-numbers-m31').textContent ?? '';
 const parse = (text: string) => {
-  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs · (.+?) of light/.exec(text);
+  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) of light/.exec(text);
   if (!m) throw new Error(`not a numbers line: ${text}`);
   return { sub: Number(m[1]), subs: Number(m[2]), light: m[3] };
 };
@@ -209,7 +209,7 @@ describe('the Night timeline does not offer to drop custom numbers', () => {
     openPart('Night timeline');
     const slots = timelineSlots();
     expect(within(slots[0]).queryByRole('combobox')).toBeNull();
-    expect(slots[0].textContent).toMatch(/Exposure preset for Andromeda Galaxy: Custom \(started from Deep Project\)\. Change it on this target.s row in the plan\./);
+    expect(slots[0].textContent).toMatch(/Exposure preset for Andromeda Galaxy: Custom \(started from Deep\)\. Change it on this target.s row in the plan\./);
     expect(within(slots[1]).getByRole('combobox', { name: /Exposure preset for Flaming Star Nebula/ })).toBeTruthy();
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } });
   });

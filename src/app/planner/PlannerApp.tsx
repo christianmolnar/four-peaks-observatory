@@ -1136,7 +1136,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const saveFavorite = (id: string) => {
     const ref = planTargets.find((t) => t.id === id);
     const view = rowViews.get(id);
-    if (ref === undefined || view?.kind !== 'ok') return;
+    if (ref === undefined || view?.kind !== 'ok' || view.customUnusable !== null) return;
     const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';
     const fav: Favorite = {
       id,
@@ -1186,6 +1186,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const moveToTonight = () => editOpen({ date: tonightDate });
 
   // ---- The timeline and the AI plan write back into the open plan.
+  /** The Custom targets whose stored numbers do not work on this night (the preset's numbers are used instead). */
+  const presetUsedIds = useMemo(() => new Set([...rowViews].filter(([, v]) => v.kind === 'ok' && v.customUnusable !== null).map(([id]) => id)), [rowViews]);
   /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all; a Custom target is scheduled with its own numbers over the preset it differs from. */
   const timelineItems = useMemo(
     (): ItineraryItem[] =>
@@ -1195,10 +1197,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         trainId: train?.id ?? '',
         filterId: train?.kind === 'optical' ? (train.filterId ?? null) : null,
         mode: baseOf(t),
-        ...(t.preset === 'custom' && t.custom ? { overrides: t.custom } : {}),
+        // A Custom value that does not work on this night is not scheduled: the slot uses the preset's own numbers (the row says so); the value stays stored.
+        ...(t.preset === 'custom' && t.custom && !presetUsedIds.has(t.id) ? { overrides: t.custom } : {}),
         note: t.note ?? '',
       })),
-    [planTargets, train],
+    [planTargets, train, presetUsedIds],
   );
   /** A slot's changed preset or note goes onto its target; the slots' order is the plan's order; targets past the timeline's slots stay after them. */
   const applyTimeline = (items: ItineraryItem[], startTime: string | null) => {
@@ -1917,6 +1920,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             <ItinerarySection
               profile={profile}
               items={timelineItems}
+              presetUsedIds={presetUsedIds}
               startTime={open?.startTime ?? null}
               unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
               onChange={applyTimeline}
