@@ -670,9 +670,20 @@ function contextFor(object: ExposureTarget, rig: ExposureRig, site: ExposureSite
   return { fRatio, pixelUm, imageScale, bw, readNoiseE, rnClass, rnAssumed, rate, shared };
 }
 
-/** Star saturation ceiling for the sub (seconds): see STAR_SATURATION_REF_S. */
-export function starSaturationCapS(fRatio: number): number {
-  return STAR_SATURATION_REF_S * (fRatio / STAR_SATURATION_REF_F) ** 2;
+/**
+ * Star saturation ceiling for the sub (seconds): see STAR_SATURATION_REF_S. Stars are continuum, so the ceiling grows by the
+ * full band over the filter's passband; no passband given means the full band.
+ */
+export function starSaturationCapS(fRatio: number, bandwidthNm: number = REF_BANDWIDTH_NM): number {
+  if (!(bandwidthNm > 0) || !Number.isFinite(bandwidthNm)) throw new RangeError(`bandwidthNm must be positive: ${bandwidthNm}`);
+  return STAR_SATURATION_REF_S * (fRatio / STAR_SATURATION_REF_F) ** 2 * (REF_BANDWIDTH_NM / bandwidthNm);
+}
+
+/** Minutes of light as the short-of-target note prints them: minutes, then hours, then "more than 10 hours" (beyond one night); never a count in the thousands. */
+export function needText(min: number): string {
+  if (min < 120) return `about ${Math.round(min)} minutes`;
+  if (min < 600) return `about ${(Math.round(min / 6) / 10).toString()} hours`;
+  return 'more than 10 hours, beyond one night';
 }
 
 function kneeFor(object: ExposureTarget, c: Context, filter: ProfileFilter | null, sky: SkyInput, preset: ExposureMode): Knee {
@@ -721,7 +732,7 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   // ---- Sub length: the sky-limited optimum, then the clamps.
   const swampSeconds = skyLimitedSeconds(c.readNoiseE, c.rate, spec.swampK);
   const riskCap = Math.min(spec.riskCapS, MAX_SUB_S);
-  const satCaps: number[] = [starSaturationCapS(c.fRatio)];
+  const satCaps: number[] = [starSaturationCapS(c.fRatio, c.bw.nm)];
   if (object.brightCore === true) satCaps.push(BRIGHT_CORE_SUB_CAP_S);
   const satCap = Math.min(...satCaps);
   const ceiling = Math.max(MIN_SUB_S, Math.min(riskCap, satCap));
@@ -751,11 +762,13 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   const knee = kneeFor(object, c, rig.filter, sky, choice.preset);
   const stopMin = Math.max(MIN_TOTAL_MIN, knee.minutes);
   const wantedMin = o.totalMin ?? stopMin;
-  const desiredCount = o.subCount ?? Math.floor((wantedMin * 60) / subSeconds);
+  // Rounded up: the plan reaches the stop point (and the 30 minute minimum) instead of falling up to one sub short; the window still cuts it.
+  const desiredCount = o.subCount ?? Math.ceil((wantedMin * 60) / subSeconds - 1e-9);
   const dither = spec.dither;
 
   const fit = (flip: boolean): { count: number; overhead: Overhead } => {
-    let count = desiredCount;
+    // Start at the most the window could hold (plus one), not at a huge override: the loop below then runs a few times, not a million.
+    let count = Math.min(desiredCount, Math.floor((night.usableMinutes * 60) / subSeconds) + 1);
     for (;;) {
       const oh = overheadFor(subSeconds, count, flip, dither);
       const sessionMin = (count * subSeconds) / 60 + oh.ditherMin + oh.autofocusMin + oh.meridianFlipMin;
@@ -825,7 +838,9 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     warnings.push({
       code: 'short-of-target',
       severity: 'note',
-      text: `At this sky and filter, ${spec.label} would need about ${Math.round(knee.snrTimeMin)} minutes for its signal-to-noise target on this object; the plan stops at ${integrationMin}, where more time pays little or the night ends. Expect a noisy result (estimate); a narrower filter or a darker sky changes it more than time does.`,
+      text: `At this sky and filter, ${spec.label} would need ${needText(knee.snrTimeMin)} for its signal-to-noise target on this object; the plan stops at ${integrationMin} minutes, where more time pays little or the night ends. Expect a noisy result (estimate); ${
+        emission ? 'a narrower filter or a darker sky changes it more than time does.' : 'a darker sky changes it more than time does (a narrower filter would not help: this object is mostly continuum, so it cuts the object with the sky).'
+      }`,
     });
   }
   if (knee.surfaceBrightnessFrom === 'assumed') {

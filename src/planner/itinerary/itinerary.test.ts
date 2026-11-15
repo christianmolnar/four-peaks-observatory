@@ -176,14 +176,14 @@ describe('the schedule', () => {
   });
 
   it('a slot that starts after its window opened and gets too little is flagged with times, and is cut short', () => {
-    // California Nebula (Deep, 249 min of light) ends 06:34; Triangulum's only window is 01:49 to 07:11, so 32 min of its Balanced 53 to 106 are left.
+    // California Nebula (Deep, 249 min of light, rounded up to whole subs) ends 06:35; Triangulum's only window is 01:49 to 07:11, so 32 min of its Balanced 53 to 106 are left.
     // (Before the redesign this was Orion then Triangulum: Orion's Balanced is now 105 min and ends 07:22, after Triangulum's window closed.)
     const plan = build([item('ngc1499', { mode: 'deep' }), item('m33')]);
     const s = plan.slots[1];
     expect(codes(s)).toEqual(['overlap', 'cut-short']);
     const overlap = s.warnings.find((w) => w.code === 'overlap')!;
     expect(overlap.severity).toBe('warning');
-    expect(overlap.text).toMatch(/Overlaps its usable window: the slot before ends 06:34, 2\d\d min after Triangulum Galaxy's window opened \(\d\d:\d\d\), and the window closes 07:11\./);
+    expect(overlap.text).toMatch(/Overlaps its usable window: the slot before ends 06:35, 2\d\d min after Triangulum Galaxy's window opened \(\d\d:\d\d\), and the window closes 07:11\./);
     expect(fmt(s.window!.end)).toBe('07:11');
     expect(s.end.getTime()).toBeLessThanOrEqual(s.window!.end.getTime());
     // The other order gives the Triangulum Galaxy its whole window: no overlap.
@@ -253,9 +253,11 @@ describe('the schedule', () => {
   });
 
   it('the no-time sentence says a changeover ended after the window closed, when that is what happened', () => {
-    // California Nebula (Deep) ends 06:34; the 21 minute train change plus refocus that follows runs to 06:55, twenty minutes after Andromeda's window closed at 06:35.
-    const plan = build([item('ngc1499', { mode: 'deep' }), item('m31', { trainId: NATIVE_2600 })]);
-    const w = plan.slots[1].warnings[0];
+    // Orion Nebula (Quick) then Triangulum (Balanced) end 06:34; the 21 minute train change plus refocus that follows runs to 06:55, twenty minutes after Andromeda's window closed at 06:35.
+    // (Before the exposure engine counted whole subs upward this was California Nebula in Deep, which now ends exactly at 06:35, a different sentence.)
+    const plan = build([item('m42', { mode: 'quick' }), item('m33', { mode: 'balanced' }), item('m31', { trainId: NATIVE_2600 })]);
+    expect(fmt(plan.slots[1].end)).toBe('06:34');
+    const w = plan.slots[2].warnings[0];
     expect(w.code).toBe('no-time');
     expect(w.text).toBe(
       'No usable time left for Andromeda Galaxy: its window closed at 06:35. The slots before end 06:34, then the changeover (slew and centre 3 min, train change 15 min, refocus 3 min; 21 min in all) runs to 06:55, after the window closed.',
@@ -461,7 +463,7 @@ describe('the schedule', () => {
       expect(s.integrationMin).toBeLessThan(119);
       expect(s.warnings.some((w) => w.text.startsWith('Skips'))).toBe(false);
       const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
-      expect(cut).toContain('A later window, 10:13 to 12:00, would give 98 min, still under the 119 the mode needs; the slot keeps this one.');
+      expect(cut).toContain('A later window, 10:13 to 12:00, would give 98 min, still under the 120 the mode needs; the slot keeps this one.');
     });
 
     it('Orion, Quick, 2027-10-19: a later window with more light is named even though the first one reaches the minimum', () => {

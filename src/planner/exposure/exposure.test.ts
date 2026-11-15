@@ -342,20 +342,20 @@ describe('planExposure with fixed inputs', () => {
     expect([quick.subSeconds, balanced.subSeconds, deep.subSeconds]).toEqual([45, 90, 180]);
     expect([quick, balanced, deep].map((m) => m.limitedBy.sub)).toEqual(['read-noise', 'read-noise', 'read-noise']);
   });
-  it('totals come from the object: quick 30 min (the minimum, its 16.9 min stop point is below it), balanced 66 min, deep 150 min', () => {
+  it('totals come from the object: quick 30 min (the minimum, its 16.9 min stop point is below it), balanced 67.5 min, deep 153 min', () => {
     expect(quick.knee.minutes).toBeCloseTo(16.87, 1);
     expect(balanced.knee.minutes).toBeCloseTo(67.47, 1);
     expect(deep.knee.minutes).toBeCloseTo(151.8, 1);
     expect([quick.subCount, quick.integrationMin]).toEqual([40, 30]); // 1800 s / 45 s
-    expect([balanced.subCount, balanced.integrationMin]).toEqual([44, 66]); // floor(67.47 * 60 / 90) = 44
-    expect([deep.subCount, deep.integrationMin]).toEqual([50, 150]); // floor(151.8 * 60 / 180) = 50
+    expect([balanced.subCount, balanced.integrationMin]).toEqual([45, 67.5]); // ceil(67.47 * 60 / 90) = 45
+    expect([deep.subCount, deep.integrationMin]).toEqual([51, 153]); // ceil(151.8 * 60 / 180) = 51
     expect(quick.limitedBy.total).toBe('minimum-total');
     expect(balanced.limitedBy.total).toBe('snr-target');
   });
   it('overhead and finish follow from the counts: dither every 3 subs at 10 s, an autofocus per hour', () => {
     expect(quick.overhead).toEqual({ setupMin: 30, ditherMin: 2.2, autofocusMin: 0, meridianFlipMin: 0, totalMin: 32.2 }); // 13 dithers
-    expect(balanced.overhead).toEqual({ setupMin: 30, ditherMin: 2.3, autofocusMin: 3, meridianFlipMin: 0, totalMin: 35.3 }); // 14 dithers, 1 autofocus
-    expect(deep.overhead).toEqual({ setupMin: 30, ditherMin: 2.7, autofocusMin: 6, meridianFlipMin: 0, totalMin: 38.7 }); // 16 dithers, 2 autofocus
+    expect(balanced.overhead).toEqual({ setupMin: 30, ditherMin: 2.5, autofocusMin: 3, meridianFlipMin: 0, totalMin: 35.5 }); // 15 dithers, 1 autofocus
+    expect(deep.overhead).toEqual({ setupMin: 30, ditherMin: 2.8, autofocusMin: 6, meridianFlipMin: 0, totalMin: 38.8 }); // 17 dithers, 2 autofocus
     expect(quick.elapsedMin).toBe(62.2);
     // imaging starts at the first usable minute and ends after the integration plus dithers
     expect(quick.finish!.getTime()).toBe(START.getTime() + 32.2 * 60000);
@@ -373,8 +373,8 @@ describe('planExposure with fixed inputs', () => {
   });
   it('the aim range is half to all of the planned total, and the presets keep their ids', () => {
     expect(quick.modeRangeMin).toEqual([15, 30]);
-    expect(balanced.modeRangeMin).toEqual([33, 66]);
-    expect(deep.modeRangeMin).toEqual([75, 150]);
+    expect(balanced.modeRangeMin).toEqual([34, 68]);
+    expect(deep.modeRangeMin).toEqual([77, 153]);
     expect(MODE_ORDER).toEqual(['quick', 'balanced', 'deep']);
     expect([quick, balanced, deep].map((m) => m.mode)).toEqual(['quick', 'balanced', 'deep']);
     expect([quick, balanced, deep].map((m) => m.modeLabel)).toEqual(['Quick & Beautiful', 'Balanced', 'Deep Project']);

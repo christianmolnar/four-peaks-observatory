@@ -10,6 +10,7 @@ import {
   exposureFor,
   exposureTargetFrom,
   marginalKneeMin,
+  needText,
   planExposure,
   presetForSavedMode,
   presetNominalMin,
@@ -103,13 +104,43 @@ describe('sub length: the clamps', () => {
     expect(r.swampSeconds).toBeLessThan(4);
     expect([r.subSeconds, r.limitedBy.sub]).toEqual([15, 'floor']);
   });
-  it('star saturation caps a fast beam: HyperStar dual-band at Bortle 4 wants 62 s but stars clip near 28 s, so 20 s', () => {
+  it('star saturation caps a fast beam with no filter: f/1.93 broadband is held at 20 s (27.9 s), though the floor and swamp rule are lower', () => {
     expect(starSaturationCapS(2)).toBe(30);
     expect(starSaturationCapS(1.93)).toBeCloseTo(27.94, 2);
     expect(starSaturationCapS(10)).toBe(750);
-    const r = run(nebula(22), rig(TRAINS.hs, bandFilter(50)), 4, night(), { preset: 'balanced' });
-    expect(r.swampSeconds).toBeCloseTo(62.3, 0);
-    expect([r.subSeconds, r.limitedBy.sub]).toEqual([20, 'saturation']);
+    expect(starSaturationCapS(2, 300)).toBe(30);
+  });
+  it('stars are continuum, so a filter lifts the saturation cap by 300 nm over its passband (50 nm: 6x, 14 nm: 21x)', () => {
+    expect(starSaturationCapS(2, 50)).toBeCloseTo(180, 6);
+    expect(starSaturationCapS(1.93, 50)).toBeCloseTo(167.6, 1);
+    expect(starSaturationCapS(2, 14)).toBeCloseTo(642.86, 1);
+    expect(() => starSaturationCapS(2, 0)).toThrow(RangeError);
+  });
+  it('HyperStar with a 50 nm dual-band is sky-limited, not saturation-limited: Bortle 4 about 60 s, Bortle 6 15 to 30 s (research: 60 to 120 s, up to 60 s)', () => {
+    const at = (b: number, preset: 'quick' | 'balanced' | 'deep') => run(nebula(22), rig(TRAINS.hs, bandFilter(50)), b, night(), { preset });
+    const b4 = at(4, 'balanced');
+    expect(b4.swampSeconds).toBeCloseTo(62.3, 0);
+    expect([b4.subSeconds, b4.limitedBy.sub]).toEqual([60, 'read-noise']);
+    expect(b4.readNoisePenalty).toBeLessThan(0.06);
+    expect(at(4, 'quick').subSeconds).toBe(30);
+    expect(at(4, 'deep').subSeconds).toBe(120);
+    const b6 = at(6, 'balanced');
+    expect([b6.subSeconds, b6.limitedBy.sub]).toEqual([15, 'read-noise']);
+    expect(at(6, 'deep').subSeconds).toBe(30);
+    expect(codes(b4.warnings)).not.toContain('sub-capped');
+  });
+  it('HyperStar with an f/2-rated 7+7 nm filter: the 222 s the sky asks for at Bortle 4 is kept (saturation cap about 600 s)', () => {
+    const f = { ...bandFilter(14), ratedMinFRatio: 2, narrowestBandNm: 7 };
+    const r = run(nebula(22), rig(TRAINS.hs, f), 4, night(), { preset: 'balanced' });
+    expect(r.swampSeconds).toBeCloseTo(222, 0);
+    expect([r.subSeconds, r.limitedBy.sub]).toEqual([240, 'read-noise']);
+    expect(r.readNoisePenalty).toBeLessThan(0.05);
+    const deep = run(nebula(22), rig(TRAINS.hs, f), 4, night(), { preset: 'deep' });
+    expect([deep.subSeconds, deep.limitedBy.sub]).toEqual([300, 'risk-cap']); // 445 s asked, the 300 s guiding ceiling holds it, not saturation
+    expect(run(nebula(22), rig(TRAINS.hs, f), 6, night(), { preset: 'balanced' }).subSeconds).toBe(60); // 56 s asked
+  });
+  it('an unfiltered fast beam is still saturation-limited', () => {
+    const r = run(galaxy(22), rig(TRAINS.hs), 1, night(), { preset: 'deep' });
     expect(r.subSeconds).toBeLessThanOrEqual(starSaturationCapS(1.93));
   });
   it('a bright core caps the long sub at BRIGHT_CORE_SUB_CAP_S: M42-like at f/10, Bortle 4 wants 278 s, gets 120 s', () => {
@@ -188,7 +219,7 @@ describe('total light: the knee comes from the object, not the mode', () => {
     expect([bright.integrationMin, bright.limitedBy.total]).toEqual([30, 'minimum-total']);
     const faint = run(galaxy(24), rig(TRAINS.f10), 6, night(), { preset: 'balanced' });
     expect(faint.limitedBy.total).toBe('diminishing-returns');
-    expect(faint.integrationMin).toBe(142); // 142.86 min of 60 s subs: 142 whole subs
+    expect(faint.integrationMin).toBe(143); // 142.86 min of 60 s subs, rounded up: 143 subs
     expect(faint.reachesSnrTarget).toBe(false);
     expect(codes(faint.warnings)).toContain('short-of-target');
     expect(codes(bright.warnings)).not.toContain('short-of-target');
@@ -256,7 +287,7 @@ describe('custom: overrides of a preset', () => {
   const base = at(undefined);
   it('a preset alone is not custom', () => {
     expect([base.custom, base.differs]).toEqual([false, []]);
-    expect([base.subSeconds, base.subCount, base.integrationMin]).toEqual([60, 105, 105]); // SNR 40 is 4 x 26.36 = 105.4 min, 60 s subs: 105 whole subs
+    expect([base.subSeconds, base.subCount, base.integrationMin]).toEqual([60, 106, 106]); // SNR 40 is 4 x 26.36 = 105.4 min, 60 s subs, rounded up: 106
   });
   it('a different sub length is custom, is used as given (not snapped) and keeps the preset\'s total', () => {
     const r = at({ subSeconds: 47 });
@@ -264,7 +295,7 @@ describe('custom: overrides of a preset', () => {
     expect(r.differs).toEqual([{ field: 'subSeconds', preset: base.subSeconds, chosen: 47 }]);
     expect(r.subSeconds).toBe(47);
     expect(r.limitedBy.sub).toBe('user');
-    expect(r.subCount).toBe(Math.floor((r.knee.minutes * 60) / 47));
+    expect(r.subCount).toBe(Math.ceil((r.knee.minutes * 60) / 47));
   });
   it('a different count is custom and sets the total', () => {
     const r = at({ subCount: 30 });
@@ -364,5 +395,67 @@ describe('input checks on the entry point', () => {
     expect(() => exposureFor(galaxy(22), rig(TRAINS.f10), { bortle: 0 }, night(), { preset: 'quick' })).toThrow(RangeError);
     expect(() => exposureFor(galaxy(22), rig(TRAINS.f10), { bortle: 6 }, night({ usableMinutes: -1 }), { preset: 'quick' })).toThrow(RangeError);
     expect(() => exposureFor(galaxy(22), rig(TRAINS.f10), { bortle: 6 }, night({ moonIllumination: 2 }), { preset: 'quick' })).toThrow(RangeError);
+  });
+});
+
+describe('the short-of-target note', () => {
+  const note = (r: ExposureResult) => r.warnings.find((w) => w.code === 'short-of-target');
+  it('a galaxy that needs thousands of minutes broadband says "more than 10 hours", never a raw count, and does not suggest a narrower filter', () => {
+    const r = run(galaxy(24.17), rig(TRAINS.f10), 6, night(), { preset: 'balanced' });
+    expect(r.knee.snrTimeMin).toBeGreaterThan(3000);
+    const w = note(r)!;
+    expect(w.text).toContain('more than 10 hours, beyond one night');
+    expect(w.text).not.toMatch(/\d{4}/);
+    expect(w.text).not.toMatch(/narrower filter or/);
+    expect(w.text).toMatch(/narrower filter would not help/);
+  });
+  it('a galaxy through a dual-band (worse: continuum loses light with the filter) also prints no raw thousands', () => {
+    const w = note(run(galaxy(24.17), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' }))!;
+    expect(w.text).not.toMatch(/\d{4}/);
+    expect(w.text).toContain('beyond one night');
+  });
+  it('an emission nebula may be told a narrower filter helps', () => {
+    const w = note(run(nebula(24.5), rig(TRAINS.f63), 6, night(), { preset: 'balanced' }))!;
+    expect(w.text).toMatch(/a narrower filter or a darker sky changes it more than time does/);
+    expect(w.text).not.toMatch(/would not help/);
+  });
+  it('a count in hours between 2 and 10 hours is printed in hours, one decimal; under 2 hours in minutes', () => {
+    expect(needText(90)).toBe('about 90 minutes');
+    expect(needText(238)).toBe('about 4 hours');
+    expect(needText(255)).toBe('about 4.3 hours');
+    expect(needText(599)).toBe('about 10 hours');
+    expect(needText(600)).toBe('more than 10 hours, beyond one night');
+    expect(needText(42087)).toBe('more than 10 hours, beyond one night');
+  });
+  it('flooring alone does not fire it: a medium object at Bortle 4 plans at least its 37.4 minute target (300 s subs round up to 40)', () => {
+    const r = run(galaxy(22), rig(TRAINS.f10), 4, night(), { preset: 'balanced' });
+    expect(r.knee.snrTimeMin).toBeCloseTo(37.4, 0);
+    expect(r.subSeconds).toBe(300);
+    expect(r.integrationMin).toBe(40);
+    expect(r.reachesSnrTarget).toBe(true);
+    expect(note(r)).toBeUndefined();
+  });
+  it('the plan never falls below the 30 minute minimum from rounding down (Deep, dual-band, Bortle 8 was 28)', () => {
+    const r = run(nebula(20), rig(TRAINS.f10, bandFilter(50)), 8, night(), { preset: 'deep' });
+    expect(r.integrationMin).toBeGreaterThanOrEqual(30);
+  });
+  it('a window shorter than the target still fires it', () => {
+    const r = run(galaxy(22), rig(TRAINS.f10), 6, night({ usableMinutes: 60 }), { preset: 'balanced' });
+    expect(note(r)).toBeDefined();
+  });
+});
+
+describe('overrides stay cheap and honest at the edges', () => {
+  it('a huge total or count is cut by the window without a long loop', () => {
+    const t = Date.now();
+    const r = run(galaxy(22), rig(TRAINS.f10), 6, night(), { preset: 'balanced', overrides: { totalMin: 1e9 } });
+    expect(Date.now() - t).toBeLessThan(1000);
+    expect(r.integrationMin).toBeLessThanOrEqual(600);
+    expect(codes(r.warnings)).toContain('limited-by-usable-time');
+  });
+  it('a sub longer than the window plans no subs and says so', () => {
+    const r = run(galaxy(22), rig(TRAINS.f10), 6, night({ usableMinutes: 30 }), { preset: 'balanced', overrides: { subSeconds: 3600 } });
+    expect(r.subCount).toBe(0);
+    expect(codes(r.warnings)).toContain('limited-by-usable-time');
   });
 });

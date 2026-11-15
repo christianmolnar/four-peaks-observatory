@@ -13,7 +13,7 @@ Camera: ZWO ASI2600MC Duo (3.76 um pixels, read noise class low). No Moon, a cle
 | C11 + 0.7x reducer (f/7) | Broadband (no filter, 300 nm) | 60 / 120 / 300 | 15 / 30 / 60 | 15 floor / 15 floor / 15 |
 | C11 + 0.7x reducer (f/7) | Dual-band (ZWO Duo-Band, 50 nm) | 180 cap / 300 cap / 300 cap | 90 / 180 / 300 cap | 30 / 45 / 90 |
 | C11 + HyperStar (f/1.9) | Broadband (no filter, 300 nm) | 15 floor / 15 floor / 20 | 15 floor / 15 floor / 15 floor | 15 floor / 15 floor / 15 floor |
-| C11 + HyperStar (f/1.9) | Dual-band (ZWO Duo-Band, 50 nm) | 20 sat / 20 sat / 20 sat | 15 floor / 15 / 20 sat | 15 floor / 15 floor / 15 floor |
+| C11 + HyperStar (f/1.9) | Dual-band (ZWO Duo-Band, 50 nm) | 30 / 60 / 120 | 15 floor / 15 / 30 | 15 floor / 15 floor / 15 floor |
 
 ### Sky-limited length before the clamps, Balanced (K = 10), seconds, and the extra noise at the sub it gets
 
@@ -24,7 +24,7 @@ Camera: ZWO ASI2600MC Duo (3.76 um pixels, read noise class low). No Moon, a cle
 | C11 + 0.7x reducer | Broadband (no filter, 300 nm) | 137 s, +5.5% at 120 s | 34 s, +5.6% at 30 s | 9 s, +2.8% at 15 s |
 | C11 + 0.7x reducer | Dual-band (ZWO Duo-Band, 50 nm) | 821 s, +12.9% at 300 s | 206 s, +5.6% at 180 s | 52 s, +5.6% at 45 s |
 | C11 + HyperStar | Broadband (no filter, 300 nm) | 10 s, +3.4% at 15 s | 3 s, +0.9% at 15 s | 1 s, +0.2% at 15 s |
-| C11 + HyperStar | Dual-band (ZWO Duo-Band, 50 nm) | 62 s, +14.5% at 20 s | 16 s, +5.1% at 15 s | 4 s, +1.3% at 15 s |
+| C11 + HyperStar | Dual-band (ZWO Duo-Band, 50 nm) | 62 s, +5.1% at 60 s | 16 s, +5.1% at 15 s | 4 s, +1.3% at 15 s |
 
 ### Total light in minutes, Quick / Balanced / Deep, by the object's surface brightness (the same on every rig: the same aperture)
 
@@ -33,11 +33,11 @@ No mark: the preset's signal-to-noise target sets it. `k`: the diminishing-retur
 | Object (mag per square arcsec) | Filter | Bortle 4 | Bortle 6 | Bortle 8 |
 |---|---|---|---|---|
 | Bright, 20 (continuum) | Broadband (no filter, 300 nm) | 30* / 30* / 30* | 30* / 30* / 30* | 30* / 30* / 30* |
-| Bright, 20 (emission) | Dual-band (ZWO Duo-Band, 50 nm) | 30* / 30* / 30* | 30* / 30* / 30* | 30* / 30* / 28* |
-| Medium, 22 (continuum) | Broadband (no filter, 300 nm) | 30* / 35 / 80 | 30* / 105 / 238 | 68k / 143k / 293k |
-| Medium, 22 (emission) | Dual-band (ZWO Duo-Band, 50 nm) | 30* / 30* / 50 | 30* / 35 / 85 | 30* / 100 / 224 |
-| Faint, 24 (continuum) | Broadband (no filter, 300 nm) | 68k / 140k / 290k | 68k / 142k / 292k | 68k / 143k / 293k |
-| Faint, 24 (emission) | Dual-band (ZWO Duo-Band, 50 nm) | 66k / 140k / 290k | 66k / 140k / 290k | 68k / 142k / 292k |
+| Bright, 20 (emission) | Dual-band (ZWO Duo-Band, 50 nm) | 30* / 30* / 30* | 30* / 30* / 30* | 30* / 30* / 32* |
+| Medium, 22 (continuum) | Broadband (no filter, 300 nm) | 30* / 40 / 85 | 30* / 106 / 240 | 68k / 143k / 293k |
+| Medium, 22 (emission) | Dual-band (ZWO Duo-Band, 50 nm) | 30* / 30* / 55 | 30* / 40 / 90 | 30* / 102 / 228 |
+| Faint, 24 (continuum) | Broadband (no filter, 300 nm) | 70k / 145k / 295k | 69k / 143k / 294k | 68k / 143k / 293k |
+| Faint, 24 (emission) | Dual-band (ZWO Duo-Band, 50 nm) | 69k / 145k / 295k | 69k / 145k / 295k | 69k / 144k / 296k |
 
 ### Presets
 

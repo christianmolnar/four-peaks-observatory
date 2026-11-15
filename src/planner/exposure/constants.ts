@@ -110,13 +110,17 @@ export const MAX_SUB_S = 300;
  * ASSUMPTION: star saturation. One forum report says stars saturate "in less than 30 seconds" on an f/2-class system. Star flux per
  * pixel scales with 1/N^2, so the ceiling is this many seconds at STAR_SATURATION_REF_F and grows with the square of the focal ratio
  * (f/2 -> 30 s, f/6.3 -> about 300 s, f/10 -> 750 s: only a fast beam is limited). One report, no camera or full-well named.
+ * Stars are continuum: a filter passes only its passband's share of their light, so the ceiling also grows by
+ * REF_BANDWIDTH_NM / bandwidth (a 50 nm dual-band at f/1.93: about 170 s; a 14 nm pair: about 600 s). The report is probably
+ * unfiltered (no filter is named), so the 30 s is for the full band and the filter scaling is this module's own arithmetic, not
+ * a measurement. A filter of unknown width is scaled by its assumed width.
  */
 export const STAR_SATURATION_REF_S = 30;
 export const STAR_SATURATION_REF_F = 2;
 /**
  * ASSUMPTION: a target flagged `brightCore` in the curated catalog (the core would clip in long subs) gets its long sub capped here;
- * `coreAdvice` then adds the short set for the core. 120 s is the middle of "60 to 120 s for fast reflectors" (AstroBin) carried over
- * to bright cores on any train.
+ * `coreAdvice` then adds the short set for the core. 120 s is the top of "60 to 120 s for fast reflectors" (AstroBin), a broadband
+ * fast-reflector sub, not a measured bright-core limit, carried over to bright cores on any train.
  */
 export const BRIGHT_CORE_SUB_CAP_S = 120;
 /** ASSUMPTION: the lengths a sub is rounded to (nearest on a log scale). */
@@ -159,8 +163,8 @@ export interface PresetSpec {
  * ASSUMPTION for the three SNR targets: 20 is the research's own figure (table in section 1c: SNR 20 per 2.5 arcsec element, which
  * takes a medium object, surface brightness 22, 26 minutes in Bortle 6 and under a minute for a bright one: a floor, a first look).
  * Standard and Deep are 2x and 3x that, so time is 4x and 9x: the same medium object then takes about 1.7 h and 3.9 h in Bortle 6 with no
- * filter, inside the research's "about 0.5 to 2.5 h" at the knee, and the old Balanced aimed at 1.5 h. They are not measured;
- * the stop thresholds cap them (see maxNextHalfHourGain).
+ * filter. 1.7 h is inside the research's "about 0.5 to 2.5 h" at the knee; 3.9 h is outside it, and below the 4.9 h the research gives
+ * the 5% knee of Deep. The old Balanced aimed at 1.5 h. They are not measured; the stop thresholds cap them (see maxNextHalfHourGain).
  * ASSUMPTION for the loss model behind the risk caps (events at 1 per hour spoil a sub of length t
  * with probability 1 - exp(-t / 1 h): 60 s costs 1.7%, 180 s 4.9%, 300 s 8%); the sources give the shape, not these numbers.
  * K = 5, 10, 20 and the 20%, 10% and 5% stop thresholds are the research's table (section 5). 20% stops near 1.1 h, 10% near 2.4 h,
@@ -169,7 +173,7 @@ export interface PresetSpec {
 export const PRESETS: Readonly<Record<ExposureMode, PresetSpec>> = {
   quick: {
     label: 'Quick & Beautiful',
-    summary: 'Short subs, the base signal-to-noise target, stops early. For a short night or a first look.',
+    summary: 'Short subs, the base signal-to-noise target, stops early. For a short night or a first look. A bright object needs about 30 minutes in every preset; the presets then differ in sub length and count.',
     swampK: 5,
     snrTarget: 20,
     maxNextHalfHourGain: 0.2,
