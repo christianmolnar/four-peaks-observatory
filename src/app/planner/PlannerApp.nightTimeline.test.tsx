@@ -165,15 +165,15 @@ describe('Night timeline', () => {
     window.localStorage.setItem(ITINERARY_KEY, bad);
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['ic405'] }));
     const first = await app();
-    const status = await screen.findByRole('status');
-    expect(status.textContent).toBe('Your saved night timeline could not be read, so it was not carried over.');
+    const status = await screen.findByTestId('plans-messages');
+    expect(status.textContent).toBe('Your saved night timeline could not be read, so it was not carried over.Dismiss');
     expect(status.textContent).not.toMatch(/\$|items\[|must be|JSON|itinerary/);
     expect(names()).toEqual(['Flaming Star Nebula']);
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
     first.unmount();
     await app();
-    expect(screen.queryByRole('status')).toBeNull(); // said once
+    expect(screen.queryByTestId('plans-messages')).toBeNull(); // said once
     expect(names()).toEqual(['Flaming Star Nebula']);
   });
 

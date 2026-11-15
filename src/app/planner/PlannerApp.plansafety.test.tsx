@@ -20,7 +20,8 @@ const app = async (initialDate = '2026-12-15') => {
 };
 const heading = () => screen.getByRole('region', { name: /^PLAN:/ }).querySelector('h2')!.textContent;
 const switchNames = () => [...planSwitch().options].map((o) => o.textContent);
-const status = () => screen.getByRole('status').textContent;
+// What the page says: the toast and the persistent line about the saved plans.
+const status = () => [screen.queryByRole('status')?.textContent, screen.queryByTestId('plans-messages')?.textContent].filter(Boolean).join(' | ');
 const tonight = () => {
   const s = sampleProfile().sites[0];
   return defaultTonightDate(new Date(), s.longitude, s.timeZone);

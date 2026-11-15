@@ -10,8 +10,10 @@ import {
   PlansError,
   adoptStored,
   clearOldPlanKeys,
+  cutMessage,
   deletePlan,
   duplicatePlan,
+  inspectStored,
   keepCopy,
   loadPlans,
   migrateOldPlan,
@@ -22,6 +24,7 @@ import {
   startPlans,
   updatePlan,
   validatePlans,
+  withMigratedPlan,
 } from './plans';
 import type { Plan, PlansState } from './plans';
 
@@ -249,10 +252,13 @@ describe('plans: stored copy', () => {
     expect(() => loadPlans({ getItem: () => { throw new Error('denied'); } }, TODAY)).toThrow(/could not be read.*denied/);
   });
 
-  it('keepCopy writes the text to the one backup key, and the latest copy replaces an earlier one', () => {
+  it('keepCopy writes the backup only when it is empty or holds the same text; an earlier copy is kept unless the user replaces it', () => {
     const m = memory();
-    keepCopy(m, 'first');
-    keepCopy(m, 'second');
+    expect(keepCopy(m, 'first')).toBe('kept');
+    expect(keepCopy(m, 'first')).toBe('kept');
+    expect(keepCopy(m, 'second')).toBe('exists'); // probe W: a worse text never replaces the copy
+    expect(m.data.get(PLANS_BACKUP_KEY)).toBe('first');
+    expect(keepCopy(m, 'second', true)).toBe('kept'); // the user's own choice
     expect(m.data.get(PLANS_BACKUP_KEY)).toBe('second');
     expect(PLANS_BACKUP_KEY).toBe('fpo-planner-plans-v1.bak');
   });
@@ -288,7 +294,7 @@ const ids = (plan: Plan | null) => plan!.targets.map((t) => t.id);
 
 describe('plans: migration from the old My plan and itinerary', () => {
   it('is nothing when neither old key is stored', () => {
-    expect(migrateOldPlan(memory(), ctx)).toEqual({ plan: null, problems: [], clear: [] });
+    expect(migrateOldPlan(memory(), ctx)).toEqual({ plan: null, problems: [], clear: [], cut: [] });
   });
 
   it('turns the My plan list into one plan named My plan, targets in order, balanced', () => {
@@ -377,11 +383,13 @@ describe('plans: migration from the old My plan and itinerary', () => {
 
   it('case O: past 50 targets, the end of My plan is cut, and the cut ones are named', () => {
     const many = Array.from({ length: 50 }, (_, i) => `a${i}`);
-    const { plan, problems } = migrateOldPlan(oldBrowser(many, [slot(1, 'extra', 'deep')]), ctx);
+    const { plan, problems, cut } = migrateOldPlan(oldBrowser(many, [slot(1, 'extra', 'deep')]), ctx);
     expect(plan!.targets).toHaveLength(MAX_PLAN_TARGETS);
     expect(ids(plan)[0]).toBe('extra');
     expect(ids(plan)).not.toContain('a49');
-    expect(problems).toEqual(['A plan holds at most 50 targets, so 1 was left out: a49.']);
+    expect(problems).toEqual([]);
+    expect(cut).toEqual(['a49']);
+    expect(cutMessage(cut, (id) => `Name of ${id}`)).toBe('A plan holds at most 50 targets, so 1 was left out: Name of a49.');
   });
 
   it('leaves the old keys alone when reading; clearOldPlanKeys removes the ones named and the orphan exposure notice', () => {
@@ -401,5 +409,21 @@ describe('plans: migration from the old My plan and itinerary', () => {
     const s: PlansState = startPlans(ctx, plan);
     expect(s.plans).toEqual([plan]);
     expect(s.openId).toBe(plan!.id);
+  });
+});
+
+describe('plans: what another tab stored', () => {
+  const mine = startPlans(ctx);
+  it('inspectStored tells whole plans, a newer version and unreadable text apart', () => {
+    expect(inspectStored(mine, JSON.stringify(mine)).kind).toBe('plans');
+    expect(inspectStored(mine, JSON.stringify({ ...mine, version: 2 })).kind).toBe('newer');
+    expect(inspectStored(mine, '{nope').kind).toBe('unreadable');
+    expect(inspectStored(mine, JSON.stringify({ version: 1, plans: [{ id: 'x' }] })).kind).toBe('unreadable');
+  });
+  it('withMigratedPlan adds the carried-over plan last, under a new id, and leaves the open plan', () => {
+    const carried = migrateOldPlan(oldBrowser(['m31'], null), ctx).plan!;
+    const next = withMigratedPlan(mine, carried);
+    expect(next.plans.map((p) => p.id)).toEqual(['plan-1', 'plan-2']);
+    expect(next.openId).toBe('plan-1');
   });
 });

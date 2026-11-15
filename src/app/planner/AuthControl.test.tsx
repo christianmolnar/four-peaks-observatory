@@ -40,8 +40,9 @@ describe('AuthControl', () => {
   });
   it('signed in: shows the login and a sign-out button', () => {
     render(<AuthControl state={IN('octo')} />);
-    expect(screen.getByText(/signed in as octo/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
+    expect(screen.getByText('octo')).toBeTruthy();
+    // The button's accessible name says who is signed in; on a phone it is icon-sized (geometry is checked in the browser, not here).
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out octo' }));
     expect(mockSignOut).toHaveBeenCalled();
   });
   it('form returns to /planner after sign-in', () => {
@@ -53,15 +54,18 @@ describe('AuthControl', () => {
   it('is a fixed 44 px row; a long login truncates with the full login in title', () => {
     const login = 'a'.repeat(39);
     render(<AuthControl state={IN(login)} />);
-    const text = screen.getByText(/signed in as/i);
+    const text = screen.getByText(login);
     expect(text.className).toContain('truncate');
     expect(text.className).toContain('min-w-0');
     expect(text.getAttribute('title')).toBe(login);
     expect(screen.getByTestId('auth-control').className).toContain('h-[44px]');
   });
-  it('not configured keeps the 44 px box', () => {
+  it('not configured is cut with an ellipsis, not clipped', () => {
     render(<AuthControl state={DISABLED} />);
-    expect(screen.getByText(/not available/i).className).toContain('min-h-[44px]');
+    // Cut with an ellipsis when it does not fit, with the full sentence in title.
+    const text = screen.getByText(/not available/i);
+    expect(text.className).toContain('truncate');
+    expect(text.getAttribute('title')).toBe('Sign-in is not available right now.');
   });
   it('buttons are 44 px tall by class', () => {
     render(<AuthControl state={OUT} />);

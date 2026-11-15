@@ -192,7 +192,7 @@ describe('My plans', () => {
   it('a damaged saved set of plans is reported, copied to the backup, and one empty plan starts; the text is not removed', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     await app();
-    expect((await screen.findByRole('status')).textContent).toBe('Your saved plans could not be read, so they start over with one empty plan. A copy of what was stored is kept in this browser.');
+    expect((await screen.findByTestId('plans-messages')).textContent).toContain('Your saved plans could not be read, so they start over with one empty plan. A copy of what was stored is kept in this browser.');
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
     expect(window.localStorage.getItem('fpo-planner-plans-v1.bak')).toBe('{nope');
     expect(heading()).toBe('PLAN: My plan (0 targets)');
@@ -205,9 +205,12 @@ describe('My plans', () => {
       throw new Error('quota');
     });
     await user.click(within(bar()).getByRole('button', { name: 'New' }));
-    expect((await screen.findByRole('status')).textContent).toMatch(/Plans not saved, so they are lost on reload: quota/);
-    expect(heading()).toBe('PLAN: Plan 2 (0 targets)');
-    jest.restoreAllMocks();
+    try {
+      expect((await screen.findByTestId('plans-messages')).textContent).toMatch(/Plans not saved, so they are lost on reload: quota/);
+      expect(heading()).toBe('PLAN: Plan 2 (0 targets)');
+    } finally {
+      jest.restoreAllMocks();
+    }
   });
 });
 
@@ -452,8 +455,8 @@ describe('the top of the page', () => {
   it('shows who is signed in, from the one read of the session', async () => {
     render(<PlannerApp {...pageProps} loadAuth={async () => ({ kind: 'signedIn', login: 'octo', owner: false })} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     await ready();
-    expect(await screen.findByText('Signed in as octo')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+    expect(await screen.findByText('octo')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign out octo' })).toBeTruthy();
   });
 
   it('no developer messages in the header, and none of the removed intro', async () => {

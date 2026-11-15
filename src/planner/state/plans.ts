@@ -176,11 +176,11 @@ export interface LoadedPlans {
 }
 
 const NEWER_NOTICE =
-  'Your saved plans were made by a newer version of the planner. This version leaves them untouched and does not save over them. Use "Start over" to replace them with a fresh plan; a copy is kept first.';
+  'Your saved plans were made by a newer version of the planner. This version leaves them untouched and does not save over them. Use "Replace the saved plans" to save the plans on this page over them; a copy of them is kept first.';
 const DAMAGED_NOTICE = 'Your saved plans could not be read, so they start over with one empty plan. A copy of what was stored is kept in this browser.';
 
 /** A plan checked on its own: as it is, else with the two fields a newer or older version can leave unknown repaired (preset to Balanced, date to `today`). Null when it cannot be read. */
-function readPlan(raw: unknown, i: number, today: string, notices: string[]): Plan | null {
+function readPlan(raw: unknown, i: number, today: string, notices: string[], dateText: (iso: string) => string): Plan | null {
   const path = `$.plans[${i}]`;
   try {
     return checkPlan(raw, path);
@@ -192,7 +192,7 @@ function readPlan(raw: unknown, i: number, today: string, notices: string[]): Pl
       const copy: Record<string, unknown> = { ...raw };
       if (typeof copy.date !== 'string' || !DATE_RE.test(copy.date) || Number.isNaN(Date.parse(copy.date))) {
         copy.date = today;
-        fixes.push(`The plan ${label} had no usable date, so it is set to ${today}.`);
+        fixes.push(`The plan ${label} had no usable date, so it is set to ${dateText(today)}.`);
       }
       if (Array.isArray(copy.targets)) {
         let changed = 0;
@@ -223,7 +223,7 @@ function readPlan(raw: unknown, i: number, today: string, notices: string[]): Pl
  * the backup key before the next save. A version above 1 is "made by a newer version" and is never read as damaged. A plan with one bad field
  * is repaired (unknown preset, bad date) or left out alone, with a sentence saying so; the other plans load. A storage that cannot be read throws.
  */
-export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string): LoadedPlans {
+export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string, dateText: (iso: string) => string = (iso) => iso): LoadedPlans {
   let text: string | null;
   try {
     text = storage.getItem(PLANS_KEY);
@@ -250,7 +250,7 @@ export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string): Loa
       extra++;
       return;
     }
-    const plan = readPlan(raw, i, today, notices);
+    const plan = readPlan(raw, i, today, notices, dateText);
     if (plan === null) return;
     if (ids.has(plan.id)) {
       notices.push(`The plan "${plan.name}" repeated the id of another plan and is left out.`);
@@ -265,9 +265,32 @@ export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string): Loa
   return { state: { version: PLANS_VERSION, openId, plans }, notices, unusable: notices.length > 0 ? { kind: 'repaired', text } : null };
 }
 
-/** Copies stored text to the one backup key (the latest copy replaces an earlier one). Throws when it cannot be written. */
-export function keepCopy(storage: Pick<Storage, 'setItem'>, text: string): void {
+/**
+ * Copies stored text to the one backup key, only when that key is empty or already holds this same text: an earlier copy is never replaced
+ * by what may be worse (`replace` is the user's own choice, "Replace the saved plans"). Returns `kept` (the text is in the backup) or `exists`
+ * (a copy of other text is already there and was left alone). Throws when the backup cannot be read or written.
+ */
+export function keepCopy(storage: Pick<Storage, 'getItem' | 'setItem'>, text: string, replace = false): 'kept' | 'exists' {
+  const have = storage.getItem(PLANS_BACKUP_KEY);
+  if (have === text) return 'kept';
+  if (have !== null && !replace) return 'exists';
   storage.setItem(PLANS_BACKUP_KEY, text);
+  return 'kept';
+}
+
+/** What another tab's stored text is to this one: whole plans to continue from, plans of a newer version, or text this version cannot read whole. */
+export type StoredText = { kind: 'plans'; state: PlansState } | { kind: 'newer' } | { kind: 'unreadable' };
+
+export function inspectStored(current: PlansState, text: string): StoredText {
+  const state = adoptStored(current, text);
+  if (state !== null) return { kind: 'plans', state };
+  try {
+    const input: unknown = JSON.parse(text);
+    if (isRecord(input) && typeof input.version === 'number' && input.version > PLANS_VERSION) return { kind: 'newer' };
+  } catch {
+    // not JSON: unreadable
+  }
+  return { kind: 'unreadable' };
 }
 
 /**
@@ -403,7 +426,7 @@ function joinNotes(a: string, b: string): string {
 export function migrateOldPlan(
   storage: Pick<Storage, 'getItem' | 'removeItem'>,
   d: PlanDefaults,
-): { plan: Plan | null; problems: string[]; clear: string[] } {
+): { plan: Plan | null; problems: string[]; clear: string[]; cut: string[] } {
   const problems: string[] = [];
   let ids: string[] = [];
   let myPlan: OldKey = 'absent';
@@ -461,16 +484,25 @@ export function migrateOldPlan(
   }
   const all = [...slots.keys(), ...ids.filter((id) => !slots.has(id))];
   const order = all.slice(0, MAX_PLAN_TARGETS);
-  if (all.length > order.length) {
-    problems.push(`A plan holds at most ${MAX_PLAN_TARGETS} targets, so ${all.length - order.length} ${all.length - order.length === 1 ? 'was' : 'were'} left out: ${all.slice(MAX_PLAN_TARGETS).join(', ')}.`);
-  }
-  if (order.length === 0) return { plan: null, problems, clear };
+  const cut = all.slice(MAX_PLAN_TARGETS);
+  if (order.length === 0) return { plan: null, problems, clear, cut };
   const targets = order.map((id): PlanTargetRef => {
     const slot = slots.get(id);
     if (!slot) return { id, preset: 'balanced' };
     return slot.note === '' ? { id, preset: slot.mode } : { id, preset: slot.mode, note: slot.note };
   });
-  return { plan: { ...blank(d, 'plan-1', DEFAULT_NAME), startTime, targets }, problems, clear };
+  return { plan: { ...blank(d, 'plan-1', DEFAULT_NAME), startTime, targets }, problems, clear, cut };
+}
+
+/** The sentence for targets the 50-target limit left out of a carried-over plan, by the names `nameOf` gives. */
+export function cutMessage(cut: readonly string[], nameOf: (id: string) => string): string {
+  return `A plan holds at most ${MAX_PLAN_TARGETS} targets, so ${cut.length} ${cut.length === 1 ? 'was' : 'were'} left out: ${cut.map(nameOf).join(', ')}.`;
+}
+
+/** The carried-over plan added after the plans being saved (a new id, the open plan unchanged). Throws, in words, when there is no room. */
+export function withMigratedPlan(s: PlansState, plan: Plan): PlansState {
+  room(s);
+  return { ...s, plans: [...s.plans, { ...plan, id: nextId(s.plans) }] };
 }
 
 /** Removes the old keys named (the ones that were carried over or damaged) and the orphan exposure notice, once the plans made from them are saved. Throws, in words, when a key cannot be removed. */
