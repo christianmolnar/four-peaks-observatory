@@ -64,8 +64,8 @@ export function problemFor(status: number, retryAfter: string | null, serverMess
       return { text: 'The AI planner did not give a usable answer this time. Nothing was changed. Try again.', retry: true }
     case 422:
       return /too large|do not fit|fewer targets/i.test(serverMessage)
-        ? { text: 'There are too many or too large targets for one AI plan. Remove some from My plan and try again.', retry: false }
-        : { text: 'There is no usable night to plan: at this site on this date the sky is never dark enough, or nothing in My plan is up. Pick another night or site.', retry: false }
+        ? { text: 'There are too many or too large targets for one AI plan. Remove some from the plan and try again.', retry: false }
+        : { text: 'There is no usable night to plan: at this site on this date the sky is never dark enough, or nothing in the plan is up. Pick another night or site.', retry: false }
     case 413:
     case 400:
       return { text: 'The AI planner could not accept this request. Nothing was changed. If it keeps happening, tell the site owner.', retry: false }

@@ -1,6 +1,6 @@
 # Planner exposure: what is computed and what is assumed
 
-Every exposure number the exposure panel, the itinerary and the several-night plan show comes from `exposureFor` in `src/planner/exposure/index.ts`. A model does not set it.
+Every exposure number the night timeline, the AI plan card and the several-night engine give comes from `exposureFor` in `src/planner/exposure/index.ts`. A model does not set it.
 The AI plan is the one place where a model's numbers still show: see "Who uses it" below.
 Every number is an estimate. Research and sources: `~/Token/research/fourpeaks-exposure-modes.md`.
 Starting parameters for the owner's rigs: `planner-exposure-table.md` (regenerate with `node scripts/planner-exposure-table.mjs --out docs/guides/planner-exposure-table.md`).
@@ -20,13 +20,12 @@ Starting parameters for the owner's rigs: `planner-exposure-table.md` (regenerat
 
 ## Who uses it
 
-- **The exposure panel** (`planExposure`) calls it once per preset.
-- **The itinerary** calls it for each slot's preset. Export CSV and JSON read the itinerary's integration.
-- **The several-night plan** works each target's useful range out with it: the least is where Quick stops, the most where Deep stops (`usefulRangeOf`, `planner-campaign.md`). There is no second table.
+- **The night timeline** calls it for each slot's preset. Export CSV and JSON read the timeline's integration. (The page's global Exposure module with its three comparison cards is gone; `planExposure` stays in the engine for the per-target exposure that comes back in the plan's rows.)
+- **The several-night engine** (no longer on the page) works each target's useful range out with it: the least is where Quick stops, the most where Deep stops (`usefulRangeOf`, `planner-campaign.md`). There is no second table.
 - **The AI plan panel** shows two things for each slot: the model's numbers (the minutes it wants for the target, and the minutes it plans in the slot, which stay the plan's allocation) and, from `exposureFor`, the sub length and count for those slot minutes
   (the preset `modeForMinutes` picks for the slot's minutes, which is the one "Use this plan" gives it; the Moon at the slot's start; marked "calculated" with the Bortle class). The last-slot line shows that same count, keeping the model's usefulness word. The model's own sub length and frame count are not shown.
   Still the model's: the minutes per target and per slot, and the `subSeconds` it must return (the checker's last-slot frame count uses that `subSeconds`, so it can differ from the count the panel calculates).
-  Applying an AI plan to the itinerary keeps only a preset per slot (`modeForMinutes`), and the itinerary then plans each slot's own numbers.
+  Applying an AI plan to the open plan keeps only a preset per slot (`modeForMinutes`), and the night timeline then plans each slot's own numbers.
 
 ## Sub length
 
@@ -96,3 +95,27 @@ All live in `src/planner/exposure/constants.ts`, each with its reason.
 
 Every code the module produces is reachable (tests cover each): the filter-fit ones, `inputs-assumed`, `sampling`, `moon-near`, `target-ou4`, `no-usable-time`, `limited-by-usable-time`, `below-mode-range`, `short-session-faint` (a warning, in Quick, now that the catalog's surface brightness reaches it), `short-session-unknown`, `sb-assumed`, `short-of-target`, `sub-capped` and `meridian-flip`.
 `below-mode-range` now means the plan is under half of the total the stop point asked for.
+
+## Act-on warnings: to return in stage 2
+
+The page used to show the warnings a reader can act on, each with "What to change" and a button to the control that changes it.
+They left the page with the global Exposure module (the planner reset, stage 1); the night timeline shows schedule warnings only.
+Stage 2 brings them back as an engine-side module (the split into "act on" and "notes", and the sentence for each code), shown per target in the plan.
+This is the spec, copied from `src/app/planner/ExposurePanel.tsx` as it was on main (`c3a531a`), so the text is not lost.
+The code list is nine, not eight.
+
+| Code | What to change (sentence) | Buttons that went with it |
+|---|---|---|
+| `filter-rated-slower` | Pick a filter rated for this speed, or another train. | Change the filter, Change the train |
+| `filter-uvir-missing` | Pick a filter that blocks UV/IR, or add a UV/IR cut filter to the train. | Change the filter |
+| `filter-visual-colour` | Pick an imaging filter instead. | Change the filter |
+| `moon-near` | Pick a night when the Moon is farther away or down, or a target farther from it. | Change the date |
+| `no-usable-time` | Pick another date or another target. | Change the date |
+| `limited-by-usable-time` | Pick a night with more usable time to reach the mode's length. | Change the date |
+| `meridian-flip` | Plan a pause to flip and re-centre at the crossing; its time is already counted. | none |
+| `target-ou4` | Pick a brighter target for a short session, or plan many nights of narrowband. | none |
+| `short-session-faint` | Pick a brighter, more compact target for a short session, or choose Balanced or Deep Project. | none |
+
+- Every other code is context only and went to one closed "Notes (N)" line.
+- Each act-on warning showed the badge "Warning", the warning's own text, then "What to change:" and the sentence above.
+- The buttons moved focus to the plan's own date, train or filter control (`plan-date`, `plan-train`, `plan-filter`).

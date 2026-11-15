@@ -83,10 +83,10 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
       )}
       {itinerary && itinerary.plan.slots.length > 0 && (
         <>
-          <h2 className="mt-6 text-xl font-semibold">Night itinerary</h2>
+          <h2 className="mt-6 text-xl font-semibold">Night timeline</h2>
           <p className="mt-1 text-sm">Imaging can start at {formatTime(itinerary.plan.startsAt)}.{itinerary.plan.startNote ? ` ${itinerary.plan.startNote}` : ''}</p>
           <table className="mt-2 text-sm">
-            <caption className="sr-only">Night itinerary, in order</caption>
+            <caption className="sr-only">Night timeline, in order</caption>
             <thead>
               <tr>
                 <th scope="col">#</th>

@@ -119,14 +119,14 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                 {notClear === undefined && <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>}
                 <button
                   type="button"
-                  aria-label={inPlan ? `${e.name} is in my plan` : `Add ${e.name} to my plan`}
+                  aria-label={inPlan ? `${e.name} is in the plan` : `Add ${e.name} to the plan`}
                   aria-disabled={inPlan}
                   onClick={() => {
                     if (!inPlan) onAdd(e.id);
                   }}
                   className={`min-h-11 min-w-11 whitespace-nowrap rounded border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 ${inPlan ? 'border-white/15 text-white/70' : 'border-white/30 text-white hover:bg-white/10'}`}
                 >
-                  {inPlan ? 'In my plan' : 'Add'}
+                  {inPlan ? 'In plan' : 'Add'}
                 </button>
                 {added?.id === e.id && <span aria-hidden="true" className="mt-0.5 max-w-[6.5rem] text-right text-xs text-emerald-300">{added.text}</span>}
               </div>

@@ -18,5 +18,10 @@ module.exports = createJestConfig({
     '<rootDir>/src/lib/planner-auth/**/*.test.ts',
     '<rootDir>/src/app/api/planner/**/*.test.ts',
   ],
-  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
+  setupFilesAfterEnv: ['<rootDir>/src/planner/jest.setup.js'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    // The page now holds the sign-in control; the real package is ES-module only, and no page test signs in.
+    '^next-auth/react$': '<rootDir>/src/app/planner/next-auth-react.stub.ts',
+  },
 });

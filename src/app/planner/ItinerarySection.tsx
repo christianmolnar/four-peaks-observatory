@@ -2,16 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import { bodyAltAz } from '@/planner/astro';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { MODE_ORDER, PRESETS } from '@/planner/exposure';
 import type { ExposureMode } from '@/planner/exposure';
-import { usableWindowsOnTrack } from '@/planner/horizon';
 import type { HorizonPoint } from '@/planner/horizon';
 import {
-  ITINERARY_KEY,
-  ItineraryError,
   MAX_NOTE_CHARS,
   MAX_SLOTS,
   TREND_TEXT,
@@ -20,9 +16,6 @@ import {
   clockToInstant,
   lightMinutes,
   makeWindowLookup,
-  moveItem,
-  parseItinerary,
-  serializeItinerary,
   worstCaseWarningTexts,
 } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan, Slot } from '@/planner/itinerary';
@@ -30,66 +23,45 @@ import { clockFromText, couldBecomeClock, isThreeDigits } from '@/planner/itiner
 import { EXACT_MAX_SLOTS, orderKey, suggestOrderSteps } from '@/planner/itinerary/suggest';
 import type { OrderSuggestion } from '@/planner/itinerary/suggest';
 import { itineraryToCsv, itineraryToJson, makeCsvTime } from '@/planner/export';
-import { newItem, planetIdOf, slotInputFor } from '@/planner/itinerary/resolve';
-import { PLANETS } from '@/planner/plan';
-import type { Profile, TrainEntry } from '@/planner/profile';
+import { slotInputFor } from '@/planner/itinerary/resolve';
+import type { Profile } from '@/planner/profile';
 import NightTimeline from './NightTimeline';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
 import { download } from './download';
-import type { NightScorer } from './nightScorer';
-
-/** One choice in "Target to add". */
-export interface AddOption {
-  id: string;
-  name: string;
-  isPlanet: boolean;
-  usableMinutes: number;
-}
 
 export interface ItinerarySectionProps {
   profile: Profile;
-  /** The train chosen at the top of the page; new slots start on it. */
-  train: TrainEntry;
-  /** The targets of my plan that the page could resolve (a catalog object or a planet), in the user's order, with their clear time on the night. */
-  planOptions: readonly AddOption[];
-  /** The bundled catalog, for searching a target to add and for finding saved slots' targets; null until it has loaded (or when it failed). */
+  /** The open plan's targets as slots, in the plan's order, all on the plan's train and its filter. */
+  items: ItineraryItem[];
+  /** The plan's "imaging can start at"; null: when the night starts. */
+  startTime: string | null;
+  /** Targets of the plan past the first MAX_SLOTS: the timeline schedules no more, and says so. */
+  unscheduled: number;
+  /** A change made here: the slots in their new order and the new start time. The plan keeps them. */
+  onChange: (items: ItineraryItem[], startTime: string | null) => void;
+  /** The bundled catalog, for finding the slots' targets; null until it has loaded (or when it failed). */
   catalog: CatalogIndex | null;
-  /** Scores one target for the night, for the clear time shown beside each choice. */
-  scorer: NightScorer | null;
   site: Site;
   night: AstronomicalNight;
   horizon: readonly HorizonPoint[] | null;
   minAltitude: number;
   /** Sky darkness of the chosen site (Bortle 1 to 9); set once in the site editor. */
   bortle: number;
-  /** False: the site has none and DEFAULT_BORTLE is an assumption, said so. */
-  bortleSet: boolean;
   formatTime: (d: Date) => string;
   /** "tonight" or "that night (date)", from the page. */
   nightWord: string;
   /** IANA zone of the site (or the browser): the start time is a clock time in it. */
   timeZone?: string;
-  /** The page's print sheet reads the current plan from here; written on every change, so it never causes a render. */
+  /** The page's print sheet reads the current timeline from here; written on every change, so it never causes a render. */
   report?: MutableRefObject<ItineraryReport | null>;
-  /** A plan to take in (the AI plan's "Use this plan as my itinerary"): it replaces the slots and the start time, after a check when there are slots already. Answered through `onIncoming`. */
-  incoming?: IncomingItinerary | null;
-  onIncoming?: (applied: boolean) => void;
 }
 
-/** Items to put into the itinerary; `key` is new for every offer, so the same items can be offered twice. */
-export interface IncomingItinerary {
-  key: number;
-  /** What the offer is called when the user is asked to replace their slots: "the AI plan" (the default) or "night 2 of the several-night plan". */
-  label?: string;
-  items: ItineraryItem[];
-  startTime: string | null;
-}
-
-/** What the print sheet and the exports need of the itinerary. */
+/** What the print sheet and the exports need of the timeline. */
 export interface ItineraryReport {
   plan: ItineraryPlan;
 }
+
 
 const fieldBox = 'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal focus:outline-none focus:ring-2 focus:ring-sky-400';
 const field = `${fieldBox} text-sm`;
@@ -98,22 +70,11 @@ const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text
 /** How long the order search works before it lets the page paint and take input. */
 const SEARCH_SLICE_MS = 10;
 
-const EXPOSURE_NOTICE_KEY = 'fpo-planner-exposure-notice-v1';
-const MOON_ID = planetIdOf('Moon');
-
-const optionText = (e: AddOption, nightWord: string): string =>
-  `${e.name}${e.isPlanet && e.id !== MOON_ID ? ' (solar system)' : ''}: ${e.usableMinutes > 0 ? `${Math.round(e.usableMinutes)} min clear` : `not clear ${nightWord}`}`;
-
 /** What the advice box says when the order is already the best the search found. */
 export const unchangedAdviceText = (exhaustive: boolean): string =>
   exhaustive
     ? 'Your order is already the best: the most light, and the targets as high as they can be. Nothing to move.'
     : `Best order found. With more than ${EXACT_MAX_SLOTS} targets not every order is tried, so a better one may exist. Nothing better turned up.`;
-
-const nextId = (items: readonly ItineraryItem[]): string => {
-  const used = new Set(items.map((i) => i.id));
-  for (let n = 1; ; n++) if (!used.has(`s${n}`)) return `s${n}`;
-};
 
 function Chip({ severity, label }: { severity: 'warning' | 'note'; label: string }) {
   return (
@@ -158,78 +119,25 @@ function Detail({
 }
 
 /**
- * The night itinerary (spec screen G): the targets you add, in the order you set with the up and down buttons, each with
- * a train, a filter and a mode, scheduled one after the other with the changeover between them. Subs and counts come
- * from the exposure module; every time and number here is an estimate. Saved in this browser with a version.
+ * The open plan's night timeline: its targets in the plan's order, scheduled one after the other with the changeover between them.
+ * The slots, their order, their presets and the start time belong to the plan; this shows the times and takes edits (a preset, a note, the
+ * start, a removal, the suggested order) back to it. Subs and counts come from the exposure module; every time and number here is an
+ * estimate.
  */
-export default function ItinerarySection({ profile, train, planOptions, catalog, scorer, site, night, horizon, minAltitude, bortle, bortleSet, formatTime, nightWord, timeZone, report, incoming, onIncoming }: ItinerarySectionProps) {
-  const [items, setItems] = useState<ItineraryItem[]>([]);
-  const [startTime, setStartTime] = useState<string | null>(null);
-  // What is being typed in the start box; null: show the saved start time.
+export default function ItinerarySection({ profile, items, startTime, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report }: ItinerarySectionProps) {
+  // What is being typed in the start box; null: show the plan's start time.
   const [startDraft, setStartDraft] = useState<string | null>(null);
   // The start box complains when it is left or Enter is pressed, or when the text can no longer become a time; not on a half-typed "2".
   const [startChecked, setStartChecked] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  // A rejected saved itinerary is an alert; a storage that cannot be read or written is a status (the page already reports blocked storage).
-  const [problem, setProblem] = useState<{ text: string; urgent: boolean } | null>(null);
-  // One line, once: a saved itinerary now plans its totals from the exposure rules. Dismissing it is remembered.
-  const [showNotice, setShowNotice] = useState(false);
-  const [addId, setAddId] = useState<string>('');
-  // What is typed in "Search the catalog to add": its matches join the choices.
-  const [addText, setAddText] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const focusNext = useRef<string | null>(null);
   const startBox = useRef<HTMLInputElement>(null);
   const selectStart = useRef(false);
 
-  // Browser-only: the saved itinerary. Stored text that fails the check is reported with its field path and left in storage.
-  useEffect(() => {
-    try {
-      const text = window.localStorage.getItem(ITINERARY_KEY);
-      if (text !== null) {
-        const saved = parseItinerary(text);
-        setItems(saved.items);
-        setStartTime(saved.startTime);
-        if (saved.items.length > 0 && window.localStorage.getItem(EXPOSURE_NOTICE_KEY) === null) setShowNotice(true);
-      }
-    } catch (e) {
-      setProblem(
-        e instanceof ItineraryError
-          ? { text: 'Your saved itinerary could not be read, so the page started with an empty one. The saved copy stays in this browser until you change the itinerary.', urgent: true }
-          : { text: 'This browser would not let the page read your saved itinerary, so it started with an empty one.', urgent: false },
-      );
-    }
-    setLoaded(true);
-  }, []);
-
-  const dismissNotice = () => {
-    setShowNotice(false);
-    try {
-      window.localStorage.setItem(EXPOSURE_NOTICE_KEY, '1');
-    } catch {
-      setProblem({ text: 'This browser would not remember that you read the notice, so it may show again.', urgent: false });
-    }
-  };
-
   const commit = (next: ItineraryItem[], focusId: string | null = null, nextStart: string | null = startTime) => {
-    setItems(next);
-    setStartTime(nextStart);
     focusNext.current = focusId;
-    try {
-      window.localStorage.setItem(ITINERARY_KEY, serializeItinerary(next, nextStart));
-      setProblem(null);
-    } catch {
-      setProblem({ text: 'This browser would not save the itinerary, so it is lost when you reload the page.', urgent: false });
-    }
+    onChange(next, nextStart);
   };
-  // An offered plan, once the saved one has been read (so it is not read over it). Saved like any other change.
-  useEffect(() => {
-    if (!incoming || !loaded) return;
-    const replace = items.length === 0 || window.confirm(`Replace your itinerary (${items.length} ${items.length === 1 ? 'slot' : 'slots'}) with ${incoming.label ?? 'the AI plan'}?`);
-    if (replace) commit(incoming.items, null, incoming.startTime);
-    onIncoming?.(replace);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per offer (its key), reading the items as they are then
-  }, [incoming?.key, loaded]);
   // After "Use night start" the box text is selected, so the next digit replaces it instead of adding to it.
   useEffect(() => {
     if (selectStart.current) startBox.current?.select();
@@ -248,21 +156,21 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
     const holdThirdDigit = typed && isThreeDigits(text);
     setStartDraft(text);
     setStartChecked(false);
-    if (text.trim() === '') return commit(items, null, null);
+    if (text.trim() === '') return commit([...items], null, null);
     const clock = clockFromText(text);
-    if (clock && !holdThirdDigit) commit(items, null, clock);
+    if (clock && !holdThirdDigit) commit([...items], null, clock);
   };
   /** Leaving the box or pressing Enter: a time that works shows the saved value again; one that does not stays in the box with its message. */
   const settleStart = () => {
     if (startDraft === null || startDraft.trim() === '' || clockFromText(startDraft) !== null) {
       const clock = startDraft === null ? null : clockFromText(startDraft);
-      if (clock && clock !== startTime) commit(items, null, clock);
+      if (clock && clock !== startTime) commit([...items], null, clock);
       setStartDraft(null);
       setStartChecked(false);
     } else setStartChecked(true);
   };
 
-  const optical = profile.trains.filter((t) => t.kind === 'optical');
+
   const inputs = useMemo(() => items.map((i) => slotInputFor(i, profile, catalog?.targets ?? [])), [items, profile, catalog]);
   const startAt = useMemo(() => (startTime && night.start ? clockToInstant(startTime, night.start, timeZone) : null), [startTime, night, timeZone]);
   // Each target's usable windows, found once per site, night, horizon and minimum: the plan, the order search and later changes all share them.
@@ -305,72 +213,21 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
     if (report) report.current = plan ? { plan } : null;
   }, [report, plan]);
 
-  // The Moon is not a catalog object; the itinerary offers it after the planets.
-  const moonMinutes = useMemo(() => {
-    if (night.kind !== 'normal' || !night.start || !night.end) return 0;
-    const { windows } = usableWindowsOnTrack({ altAzAt: (d) => bodyAltAz('Moon', d, site), horizon, minAltitude, start: night.start, end: night.end, stepMinutes: 5 });
-    return windows.reduce((s, w) => s + (w.end.getTime() - w.start.getTime()), 0) / 60000;
-  }, [night, site, horizon, minAltitude]);
-  const bodyOptions = useMemo(
-    (): AddOption[] => [
-      ...PLANETS.map((b) => ({ id: planetIdOf(b), name: b, isPlanet: true, usableMinutes: scorer?.planet(b).usableMinutes ?? 0 })),
-      { id: MOON_ID, name: 'Moon', isPlanet: true, usableMinutes: moonMinutes },
-    ],
-    [scorer, moonMinutes],
-  );
-  // Matches for what is typed: the catalog's own search, scored for the night by the same single-target path as everywhere.
-  const found = useMemo((): AddOption[] => {
-    const text = addText.trim();
-    if (catalog === null || text === '') return [];
-    return catalog.search({ text, limit: 10 }).hits.map((h) => ({ id: h.target.id, name: h.target.displayName ?? h.target.name, isPlanet: false, usableMinutes: scorer?.target(h.target).usableMinutes ?? 0 }));
-  }, [catalog, addText, scorer]);
-  const choices = useMemo(() => {
-    const seen = new Set<string>();
-    const unique = (list: AddOption[]) => list.filter((o) => !seen.has(o.id) && seen.add(o.id));
-    const planned = unique([...planOptions]);
-    const matches = unique(found);
-    const rest = unique(bodyOptions);
-    return { matches, planned, rest, all: [...matches, ...planned, ...rest] };
-  }, [planOptions, found, bodyOptions]);
-  // Searching puts the first match in the box; otherwise it is the first of my plan; with neither, nothing is chosen.
-  const chosenId = choices.all.some((o) => o.id === addId) ? addId : (choices.matches[0]?.id ?? choices.planned[0]?.id ?? '');
-
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  const move = (id: string, dir: 'up' | 'down') => {
-    const next = moveItem(items, id, dir === 'up' ? -1 : 1);
-    if (next.every((x, k) => x === items[k])) return; // already at the end
-    commit(next, `it-${dir}-${id}`);
-  };
   const useOrder = () => {
     if (!suggestion?.changed) return;
     const byId = new Map(items.map((i) => [i.id, i]));
     commit(suggestion.order.map((id) => byId.get(id) as ItineraryItem), 'it-order-advice');
   };
-  const add = () => {
-    if (train.kind !== 'optical' || items.length >= MAX_SLOTS) return;
-    const entry = choices.all.find((e) => e.id === chosenId);
-    if (!entry) return;
-    const id = nextId(items);
-    commit([...items, newItem(entry, train.id, train.filterId ?? null, id)], null);
-    setDetailId(id);
-  };
   const remove = (id: string) => {
-    commit(items.filter((i) => i.id !== id), 'it-add-target');
+    commit(items.filter((i) => i.id !== id), 'it-start');
     if (detailId === id) setDetailId(null);
   };
 
-  const heading = <h2 id="itinerary-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">NIGHT ITINERARY</h2>;
-  const frame = 'bg-black/70 rounded-lg border border-white/10 p-6';
   if (night.kind !== 'normal' || plan === null) {
-    return (
-      <section aria-labelledby="itinerary-heading" className={frame}>
-        {heading}
-        <p className="text-white/90 font-normal text-sm">There is no astronomical night on this date, so there is nothing to schedule.</p>
-      </section>
-    );
+    return <p className="text-white/90 font-normal text-sm">There is no astronomical night on this date, so there is nothing to schedule.</p>;
   }
 
-  const addDisabledReason = train.kind !== 'optical' ? 'Pick an optical train at the top of the page: a smart scope plans its own exposures.' : items.length >= MAX_SLOTS ? `An itinerary holds at most ${MAX_SLOTS} slots.` : '';
   const shown: Slot[] = plan.slots;
   const detailSlot = shown.find((s) => s.id === detailId) ?? shown[0];
   const longestName = shown.reduce((n, s) => (s.name.length > n.length ? s.name : n), 'Orion Nebula');
@@ -378,56 +235,16 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
   const totals = plan.totals;
 
   return (
-    <section aria-labelledby="itinerary-heading" className={frame}>
-      {heading}
+    <div>
       <p className="text-white/80 font-normal text-sm">
         Slots run in the order below, one after the other. Each starts when the one before is done and the changeover is over, or when its target clears your horizon, whichever is later. Times, subs and overhead are estimates for {nightWord}, not predictions. Setup (30 minutes) happens before the first slot and is not counted.
       </p>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[1fr_2fr_auto] items-end">
-        <div>
-          <label htmlFor="it-add-search" className="block text-white/90 font-normal text-sm mb-1">Search the catalog to add</label>
-          <input
-            id="it-add-search"
-            type="search"
-            autoComplete="off"
-            maxLength={100}
-            disabled={catalog === null}
-            placeholder={catalog === null ? 'Catalog not loaded' : 'M31, NGC 7000, Veil'}
-            value={addText}
-            onChange={(e) => {
-              setAddText(e.target.value);
-              setAddId(''); // the first match becomes the choice
-            }}
-            className="min-h-11 w-full bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-60"
-          />
-        </div>
-        <div>
-          <label htmlFor="it-add-target" className="block text-white/90 font-normal text-sm mb-1">Target to add</label>
-          <WrapSelect id="it-add-target" className="w-full" value={chosenId} onChange={(e) => setAddId(e.target.value)}>
-            {chosenId === '' && <option value="">Choose a target</option>}
-            {choices.matches.length > 0 && (
-              <optgroup label="Search results">
-                {choices.matches.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
-              </optgroup>
-            )}
-            {choices.planned.length > 0 && (
-              <optgroup label="My plan">
-                {choices.planned.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
-              </optgroup>
-            )}
-            <optgroup label="Solar system">
-              {choices.rest.map((e) => <option key={e.id} value={e.id}>{optionText(e, nightWord)}</option>)}
-            </optgroup>
-          </WrapSelect>
-        </div>
-        <button type="button" className={btn44} onClick={add} disabled={addDisabledReason !== '' || chosenId === ''}>
-          Add to itinerary
-        </button>
-      </div>
-      <p className="mt-1 text-white/70 font-normal text-xs min-h-8" data-testid="itinerary-add-note">
-        {addDisabledReason || `New slots start on ${train.name}. Bortle ${bortle}${bortleSet ? ' from the site' : ' assumed, the site has none'}; change it under Site and gear.`}
-      </p>
+      {unscheduled > 0 && (
+        <p className="mt-2 text-white/90 font-normal text-sm" data-testid="timeline-unscheduled">
+          The timeline schedules the first {MAX_SLOTS} targets of the plan; {unscheduled} more {unscheduled === 1 ? 'is' : 'are'} not scheduled.
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div>
           <label htmlFor="it-start" className="block text-white/90 font-normal text-sm mb-1">Imaging can start at</label>
@@ -470,18 +287,6 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
           {plan.startNote}
         </p>
       )}
-      {showNotice && (
-        <p className="mt-2 flex items-center justify-between gap-3 bg-sky-400/15 border border-sky-300/40 rounded px-3 py-2 text-white font-normal text-sm" data-testid="itinerary-exposure-notice">
-          <span>Saved nights and applied plans now plan their own totals from the exposure rules, so sub counts and times may differ from before.</span>
-          <button type="button" onClick={dismissNotice} className="shrink-0 min-h-11 min-w-11 px-2 underline">Dismiss</button>
-        </p>
-      )}
-      {problem && (
-        <p role={problem.urgent ? 'alert' : 'status'} className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm" data-testid="itinerary-problem">
-          {problem.text}
-        </p>
-      )}
-
       <p className="mt-4 text-white font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid="itinerary-why">
         <span className="text-white/70">Why this order: </span>
         {plan.why}
@@ -495,7 +300,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
       <div id="it-order-advice" tabIndex={-1} aria-live="polite" className="mt-3 rounded-lg border border-white/15 bg-black/40 p-4 focus:outline-none focus:ring-2 focus:ring-sky-400" data-testid="order-advice">
         <h3 className="text-white font-normal text-base mb-1">Suggested order</h3>
         {items.length < 2 ? (
-          <p className="text-white/90 font-normal text-sm">Add two or more targets to get advice on their order.</p>
+          <p className="text-white/90 font-normal text-sm">Add two or more targets to the plan to get advice on their order.</p>
         ) : suggestion === null ? (
           <p className="text-white/90 font-normal text-sm" data-testid="order-advice-searching">Looking for a better order...</p>
         ) : !suggestion.changed ? (
@@ -522,7 +327,7 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
             <button type="button" className={`${btn44} mt-2`} onClick={useOrder}>
               Use this order
             </button>
-            <p className="mt-1 text-white/70 font-normal text-xs">Your order stays until you press the button. Undo with the Up and Down buttons.</p>
+            <p className="mt-1 text-white/70 font-normal text-xs">Your order stays until you press the button.</p>
           </>
         )}
       </div>
@@ -532,14 +337,12 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
         <NightTimeline plan={plan} inputs={inputs} night={night} site={site} horizon={horizon} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
       </div>
 
-      {loaded && shown.length === 0 ? (
-        <p className="mt-2 text-white/90 font-normal text-sm">Choose a target above and add it. Reorder with the Up and Down buttons.</p>
+      {shown.length === 0 ? (
+        <p className="mt-2 text-white/90 font-normal text-sm">No targets in the plan yet. Add one from Find a target.</p>
       ) : (
-        <ol className="mt-2 space-y-3" aria-label="Night itinerary, in order">
+        <ol className="mt-2 space-y-3" aria-label="Night timeline, in order">
           {shown.map((s, k) => {
             const it = items[k];
-            const missingTrain = !optical.some((t) => t.id === it.trainId);
-            const missingFilter = it.filterId !== null && !profile.equipment.filters.some((f) => f.id === it.filterId);
             const timed = s.end.getTime() > s.start.getTime();
             return (
               <li key={s.id} className="rounded-lg border border-white/15 bg-black/50 p-4" data-testid={`slot-${s.id}`}>
@@ -551,28 +354,9 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
                     {timed ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'} <span className="text-white/70 text-xs">(estimate)</span>
                   </p>
                 </div>
-                <div className="mt-2 grid gap-3 md:grid-cols-3">
+                <div className="mt-2 max-w-xs">
                   <div>
-                    <label htmlFor={`it-train-${s.id}`} className="block text-white/70 text-xs mb-0.5">Train for {s.name}</label>
-                    <WrapSelect id={`it-train-${s.id}`} className="w-full" value={it.trainId} onChange={(e) => update(s.id, { trainId: e.target.value })}>
-                      {missingTrain && <option value={it.trainId}>{it.trainId} (not in profile)</option>}
-                      {optical.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </WrapSelect>
-                  </div>
-                  <div>
-                    <label htmlFor={`it-filter-${s.id}`} className="block text-white/70 text-xs mb-0.5">Filter for {s.name}</label>
-                    <WrapSelect id={`it-filter-${s.id}`} className="w-full" value={it.filterId ?? ''} onChange={(e) => update(s.id, { filterId: e.target.value === '' ? null : e.target.value })}>
-                      <option value="">No filter</option>
-                      {missingFilter && <option value={it.filterId as string}>{it.filterId} (not in profile)</option>}
-                      {profile.equipment.filters.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </WrapSelect>
-                  </div>
-                  <div>
-                    <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Mode for {s.name}</label>
+                    <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Exposure preset for {s.name}</label>
                     <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
                       {MODE_ORDER.map((m) => (
                         <option key={m} value={m}>{PRESETS[m].label}</option>
@@ -618,26 +402,6 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      id={`it-up-${s.id}`}
-                      className={btn44}
-                      aria-disabled={k === 0}
-                      aria-label={`Move ${s.name} up`}
-                      onClick={() => k > 0 && move(s.id, 'up')}
-                    >
-                      Up
-                    </button>
-                    <button
-                      type="button"
-                      id={`it-down-${s.id}`}
-                      className={btn44}
-                      aria-disabled={k === shown.length - 1}
-                      aria-label={`Move ${s.name} down`}
-                      onClick={() => k < shown.length - 1 && move(s.id, 'down')}
-                    >
-                      Down
-                    </button>
                     <button type="button" className={btn44} aria-pressed={detailSlot?.id === s.id} aria-label={`Details for ${s.name}`} onClick={() => setDetailId(s.id)}>
                       Details
                     </button>
@@ -654,10 +418,10 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" className={btn44} disabled={shown.length === 0} onClick={() => download('fpo-planner-itinerary.csv', itineraryToCsv(plan, makeCsvTime(timeZone)), 'text/csv;charset=utf-8', true)}>
-          Export itinerary (CSV)
+          Export timeline (CSV)
         </button>
         <button type="button" className={btn44} disabled={shown.length === 0} onClick={() => download('fpo-planner-itinerary.json', itineraryToJson(plan), 'application/json')}>
-          Export itinerary (JSON)
+          Export timeline (JSON)
         </button>
       </div>
 
@@ -686,6 +450,6 @@ export default function ItinerarySection({ profile, train, planOptions, catalog,
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }

@@ -53,16 +53,14 @@ describe('"tonight" in every section follows the date', () => {
     expect(pageText()).not.toMatch(/tonight/i);
     expect(pageText()).toMatch(/Tue 15 Dec/i);
     expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
-    expect(pageText()).toMatch(/Worked out for Tue 15 Dec\./);
     expect(pageText()).toMatch(/estimates for Tue 15 Dec, not predictions/);
-    expect(openFirstBody().textContent).toMatch(/: Tue 15 Dec/); // last: an open solar-system row takes over the Exposure panel
+    expect(openFirstBody().textContent).toMatch(/: Tue 15 Dec/);
   });
 
   it('on the real tonight the sections say tonight', async () => {
     const s = site();
     await app(defaultTonightDate(new Date(), s.longitude, s.timeZone));
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
-    expect(pageText()).toMatch(/Worked out for tonight\./);
     expect(pageText()).toMatch(/estimates for tonight, not predictions/);
     expect(openFirstBody().textContent).toMatch(/: tonight/);
   });
@@ -85,7 +83,9 @@ describe('the date follows the clock on a page left open', () => {
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
     act(() => { jest.advanceTimersByTime(90000); }); // 06:00 and a bit
     expect(screen.getByRole('heading', { name: 'FRI 13 NOV' })).toBeTruthy();
-    expect(pageText()).not.toMatch(/tonight/i);
+    // The plan is still for the 13th: it says that night has passed, offers Move to tonight, and changes nothing by itself.
+    expect(screen.getByTestId('plan-past').textContent).toBe('This plan is for Fri 13 Nov, which has passed.Move to tonight');
+    expect(pageText().replace('Move to tonight', '')).not.toMatch(/tonight/i);
   });
 
   it('local midnight does not change the night (it is still the same evening until 06:00)', async () => {

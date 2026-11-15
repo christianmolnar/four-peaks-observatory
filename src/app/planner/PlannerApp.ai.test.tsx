@@ -11,11 +11,10 @@ import { parseBody } from '@/planner/ai/request';
 import type { AiPlanInput } from '@/planner/ai/facts';
 import { clock, earliestSlot, night, planOf, validSlots } from '@/planner/ai/testkit';
 import type { ModelPlan } from '@/planner/ai/schema';
-import { ITINERARY_KEY } from '@/planner/itinerary';
 import { SELECTION_KEY, sampleProfile, saveMyPlan } from '@/planner/state';
 import type { AuthState } from './authState';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, ready } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, ready, storedPlan, timelineSlots } from './testkit';
 
 // The AI night plan panel on the whole page. The fetch is a fake; the "model" is a fake behind the real engine, so the answer
 // is a real-shaped result (checked by the real checker) for the night and targets the page actually sent.
@@ -90,10 +89,10 @@ const go = () => within(panel()).getByRole('button', { name: 'Plan my night with
 const status = () => screen.getByTestId('ai-status');
 const result = () => screen.getByTestId('ai-result');
 const slotsText = () => within(result()).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-')).map((li) => li.textContent ?? '');
-const myPlan = () => screen.getByRole('region', { name: /^MY PLAN/ });
-const itinerary = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
-const itinerarySlots = () => within(itinerary()).queryAllByRole('listitem').filter((li) => /^slot-s\d/.test(li.getAttribute('data-testid') ?? '') && !li.getAttribute('data-testid')!.startsWith('slot-time'));
-const apply = () => within(panel()).getByRole('button', { name: 'Use this plan as my itinerary' }) as HTMLButtonElement;
+const myPlan = () => screen.getByRole('region', { name: /^PLAN:/ });
+const timeline = () => document.getElementById('night-timeline-body') as HTMLElement;
+const itinerarySlots = timelineSlots;
+const apply = () => within(panel()).getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement;
 const planned = async () => {
   const user = userEvent.setup();
   await user.click(go());
@@ -111,14 +110,14 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('empty My plan', () => {
+describe('empty plan', () => {
   it('disables the button and says why; nothing is sent', async () => {
     const f = fakeFetch(() => engine(null as never));
     mount(f.fn, { plan: [] });
     await ready();
     expect(go().disabled).toBe(true);
     expect(go().getAttribute('aria-describedby')).toBe('ai-plan-reason');
-    expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add at least one target to My plan first.');
+    expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add at least one target to the plan first.');
     fireEvent.click(go());
     expect(f.mock).not.toHaveBeenCalled();
   });
@@ -133,7 +132,7 @@ describe('empty My plan', () => {
 });
 
 describe('the request', () => {
-  it('is the chosen night, site, horizon, minimum altitude, train and My plan in order, and the route accepts it', async () => {
+  it('is the chosen night, site, horizon, minimum altitude, train and the plan in order, and the route accepts it', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn, { plan: ['ic405', 'm31'] });
     await ready();
@@ -149,7 +148,7 @@ describe('the request', () => {
     expect(input.rig?.focalLengthMm).toBeGreaterThan(0); // the selected train
     expect(f.sent[0].body.qualityReview).toBeUndefined();
     expect(f.sent[0].body.startTime).toBeUndefined();
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/^Will plan Tue 15 Dec at Fountain Hills, AZ, with C11 f\/10 \+ ASI2600MC Duo, minimum altitude 20°, and your horizon, for 2 targets from My plan\.$/);
+    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/^Will plan Tue 15 Dec at Fountain Hills, AZ, with C11 f\/10 \+ ASI2600MC Duo, minimum altitude 20°, and your horizon, for 2 targets from the plan\.$/);
   });
 
   it('uses the train that is selected, and a changed minimum altitude', async () => {
@@ -244,12 +243,12 @@ describe('the result', () => {
     expect(text).not.toMatch(/subs of/);
     expect(text).not.toMatch(/\b\d+ (frames|subs)\b/);
     expect(text).not.toMatch(/\d+ s\b/);
-    expect(text).not.toMatch(/the itinerary uses/);
+    expect(text).not.toMatch(/the itinerary uses|itinerary/i);
     expect(within(result()).queryByTestId('ai-slot-calc-0')).toBeNull();
     expect(within(result()).getByTestId('ai-frames-note').textContent).toBe('Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.');
   });
 
-  it('after apply the itinerary slots hold the plan\'s order and minutes', async () => {
+  it('after apply the plan\'s slots hold the AI plan\'s order and the preset nearest its minutes', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
     await ready();
@@ -258,8 +257,7 @@ describe('the result', () => {
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
-    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string);
-    expect(saved.items.map((i: { mode: string }) => i.mode)).toEqual(planMinutes.map((m) => modeForMinutes(m)));
+    expect(storedPlan()!.targets.map((t) => t.preset)).toEqual(planMinutes.map((m) => modeForMinutes(m)));
   });
 
   it('lists what was left out with why, and the checker\'s warning in plain words (no ids, no ISO times)', async () => {
@@ -345,7 +343,7 @@ describe('states', () => {
     const user = userEvent.setup();
     await user.click(go());
     expect(status().textContent).toMatch(/^Planning/);
-    fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Flaming Star Nebula from my plan' }));
+    fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Flaming Star Nebula from the plan' }));
     await waitFor(() => expect(status().textContent).toMatch(/You changed something while the AI was working, so its answer was dropped/));
     expect(f.sent[0].signal.aborted).toBe(true);
     await act(async () => {
@@ -476,14 +474,14 @@ describe('states', () => {
 });
 
 describe('a stale plan', () => {
-  it('is marked when My plan changes, and the marker names what changed', async () => {
+  it('is marked when the plan changes, and the marker names what changed', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
     await ready();
     await planned();
     expect(screen.queryByTestId('ai-stale')).toBeNull();
-    fireEvent.click(within(myPlan()).getByRole('button', { name: 'Move Andromeda Galaxy down' }));
-    expect(screen.getByTestId('ai-stale').textContent).toBe('Out of date: you changed My plan after this plan was made. Plan again to match.');
+    fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Andromeda Galaxy from the plan' }));
+    expect(screen.getByTestId('ai-stale').textContent).toBe('Out of date: you changed the plan after this plan was made. Plan again to match.');
     expect(apply().disabled).toBe(true);
     expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/out of date/);
   });
@@ -515,12 +513,12 @@ describe('a stale plan', () => {
     mount(f.fn);
     await ready();
     const user = await planned();
-    fireEvent.click(within(myPlan()).getByRole('button', { name: 'Move Andromeda Galaxy down' }));
+    fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Andromeda Galaxy from the plan' }));
     expect(screen.getByTestId('ai-stale')).toBeTruthy();
     await user.click(go());
     await screen.findByTestId('ai-result', {}, { timeout: 20000 });
     expect(screen.queryByTestId('ai-stale')).toBeNull();
-    expect(okInput(f.sent[1]).targets.map((t) => t.id)).toEqual(['ic405', 'm31']);
+    expect(okInput(f.sent[1]).targets.map((t) => t.id)).toEqual(['ic405']);
   });
 });
 
@@ -567,50 +565,43 @@ describe('the owner\'s review switch', () => {
   });
 });
 
-describe('Use this plan as my itinerary', () => {
-  it('puts the slots into the itinerary section in time order, remembered like the rest of the itinerary', async () => {
+describe('Use this plan', () => {
+  it('puts the AI plan\'s order, presets and first start into the open plan, saved like the rest of the plan', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
     await ready();
     const user = await planned();
     expect(apply().disabled).toBe(false);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/replaces your night itinerary/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order, first start time and, for each target, the closest exposure preset to its length/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
-    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string);
-    expect(saved.items.map((i: { targetId: string }) => i.targetId)).toEqual(['m31', 'ic405']);
-    expect(saved.items[0].trainId).toBe('deep-c11-2600');
-    expect(saved.items[0].note).toBe('From the AI plan, slot 1 of 2. The itinerary times it again with its own estimate.');
-    expect(saved.startTime).toMatch(/^\d\d:\d\d$/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: your itinerary below now holds this plan.s order, first start time and, for each slot, the closest exposure mode to its length/);
-    // The page's own itinerary start box shows the AI plan's first start.
-    expect((within(itinerary()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(saved.startTime);
+    const plan = storedPlan()!;
+    expect(plan.targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
+    expect(plan.trainId).toBe('deep-c11-2600'); // the plan's own train is not changed
+    expect(plan.targets.every((t) => t.note === undefined)).toBe(true); // the AI's slot notes are not written over the user's own
+    expect(plan.startTime).toMatch(/^\d\d:\d\d$/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this AI plan.s order, first start time and, for each target, the closest exposure preset to its length/);
+    // The plan's own start box shows the AI plan's first start.
+    expect((within(timeline()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(plan.startTime);
+    expect(document.body.textContent).not.toMatch(/itinerary/i);
   });
 
-  it('asks before it replaces an itinerary that has slots, and keeps theirs when they say no', async () => {
-    const items = [{ id: 's1', targetId: 'ngc891', trainId: 'deep-c11-2600', filterId: null, mode: 'balanced', note: 'mine' }];
-    window.localStorage.setItem(ITINERARY_KEY, JSON.stringify({ version: 2, items, startTime: null }));
-    const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+  it('keeps the targets the AI left out (here a planet), after the ones it placed, with their own preset and note', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
-    mount(f.fn);
+    mount(f.fn, { plan: ['m31', 'planet-jupiter', 'ic405'] });
     await ready();
     const user = await planned();
     await user.click(apply());
-    await waitFor(() => expect(screen.getByTestId('ai-apply-note').textContent).toBe('Your itinerary was left as it was.'));
-    expect(confirm).toHaveBeenCalledWith('Replace your itinerary (1 slot) with the AI plan?');
-    expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. NGC 891']);
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string).items).toHaveLength(1);
-    confirm.mockReturnValue(true);
-    await user.click(apply());
-    await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string).items.map((i: { targetId: string }) => i.targetId)).toEqual(['m31', 'ic405']);
+    await waitFor(() => expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done:/));
+    expect(storedPlan()!.targets.map((t) => t.id)).toEqual(['m31', 'ic405', 'planet-jupiter']);
+    expect(storedPlan()!.targets[2]).toEqual({ id: 'planet-jupiter', preset: 'balanced' }); // untouched
   });
 
   it.each([
     ['2 targets', ['m31', 'ic405'], 50],
     ['6 targets', ['m31', 'ic405', 'm33', 'm42', 'ngc1499', 'ngc2264'], 25],
-  ])('%s: the itinerary keeps the AI order and first start, never prints AI times beside its own, and says the times are not kept', async (_name, plan, len) => {
+  ])('%s: the plan keeps the AI order and first start, never prints AI times beside its own, and says the times are not kept', async (_name, plan, len) => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i, len))));
     mount(f.fn, { plan });
     await ready();
@@ -619,21 +610,20 @@ describe('Use this plan as my itinerary', () => {
     const aiSlots = slotsText();
     expect(aiSlots).toHaveLength(plan.length);
     const aiTimes = aiSlots.map((t) => t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3));
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/times will not match the plan above/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check above covers the AI.s times, not the itinerary.s: the itinerary shows its own flip and window notes/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/times will not match the AI plan above/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check above covers the AI.s times, not the timeline.s: the timeline shows its own flip and window notes/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(plan.length));
     // The order and the first start are the AI's.
-    const saved = JSON.parse(window.localStorage.getItem(ITINERARY_KEY) as string);
-    expect(saved.items.map((i: { targetId: string }) => i.targetId)).toEqual(plan);
+    const saved = storedPlan()!;
+    expect(saved.targets.map((t) => t.id).sort()).toEqual([...plan].sort());
     expect(saved.startTime).toBe(aiTimes[0][0]);
-    // The itinerary shows its own estimated times; where they differ from the AI's, no item note carries the AI's.
+    // The timeline shows its own estimated times; where they differ from the AI's, no target note carries the AI's.
     const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
     expect(shown.every((t) => /\(estimate\)/.test(t))).toBe(true);
-    for (const item of saved.items as { note: string }[]) expect(item.note).not.toMatch(/\d\d:\d\d|\d min/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/does not keep the AI.s slot times or exact lengths/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check above covers the AI.s times, not the itinerary.s/);
-    // The print sheet prints what the itinerary shows.
+    for (const t of saved.targets) expect(t.note ?? '').not.toMatch(/\d\d:\d\d|\d min/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/The AI.s times and exact lengths are not kept/);
+    // The print sheet prints what the timeline shows.
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));
     });
@@ -648,7 +638,7 @@ describe('Use this plan as my itinerary', () => {
     });
   });
 
-  it('the print sheet carries the plan because the itinerary now holds it', async () => {
+  it('the print sheet carries the plan because the night timeline now holds it', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
     await ready();
@@ -659,7 +649,7 @@ describe('Use this plan as my itinerary', () => {
       window.dispatchEvent(new Event('beforeprint'));
     });
     const sheet = screen.getByTestId('print-sheet');
-    expect(within(sheet).getByText('Night itinerary')).toBeTruthy();
+    expect(within(sheet).getByText('Night timeline')).toBeTruthy();
     expect(sheet.textContent).toMatch(/Andromeda Galaxy/);
     expect(sheet.textContent).toMatch(/Flaming Star Nebula/);
     act(() => {
@@ -681,13 +671,16 @@ describe('Use this plan as my itinerary', () => {
   });
 });
 
-describe('the My plan links', () => {
-  it('My plan\'s header links to the panel, beside "Plan an itinerary"', async () => {
+describe('the plan and the AI panel', () => {
+  it('the AI panel is the last part of the Plan tab, after Find a target, and reads the open plan\'s targets', async () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
     await ready();
-    expect(within(myPlan()).getByRole('link', { name: 'Plan my night with AI' }).getAttribute('href')).toBe('#ai-plan-heading');
-    expect(within(myPlan()).getByRole('link', { name: 'Plan an itinerary' }).getAttribute('href')).toBe('#itinerary-heading');
-    expect(document.getElementById('ai-plan-heading')).not.toBeNull();
+    const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(myPlan(), panel())).toBe(true);
+    expect(follows(screen.getByRole('region', { name: /^Best targets for/ }), panel())).toBe(true);
+    expect(within(myPlan()).queryByRole('link', { name: 'Plan my night with AI' })).toBeNull();
+    await planned();
+    expect(okInput(f.sent[0]).targets.map((t) => t.id)).toEqual(['m31', 'ic405']);
   });
 });

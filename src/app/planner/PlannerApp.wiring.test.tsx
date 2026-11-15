@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { defaultDateForProfile, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { chooseMore, pageProps, ready } from './testkit';
+import { chooseMore, openGear, pageProps, ready } from './testkit';
 
 // 2026-12-20 05:00 UTC = 22:00 on Dec 19 in Phoenix, already 15:00 on Dec 20 in Sydney.
 const NOW = Date.UTC(2026, 11, 20, 5, 0);
@@ -95,6 +95,7 @@ describe('storage that cannot be read or written', () => {
     await ready();
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/browser storage is blocked or unavailable/));
     expect(screen.getByTestId('target-list')).toBeTruthy();
+    openGear();
     expect((screen.getByRole('spinbutton', { name: /^Start azimuth/ }) as HTMLInputElement).value).toBe('120');
   });
 
@@ -106,7 +107,7 @@ describe('storage that cannot be read or written', () => {
     });
     const u = userEvent.setup();
     await u.upload(screen.getByLabelText('Import profile (JSON)'), jsonFile(sydney()));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported profile\.json\. Not saved, so it is lost on reload: denied/));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported profile\.json\..* Not saved, so it is lost on reload: denied/));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByLabelText('Site').textContent).toContain('Sydney');
   });

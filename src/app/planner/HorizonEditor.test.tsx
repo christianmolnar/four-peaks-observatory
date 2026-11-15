@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { describeArcs, describeOverlaps } from './HorizonEditor';
-import { pageProps, ready, resetAll } from './testkit';
+import { openGear, openPart, pageProps, ready, resetAll } from './testkit';
 
 // Real keystrokes, one key at a time, through the whole page. The expected values are the rows of the
 // round-2 and round-3 failure tables. The form holds the text and nothing else holds a copy of it, so
@@ -56,6 +56,7 @@ const pause = async () => {
 const app = async (profile = sampleProfile()) => {
   const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
   await ready();
+  openGear(); // the horizon editor is in the Gear and site tab
   return r;
 };
 
@@ -230,10 +231,16 @@ describe('draft and commit', () => {
     expect(seen.slice(6, 10)).toEqual(['Add another zone', 'Use sample horizon', 'Clear horizon', 'Horizon as a table']);
   });
 
-  it('the Edit horizon link jumps to the editor', async () => {
+  it('the Edit horizon link, in the plan\'s Night and horizon part, opens the Gear and site tab at the editor', async () => {
     await app();
-    expect(screen.getByRole('link', { name: 'Edit horizon' }).getAttribute('href')).toBe('#horizon');
-    expect(document.getElementById('horizon')).not.toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Plan' }));
+    openPart('Night and horizon');
+    const link = screen.getByRole('link', { name: 'Edit horizon' });
+    expect(link.getAttribute('href')).toBe('#horizon');
+    expect(screen.queryByRole('heading', { name: /^HORIZON/ })).toBeNull(); // the editor is in the other tab
+    fireEvent.click(link);
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Gear and site' }).getAttribute('aria-selected')).toBe('true'));
+    expect(document.getElementById('horizon')!.closest('[role="tabpanel"]')!.hasAttribute('hidden')).toBe(false);
   });
 });
 

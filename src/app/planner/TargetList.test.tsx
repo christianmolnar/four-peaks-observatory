@@ -67,19 +67,19 @@ describe('TargetList paging', () => {
     expect(screen.queryByText(/^Showing/)).toBeNull();
   });
 
-  it('Add keeps its place in the list and says In my plan; a press on it does nothing more', () => {
+  it('Add keeps its place in the list and says In plan; a press on it does nothing more', () => {
     const onAdd = jest.fn();
     const { rerender } = mount(many(3), { onAdd });
-    const add = screen.getByRole('button', { name: 'Add Target 0 to my plan' });
+    const add = screen.getByRole('button', { name: 'Add Target 0 to the plan' });
     add.focus();
     fireEvent.click(add);
     expect(onAdd).toHaveBeenCalledWith('t0');
     rerender(
-      <TargetList entries={many(3)} label="Test list" idPrefix="t" formatTime={fmt} describe={() => ({ aka: '', meta: 'Galaxy' })} planIds={new Set(['t0'])} added={{ id: 't0', text: 'Added, #1 in My plan' }} onAdd={onAdd} openId="" onToggle={() => undefined} renderDetail={() => null} />,
+      <TargetList entries={many(3)} label="Test list" idPrefix="t" formatTime={fmt} describe={() => ({ aka: '', meta: 'Galaxy' })} planIds={new Set(['t0'])} added={{ id: 't0', text: 'Added, #1 in the plan' }} onAdd={onAdd} openId="" onToggle={() => undefined} renderDetail={() => null} />,
     );
-    const same = screen.getByRole('button', { name: 'Target 0 is in my plan' });
-    expect(same.textContent).toBe('In my plan');
-    expect(screen.getByText('Added, #1 in My plan')).toBeTruthy();
+    const same = screen.getByRole('button', { name: 'Target 0 is in the plan' });
+    expect(same.textContent).toBe('In plan');
+    expect(screen.getByText('Added, #1 in the plan')).toBeTruthy();
     fireEvent.click(same);
     expect(onAdd).toHaveBeenCalledTimes(1);
   });

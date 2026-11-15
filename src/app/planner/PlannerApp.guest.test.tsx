@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor, within, act, fireEvent } from '@testi
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { chooseMore, listRows, pageProps, ready, resetAll, rowName, showAll } from './testkit';
+import { chooseMore, listRows, openGear, openPlanTab, pageProps, ready, resetAll, rowName, showAll } from './testkit';
 
 // A fresh visitor: no stored data, no props. The page loads the sample, edits go to localStorage, reload keeps them.
 
@@ -13,6 +13,7 @@ const stored = () => JSON.parse(window.localStorage.getItem(PROFILE_KEY) as stri
 const app = async () => {
   const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
   await ready();
+  openGear(); // the site and gear editors, Reset all, import and export are in the Gear and site tab
   return r;
 };
 const nightSummary = () => screen.getByTestId('night-summary').textContent as string;
@@ -49,18 +50,15 @@ async function open(u: ReturnType<typeof userEvent.setup>, name: RegExp) {
 }
 
 describe('guest start', () => {
-  it('opens with a full plan from the sample and the guest intro', async () => {
+  it('opens on the plan from the sample: sign-in in the header, no intro text and no More fold, nothing stored until an edit', async () => {
     await app();
+    openPlanTab();
     await waitFor(() => expect(screen.getByTestId('target-list')).toBeTruthy());
-    const lead = document.querySelector('header p')!.textContent ?? '';
-    expect(lead.length).toBeLessThan(120); // one short line; the rest is behind "More"
-    const more = document.querySelector('header details') as HTMLDetailsElement;
-    expect(more.open).toBe(false);
-    expect(more.querySelector('summary')!.textContent).toMatch(/More$/);
-    const intro = document.querySelector('header')?.textContent ?? '';
-    expect(intro).toMatch(/free guest tool/i);
-    expect(intro).toMatch(/estimates/i);
-    expect(intro).toMatch(/stay in this browser/i);
+    const header = document.querySelector('header')!;
+    expect(header.querySelector('h1')!.textContent).toBe('IMAGING PLANNER');
+    expect(within(header).getByRole('button', { name: /sign in with google/i })).toBeTruthy();
+    expect(header.querySelector('p, details')).toBeNull(); // no intro paragraph, no "More" fold
+    expect(document.body.textContent).not.toMatch(/free guest tool/i);
     expect(screen.getByLabelText('Site').textContent).toContain('Fountain Hills');
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull(); // nothing written until the visitor edits
   });
@@ -220,6 +218,7 @@ describe('profile JSON', () => {
 describe('print', () => {
   it('has no print sheet on screen; it is built when the browser prints and removed after', async () => {
     await app();
+    openPlanTab(); // the list and its More menu are in the Plan tab
     expect(screen.queryByTestId('print-sheet')).toBeNull();
     act(() => void window.dispatchEvent(new Event('beforeprint')));
     const sheet = screen.getByTestId('print-sheet');
@@ -233,6 +232,7 @@ describe('print', () => {
 
   it('the print sheet lists exactly the rows of the list, in order (the solar-system group after the deep-sky list)', async () => {
     await app();
+    openPlanTab(); // the list and its More menu are in the Plan tab
     fireEvent.click(screen.getByRole('button', { name: /^Solar system up/ }));
     showAll();
     const screenNames = [...listRows(), ...listRows('planet-list')].map(rowName);
@@ -245,6 +245,7 @@ describe('print', () => {
     const print = jest.fn();
     window.print = print;
     await app();
+    openPlanTab(); // the list and its More menu are in the Plan tab
     chooseMore('Print or save as PDF');
     expect(print).toHaveBeenCalledTimes(1);
   });
@@ -253,6 +254,7 @@ describe('print', () => {
 describe('CSV', () => {
   it('writes the rows on screen, with the site zone, one line per row plus the header', async () => {
     await app();
+    openPlanTab(); // the list and its More menu are in the Plan tab
     chooseMore('Export CSV');
     const text = (await blobs[blobs.length - 1].text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');

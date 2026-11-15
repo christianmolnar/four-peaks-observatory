@@ -35,11 +35,11 @@ const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text
 export interface AiPlanPanelProps {
   /** Everything of the request except the targets; null when the page cannot plan (no night, no site). */
   base: Omit<AiPlanForm, 'targets'> | null;
-  /** My plan's fixed-position targets, in the user's priority order. */
+  /** The open plan's fixed-position targets, in the plan's order. */
   targets: readonly PlanTarget[];
   /** Why there is nothing to send yet, in words for the user; null when there is. */
   blocked: string | null;
-  /** What My plan holds that the AI plan leaves out (planets, targets past the limit); empty when nothing. */
+  /** What the open plan holds that the AI plan leaves out (planets, targets past the limit); empty when nothing. */
   leftOutNote: string;
   profile: Profile;
   train: TrainEntry;
@@ -52,7 +52,7 @@ export interface AiPlanPanelProps {
   owner: boolean;
   /** For tests: stands in for the browser's fetch. */
   fetchPlan?: typeof fetch;
-  /** Offers the plan to the itinerary; answers true when the itinerary took it, false when the user kept their own. */
+  /** Puts the AI plan's order, presets and first start into the open plan; answers true when the plan took it, false when the page refused it. */
   onApply: (items: ItineraryItem[], startTime: string | null) => Promise<boolean>;
 }
 
@@ -69,7 +69,7 @@ interface Done {
 
 const UNREADABLE = Symbol('unreadable');
 
-const PART_LABELS: Record<string, string> = { night: 'the night', site: 'the site', train: 'the train', plan: 'My plan', sky: 'the horizon or minimum altitude' };
+const PART_LABELS: Record<string, string> = { night: 'the night', site: 'the site', train: 'the train', plan: 'the plan', sky: 'the horizon or minimum altitude' };
 
 /** The request as the page would send it now, split by what the user chose: the stale marker names what moved. */
 function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
@@ -92,7 +92,7 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   const [review, setReview] = useState(false);
-  // "applied": the itinerary took the plan; "kept": the user kept their own. Null: not offered yet.
+  // "applied": the open plan took the AI plan; "kept": the page refused it (said in a notice). Null: not offered yet.
   const [applyNote, setApplyNote] = useState<'applied' | 'kept' | null>(null);
   // The request in flight: its controller and the inputs it was made from. A new controller, or null, makes any earlier answer ignored.
   const flight = useRef<{ controller: AbortController; key: string } | null>(null);
@@ -219,11 +219,11 @@ export default function AiPlanPanel({ base, targets, blocked, leftOutNote, profi
         PLAN MY NIGHT WITH AI
       </h2>
       <p className="text-white/80 font-normal text-sm">
-        The AI picks the order, the times and how long each target gets, for the targets in My plan, in your order of priority. It uses the night, site, train, horizon and minimum altitude already chosen above; there is nothing to set again here. The Moon and planets (solar system) are not included.
+        The AI picks the order, the times and how long each target gets, for the targets in the open plan, in the order they are listed. It uses the night, site, train, horizon and minimum altitude already chosen above; there is nothing to set again here. The Moon and planets (solar system) are not included.
       </p>
       {form !== null && (
         <p className="mt-2 text-white/70 font-normal text-sm" data-testid="ai-inputs">
-          Will plan {nightWord} at {siteName}, with {train.name}, minimum altitude {form.minAltitude}°{form.horizon && form.horizon.length > 1 ? ', and your horizon' : ''}, for {Math.min(targets.length, MAX_TARGETS)} {targets.length === 1 ? 'target' : 'targets'} from My plan.
+          Will plan {nightWord} at {siteName}, with {train.name}, minimum altitude {form.minAltitude}°{form.horizon && form.horizon.length > 1 ? ', and your horizon' : ''}, for {Math.min(targets.length, MAX_TARGETS)} {targets.length === 1 ? 'target' : 'targets'} from the plan.
         </p>
       )}
       {leftOutNote !== '' && <p className="mt-1 text-white/70 font-normal text-sm" data-testid="ai-left-out-note">{leftOutNote}</p>}
@@ -327,13 +327,13 @@ function Result({
   const last = result.lastTarget;
   const applyBlock =
     !verified
-      ? 'This plan was not fully checked, so it cannot be used as your itinerary.'
+      ? 'This plan was not fully checked, so it cannot be used as your plan.'
       : train.kind !== 'optical'
         ? 'Pick an optical train at the top of the page: a smart scope plans its own exposures.'
         : slots.length === 0
           ? 'This plan has no slots.'
           : slots.length > MAX_SLOTS
-            ? `An itinerary holds at most ${MAX_SLOTS} slots and this plan has ${slots.length}. Remove a target from My plan and plan again.`
+            ? `The night timeline schedules at most ${MAX_SLOTS} targets and this AI plan has ${slots.length}. Remove a target from the plan and plan again.`
             : stale.length > 0
               ? 'This plan is out of date. Plan again first.'
               : null;
@@ -449,15 +449,15 @@ function Result({
 
       <div>
         <button type="button" className={btn44} onClick={onApply} disabled={applyBlock !== null} aria-describedby="ai-apply-note">
-          Use this plan as my itinerary
+          Use this plan
         </button>
         <p id="ai-apply-note" className="mt-1 text-white/70 font-normal text-xs" data-testid="ai-apply-note">
           {applyBlock ??
             (applyNote === 'applied'
-              ? 'Done: your itinerary below now holds this plan\u2019s order, first start time and, for each slot, the closest exposure mode to its length. It does not keep the AI\u2019s slot times or exact lengths: the itinerary times each slot again with its own estimate, so its times will not match the plan above. The code check above covers the AI\u2019s times, not the itinerary\u2019s: the itinerary shows its own flip and window notes.'
+              ? 'Done: the open plan now has this AI plan\u2019s order, first start time and, for each target, the closest exposure preset to its length. Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.'
               : applyNote === 'kept'
-                ? 'Your itinerary was left as it was.'
-                : 'This replaces your night itinerary below with this plan\u2019s order, first start time and, for each slot, the closest exposure mode to its length. The AI\u2019s slot times and exact lengths are not kept: the itinerary times each slot again with its own estimate, so its times will not match the plan above. The code check above covers the AI\u2019s times, not the itinerary\u2019s: the itinerary shows its own flip and window notes.')}
+                ? 'The open plan was left as it was.'
+                : 'This sets the open plan\u2019s order, first start time and, for each target, the closest exposure preset to its length. Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.')}
         </p>
       </div>
     </div>

@@ -20,3 +20,10 @@ describe('planner page credits', () => {
     expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).toContain('<CatalogCredits />');
   });
 });
+
+describe('planner page sign-in', () => {
+  // That the control is in the planner's header row is a rendered check: PlannerApp.plans.test.tsx "has sign-in in the header row".
+  it('keeps no sign-in in the page footer: the control is in the planner header', () => {
+    expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).not.toContain('AuthControl');
+  });
+});

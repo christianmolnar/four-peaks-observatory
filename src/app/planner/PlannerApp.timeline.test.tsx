@@ -5,6 +5,7 @@ import { render, screen, cleanup, within, fireEvent, waitFor } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { sampleProfile } from '@/planner/state';
+import { PLANS_KEY } from '@/planner/state/plans';
 import { lightMinutes } from '@/planner/itinerary';
 import PlannerApp from './PlannerApp';
 import { unchangedAdviceText } from './ItinerarySection';
@@ -17,7 +18,7 @@ jest.mock('@/planner/itinerary/suggest', () => {
   return { ...actual, suggestOrderSteps: jest.fn(actual.suggestOrderSteps) };
 });
 import { suggestOrderSteps } from '@/planner/itinerary/suggest';
-import { pageProps, ready } from './testkit';
+import { openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
 
 // Start time, altitude per slot, the night graph and the suggested order, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 
@@ -28,6 +29,7 @@ const withTrain = (id: string) => {
 const app = async () => {
   const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={withTrain('deep-c11-reducer-533')} />);
   await ready();
+  openPart('Night timeline'); // closed by default
   return r;
 };
 // Helsinki on 2027-04-20: a short night (00:55 to 01:41), where a start of 00:13 is before the night and shows the start note.
@@ -38,10 +40,11 @@ const helsinki = () => {
 const helApp = async () => {
   const r = render(<PlannerApp {...pageProps} initialDate="2027-04-20" initialProfile={helsinki()} />);
   await ready();
+  openPart('Night timeline');
   return r;
 };
-const section = () => screen.getByRole('region', { name: 'NIGHT ITINERARY' });
-const slots = () => within(section()).queryAllByRole('listitem').filter((li) => /^slot-s\d+$/.test(li.getAttribute('data-testid') ?? ''));
+const section = () => document.getElementById('night-timeline-body') as HTMLElement;
+const slots = timelineSlots;
 const names = () => slots().map((li) => li.querySelector('h3')!.textContent!.replace(/^\d+\. /, ''));
 const times = () => slots().map((li) => /(\d\d:\d\d) to (\d\d:\d\d)/.exec(li.textContent ?? '')!.slice(1, 3));
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
@@ -68,7 +71,7 @@ describe('start time', () => {
     expect((within(section()).getByRole('button', { name: 'Use night start' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('a later start moves every slot, is saved with the itinerary (version 2), and "Use night start" puts it back', async () => {
+  it('a later start moves every slot, is saved with the plan, and "Use night start" puts it back', async () => {
     const user = userEvent.setup();
     seed(1, ['m31', 'ic405']);
     await app();
@@ -79,13 +82,12 @@ describe('start time', () => {
     expect(toMin(after[0][0])).toBeGreaterThanOrEqual(toMin('23:00'));
     expect(after[0][0]).not.toBe(before[0][0]);
     expect(after[1][0]).not.toBe(before[1][0]);
-    const stored = JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!);
-    expect(stored).toMatchObject({ version: 2, startTime: '23:00' });
-    expect(stored.items).toHaveLength(2);
+    expect(storedPlan()).toMatchObject({ startTime: '23:00' });
+    expect(storedPlan()!.targets).toHaveLength(2);
     await user.click(within(section()).getByRole('button', { name: 'Use night start' }));
     expect(times()).toEqual(before);
     expect(startInput().value).toBe(nightStart);
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBeNull();
+    expect(storedPlan()!.startTime).toBeNull();
   });
 
   it('a start in the daytime after the night gives a plain message, no time for any slot, and no crash', async () => {
@@ -109,22 +111,22 @@ describe('start time', () => {
     expect(input.inputMode).toBe('numeric');
     expect(input.getAttribute('aria-describedby')).toBe('it-start-hint');
     fireEvent.change(input, { target: { value: '2130' } });
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('21:30');
+    expect(storedPlan()!.startTime).toBe('21:30');
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
     fireEvent.blur(input);
     expect(startInput().value).toBe('21:30');
     fireEvent.change(input, { target: { value: '9:05' } });
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('09:05');
+    expect(storedPlan()!.startTime).toBe('09:05');
     fireEvent.change(input, { target: { value: '25:00' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull(); // could still be typed over; not yet
     fireEvent.blur(input);
     expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour hours and minutes, such as 2130 or 21:30/);
     expect(startInput().value).toBe('25:00'); // the text stays in the box with its message
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBe('09:05'); // the last good time stays
+    expect(storedPlan()!.startTime).toBe('09:05'); // the last good time stays
     fireEvent.change(input, { target: { value: 'ab' } });
     expect(screen.getByTestId('itinerary-start-error')).toBeTruthy(); // can never become a time: at once
     fireEvent.change(input, { target: { value: '' } });
-    expect(JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime).toBeNull();
+    expect(storedPlan()!.startTime).toBeNull();
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
   });
 
@@ -132,7 +134,7 @@ describe('start time', () => {
     seed(1, ['m31']);
     await app();
     const input = startInput();
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     input.focus();
     for (const typed of ['2', '21', '213']) {
       fireEvent.change(input, { target: { value: typed } });
@@ -170,7 +172,7 @@ describe('start time', () => {
     seed(1, ['m31', 'ic405']);
     mount();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
     const input = startInput();
     await user.clear(input);
@@ -192,7 +194,7 @@ describe('start time', () => {
     seed(1, ['m31', 'ic405']);
     mount();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
     const input = startInput();
     await user.clear(input);
@@ -218,7 +220,7 @@ describe('start time', () => {
     seed(1, ['m31', 'ic405']);
     await helApp();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     const searches = () => (suggestOrderSteps as jest.Mock).mock.calls.length;
     const input = startInput();
     await user.clear(input);
@@ -245,7 +247,7 @@ describe('start time', () => {
     seed(1, ['m31', 'ic405']);
     await helApp();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     const input = startInput();
     await user.clear(input);
     await user.click(input);
@@ -281,7 +283,7 @@ describe('start time', () => {
     seed(2, ['m31', 'ic405'], '01:30');
     await helApp();
     await waitFor(() => expect(screen.getByTestId('order-advice')).toBeTruthy());
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     const input = startInput();
     await user.click(input);
     await user.keyboard('{Control>}a{/Control}0130');
@@ -296,7 +298,7 @@ describe('start time', () => {
     const user = userEvent.setup();
     seed(1, ['m31']);
     await app();
-    const stored = () => JSON.parse(window.localStorage.getItem(ITINERARY_KEY)!).startTime;
+    const stored = () => storedPlan()!.startTime;
     const input = startInput();
     await user.clear(input);
     await user.keyboard('905');
@@ -324,7 +326,7 @@ describe('start time', () => {
     const writes = jest.spyOn(Storage.prototype, 'setItem');
     try {
       await user.click(within(section()).getByRole('button', { name: 'Use night start' }));
-      const saved = writes.mock.calls.map((c) => JSON.parse(c[1]).startTime);
+      const saved = writes.mock.calls.filter((c) => c[0] === PLANS_KEY).map((c) => JSON.parse(c[1]).plans[0].startTime);
       expect(saved).toEqual([null]);
     } finally {
       writes.mockRestore();
@@ -356,11 +358,11 @@ describe('start time', () => {
     expect(g.querySelector('svg')!.textContent).not.toMatch(/Start 11:00/);
   });
 
-  it('every button in the itinerary section is a 44 px target by its class', async () => {
+  it('every button in the night timeline is a 44 px target by its class', async () => {
     seed(2, ['m31', 'm42', 'planet-jupiter']);
     await app();
     const buttons = within(section()).getAllByRole('button');
-    expect(buttons.length).toBeGreaterThan(10);
+    expect(buttons.length).toBeGreaterThan(5);
     for (const b of buttons) expect(`${b.textContent}: ${b.className}`).toMatch(/min-h-11/);
   });
 
@@ -445,7 +447,7 @@ describe('suggested order', () => {
     expect(screen.getByTestId('order-advice').textContent).toMatch(/Add two or more targets/);
   });
 
-  it('keeps the order until the button is pressed, then applies it, and Up and Down undo it', async () => {
+  it('keeps the order until the button is pressed, then applies it to the plan', async () => {
     const user = userEvent.setup();
     seed(2, ['m31', 'm42', 'm33', 'ic405']);
     await app();
@@ -465,9 +467,9 @@ describe('suggested order', () => {
     expect(names().slice(0, asked.length)).toEqual(asked);
     expect(advice().textContent).toMatch(/already the best/);
     expect(document.activeElement).toBe(advice());
-    // The move buttons still work on the applied order.
-    const first = names()[0];
-    await user.click(within(section()).getByRole('button', { name: `Move ${first} down` }));
-    expect(names()[1]).toBe(first);
+    // The order is the plan's now: the plan's rows list the same targets in the same order, and it is saved.
+    const planRows = within(screen.getByRole('list', { name: 'Targets in this plan, in order' })).getAllByRole('listitem').map((li) => li.querySelector('p')!.textContent!.replace(/^\d+\.\s*/, '').trim());
+    expect(planRows).toEqual(names());
+    expect(storedPlan()!.targets).toHaveLength(4);
   });
 });

@@ -39,7 +39,7 @@ describe('compact target rows', () => {
     const score = row.querySelector('[data-testid="row-fit-score"]')!.textContent as string;
     expect(score).toMatch(/Score \d+$/);
     expect(text).toMatch(/[\d.]+ h clear/);
-    const add = within(row).getByRole('button', { name: 'Add NGC 891 to my plan' });
+    const add = within(row).getByRole('button', { name: 'Add NGC 891 to the plan' });
     expect(add.textContent).toBe('Add');
     expect(add.className).toContain('min-h-11');
     // Its own column: not inside the name cell.
@@ -108,7 +108,7 @@ describe('compact target rows', () => {
     expect(screen.getAllByRole('list', { name: /^Targets ranked for/ })).toHaveLength(1);
     const names = listRows().map(rowName);
     expect(new Set(names).size).toBe(names.length);
-    expect(screen.getAllByRole('button', { name: /^Add .+ to my plan$/ }).filter((b) => listRows().some((r) => r.contains(b)))).toHaveLength(names.length);
+    expect(screen.getAllByRole('button', { name: /^Add .+ to the plan$/ }).filter((b) => listRows().some((r) => r.contains(b)))).toHaveLength(names.length);
   });
 
   it('the list is a grid that folds to one column: the same markup at every width', async () => {

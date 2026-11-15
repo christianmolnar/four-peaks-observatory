@@ -9,8 +9,7 @@ const btn =
 export const RESET_LOSES = [
   'Your sites, each with its horizon and Minimum altitude.',
   'Your gear: scopes, cameras, filters, accessories and trains.',
-  'My plan.',
-  'The night itinerary.',
+  'Your plans: every saved plan, with its targets, times and notes, and every backup copy kept when plans could not be read or were replaced.',
   'The captured ticks.',
   'The remembered site and train choice.',
 ] as const;
@@ -55,7 +54,7 @@ export default function ResetAll({ onConfirm }: { onConfirm: () => void }) {
               <li key={t}>{t}</li>
             ))}
           </ul>
-          <p className="mt-2 text-white/70 font-normal text-xs">The planner then shows the sample profile, as on a first visit. Export your profile first to keep a copy.</p>
+          <p className="mt-2 text-white/70 font-normal text-xs">The planner then shows the sample profile, as on a first visit. Export your profile first to keep a copy of it. Plans are not part of the profile export and cannot be recovered.</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <button type="button" className={btn} onClick={() => { setOpen(false); onConfirm(); }}>
               Yes, reset everything

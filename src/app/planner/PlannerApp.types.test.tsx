@@ -13,7 +13,7 @@ import { DEFAULT_MIN_ALTITUDE, MAX_MY_PLAN, MY_PLAN_KEY, SELECTION_KEY, samplePr
 import { inSizeBand } from '@/planner/plan/rank';
 import { TYPE_GROUPS } from '@/planner/plan/type-groups';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, ready, resetAll, rowNames, showAll } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, openGear, openPlanTab, ready, resetAll, rowNames, showAll, storedPlan } from './testkit';
 
 // "Best [type] tonight": the Type selector over the catalog's real types, each ranked over the whole catalog.
 
@@ -52,7 +52,10 @@ const typeSelect = () => screen.getByLabelText('Type') as HTMLSelectElement;
 const optionText = (id: string) => (typeSelect().querySelector(`option[value="${id}"]`) as HTMLOptionElement).textContent ?? '';
 const optionCount = (id: string): number => Number(/· (\d+) (?:up|fit)/.exec(optionText(id))?.[1] ?? 'NaN');
 const heading = () => screen.getByRole('heading', { level: 2, name: /^Best / }).textContent;
-const stored = () => JSON.parse(window.localStorage.getItem(MY_PLAN_KEY) ?? 'null') as { ids: string[] } | null;
+const stored = () => {
+  const p = storedPlan();
+  return p === null ? null : { ids: p.targets.map((t) => t.id) };
+};
 /** The whole-number score in a row's fit-and-score cell. */
 const scoreOf = (row: HTMLElement): number => Number(/Score (\d+)/.exec(within(row).getByTestId('row-fit-score').textContent ?? '')?.[1]);
 const live = () => document.querySelector('p[aria-live="polite"].sr-only')?.textContent ?? '';
@@ -196,31 +199,31 @@ describe('the list for a type', () => {
 });
 
 describe('adding from a type list', () => {
-  it('Add puts the row in My plan, the row says In my plan, and the choice is stored', async () => {
+  it('Add puts the row in the plan, the row says In plan, and the choice is stored', async () => {
     mount();
     await ready();
     await choose('open-clusters');
     await listed();
     const u = userEvent.setup();
-    await u.click(within(listRows()[0]).getByRole('button', { name: 'Add Test Cluster 1 to my plan' }));
+    await u.click(within(listRows()[0]).getByRole('button', { name: 'Add Test Cluster 1 to the plan' }));
     expect(stored()?.ids).toEqual(['tc1']);
-    expect(within(listRows()[0]).getByRole('button', { name: 'Test Cluster 1 is in my plan' }).textContent).toBe('In my plan');
-    expect(live()).toBe('Test Cluster 1 added, number 1 in My plan.');
+    expect(within(listRows()[0]).getByRole('button', { name: 'Test Cluster 1 is in the plan' }).textContent).toBe('In plan');
+    expect(live()).toBe('Test Cluster 1 added, number 1 in the plan.');
   });
 
-  it('Add top 3 adds the first three not already in My plan, in list order, and says what it added', async () => {
+  it('Add top 3 adds the first three not already in the plan, in list order, and says what it added', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['tc1'] }));
     mount();
     await ready();
     await choose('open-clusters');
     await listed();
     const u = userEvent.setup();
-    await u.click(screen.getByRole('button', { name: 'Add top 3 to my plan' }));
+    await u.click(screen.getByRole('button', { name: 'Add top 3 to the plan' }));
     expect(stored()?.ids).toEqual(['tc1', 'tc2', 'tc3', 'tc4']);
-    expect(live()).toBe('Added 3 to My plan, #2 to #4: Test Cluster 2, Test Cluster 3 and Test Cluster 4.');
-    expect(screen.getByTestId('top-three').textContent).toMatch(/Added 3, #2 to #4 in My plan\./);
-    expect(within(listRows()[3]).getByRole('button', { name: 'Test Cluster 4 is in my plan' })).toBeTruthy();
-    expect(within(listRows()[4]).getByRole('button', { name: 'Add Test Cluster 5 to my plan' })).toBeTruthy();
+    expect(live()).toBe('Added 3 to the plan, #2 to #4: Test Cluster 2, Test Cluster 3 and Test Cluster 4.');
+    expect(screen.getByTestId('top-three').textContent).toMatch(/Added 3, #2 to #4 in the plan\./);
+    expect(within(listRows()[3]).getByRole('button', { name: 'Test Cluster 4 is in the plan' })).toBeTruthy();
+    expect(within(listRows()[4]).getByRole('button', { name: 'Add Test Cluster 5 to the plan' })).toBeTruthy();
   });
 
   it('Add top 3 is a button: Enter on the focused button adds, and the live region announces it', async () => {
@@ -229,44 +232,45 @@ describe('adding from a type list', () => {
     await choose('open-clusters');
     await listed();
     const u = userEvent.setup();
-    const button = screen.getByRole('button', { name: 'Add top 3 to my plan' });
+    const button = screen.getByRole('button', { name: 'Add top 3 to the plan' });
     button.focus();
     await u.keyboard('{Enter}');
     expect(stored()?.ids).toEqual(['tc1', 'tc2', 'tc3']);
-    expect(live()).toMatch(/^Added 3 to My plan, #1 to #3: /);
+    expect(live()).toMatch(/^Added 3 to the plan, #1 to #3: /);
     expect(document.querySelector('p[aria-live="polite"].sr-only')?.getAttribute('aria-live')).toBe('polite');
   });
 
-  it('Add top 3 is disabled, and says why, when My plan is full; with room for one it adds one and says the rest were not added', async () => {
+  it('Add top 3 is disabled, and says why, when the plan is full; with room for one it adds one and says the rest were not added', async () => {
     const full = Array.from({ length: MAX_MY_PLAN }, (_, i) => `x${i}`);
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: full }));
     mount();
     await ready();
     await choose('open-clusters');
     await listed();
-    const button = screen.getByRole('button', { name: 'Add top 3 to my plan' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Add top 3 to the plan' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    expect(screen.getByTestId('top-three').textContent).toMatch(/My plan is full \(50 targets\)\. Remove one to add more\./);
+    expect(screen.getByTestId('top-three').textContent).toMatch(/The plan is full \(50 targets\)\. Remove one to add more\./);
     cleanup();
+    window.localStorage.clear(); // the first visit moved the old list into a saved plan; start over for the second
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: full.slice(0, MAX_MY_PLAN - 1) }));
     mount();
     await ready();
     await choose('open-clusters');
     await listed();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Add top 3 to my plan' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add top 3 to the plan' }));
     expect(stored()?.ids).toHaveLength(MAX_MY_PLAN);
     expect(stored()?.ids[MAX_MY_PLAN - 1]).toBe('tc1');
-    expect(live()).toMatch(/My plan is full: 2 not added\.$/);
+    expect(live()).toMatch(/The plan is full: 2 not added\.$/);
   });
 
-  it('Add top 3 is disabled when everything in the list is already in My plan', async () => {
+  it('Add top 3 is disabled when everything in the list is already in the plan', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['tc1', 'tc2', 'tc3', 'tc4', 'tc5'] }));
     mount();
     await ready();
     await choose('open-clusters');
     await listed();
-    expect((screen.getByRole('button', { name: 'Add top 3 to my plan' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('top-three').textContent).toMatch(/already in My plan/);
+    expect((screen.getByRole('button', { name: 'Add top 3 to the plan' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('top-three').textContent).toMatch(/already in the plan/);
   });
 });
 
@@ -297,7 +301,9 @@ describe('the choice is remembered with the train', () => {
     await listed();
     fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'wide-c11-hyperstar-2600' } });
     expect(JSON.parse(window.localStorage.getItem(SELECTION_KEY) as string)).toMatchObject({ trainId: 'wide-c11-hyperstar-2600', typeId: 'open-clusters' });
+    openGear();
     await resetAll(userEvent.setup());
+    openPlanTab();
     expect(typeSelect().value).toBe('all');
     expect(window.localStorage.getItem(SELECTION_KEY)).toBeNull();
   });

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import type { CatalogObject } from '@/planner/catalog/openngc';
 import { MY_PLAN_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, rowNames, showAll } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, rowNames, showAll, storedPlan } from './testkit';
 
 // Planets on a real night: 2026-11-13 at the sample site (Fountain Hills), minimum altitude 20. Mars, Jupiter, Saturn, Uranus and
 // Neptune are up. A hundred and thirty bright galaxies fill the best 100 and outscore every planet, as the real catalog does, so
@@ -44,8 +44,11 @@ function mount(trainId?: string) {
 }
 const searchBox = () => screen.getByLabelText('Search the catalog by name or number') as HTMLInputElement;
 const results = () => screen.getByRole('list', { name: 'Search results' });
-const stored = () => JSON.parse(window.localStorage.getItem(MY_PLAN_KEY) ?? 'null') as { ids: string[] } | null;
-const myPlan = () => screen.getByRole('region', { name: /^MY PLAN/ });
+const stored = () => {
+  const p = storedPlan();
+  return p === null ? null : { ids: p.targets.map((t) => t.id) };
+};
+const myPlan = () => screen.getByRole('region', { name: /^PLAN:/ });
 const planGroup = () => screen.getByRole('button', { name: /^Solar system up/ });
 
 beforeAll(() => {
@@ -92,14 +95,14 @@ describe('planets on 2026-11-13 at Fountain Hills', () => {
     expect(screen.queryByRole('button', { name: /^Solar system up/ })).toBeNull();
   });
 
-  it('a planet can be added to my plan from the list', async () => {
+  it('a planet can be added to the plan from the list', async () => {
     mount('planet-c11-676');
     await ready();
     const row = listRows('planet-list').find((r) => rowName(r) === 'Jupiter') as HTMLElement;
-    await userEvent.setup().click(within(row).getByRole('button', { name: 'Add Jupiter to my plan' }));
+    await userEvent.setup().click(within(row).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
-    expect(within(screen.getByRole('region', { name: /^MY PLAN/ })).getByText('Solar system')).toBeTruthy();
-    expect(within(row).getByRole('button', { name: 'Jupiter is in my plan' })).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: /^PLAN:/ })).getByText('Solar system')).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Jupiter is in the plan' })).toBeTruthy();
   });
 });
 
@@ -114,9 +117,9 @@ describe('search finds the planets and the Moon', () => {
     expect(hits[0].textContent).toContain('Solar system');
     expect(hits[0].textContent).toMatch(/Up (tonight|[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}).*Score \d+/);
     expect(hits[1].textContent).toContain('Ghost of Jupiter Nebula');
-    await u.click(within(hits[0]).getByRole('button', { name: 'Add Jupiter to my plan' }));
+    await u.click(within(hits[0]).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
-    expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('In my plan');
+    expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('In plan');
   });
 
   it.each(['Saturn', 'Mars', 'Moon'])('"%s" is found', async (name) => {
@@ -125,7 +128,7 @@ describe('search finds the planets and the Moon', () => {
     await userEvent.setup().type(searchBox(), name);
     const first = within(results()).getAllByRole('listitem')[0];
     expect(first.querySelector('p')!.textContent).toBe(name);
-    expect(within(first).getByRole('button', { name: `Add ${name} to my plan` })).toBeTruthy();
+    expect(within(first).getByRole('button', { name: `Add ${name} to the plan` })).toBeTruthy();
   });
 
   it('the planet answers to the start of its name, but not to one or two letters', async () => {
@@ -164,37 +167,38 @@ describe('a search result outside the list says why', () => {
   });
 });
 
-describe('the train line in My plan', () => {
+describe('the train line in the plan', () => {
   const note = () => screen.queryByTestId('plan-train-note');
 
-  it('a deep-sky train with a solar-system body in My plan says so; Add is not blocked and the train does not change; Change train focuses the Train select', async () => {
+  it('a deep-sky train with a solar-system body in the plan says so; Add is not blocked and the train does not change; Change train focuses the Train select', async () => {
     mount();
     await ready();
     expect(note()).toBeNull();
     const u = userEvent.setup();
     await u.click(planGroup());
     const row = listRows('planet-list').find((r) => rowName(r) === 'Jupiter') as HTMLElement;
-    await u.click(within(row).getByRole('button', { name: 'Add Jupiter to my plan' }));
+    await u.click(within(row).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
-    expect(note()!.textContent).toContain('My plan mixes a deep-sky train and solar-system bodies.');
+    expect(note()!.textContent).toContain('The plan mixes a deep-sky train and solar-system bodies.');
     expect((screen.getByLabelText('Train') as HTMLSelectElement).value).not.toMatch(/^planet-/); // not auto-switched
     await u.click(within(myPlan()).getByRole('button', { name: 'Change train' }));
     expect(document.activeElement).toBe(screen.getByLabelText('Train'));
     // Removing the body clears the line.
-    await u.click(within(myPlan()).getByRole('button', { name: 'Remove Jupiter from my plan' }));
+    await u.click(within(myPlan()).getByRole('button', { name: 'Remove Jupiter from the plan' }));
     expect(note()).toBeNull();
   });
 
-  it('a planetary train with a deep-sky target in My plan says so; only solar-system bodies on it say nothing', async () => {
+  it('a planetary train with a deep-sky target in the plan says so; only solar-system bodies on it say nothing', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter'] }));
     mount('planet-c11-676');
     await ready();
     expect(note()).toBeNull();
     cleanup();
+    window.localStorage.clear(); // the first visit moved the old list into a saved plan; start over for the second
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter', 'm31'] }));
     mount('planet-c11-676');
     await ready();
-    expect(note()!.textContent).toContain('My plan mixes a solar-system train and deep-sky targets.');
+    expect(note()!.textContent).toContain('The plan mixes a solar-system train and deep-sky targets.');
     expect(within(myPlan()).getByRole('button', { name: 'Change train' })).toBeTruthy();
   });
 
@@ -207,7 +211,7 @@ describe('the train line in My plan', () => {
 });
 
 describe('the label', () => {
-  it('no visible text names the set "Planets": the type, the group, the row, My plan, the itinerary choice and the search say Solar system', async () => {
+  it('no visible text names the set "Planets": the type, the group, the row, the plan and the search say Solar system', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter'] }));
     mount();
     await ready();
@@ -215,7 +219,6 @@ describe('the label', () => {
     expect([...(screen.getByLabelText('Type') as HTMLSelectElement).options].map((o) => o.textContent ?? '').some((t) => t.startsWith('Solar system'))).toBe(true);
     expect(planGroup().textContent).toContain('Solar system up');
     expect(within(myPlan()).getByText('Solar system')).toBeTruthy();
-    expect([...document.querySelectorAll('optgroup')].map((g) => g.label)).toContain('Solar system');
     await u.type(searchBox(), 'Jupiter');
     expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('Solar system');
     const text = document.body.textContent ?? '';
