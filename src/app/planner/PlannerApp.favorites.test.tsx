@@ -123,6 +123,8 @@ describe('Save as favorite', () => {
     const update = screen.getByRole('button', { name: 'Update favorite to these numbers' });
     expect(storedFavorites()[0]).toMatchObject({ subSeconds: 90, subCount: 20 });
     fireEvent.click(update);
+    expect(storedFavorites()[0]).toMatchObject({ subSeconds: 90, subCount: 20 }); // it asks first
+    fireEvent.click(screen.getByRole('button', { name: 'Update favorite' }));
     const n = /^(\d+(?:\.\d+)?) s × (\d+) subs/.exec(numbers('m31'))!;
     expect(storedFavorites()[0]).toMatchObject({ id: 'm31', preset: 'balanced', subSeconds: Number(n[1]), subCount: Number(n[2]) });
     expect(storedFavorites()).toHaveLength(1);
@@ -324,6 +326,7 @@ describe('the favorites store never loses what it holds', () => {
     const third = store(fav('m31'), fav('ic405', { subCount: 40 }), fav('m42'));
     window.localStorage.setItem(FAVORITES_KEY, third);
     fireEvent.click(within(planRowItems()[1]).getByRole('button', { name: 'Update favorite to these numbers' }));
+    fireEvent.click(within(planRowItems()[1]).getByRole('button', { name: 'Update favorite' }));
     expect(storedFavorites().map((f) => f.id).sort()).toEqual(['ic405', 'm31', 'm42']);
   });
 

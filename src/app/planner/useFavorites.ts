@@ -15,8 +15,8 @@ import type { FavoritesState } from '@/planner/state/favorites';
 /** What a held store says, in plain words: saving is off and the stored text is not touched. */
 const HELD_TEXT = {
   newer: 'Your saved favorite exposures were made by a newer version of the planner, so saving favorites is off here and nothing stored is changed.',
-  nocopy: 'Your saved favorite exposures could not be read whole, and a copy of them could not be kept first, so saving favorites is off here and nothing stored is changed.',
-  othertab: 'Another tab saved favorite exposures this page cannot use, so saving favorites is off here and nothing stored is changed.',
+  nocopy: 'Your saved favorite exposures could not be read whole, and a copy of them could not be kept first, so saving favorites is off here and nothing stored is changed. To fix it, free some browser storage and reload this page; if it stays, use Reset all in the Gear tab to start the favorites again.',
+  othertab: 'Another tab saved favorite exposures this page cannot use, so saving favorites is off here and nothing stored is changed. Reload this tab to read what the other tab saved; if it still cannot be read, use Reset all in the Gear tab.',
 } as const;
 type HeldWhy = keyof typeof HELD_TEXT;
 

@@ -45,7 +45,7 @@ const result = (warnings: ExposureWarning[]): ExposureResult =>
   }) as unknown as ExposureResult;
 const view = (warnings: ExposureWarning[]): RowExposure => {
   const r = result(warnings);
-  return { kind: 'ok', chosen: r, presets: { quick: r, balanced: r, deep: r }, marginal: [], inputs: 'x', usableMinutes: 300 };
+  return { kind: 'ok', chosen: r, presets: { quick: r, balanced: r, deep: r }, marginal: [], inputs: 'x', usableMinutes: 300, withNumber: () => r };
 };
 const handlers = () => ({
   onPreset: jest.fn(),

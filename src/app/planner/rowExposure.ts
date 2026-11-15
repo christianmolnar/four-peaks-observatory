@@ -10,7 +10,16 @@ import type { PlanTargetRef } from '@/planner/state/plans';
 export type RowExposure =
   | { kind: 'none'; reason: string }
   | { kind: 'missing'; reason: string }
-  | { kind: 'ok'; chosen: ExposureResult; presets: Record<ExposureMode, ExposureResult>; marginal: MarginalRow[]; inputs: string; usableMinutes: number };
+  | {
+      kind: 'ok';
+      chosen: ExposureResult;
+      presets: Record<ExposureMode, ExposureResult>;
+      marginal: MarginalRow[];
+      inputs: string;
+      usableMinutes: number;
+      /** What the engine would give if the row's sub length or count were this number (the row's other own numbers kept); null when it cannot compute. */
+      withNumber: (field: 'subSeconds' | 'subCount', value: number) => ExposureResult | null;
+    };
 
 /** The preset a target's numbers start from: its own preset, or for a Custom target the preset it was changed from (Balanced when none is kept). */
 export const baseOf = (ref: Pick<PlanTargetRef, 'preset' | 'base'>): ExposureMode => (ref.preset === 'custom' ? (ref.base ?? 'balanced') : ref.preset);
@@ -116,11 +125,21 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
     `Moon ${(entry.moonIllumination * 100).toFixed(0)}% lit and ${entry.moonSeparation.toFixed(0)} degrees away${entry.moonUp ? '' : ' (down)'}`,
     `${Math.round(entry.usableMinutes)} usable minutes`,
   ].join(', ');
-  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes };
+  const withNumber = (field: 'subSeconds' | 'subCount', value: number): ExposureResult | null => {
+    const base = choiceOf(ref);
+    const r = run({ preset: base.preset, overrides: { ...base.overrides, [field]: value } });
+    return r.ok ? r : null;
+  };
+  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, withNumber };
 }
 
 /** The longest sub, the most subs, and the most light one plan row accepts: past these a number is a typing slip, not an exposure. */
 export const MAX_SUB_S = 3600;
+/**
+ * The shortest sub one plan row accepts. 1 s, not the engine's 15 s floor: the engine itself allows a typed sub below its floor (its range goes down to 1 s),
+ * so a bright-target user may want 5 s or 10 s; but under 1 s the overhead of each frame (download, dither settle) is longer than the exposure, so it is a typing slip.
+ */
+export const MIN_SUB_S_ROW = 1;
 export const MAX_SUBS = 5000;
 export const MAX_LIGHT_S = 24 * 3600;
 
@@ -135,6 +154,7 @@ export function checkNumber(field: 'subSeconds' | 'subCount', text: string): Num
   if (field === 'subSeconds') {
     if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, message: 'Enter the sub length in seconds as a number, for example 120.' };
     const v = Number(t);
+    if (v < MIN_SUB_S_ROW) return { ok: false, message: `A sub of ${v} s is shorter than ${MIN_SUB_S_ROW} s: too short to be an exposure.` };
     if (v > MAX_SUB_S) return { ok: false, message: `A sub of ${v} s is longer than ${MAX_SUB_S} s (1 hour): too long for one sub.` };
     return { ok: true, value: v };
   }
@@ -148,4 +168,12 @@ export function checkNumber(field: 'subSeconds' | 'subCount', text: string): Num
 export function exposureSummary(f: { preset: PlanTargetRef['preset']; base?: ExposureMode; subSeconds: number; subCount: number }): string {
   const name = f.preset === 'custom' ? `Custom (from ${presetLabel(f.base ?? 'balanced')})` : presetLabel(f.preset);
   return `${name}, ${f.subSeconds} s × ${f.subCount} (${minutesText((f.subSeconds * f.subCount) / 60)})`;
+}
+
+/** The plain reason the engine's numbers for a typed value cannot be used (more subs than a favorite or a plan holds, or more than a day of light), or null when they can. */
+export function resultProblem(r: ExposureResult): string | null {
+  if (r.subCount > MAX_SUBS) return `That would need more than ${MAX_SUBS.toLocaleString('en-US')} subs; use longer subs.`;
+  if (r.subCount < 1) return 'There is no usable time on this night for that, so it would give no subs.';
+  if (r.subSeconds * r.subCount > MAX_LIGHT_S) return 'That is more than 24 hours of light, so it is not used.';
+  return null;
 }

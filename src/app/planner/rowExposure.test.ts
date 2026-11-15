@@ -18,6 +18,8 @@ describe('typed numbers', () => {
       for (const text of ['abc', '1e3', '12x', '1,5', 'NaN', 'Infinity', '--1']) expect(checkNumber(field, text).ok).toBe(false);
       expect(checkNumber(field, '')).toMatchObject({ ok: false, message: expect.stringMatching(/^Enter a /) });
     }
+    expect(checkNumber('subSeconds', '0.999')).toMatchObject({ ok: false, message: expect.stringMatching(/shorter than 1 s/) });
+    expect(checkNumber('subSeconds', '1').ok).toBe(true);
     expect(checkNumber('subSeconds', '3601')).toMatchObject({ ok: false, message: expect.stringMatching(/too long for one sub/) });
     expect(checkNumber('subSeconds', '3600').ok).toBe(true);
     expect(checkNumber('subCount', '5001')).toMatchObject({ ok: false, message: expect.stringMatching(/too many/) });

@@ -52,7 +52,7 @@ export interface AiPlanPanelProps {
   owner: boolean;
   /** For tests: stands in for the browser's fetch. */
   fetchPlan?: typeof fetch;
-  /** Puts the AI plan's order, presets and first start into the open plan; answers true when the plan took it, false when the page refused it. */
+  /** Puts the AI plan's order and first start into the open plan; answers true when the plan took it, false when the page refused it. */
   onApply: (items: ItineraryItem[], startTime: string | null) => Promise<boolean>;
 }
 

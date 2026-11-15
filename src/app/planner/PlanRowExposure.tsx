@@ -6,7 +6,7 @@ import { MODE_ORDER, needText } from '@/planner/exposure';
 import type { ExposureMode, ExposureResult } from '@/planner/exposure';
 import type { Favorite } from '@/planner/state/favorites';
 import type { PlanPreset } from '@/planner/state/plans';
-import { ACT_ON, MAX_LIGHT_S, checkNumber, differsText, exposureSummary, minutesText, presetLabel, splitWarnings } from './rowExposure';
+import { ACT_ON, checkNumber, differsText, exposureSummary, minutesText, presetLabel, resultProblem, splitWarnings } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 
 const btn = 'min-h-11 min-w-11 whitespace-nowrap rounded border border-white/30 px-3 text-sm font-normal text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
@@ -82,8 +82,9 @@ export interface PlanRowExposureProps {
 export default function PlanRowExposure({ id, name, preset, view, formatTime, favorite, favoritesBlocked, prompt, onPreset, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow, onGoTo }: PlanRowExposureProps) {
   // What is typed in a box until it is applied (Enter or leaving the box); a box that is not being edited shows the stored number.
   const [draft, setDraft] = useState<{ subSeconds?: string; subCount?: string }>({});
-  const [errors, setErrors] = useState<{ subSeconds?: string; subCount?: string; light?: string }>({});
+  const [errors, setErrors] = useState<{ subSeconds?: string; subCount?: string }>({});
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmUpdate, setConfirmUpdate] = useState(false);
   const clear = () => {
     setDraft({});
     setErrors({});
@@ -96,13 +97,14 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
     if (text === undefined || chosen === null) return;
     const c = checkNumber(field, text);
     if (!c.ok) {
-      setErrors((e) => ({ ...e, [field]: c.message, light: undefined }));
+      setErrors((e) => ({ ...e, [field]: c.message }));
       return;
     }
-    const sub = field === 'subSeconds' ? c.value : chosen.subSeconds;
-    const count = field === 'subCount' ? c.value : chosen.subCount;
-    if (sub * count > MAX_LIGHT_S) {
-      setErrors((e) => ({ ...e, [field]: 'That is more than 24 hours of light, so it is not used.' }));
+    // The light the engine gives for this number (it recomputes the count when only the sub length is set), not the stored count times the new length.
+    const result = ok?.withNumber(field, c.value) ?? null;
+    const problem = result === null ? 'The engine could not compute numbers for that.' : resultProblem(result);
+    if (problem !== null) {
+      setErrors((e) => ({ ...e, [field]: problem }));
       return;
     }
     setErrors((e) => ({ ...e, [field]: undefined }));
@@ -298,16 +300,25 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
             className="h-5 w-5 shrink-0 accent-sky-400"
             checked={favorite !== null}
             disabled={favoritesBlocked !== null || (favorite === null && chosen === null)}
-            onChange={() => (favorite === null ? onSaveFavorite() : setConfirmRemove(true))}
+            onChange={() => (favorite === null ? onSaveFavorite() : (setConfirmUpdate(false), setConfirmRemove(true)))}
           />
           <span>Save as favorite</span>
         </label>
         {favorite !== null && <span className="rounded border border-white/20 px-1.5 py-0.5 text-xs font-normal text-white/80">Favorite saved</span>}
-        {favorite !== null && differsFromFavorite && favoritesBlocked === null && (
-          <button type="button" className={btn} onClick={onSaveFavorite}>Update favorite to these numbers</button>
+        {favorite !== null && differsFromFavorite && favoritesBlocked === null && prompt !== 'ask' && !confirmUpdate && (
+          <button type="button" className={btn} onClick={() => { setConfirmRemove(false); setConfirmUpdate(true); }}>Update favorite to these numbers</button>
         )}
       </div>
       {favoritesBlocked !== null && <p className="text-sm font-normal text-orange-100" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
+      {confirmUpdate && favorite !== null && differsFromFavorite && prompt !== 'ask' && (
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-update-confirm-${id}`}>
+          <span>Replace the favorite for {name} ({summary}) with {exposureSummary({ preset, ...(base !== null && preset === 'custom' ? { base } : {}), subSeconds: chosen?.subSeconds ?? 0, subCount: chosen?.subCount ?? 0 })}?</span>
+          <span className="flex gap-2">
+            <button type="button" className={btn} onClick={() => { setConfirmUpdate(false); onSaveFavorite(); dropFavoriteFocus(); }}>Update favorite</button>
+            <button type="button" className={btn} onClick={() => { setConfirmUpdate(false); dropFavoriteFocus(); }}>Keep the old one</button>
+          </span>
+        </p>
+      )}
       {confirmRemove && favorite !== null && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-confirm-${id}`}>
           <span>Remove the favorite exposure for {name}? Only this favorite is removed.</span>

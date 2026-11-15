@@ -192,11 +192,7 @@ describe('Custom', () => {
       expect(screen.getByRole('alert')).toBeTruthy();
       expect(JSON.stringify(storedPlan())).toBe(original);
     }
-    fireEvent.change(box, { target: { value: '3600' } });
-    fireEvent.change(count, { target: { value: '5000' } });
-    fireEvent.blur(count);
-    expect(screen.getByRole('alert').textContent).toMatch(/more than 24 hours of light/);
-    expect(JSON.stringify(storedPlan())).toBe(original);
+    // A count above the 5,000 the box accepts is refused (above); a long sub is judged by the engine's own count and light, see PlannerApp.subinput.test.tsx.
     expect(numbers('m31')).toBe(before);
   });
 
@@ -249,7 +245,7 @@ describe('print and the plan CSV carry the rows with their exposure', () => {
     const table = screen.getByTestId('print-plan');
     const rows = within(table).getAllByRole('row').slice(1).map((r) => [...r.children].map((c) => c.textContent));
     const n = parse(numbers('m31'));
-    expect(rows[0].slice(1, 5)).toEqual(['Andromeda Galaxy', 'Deep Project', `${n.sub} s`, String(n.subs)]);
+    expect(rows[0].slice(1, 5)).toEqual(['Andromeda Galaxy', 'Deep', `${n.sub} s`, String(n.subs)]);
     expect(rows[0][5]).toMatch(/^\d+ min$/);
     expect(rows[1].slice(1)).toEqual(['Jupiter', '', '', '', '']);
     act(() => {

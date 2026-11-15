@@ -355,14 +355,21 @@ export default function ItinerarySection({ profile, items, startTime, unschedule
                   </p>
                 </div>
                 <div className="mt-2 max-w-xs">
-                  <div>
-                    <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Exposure preset for {s.name}</label>
-                    <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
-                      {MODE_ORDER.map((m) => (
-                        <option key={m} value={m}>{PRESETS[m].label}</option>
-                      ))}
-                    </WrapSelect>
-                  </div>
+                  {it.overrides !== undefined ? (
+                    // A Custom target keeps its own numbers; they are edited on the target's row in the plan, never here.
+                    <p className="text-white/90 text-sm" data-testid={`it-custom-${s.id}`}>
+                      Exposure preset for {s.name}: Custom (started from {PRESETS[it.mode].label}). Change it on this target&apos;s row in the plan.
+                    </p>
+                  ) : (
+                    <div>
+                      <label htmlFor={`it-mode-${s.id}`} className="block text-white/70 text-xs mb-0.5">Exposure preset for {s.name}</label>
+                      <WrapSelect id={`it-mode-${s.id}`} className="w-full" value={it.mode} onChange={(e) => update(s.id, { mode: e.target.value as ExposureMode })}>
+                        {MODE_ORDER.map((m) => (
+                          <option key={m} value={m}>{PRESETS[m].label}</option>
+                        ))}
+                      </WrapSelect>
+                    </div>
+                  )}
                 </div>
                 <p className="mt-2 text-white/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
                   {s.subSeconds !== null && s.subCount !== null

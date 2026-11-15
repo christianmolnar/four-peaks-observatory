@@ -102,7 +102,7 @@ import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { baseOf, rowExposure, withNumber, withPreset } from './rowExposure';
+import { baseOf, presetLabel, rowExposure, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -1153,7 +1153,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   const removeFavorite = (id: string) => {
     const r = favs.change((st) => withoutFavorite(st, id));
-    if (!r.ok) setNotice(r.message);
+    if (!r.ok) {
+      setNotice(r.message);
+      return;
+    }
+    // A target waiting on "Restore favorite?" must not ask again if a favorite is saved later.
+    if (planTargets.some((t) => t.id === id && t.favorite === 'ask')) notNow(id);
   };
   const restoreFavorite = (id: string) => {
     const fav = favoriteOf(favs.state, id);
@@ -1327,7 +1332,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return {
       name: body ?? target?.displayName ?? target?.name ?? id,
       type: body !== undefined ? 'Solar system' : target !== undefined ? typeLabel(target.type) : '',
-      preset: body !== undefined ? '' : ref.preset === 'custom' ? 'Custom' : PRESETS[ref.preset].label,
+      preset: body !== undefined ? '' : ref.preset === 'custom' ? 'Custom' : presetLabel(ref.preset),
       subSeconds: ok?.subSeconds ?? null,
       subCount: ok?.subCount ?? null,
       lightMin: ok?.integrationMin ?? null,
