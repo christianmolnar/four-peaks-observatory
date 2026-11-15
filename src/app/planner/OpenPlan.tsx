@@ -118,7 +118,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, onChangeTrai
           {rows.map((r, i) => (
             <li key={r.id} className="rounded border border-white/15 p-3 text-sm font-normal text-white/90">
               <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 basis-56 break-words">
+              <div className="min-w-0 flex-1 basis-40 break-words">
                 <p className="text-white"><span className="text-white/70">{i + 1}.</span> {r.name}</p>
                 {r.detail !== '' && <p className="text-white/70">{r.detail}</p>}
                 <p className="mt-1" data-testid={`plan-row-status-${r.id}`}>

@@ -96,13 +96,13 @@ All live in `src/planner/exposure/constants.ts`, each with its reason.
 Every code the module produces is reachable (tests cover each): the filter-fit ones, `inputs-assumed`, `sampling`, `moon-near`, `target-ou4`, `no-usable-time`, `limited-by-usable-time`, `below-mode-range`, `short-session-faint` (a warning, in Quick, now that the catalog's surface brightness reaches it), `short-session-unknown`, `sb-assumed`, `short-of-target`, `sub-capped` and `meridian-flip`.
 `below-mode-range` now means the plan is under half of the total the stop point asked for.
 
-## Act-on warnings: to return in stage 2
+## Act-on warnings on each plan row
 
-The page used to show the warnings a reader can act on, each with "What to change" and a button to the control that changes it.
-They left the page with the global Exposure module (the planner reset, stage 1); the night timeline shows schedule warnings only.
-Stage 2 brings them back as an engine-side module (the split into "act on" and "notes", and the sentence for each code), shown per target in the plan.
-This is the spec, copied from `src/app/planner/ExposurePanel.tsx` as it was on main (`c3a531a`), so the text is not lost.
-The code list is nine, not eight.
+Each deep-sky row of the open plan shows the warnings a reader can act on (the nine codes below), each with "What to change" and buttons that open the strip and focus the plan's own date, train or filter control.
+Every other code is context and sits in the row's folded "Notes (N)" inside "Why these numbers". The sentences live in `src/app/planner/rowExposure.ts` (`ACT_ON`).
+
+Per row: Quick, Balanced, Deep and Custom (`PlanTargetRef.preset`, with `base` and `custom` overrides for Custom), the engine's numbers for the plan's night, a three-column preset comparison and a small table of what more time buys.
+Favorites (`fpo-planner-favorites-v1`, `src/planner/state/favorites.ts`) save a row's sub length and count; copies of unusable text go to `fpo-planner-favorites-v1.bak.<ms>` through the plans store's `keepCopy`.
 
 | Code | What to change (sentence) | Buttons that went with it |
 |---|---|---|
@@ -116,6 +116,6 @@ The code list is nine, not eight.
 | `target-ou4` | Pick a brighter target for a short session, or plan many nights of narrowband. | none |
 | `short-session-faint` | Pick a brighter, more compact target for a short session, or choose Balanced or Deep Project. | none |
 
-- Every other code is context only and went to one closed "Notes (N)" line.
+- Every other code is context only and is in one closed "Notes (N)" fold.
 - Each act-on warning showed the badge "Warning", the warning's own text, then "What to change:" and the sentence above.
 - The buttons moved focus to the plan's own date, train or filter control (`plan-date`, `plan-train`, `plan-filter`).

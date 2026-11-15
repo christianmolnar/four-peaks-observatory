@@ -234,7 +234,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               )}
             </Fold>
             <Fold id={`plan-compare-${id}`} title="Compare presets" level={1}>
-              <table className="w-full table-fixed text-left text-xs font-normal text-white/90" data-testid={`plan-compare-table-${id}`}>
+              <table className="w-full table-fixed text-left text-xs font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
                 <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
                 <thead>
                   <tr>
@@ -253,7 +253,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               </table>
             </Fold>
             <Fold id={`plan-buys-${id}`} title="What more time buys and the inputs used" level={1}>
-              <table className="w-full table-fixed text-left text-xs font-normal text-white/90" data-testid={`plan-buys-table-${id}`}>
+              <table className="w-full table-fixed text-left text-xs font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
                 <caption className="sr-only">What more light buys for {name}, sky-limited</caption>
                 <thead>
                   <tr><th scope="col">Light</th><th scope="col">Signal to noise</th><th scope="col">Gain</th><th scope="col">Tonight</th></tr>
