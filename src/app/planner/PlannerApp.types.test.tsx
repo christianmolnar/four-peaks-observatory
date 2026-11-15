@@ -50,7 +50,7 @@ function mount(opts: { objects?: CatalogObject[]; hold?: boolean; trainId?: stri
 }
 const typeSelect = () => screen.getByLabelText('Type') as HTMLSelectElement;
 const optionText = (id: string) => (typeSelect().querySelector(`option[value="${id}"]`) as HTMLOptionElement).textContent ?? '';
-const optionCount = (id: string): number => Number(/· (\d+) up/.exec(optionText(id))?.[1] ?? 'NaN');
+const optionCount = (id: string): number => Number(/· (\d+) (?:up|fit)/.exec(optionText(id))?.[1] ?? 'NaN');
 const heading = () => screen.getByRole('heading', { level: 2, name: /^Best / }).textContent;
 const stored = () => JSON.parse(window.localStorage.getItem(MY_PLAN_KEY) ?? 'null') as { ids: string[] } | null;
 /** The whole-number score in a row's fit-and-score cell. */
@@ -86,11 +86,29 @@ describe('the Type selector', () => {
     await ready();
     expect(optionCount('open-clusters')).toBe(5);
     expect(optionCount('planetary-nebulae')).toBe(1);
-    expect(optionText('supernova-remnants')).toBe(`Supernova remnants · none up ${WORD}`); // up, but larger than this frame
+    expect(optionText('open-clusters')).toBe(`Open clusters · 5 fit ${WORD}`);
+    // Up but larger than this frame: said so, and still pickable (the list below explains it).
+    expect(optionText('supernova-remnants')).toBe('Supernova remnants · 1 up, none fit this frame');
+    expect((screen.getByRole('option', { name: /^Supernova remnants/ }) as HTMLOptionElement).disabled).toBe(false);
+    // Nothing up at all: said so, not pickable, and the reason is in the option's title.
     expect(optionText('galaxy-groups')).toBe(`Galaxy groups and pairs · none up ${WORD}`);
-    expect((screen.getByRole('option', { name: /^Galaxy groups and pairs/ }) as HTMLOptionElement).disabled).toBe(true);
+    const none = screen.getByRole('option', { name: /^Galaxy groups and pairs/ }) as HTMLOptionElement;
+    expect(none.disabled).toBe(true);
+    expect(none.title).toMatch(/nothing of this kind is up long enough/i);
     expect((screen.getByRole('option', { name: /^Open clusters/ }) as HTMLOptionElement).disabled).toBe(false);
     expect(optionCount('all')).toBeGreaterThanOrEqual(optionCount('open-clusters') + optionCount('planetary-nebulae'));
+  });
+
+  it('a type that is up but all larger than the frame is selectable, says so, and honours the do-not-fit toggle', async () => {
+    mount();
+    await ready();
+    await choose('supernova-remnants');
+    await screen.findByTestId('list-empty');
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 larger than this frame.`);
+    expect(typeSelect().value).toBe('supernova-remnants');
+    fireEvent.click(screen.getByLabelText(/show targets that do not fit/i));
+    await screen.findByRole('button', { name: /^Does not fit this frame \(1\)/ });
+    expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\.$/);
   });
 
   it('the counts follow the night: another date counts again, and none is shown stale while it is worked out', async () => {
@@ -102,7 +120,7 @@ describe('the Type selector', () => {
     expect(optionText('open-clusters')).toBe('Open clusters'); // no count until the new night is ranked
     await act(async () => { await worker.release(); });
     await screen.findByTestId('target-list');
-    expect(optionText('open-clusters')).toMatch(/· (\d+|none) up Mon 15 Jun/);
+    expect(optionText('open-clusters')).toMatch(/· (\d+ fit|none up) Mon 15 Jun/);
     expect(optionCount('open-clusters')).toBeLessThan(5);
   });
 });
@@ -118,7 +136,7 @@ describe('the list for a type', () => {
     await choose('solar-system');
     expect(heading()).toBe(`Best Moon and planets for ${WORD}`);
     await choose('nebulae');
-    expect(screen.getByTestId('type-note').textContent).toMatch(/emission, reflection and dark/i);
+    expect(screen.getByTestId('type-note').textContent).toMatch(/emission, reflection, HII and dark nebulae, and clusters with nebulae/i);
   });
 
   it('ranks the type best to worst with the same score, why line and fit as the mixed list, and nothing of another type', async () => {
@@ -329,8 +347,8 @@ describe('fast changes', () => {
 describe('over the real catalog', () => {
   // Every night here is worked out by the real engine, so the counts are checked against a count made straight from the catalog:
   // each type's objects planned alone by `planTonight` and kept when they are up and in the frame's size band.
-  const direct = (targets: readonly PlanTarget[], types: readonly string[]) => {
-    const p = profile();
+  const direct = (targets: readonly PlanTarget[], types: readonly string[], trainId?: string, sized = true) => {
+    const p = profile(trainId);
     const site = p.sites[0];
     const train = planTrainFor(p, p.trains[0]);
     const mine = targets.filter((t) => types.includes(t.type));
@@ -345,8 +363,33 @@ describe('over the real catalog', () => {
       includePlanets: false,
     });
     const byId = new Map(mine.map((t) => [t.id, t]));
-    return plan.entries.filter((e) => e.usableMinutes > 0 && inSizeBand(train, byId.get(e.id) as PlanTarget, { includeTooLarge: false, minFramePercent: 3 }));
+    return plan.entries.filter((e) => e.usableMinutes > 0 && (!sized || inSizeBand(train, byId.get(e.id) as PlanTarget, { includeTooLarge: false, minFramePercent: 3 })));
   };
+
+  it('on a planetary train, every type that is up reads truthfully and can be opened: Supernova remnants are up but larger than the 3.5 arcmin frame', async () => {
+    const trainId = 'planet-c11-powermate-676';
+    const { catalog } = mount({ objects: raw.objects, trainId });
+    await ready();
+    const targets = (await catalog.load()).targets;
+    for (const g of TYPE_GROUPS.filter((x) => x.types !== undefined)) {
+      const fit = direct(targets, g.types as string[], trainId).length;
+      const up = direct(targets, g.types as string[], trainId, false).length;
+      const opt = screen.getByRole('option', { name: new RegExp(`^${g.label}`) }) as HTMLOptionElement;
+      if (fit > 0) expect(opt.textContent).toBe(`${g.label} · ${fit} fit ${WORD}`);
+      else if (up > 0) expect(opt.textContent).toBe(`${g.label} · ${up} up, none fit this frame`);
+      else expect(opt.textContent).toBe(`${g.label} · none up ${WORD}`);
+      expect(opt.disabled).toBe(up === 0);
+    }
+    const snr = direct(targets, ['supernova-remnant'], trainId, false).length;
+    expect(snr).toBeGreaterThan(0);
+    expect(direct(targets, ['supernova-remnant'], trainId)).toHaveLength(0);
+    await choose('supernova-remnants');
+    await screen.findByTestId('list-empty');
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: ${snr} larger than this frame.`);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
+    await screen.findByRole('button', { name: new RegExp(`^Does not fit this frame \\(${snr}\\)`) });
+    expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\./);
+  }, 120000);
 
   it('option counts equal a direct catalog count, and a type is ranked best to worst over all of the catalog, not the mixed top 100 filtered', async () => {
     const { catalog } = mount({ objects: raw.objects });

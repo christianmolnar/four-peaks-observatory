@@ -635,6 +635,33 @@ describe('ranking one type over the whole catalog (Best [type] tonight)', () => 
     expect(mixed.typeCounts['double-star']).toBeUndefined();
   });
 
+  it('typeNotFit: a type with nothing fitting up says how many are up but larger or too small, equal to a direct count; one with a fit has no entry', () => {
+    // About 4 x 3 arcmin: every supernova remnant in the catalog is larger.
+    const tiny: PlanTrain = { kind: 'optical', name: 'tiny', optics: opticalTrain({ focalLengthMm: 20000, apertureMm: 280 }, { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176 }) };
+    const o = { ...opts, train: tiny } as const;
+    const r = rank(o);
+    const none = Object.keys(r.typeNotFit);
+    expect(none.length).toBeGreaterThan(0);
+    for (const type of none) {
+      expect(r.typeCounts[type] ?? 0).toBe(0);
+      expect(r.typeNotFit[type].tooLarge + r.typeNotFit[type].tooSmall).toBeGreaterThan(0);
+    }
+    expect(r.typeNotFit['supernova-remnant']?.tooLarge).toBeGreaterThan(0);
+    // Whatever the type asked for and whether or not the do-not-fit ones were asked for, the answer is the same.
+    expect(rank({ ...o, types: ['galaxy'] }).typeNotFit).toEqual(r.typeNotFit);
+    expect(rank({ ...o, includeNoFit: true }).typeNotFit).toEqual(r.typeNotFit);
+    // Direct count: every object of the type scored alone with no size screen at all.
+    for (const type of none) {
+      const direct = rankTargets({ site: phoenix, horizon: null, minAltitude: 20, date: '2026-11-13', train: tiny, targets: byType(type), limit: 1000, includePlanets: false, includeTooLarge: true, minFramePercent: 0 });
+      expect(r.typeNotFit[type].tooLarge + r.typeNotFit[type].tooSmall).toBe(direct.entries.length);
+    }
+  });
+
+  it('a type with a fitting target up has no typeNotFit entry', () => {
+    const r = rank({ ...opts });
+    for (const type of Object.keys(r.typeCounts)) expect(r.typeNotFit[type]).toBeUndefined();
+  });
+
   it('a type with fewer than 100 objects lists all of them that are up, best to worst, nothing of another type', () => {
     const r = rank({ ...opts, types: ['planetary-nebula'] });
     expect(r.entries.length).toBe(r.typeCounts['planetary-nebula']);

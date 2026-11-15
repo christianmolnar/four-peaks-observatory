@@ -17,7 +17,7 @@ export interface TypeGroup {
 export const TYPE_GROUPS: readonly TypeGroup[] = [
   { id: 'all', label: 'All', noun: 'targets' },
   { id: 'galaxies', label: 'Galaxies', noun: 'galaxies', types: ['galaxy'] },
-  { id: 'nebulae', label: 'Nebulae', noun: 'nebulae', types: ['nebula', 'dark-nebula'], note: 'Emission, reflection and dark nebulae.' },
+  { id: 'nebulae', label: 'Nebulae', noun: 'nebulae', types: ['nebula', 'dark-nebula'], note: 'Emission, reflection, HII and dark nebulae, and clusters with nebulae (the Christmas Tree Cluster is here, not in Open clusters).' },
   { id: 'planetary-nebulae', label: 'Planetary nebulae', noun: 'planetary nebulae', types: ['planetary-nebula'] },
   { id: 'globular-clusters', label: 'Globular clusters', noun: 'globular clusters', types: ['globular-cluster'] },
   { id: 'open-clusters', label: 'Open clusters', noun: 'open clusters', types: ['open-cluster'] },
@@ -41,4 +41,13 @@ export function groupCount(group: TypeGroup, typeCounts: Readonly<Record<string,
   if (group.id === SOLAR_SYSTEM) return solarUp;
   if (group.types === undefined) return Object.values(typeCounts).reduce((a, b) => a + b, 0) + solarUp;
   return group.types.reduce((a, t) => a + (typeCounts[t] ?? 0), 0);
+}
+
+/**
+ * How many of a choice's targets are up but do not fit the frame, for the types with nothing fitting up (`RankResult.typeNotFit`).
+ * Zero for a choice with something fitting: it reads from its count of what fits.
+ */
+export function groupNotFit(group: TypeGroup, typeNotFit: Readonly<Record<string, { tooLarge: number; tooSmall: number }>>): { tooLarge: number; tooSmall: number } {
+  const types = group.types ?? Object.keys(typeNotFit);
+  return types.reduce((a, t) => ({ tooLarge: a.tooLarge + (typeNotFit[t]?.tooLarge ?? 0), tooSmall: a.tooSmall + (typeNotFit[t]?.tooSmall ?? 0) }), { tooLarge: 0, tooSmall: 0 });
 }

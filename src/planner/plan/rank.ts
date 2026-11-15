@@ -151,6 +151,12 @@ export interface RankResult {
    * cut. The same whatever `types` asks for, so a type selector can show every option's count from any one answer.
    */
   typeCounts: Record<string, number>;
+  /**
+   * For a type with no target up that fits the frame: how many are up but do not (larger than the frame, or under the minimum share of it),
+   * so a type selector can say "7 up, none fit this frame" instead of "none up". Only types with nothing fitting have an entry; one
+   * with a fitting target up is described by `typeCounts`. The same whatever `types` asks for.
+   */
+  typeNotFit: Record<string, { tooLarge: number; tooSmall: number }>;
   /** The brightest of the hidden ones, up to `HIDDEN_LEADING` of each, so the page can say "M31 is larger than this frame". */
   hidden: { tooLarge: HiddenTarget[]; tooSmall: HiddenTarget[] };
 }
@@ -294,6 +300,7 @@ export function prepareRanking(input: RankInput): Ranker {
         noFit: [],
         counts: { input: input.targets.length, scored: 0, usable: 0, tooLarge: 0, tooSmall: 0 },
         typeCounts: {},
+        typeNotFit: {},
         hidden: { tooLarge: [], tooSmall: [] },
       }),
     };
@@ -323,6 +330,20 @@ export function prepareRanking(input: RankInput): Ranker {
       const listed = usable.filter((e) => !noFitIds.has(e.id) && !e.isPlanet);
       const typeCounts: Record<string, number> = {};
       for (const e of listed) typeCounts[e.type] = (typeCounts[e.type] ?? 0) + 1;
+      // A type with nothing fitting up: the do-not-fit ones of it are scored here (when the caller did not ask for them already) to say whether any is up.
+      const scored = new Map(entries.map((e) => [e.id, e]));
+      const typeNotFit: Record<string, { tooLarge: number; tooSmall: number }> = {};
+      const countNotFit = (list: readonly PlanTarget[], key: 'tooLarge' | 'tooSmall') => {
+        for (const t of list) {
+          if ((typeCounts[t.type] ?? 0) > 0) continue;
+          const e = scored.get(t.id) ?? evaluateTarget(ctx, t);
+          if (e.usableMinutes <= 0) continue;
+          typeNotFit[t.type] ??= { tooLarge: 0, tooSmall: 0 };
+          typeNotFit[t.type][key]++;
+        }
+      };
+      countNotFit(screened.tooLarge, 'tooLarge');
+      countNotFit(screened.tooSmall, 'tooSmall');
       return {
         night: ctx.night,
         horizonSet: ctx.horizonSet,
@@ -332,6 +353,7 @@ export function prepareRanking(input: RankInput): Ranker {
         noFit: [...noFit].sort((a, b) => b.score.total - a.score.total || b.usableMinutes - a.usableMinutes || compareEntries(a, b)).slice(0, NO_FIT_LIMIT),
         counts: { input: input.targets.length, scored: entries.length, usable: usable.length, tooLarge: tooLarge.length, tooSmall: tooSmall.length },
         typeCounts,
+        typeNotFit,
         hidden: { tooLarge: leading(tooLarge), tooSmall: leading(tooSmall) },
       };
     },

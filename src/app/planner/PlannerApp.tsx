@@ -18,7 +18,7 @@ import { DEFAULT_BORTLE, exposureTargetFrom } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
-import { SOLAR_SYSTEM, TYPE_GROUPS, groupCount, typeGroupOf } from '@/planner/plan/type-groups';
+import { SOLAR_SYSTEM, TYPE_GROUPS, groupCount, groupNotFit, typeGroupOf } from '@/planner/plan/type-groups';
 import { planetIdOf, SLOT_BODIES } from '@/planner/itinerary/resolve';
 import { rankTonightAsync } from '@/planner/tonight';
 import type { TonightQuery } from '@/planner/tonight';
@@ -518,8 +518,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const noFitList = useMemo((): readonly PlanEntry[] => (ranked !== null && showNoFit && !isSolar ? ranked.noFit : []), [ranked, showNoFit, isSolar]);
   // The per-type counts belong to the night, site, horizon and train, not to the type chosen: the last answer's counts stay on the
   // options while the list for another type is on its way, and go the moment the night or the train changes.
-  const countsMemo = useRef<{ base: unknown; counts: Readonly<Record<string, number>>; solarUp: number } | null>(null);
-  if (ranked !== null) countsMemo.current = { base: planning.base, counts: ranked.typeCounts, solarUp: bodiesUp.length };
+  const countsMemo = useRef<{ base: unknown; counts: Readonly<Record<string, number>>; notFit: RankResult['typeNotFit']; solarUp: number } | null>(null);
+  if (ranked !== null) countsMemo.current = { base: planning.base, counts: ranked.typeCounts, notFit: ranked.typeNotFit, solarUp: bodiesUp.length };
   const typeCounts = countsMemo.current !== null && countsMemo.current.base === planning.base ? countsMemo.current : null;
   // Everything the Type filter lets through, in reading order: what Export and Print carry.
   const filtered = useMemo(() => [...mainList, ...planetGroup], [mainList, planetGroup]);
@@ -987,9 +987,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     input.focus({ preventScroll: true });
   };
   /** Why a type has no list: nothing up long enough, or everything that is up is the wrong size for this frame. */
-  const emptyText = (counts: RankResult['counts']): string => {
+  const emptyText = (notFit: RankResult['typeNotFit']): string => {
     const what = group.id === 'all' ? 'targets' : group.noun;
-    const wrongSize = [counts.tooLarge > 0 ? `${counts.tooLarge} larger than this frame` : '', counts.tooSmall > 0 ? `${counts.tooSmall} too small for it` : ''].filter((x) => x !== '');
+    // Only what is up is said: a type's catalog-wide too-large count would claim objects that never rise.
+    const up = groupNotFit(group, notFit);
+    const wrongSize = [up.tooLarge > 0 ? `${up.tooLarge} larger than this frame` : '', up.tooSmall > 0 ? `${up.tooSmall} too small for it` : ''].filter((x) => x !== '');
     if (wrongSize.length > 0) return `No ${what} that fit this frame are up ${nightWord}: ${wrongSize.join(' and ')}.${showNoFit ? ' They are listed below.' : ''}`;
     return `No ${what} are up long enough ${nightWord}, above your horizon and minimum altitude.`;
   };
@@ -1252,10 +1254,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <WrapSelect id="f-type" className="w-full" value={group.id} onChange={(e) => chooseType(e.target.value)}>
                 {TYPE_GROUPS.map((g) => {
                   const n = typeCounts === null ? null : groupCount(g, typeCounts.counts, typeCounts.solarUp);
-                  // A choice with nothing up is shown, said so and not pickable, unless it is the one chosen (the night or train moved under it).
+                  const wrong = typeCounts === null || g.id === SOLAR_SYSTEM ? null : groupNotFit(g, typeCounts.notFit);
+                  const noneFit = n === 0 && wrong !== null && wrong.tooLarge + wrong.tooSmall > 0;
+                  // Up but nothing fits is said so and stays pickable (the list explains it); a choice with nothing up at all is shown, said so
+                  // and not pickable, unless it is the one chosen (the night or train moved under it). Deep-sky types count what fits; All and Solar system what is up.
+                  const countText = n === null ? '' : noneFit ? `${wrong!.tooLarge + wrong!.tooSmall} up, none fit this frame` : n === 0 ? `none up ${nightWord}` : g.types === undefined ? `${n} up ${nightWord}` : `${n} fit ${nightWord}`;
+                  const empty = n === 0 && !noneFit;
                   return (
-                    <option key={g.id} value={g.id} disabled={n === 0 && g.id !== group.id}>
-                      {n === null ? g.label : `${g.label} · ${n === 0 ? `none up ${nightWord}` : `${n} up ${nightWord}`}`}
+                    <option
+                      key={g.id}
+                      value={g.id}
+                      disabled={empty && g.id !== group.id}
+                      title={empty ? `Nothing of this kind is up long enough ${nightWord}, above your horizon and minimum altitude.` : undefined}
+                    >
+                      {countText === '' ? g.label : `${g.label} · ${countText}`}
                     </option>
                   );
                 })}
@@ -1276,7 +1288,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </div>
 
         <p className="mb-3 text-white/70 font-normal text-sm" data-testid="score-note">
-          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights.{group.id === 'all' ? ' The list mixes types, so it is not strictly in score order.' : isSolar ? '' : ' This type is ranked over the whole catalog, best first.'} Double stars are not ranked; search finds them.
+          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights.{group.id === 'all' ? ' The list mixes types, so it is not strictly in score order.' : isSolar ? '' : ' This type is ranked over the whole catalog, best first.'} Asterisms are in All only, and double stars are not ranked; search finds both.
         </p>
         {group.note !== undefined && <p className="mb-3 text-white/70 font-normal text-sm" data-testid="type-note">{group.note}</p>}
         {hasNight && midMoon !== null && midMoon > BRIGHT_MOON && (
@@ -1324,7 +1336,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             {isSolar ? (
               planetGroup.length === 0 ? <p className="text-white/90 font-normal" data-testid="list-empty">{`No Moon or planet is up ${nightWord} above your horizon and minimum altitude.`}</p> : topThree(planetGroup)
             ) : mainList.length === 0 ? (
-              <p className="text-white/90 font-normal" data-testid="list-empty">{emptyText(ranked!.counts)}</p>
+              <p className="text-white/90 font-normal" data-testid="list-empty">{emptyText(ranked!.typeNotFit)}</p>
             ) : (
               <>
                 {planetGroup.length > 0 && <h3 className="mt-4 text-base font-medium text-white">Best deep-sky targets</h3>}

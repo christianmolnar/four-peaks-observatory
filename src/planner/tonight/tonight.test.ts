@@ -159,6 +159,7 @@ describe('with a worker', () => {
     expect(clusters.entries).toEqual(direct(query({ types: ['open-cluster', 'globular-cluster'] })).entries);
     expect(clusters.entries.every((e) => e.type === 'open-cluster' || e.type === 'globular-cluster')).toBe(true);
     expect(clusters.typeCounts).toEqual(direct(query()).typeCounts);
+    expect(clusters.typeNotFit).toEqual(direct(query()).typeNotFit);
   });
 
   it('a failure in the worker is a rejection with its message, not a silent fallback', async () => {
