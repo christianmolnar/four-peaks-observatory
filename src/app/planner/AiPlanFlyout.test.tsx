@@ -181,13 +181,14 @@ describe('Use this plan, Ask again, Close', () => {
       await screen.findByTestId('ai-result');
       return u;
     })();
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order and first start time, replacing the earlier times\./);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Use this plan sets the open plan.s order and first start time, replacing the earlier times\./);
+    expect(screen.queryByTestId('ai-apply-note')).toBeNull(); // nothing to warn about before it is used
     await user.click(screen.getByRole('button', { name: 'Use this plan' }));
     expect(props.onApply).toHaveBeenCalledTimes(1);
     const [items, startTime] = (props.onApply as jest.Mock).mock.calls[0];
     expect(items.map((i: { targetId: string }) => i.targetId)).toEqual([two[0].id, two[1].id]);
     expect(startTime).toBe('19:00');
-    await screen.findByText(/^Done: the open plan now has this order and first start time\./);
+    await screen.findByText('Done: the open plan now has this order and first start time.');
     expect(props.onClose).not.toHaveBeenCalled();
   });
 

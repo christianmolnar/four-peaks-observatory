@@ -584,7 +584,7 @@ describe('Use this plan', () => {
     await readyOpen();
     const user = await planned();
     expect(apply().disabled).toBe(false);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order and first start time, replacing the earlier times\. Each target keeps its own exposure/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Use this plan sets the open plan.s order and first start time, replacing the earlier times\. Each target keeps its own exposure/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
@@ -593,7 +593,7 @@ describe('Use this plan', () => {
     expect(plan.trainId).toBe('deep-c11-2600'); // the plan's own train is not changed
     expect(plan.targets.every((t) => t.note === undefined)).toBe(true); // the AI's slot notes are not written over the user's own
     expect(plan.startTime).toMatch(/^\d\d:\d\d$/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this order and first start time\. Each target keeps its own exposure/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this order and first start time\.$/);
     // The plan's own start box shows the AI plan's first start.
     expect((within(timeline()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(plan.startTime);
     expect(document.body.textContent).not.toMatch(/itinerary/i);
@@ -622,8 +622,8 @@ describe('Use this plan', () => {
     const aiSlots = slotsText();
     expect(aiSlots).toHaveLength(plan.length);
     const aiTimes = aiSlots.map((t) => t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3));
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/its times can differ from the AI.s/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/code check covers the AI.s times, not the timeline.s: the timeline shows its own flip and window notes/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/its times can differ from the AI.s/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/code check covers the AI.s times, not the timeline.s: the timeline shows its own flip and window notes/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(plan.length));
     // The order and the first start are the AI's.
@@ -634,7 +634,7 @@ describe('Use this plan', () => {
     const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
     expect(shown.every((t) => /\(estimate\)/.test(t))).toBe(true);
     for (const t of saved.targets) expect(t.note ?? '').not.toMatch(/\d\d:\d\d|\d min/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/its times can differ from the AI.s/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/its times can differ from the AI.s/);
     // The print sheet prints what the timeline shows.
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));

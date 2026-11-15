@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import type { AstronomicalNight } from '@/planner/astro';
 import { MAX_SLOTS } from '@/planner/itinerary';
@@ -268,12 +269,18 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
                 ? 'This plan is out of date. Ask again first.'
                 : null;
 
-  return (
+  // On the body, so it sits above the site's fixed navigation whatever the page's own stacking.
+  /** The short line above the buttons: why Use this plan is off, or what it did. */
+  const footerNote =
+    applyBlock ??
+    (applyNote === 'applied' ? 'Done: the open plan now has this order and first start time.' : applyNote === 'kept' ? 'The open plan was left as it was.' : null);
+
+  return createPortal(
     <div
       role="dialog"
       aria-labelledby="ai-plan-heading"
       data-testid="ai-flyout"
-      className="fixed inset-0 z-50 flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
+      className="fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.stopPropagation();
@@ -367,17 +374,17 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
             presetLabels={presetLabels}
           />
         )}
+        {done !== null && (
+          <p id="ai-apply-explain" className="mt-4 text-sm font-normal text-white/70" data-testid="ai-apply-explain">
+            Use this plan sets the open plan’s order and first start time, replacing the earlier times. Each target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow the others. The night timeline times each target again with its own estimate, so its times can differ from the AI’s. The code check covers the AI’s times, not the timeline’s: the timeline shows its own flip and window notes.
+          </p>
+        )}
       </div>
 
       <div className="border-t border-white/20 bg-slate-950 p-3" data-testid="ai-footer">
-        {done !== null && (
-          <p id="ai-apply-note" className="mb-2 text-xs font-normal text-white/70" data-testid="ai-apply-note">
-            {applyBlock ??
-              (applyNote === 'applied'
-                ? 'Done: the open plan now has this order and first start time. Each target keeps its own exposure. The night timeline times each target again with its own estimate, so its times can differ from the AI’s. The code check covers the AI’s times, not the timeline’s: the timeline shows its own flip and window notes.'
-                : applyNote === 'kept'
-                  ? 'The open plan was left as it was.'
-                  : 'This sets the open plan’s order and first start time, replacing the earlier times. Each target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow the others. The night timeline times each target again with its own estimate, so its times can differ from the AI’s. The code check covers the AI’s times, not the timeline’s: the timeline shows its own flip and window notes.')}
+        {done !== null && footerNote !== null && (
+          <p id="ai-apply-note" className="mb-2 text-xs font-normal text-white/80" data-testid="ai-apply-note">
+            {footerNote}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
@@ -387,7 +394,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
               className={btn44}
               onClick={() => void onApply(done.items, done.startTime).then((applied) => setApplyNote(applied ? 'applied' : 'kept'))}
               disabled={applyBlock !== null}
-              aria-describedby="ai-apply-note"
+              aria-describedby={footerNote !== null ? 'ai-apply-note' : 'ai-apply-explain'}
             >
               Use this plan
             </button>
@@ -402,7 +409,8 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
