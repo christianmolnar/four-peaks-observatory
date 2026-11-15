@@ -505,12 +505,12 @@ describe('what is no longer on the page', () => {
     expect(document.querySelector('header details')).toBeNull();
   });
 
-  it('keeps, in this order on the Plan tab: the plans bar, the open plan, Find a target and its list, then the AI panel', async () => {
+  it('keeps, in this order on the Plan tab: the plans bar, the open plan with Find a target and its list inside it, then the AI panel', async () => {
     await app();
     const order = [
       screen.getByTestId('plans-bar'),
       screen.getByRole('region', { name: /^PLAN:/ }),
-      screen.getByRole('region', { name: 'FIND A TARGET' }),
+      screen.getByRole('region', { name: 'Find a target' }),
       screen.getByRole('region', { name: /^Best targets for/ }),
       screen.getByRole('region', { name: 'PLAN MY NIGHT WITH AI' }),
     ];

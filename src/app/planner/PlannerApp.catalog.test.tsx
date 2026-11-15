@@ -9,7 +9,7 @@ import { createTonightRanker } from '@/planner/tonight';
 import { MY_PLAN_KEY, SELECTION_KEY, sampleProfile } from '@/planner/state';
 import { PLANS_KEY } from '@/planner/state/plans';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, openGear, openPlanTab, ready, resetAll, rowName, rowNames, showAll, storedPlan, timelineSlots } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, openGear, planRowItems, openPlanTab, ready, resetAll, rowName, rowNames, showAll, storedPlan, timelineSlots } from './testkit';
 
 // The page over the whole catalog: tonight's list from the worker, the search, the open plan, the night timeline that reads it.
 // The catalog is the curated 25 plus the objects below; the worker is a fake that runs the real ranking and answers when told to.
@@ -41,7 +41,7 @@ function mount(opts: { hold?: boolean; trainId?: string; props?: Partial<React.C
 const table = () => screen.getByTestId('target-list');
 const listNames = () => (showAll(), rowNames());
 const myPlan = () => screen.getByRole('region', { name: /^PLAN:/ });
-const planNames = () => within(myPlan()).queryAllByRole('listitem').map((li) => li.querySelector('p')?.textContent?.replace(/^\d+\.\s*/, '').trim());
+const planNames = () => planRowItems().map((li) => li.querySelector('p')?.textContent?.replace(/^\d+\.\s*/, '').trim());
 const stored = () => {
   const p = storedPlan();
   return p === null ? null : { ids: p.targets.map((t) => t.id) };
@@ -382,8 +382,8 @@ describe('phone layout', () => {
     expect(hit.querySelector('.break-words')).toBeTruthy();
     for (const b of [...within(results()).getAllByRole('button'), screen.getByRole('button', { name: 'Search' }), searchBox()]) expect(b.className).toContain('min-h-11');
     await u.click(within(results()).getAllByRole('button', { name: /^Add .+ to the plan$/ })[0]);
-    const item = within(myPlan()).getAllByRole('listitem')[0];
-    expect(item.className).toMatch(/flex-wrap/);
+    const item = planRowItems()[0];
+    expect(item.firstElementChild!.className).toMatch(/flex-wrap/);
     for (const b of within(item).getAllByRole('button')) expect(b.className).toMatch(/min-h-11/);
     for (const b of within(screen.getByTestId('target-list')).getAllByRole('button')) expect(b.className).toMatch(/min-h-11|min-w-0|inline-flex/); // the Add column is 44 px; a name is a wide text button
     for (const b of within(screen.getByTestId('target-list')).getAllByRole('button', { name: /^Add / })) expect(b.className).toContain('min-h-11');
@@ -392,7 +392,7 @@ describe('phone layout', () => {
   it('no wide element: the search, my plan and list panels use the page width only (no fixed widths, overflow handled by wrapping)', async () => {
     mount();
     await ready();
-    for (const el of [screen.getByRole('search'), myPlan(), screen.getByRole('region', { name: 'FIND A TARGET' }), screen.getByTestId('target-list')]) {
+    for (const el of [screen.getByRole('search'), myPlan(), screen.getByRole('region', { name: 'Find a target' }), screen.getByTestId('target-list')]) {
       expect(el.outerHTML).not.toMatch(/\bw-\[\d+px\]|\bmin-w-\[\d+px\]|\bw-(96|80|72|64)\b/);
     }
   });

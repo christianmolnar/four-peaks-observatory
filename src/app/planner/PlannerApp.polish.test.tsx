@@ -8,7 +8,7 @@ import { tonightsNight } from '@/planner/plan';
 import { MY_PLAN_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { addDays } from './catalogText';
-import { chooseMore, listRows, pageProps, ready } from './testkit';
+import { chooseMore, listRows, pageProps, planRowItems, ready } from './testkit';
 
 // Round 3: the sticky strip, quick dates, dates in words, the Moon note, "Change or find a site", chevrons, one overflow menu,
 // and the detail's score parts adding up.
@@ -205,7 +205,7 @@ describe('Print and Export CSV in one menu', () => {
     expect(screen.queryByRole('button', { name: 'Export CSV' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Print or save as PDF' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^More/ }));
-    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Export CSV', 'Print or save as PDF']);
+    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Export CSV', 'Export plan CSV', 'Print or save as PDF']);
   });
 
   it('Print from the menu calls the browser print', async () => {
@@ -251,11 +251,10 @@ describe('the small should-fixes', () => {
   it('The plan calls the Moon and planets "Solar system"', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-moon', 'planet-jupiter'] }));
     await app();
-    const plan = screen.getByRole('region', { name: /^PLAN:/ });
-    const items = within(plan).getAllByRole('listitem');
+    const items = planRowItems();
     expect(items[0].textContent).toMatch(/Moon[\s\S]*Solar system/);
     expect(items[0].textContent).toMatch(/Solar system/);
     expect(items[1].textContent).toMatch(/Solar system/);
-    expect(plan.textContent).not.toMatch(/Planet/);
+    for (const li of planRowItems()) expect(li.textContent).not.toMatch(/Planet/);
   });
 });

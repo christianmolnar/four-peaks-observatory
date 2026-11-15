@@ -8,7 +8,7 @@ import { PLANS_KEY } from '@/planner/state/plans';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import PlannerApp from './PlannerApp';
 import { RESET_LOSES } from './ResetAll';
-import { openGear, openPlanTab, pageProps, planSwitch, ready, storedPlans, timelineSlots } from './testkit';
+import { openGear, openPlanTab, pageProps, planRowItems, planSwitch, ready, storedPlans, timelineSlots } from './testkit';
 
 // Reset all: one confirmed button in the Profile area that returns the page to what a first visit shows.
 
@@ -17,7 +17,7 @@ const KEYS = [...SEEDED, MY_PLAN_KEY, ITINERARY_KEY]; // the last two are the ol
 const siteSelect = () => screen.getByLabelText('Site') as HTMLSelectElement;
 const resetButton = () => screen.getByRole('button', { name: 'Reset all' });
 const confirmBox = () => screen.queryByTestId('reset-confirm');
-const myPlanNames = () => within(screen.getByRole('region', { name: /^PLAN:/ })).queryAllByRole('listitem');
+const myPlanNames = () => planRowItems();
 
 /** A visitor who has set everything up: their own site and a train choice, two saved plans, a tick. */
 const seed = () => {

@@ -11,15 +11,17 @@ import type { PlanTarget } from '@/planner/ai/body';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { makeCsvTime, planToCsv } from '@/planner/export';
+import { makeCsvTime, planRowsToCsv, planToCsv } from '@/planner/export';
+import type { PlanExposureRow } from '@/planner/export';
 import { arcToHorizonPoints, ProfileError } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
-import { DEFAULT_BORTLE, PRESETS } from '@/planner/exposure';
+import { DEFAULT_BORTLE, MODE_ORDER, PRESETS } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
 import { SOLAR_SYSTEM, TYPE_GROUPS, groupCount, groupNotFit, typeGroupOf } from '@/planner/plan/type-groups';
-import { planetIdOf, SLOT_BODIES } from '@/planner/itinerary/resolve';
+import { planetIdOf, SLOT_BODIES, slotInputFor } from '@/planner/itinerary/resolve';
+import type { SlotTarget } from '@/planner/itinerary/resolve';
 import { rankTonightAsync } from '@/planner/tonight';
 import type { TonightQuery } from '@/planner/tonight';
 import {
@@ -49,6 +51,8 @@ import {
   withTrainFilter,
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
+import { FAVORITES_KEY, favoriteOf, listFavoritesBackups, withFavorite, withoutFavorite } from '@/planner/state/favorites';
+import type { Favorite } from '@/planner/state/favorites';
 import {
   MAX_PLAN_TARGETS,
   PLANS_KEY,
@@ -97,6 +101,10 @@ import ResetAll from './ResetAll';
 import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
+import PlanRowExposure from './PlanRowExposure';
+import { baseOf, rowExposure, withNumber, withPreset } from './rowExposure';
+import type { RowExposure } from './rowExposure';
+import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
 import type { RowDescription } from './TargetList';
 import TargetSearch from './TargetSearch';
@@ -249,6 +257,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // What the page has to say about the saved plans (repaired, left out, not saved, reset elsewhere): shown above the tabs until dismissed, not as a toast.
   const [planMessages, setPlanMessages] = useState<string[]>([]);
   const sayPlans = useCallback((messages: readonly string[]) => setPlanMessages((prev) => [...prev, ...messages.filter((m) => !prev.includes(m))]), []);
+  const favs = useFavorites();
+  // The planner setting "Always restore favorites": kept with the site and train choice.
+  const [alwaysRestore, setAlwaysRestore] = useState(false);
+  // Find a target: the user's open or close; null follows the plan (open while it has no targets, one line once it has some).
+  const [findOpen, setFindOpen] = useState<boolean | null>(null);
   const [tab, setTab] = useState<'plan' | 'gear'>('plan');
   // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
   const [fields, setFields] = useState<HorizonFields[]>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? []));
@@ -413,6 +426,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const home = loaded.sites.find((s) => s.id === remembered?.siteId) ?? loaded.sites[0];
     const homeTrain = loaded.trains.find((t) => t.id === remembered?.trainId) ?? loaded.trains[0];
     setType(typeGroupOf(remembered?.typeId).id); // a type that no longer exists is All
+    setAlwaysRestore(remembered?.alwaysRestore === true);
     loadForm(home?.blockedArcs ?? [], true);
     const startDate = initialDate ?? defaultDateForProfile(new Date(), home ? { ...loaded, sites: [home] } : loaded);
     if (home && homeTrain) {
@@ -897,6 +911,28 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   );
 
   const planIdSet = useMemo(() => new Set(planIds), [planIds]);
+  // Find a target is open while the open plan has no targets and one line once it has some, unless the user opened or closed it.
+  const findIsOpen = findOpen ?? planTargets.length === 0;
+  // A plan that was opened afresh starts from the plan's own rule again.
+  const openPlanId = plans?.openId ?? '';
+  useEffect(() => setFindOpen(null), [openPlanId]);
+
+  // What the engine computes for each deep-sky row on the plan's night, site, train and Moon: the same inputs the timeline resolves a slot with.
+  const catalogTargets = catalog.status === 'ready' ? (catalog.index.targets as readonly SlotTarget[]) : null;
+  const bortleOfSite = site?.bortle ?? DEFAULT_BORTLE;
+  const viewOf = useCallback(
+    (ref: PlanTargetRef, entry: PlanEntry | null): RowExposure => {
+      if (!train || !astroSite) return { kind: 'none', reason: 'Numbers appear once the night has loaded.' };
+      const slot = slotInputFor(
+        { id: ref.id, targetId: ref.id, trainId: train.id, filterId: train.kind === 'optical' ? (train.filterId ?? null) : null, mode: baseOf(ref), note: '' },
+        profile,
+        catalogTargets ?? [],
+      );
+      return rowExposure(ref, slot, entry, astroSite, bortleOfSite);
+    },
+    [train, astroSite, profile, catalogTargets, bortleOfSite],
+  );
+  const rowViews = useMemo(() => new Map(planItems.filter((p) => p.body === undefined).map((p) => [p.id, viewOf(p.ref, p.entry)] as const)), [planItems, viewOf]);
 
   // The altitude chart is drawn in the open row only.
   const track = useMemo(() => {
@@ -914,11 +950,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   }, [stableNight, openEntry, site, horizon, minAltitude]);
 
   /** Remembers the site and train chosen at the top, so a reload opens on them. */
-  const rememberSelection = (nextSiteId: string, nextTrainId: string, nextType: string = type) => {
+  const rememberSelection = (nextSiteId: string, nextTrainId: string, nextType: string = type, nextAlways: boolean = alwaysRestore) => {
     try {
-      saveSelection(window.localStorage, { siteId: nextSiteId, trainId: nextTrainId, typeId: nextType });
+      saveSelection(window.localStorage, { siteId: nextSiteId, trainId: nextTrainId, typeId: nextType, alwaysRestore: nextAlways });
     } catch (e) {
-      setNotice(`Site, train and type choice not saved, so it is lost on reload: ${(e as Error).message}`);
+      setNotice(`Site, train, type and settings choice not saved, so it is lost on reload: ${(e as Error).message}`);
     }
   };
 
@@ -987,6 +1023,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     } catch (e) {
       failed.push(`the plans backups (${(e as Error).message})`);
     }
+    try {
+      for (const b of listFavoritesBackups(window.localStorage)) stored.push([b.key, 'favorites backup']);
+    } catch (e) {
+      failed.push(`the favorites backups (${(e as Error).message})`);
+    }
+    stored.push([FAVORITES_KEY, 'favorites']);
     stored.push([PLANS_KEY, 'plans']);
     for (const [key, what] of stored) {
       try {
@@ -1011,15 +1053,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     setPlanMessages(failed.length > 0 ? [`Reset did not finish: could not clear ${failed.join(', ')}. What could not be cleared is still stored in this browser.`] : []);
     setPlans(fresh);
     setType('all');
+    setAlwaysRestore(false);
+    setFindOpen(null);
+    favs.reset();
     setImportError(null);
     if (failed.length === 0) setNotice('Reset: the planner is back to its starting point.');
     setResetFocus((n) => n + 1);
   };
 
-  /** "Change train": opens the strip's controls and puts focus on the Train select. */
-  const goToTrain = () => {
+  /** Opens the strip's controls and puts focus on the plan's own Evening of, Train or Filter control (a warning's "Change the ..." and "Change train"). */
+  const goToControl = (control: 'date' | 'train' | 'filter') => {
     flushSync(() => setControlsOpen(true));
-    document.getElementById('plan-train')?.focus();
+    document.getElementById(`plan-${control}`)?.focus();
   };
 
   const toggleCaptured = (id: string) => {
@@ -1034,13 +1079,23 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     setCaptured(next);
   };
 
+  /** What a target is added as: Balanced, with its favorite when it has one (restored at once when "Always restore favorites" is on, else asked about). */
+  const newRef = (id: string): PlanTargetRef => {
+    const ref: PlanTargetRef = { id, preset: 'balanced' };
+    const fav = favoriteOf(favs.state, id);
+    if (fav === null || SLOT_BODIES.some((b) => planetIdOf(b) === id)) return ref;
+    if (!alwaysRestore) return { ...ref, favorite: 'ask' };
+    const entry = catalogById?.get(id) !== undefined ? (scorer?.target(catalogById.get(id)!) ?? null) : null;
+    return { ...restoredRef(ref, fav, viewOf(ref, entry)), favorite: 'restored' };
+  };
   const addToPlan = (id: string) => {
     if (planIds.includes(id)) return;
     if (planIds.length >= MAX_PLAN_TARGETS) {
       setNotice(`The plan holds at most ${MAX_PLAN_TARGETS} targets. Remove one to add another.`);
       return;
     }
-    if (!editOpen({ targets: [...planTargets, { id, preset: 'balanced' }] })) return;
+    if (!editOpen({ targets: [...planTargets, newRef(id)] })) return;
+    if (findIsOpen) setFindOpen(true); // adding keeps Find a target as it was
     const place = planIds.length + 1;
     const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
     const target = catalogById?.get(id);
@@ -1054,7 +1109,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const fresh = list.filter((e) => !planIdSet.has(e.id)).slice(0, TOP_N);
     const picks = fresh.slice(0, Math.max(0, MAX_PLAN_TARGETS - planIds.length));
     if (picks.length === 0) return;
-    if (!editOpen({ targets: [...planTargets, ...picks.map((e): PlanTargetRef => ({ id: e.id, preset: 'balanced' }))] })) return;
+    if (!editOpen({ targets: [...planTargets, ...picks.map((e): PlanTargetRef => newRef(e.id))] })) return;
+    if (findIsOpen) setFindOpen(true);
     const first = planIds.length + 1;
     const last = planIds.length + picks.length;
     const places = picks.length === 1 ? `#${first}` : `#${first} to #${last}`;
@@ -1064,6 +1120,56 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
   };
   const removeFromPlan = (id: string) => editOpen({ targets: planTargets.filter((t) => t.id !== id) });
+  // ---- Exposure on each target, and its favorite.
+  const editTarget = (id: string, edit: (t: PlanTargetRef) => PlanTargetRef) => editOpen({ targets: planTargets.map((t) => (t.id === id ? edit(t) : t)) });
+  /** A saved exposure applied to a target: the preset it equals for this night, else Custom with its own sub length and count. */
+  const restoredRef = (ref: PlanTargetRef, fav: Favorite, view: RowExposure): PlanTargetRef => {
+    const plain: PlanTargetRef = { ...ref };
+    delete plain.favorite;
+    const same = view.kind === 'ok' ? MODE_ORDER.find((m) => view.presets[m].subSeconds === fav.subSeconds && view.presets[m].subCount === fav.subCount) : undefined;
+    if (same !== undefined) return withPreset(plain, same);
+    const custom = withPreset(plain, 'custom');
+    custom.base = fav.base ?? (fav.preset === 'custom' ? 'balanced' : fav.preset);
+    custom.custom = { subSeconds: fav.subSeconds, subCount: fav.subCount };
+    return custom;
+  };
+  const saveFavorite = (id: string) => {
+    const ref = planTargets.find((t) => t.id === id);
+    const view = rowViews.get(id);
+    if (ref === undefined || view?.kind !== 'ok') return;
+    const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';
+    const fav: Favorite = {
+      id,
+      preset: ref.preset,
+      ...(ref.preset === 'custom' ? { base: baseOf(ref) } : {}),
+      subSeconds: view.chosen.subSeconds,
+      subCount: view.chosen.subCount,
+      filterName: filterName === '' ? 'No filter' : filterName,
+      trainName: train?.name ?? '',
+      savedAt: new Date().toISOString(),
+    };
+    const r = favs.change((st) => withFavorite(st, fav));
+    if (!r.ok) setNotice(r.message);
+  };
+  const removeFavorite = (id: string) => {
+    const r = favs.change((st) => withoutFavorite(st, id));
+    if (!r.ok) setNotice(r.message);
+  };
+  const restoreFavorite = (id: string) => {
+    const fav = favoriteOf(favs.state, id);
+    const view = rowViews.get(id);
+    if (fav !== null && view !== undefined) editTarget(id, (t) => restoredRef(t, fav, view));
+  };
+  const notNow = (id: string) =>
+    editTarget(id, (t) => {
+      const next = { ...t };
+      delete next.favorite;
+      return next;
+    });
+  const chooseAlwaysRestore = (on: boolean) => {
+    setAlwaysRestore(on);
+    if (site && train) rememberSelection(site.id, train.id, type, on);
+  };
 
   // ---- My plans: the bar's actions. New starts empty on today at the open plan's site and train.
   const newPlanDefaults = (): PlanDefaults => ({ date: tonightDate || date, siteId: site?.id ?? '', trainId: train?.id ?? '', now: new Date().toISOString() });
@@ -1075,7 +1181,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const moveToTonight = () => editOpen({ date: tonightDate });
 
   // ---- The timeline and the AI plan write back into the open plan.
-  /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all, a custom preset scheduled as balanced. */
+  /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all; a Custom target is scheduled with its own numbers over the preset it differs from. */
   const timelineItems = useMemo(
     (): ItineraryItem[] =>
       planTargets.slice(0, MAX_SLOTS).map((t) => ({
@@ -1083,7 +1189,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         targetId: t.id,
         trainId: train?.id ?? '',
         filterId: train?.kind === 'optical' ? (train.filterId ?? null) : null,
-        mode: t.preset === 'custom' ? 'balanced' : t.preset,
+        mode: baseOf(t),
+        ...(t.preset === 'custom' && t.custom ? { overrides: t.custom } : {}),
         note: t.note ?? '',
       })),
     [planTargets, train],
@@ -1094,11 +1201,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const kept = items.flatMap((i): PlanTargetRef[] => {
       const old = byId.get(i.id);
       if (old === undefined) return [];
-      const next: PlanTargetRef = { ...old };
-      if (i.mode !== (old.preset === 'custom' ? 'balanced' : old.preset)) {
-        next.preset = i.mode;
-        delete next.custom;
-      }
+      // A slot whose preset was changed in the timeline takes that preset (its own numbers go); otherwise the target is kept as it is.
+      const next: PlanTargetRef = i.mode !== baseOf(old) ? withPreset(old, i.mode) : { ...old };
       if (i.note !== (old.note ?? '')) {
         if (i.note === '') delete next.note;
         else next.note = i.note;
@@ -1107,7 +1211,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     });
     editOpen({ targets: [...kept, ...planTargets.slice(MAX_SLOTS)], startTime });
   };
-  /** "Use this plan": the AI's order, presets and first start time go into the open plan; targets it left out follow, in their order. */
+  /** "Use this plan": the AI's order and first start time go into the open plan, and every target keeps its own exposure (preset or Custom numbers); targets it left out follow, in their order. */
   const applyAiPlan = (items: ItineraryItem[], startTime: string | null): Promise<boolean> => {
     const byId = new Map(planTargets.map((t) => [t.id, t]));
     const used = new Set<string>();
@@ -1115,9 +1219,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const old = byId.get(i.targetId);
       if (old === undefined || used.has(i.targetId)) return [];
       used.add(i.targetId);
-      const next: PlanTargetRef = { ...old, preset: i.mode };
-      delete next.custom;
-      return [next];
+      return [{ ...old }];
     });
     return Promise.resolve(editOpen({ targets: [...ordered, ...planTargets.filter((t) => !used.has(t.id))], startTime }));
   };
@@ -1166,6 +1268,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     );
   };
 
+  const exportPlanCsv = () => download(`planner-plan-${date}.csv`, planRowsToCsv(exposureRows), 'text/csv;charset=utf-8', true);
+
   const planRows: PlanRow[] = planItems.map(({ id, ref, target, body, entry }) => {
     const name = body ?? target?.displayName ?? target?.name ?? id;
     const detail =
@@ -1184,7 +1288,51 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         : scorer === null && stableNight
           ? 'No astronomical night on this date.'
           : '';
-    return { id, name, detail, up, score: entry !== null && entry.usableMinutes > 0 ? Math.round(entry.score.total) : null, preset: ref.preset === 'custom' ? 'Custom' : PRESETS[ref.preset].label };
+    const view = rowViews.get(id);
+    const fav = favoriteOf(favs.state, id);
+    return {
+      id,
+      name,
+      detail,
+      up,
+      score: entry !== null && entry.usableMinutes > 0 ? Math.round(entry.score.total) : null,
+      preset: ref.preset === 'custom' ? 'Custom' : PRESETS[ref.preset].label,
+      extra:
+        view === undefined ? undefined : (
+          <PlanRowExposure
+            id={id}
+            name={name}
+            preset={ref.preset}
+            view={view}
+            formatTime={formatTime}
+            favorite={fav}
+            favoritesBlocked={favs.blocked}
+            prompt={ref.favorite ?? null}
+            onPreset={(p) => editTarget(id, (t) => withPreset(t, p))}
+            onNumber={(field, value) => editTarget(id, (t) => withNumber(t, field, value))}
+            onBack={() => editTarget(id, (t) => withPreset(t, baseOf(t)))}
+            onSaveFavorite={() => saveFavorite(id)}
+            onRemoveFavorite={() => removeFavorite(id)}
+            onRestore={() => restoreFavorite(id)}
+            onNotNow={() => notNow(id)}
+            onGoTo={goToControl}
+          />
+        ),
+    };
+  });
+  /** The plan's rows with their numbers, for the plan CSV and the print sheet. */
+  const exposureRows: PlanExposureRow[] = planItems.map(({ id, ref, target, body }) => {
+    const view = rowViews.get(id);
+    const ok = view?.kind === 'ok' ? view.chosen : null;
+    return {
+      name: body ?? target?.displayName ?? target?.name ?? id,
+      type: body !== undefined ? 'Solar system' : target !== undefined ? typeLabel(target.type) : '',
+      preset: body !== undefined ? '' : ref.preset === 'custom' ? 'Custom' : PRESETS[ref.preset].label,
+      subSeconds: ok?.subSeconds ?? null,
+      subCount: ok?.subCount ?? null,
+      lightMin: ok?.integrationMin ?? null,
+      note: ref.note ?? '',
+    };
   });
 
   // The AI plan takes the open plan's fixed objects in the plan's order; planets move, so they stay out, and so does anything not yet resolved.
@@ -1351,7 +1499,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   ];
   const focusSearch = () => {
     // The search is in the Plan tab; from Gear and site the button goes there first.
-    flushSync(() => setTab('plan'));
+    flushSync(() => {
+      setTab('plan');
+      setFindOpen(true);
+    });
     if (window.location.hash === '#gear') window.history.pushState(null, '', '#plan');
     const input = document.getElementById('target-search');
     if (!input) return;
@@ -1431,7 +1582,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
       </div>
 
-      {(heldPlans !== null || planMessages.length > 0) && (
+      {(heldPlans !== null || planMessages.length > 0 || favs.notes.length > 0) && (
         <div className="space-y-3" data-testid="plans-notices">
           {heldPlans !== null && (
             <div role="group" aria-labelledby="held-plans-title" data-testid="plans-held" className="rounded-lg border border-orange-300/50 bg-black/80 p-4">
@@ -1443,10 +1594,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <button type="button" className={`${btn} mt-3 min-h-11`} onClick={replaceHeldPlans}>Replace the saved plans</button>
             </div>
           )}
-          {planMessages.length > 0 && (
+          {(planMessages.length > 0 || favs.notes.length > 0) && (
             <div role="group" aria-label="About your saved plans" data-testid="plans-messages" className="flex items-start gap-3 rounded-lg border border-sky-300/50 bg-black/80 p-3">
-              <p className="min-w-0 flex-1 text-sm font-normal text-white/90">{planMessages.join(' ')}</p>
-              <button type="button" className={`${btn} shrink-0`} onClick={() => setPlanMessages([])}>Dismiss</button>
+              <p className="min-w-0 flex-1 text-sm font-normal text-white/90">{[...planMessages, ...favs.notes].join(' ')}</p>
+              <button type="button" className={`${btn} shrink-0`} onClick={() => { setPlanMessages([]); favs.clearNotes(); }}>Dismiss</button>
             </div>
           )}
         </div>
@@ -1606,49 +1757,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         rows={planRows}
         onRemove={removeFromPlan}
         trainNote={trainNote}
-        onChangeTrain={goToTrain}
+        onChangeTrain={() => goToControl('train')}
         pastDate={open !== null && tonightDate !== '' && open.date < tonightDate ? nightDateText(open.date) : null}
         onMoveToTonight={moveToTonight}
-      >
-        <Collapsible id="night-and-horizon" title="Night and horizon">
-          <div className="space-y-1">
-            <p className="text-white/80 font-normal text-sm" data-testid="night-summary">
-              {nightText}
-              {zoneText}
-            </p>
-            <p className="text-white/80 font-normal text-sm" data-testid="horizon-summary">
-              {horizonText}{' '}
-              <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
-                Edit horizon
-              </a>
-            </p>
-          </div>
-        </Collapsible>
-        <Collapsible id="night-timeline" title="Night timeline">
-          {stableNight && astroSite && catalog.status !== 'loading' ? (
-            <ItinerarySection
-              profile={profile}
-              items={timelineItems}
-              startTime={open?.startTime ?? null}
-              unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
-              onChange={applyTimeline}
-              catalog={catalog.status === 'ready' ? catalog.index : null}
-              site={astroSite}
-              night={stableNight}
-              horizon={horizon}
-              minAltitude={minAltitude}
-              bortle={bortle}
-              formatTime={formatTime}
-              nightWord={nightWord}
-              timeZone={siteZone || zone || undefined}
-              report={itineraryReport}
-            />
-          ) : (
-            <p className="text-white/90 font-normal text-sm">The timeline appears once the date and the catalog have loaded.</p>
-          )}
-        </Collapsible>
-      </OpenPlan>
-
+        find={{
+          open: findIsOpen,
+          count: ranked === null ? null : mainList.length + planetGroup.length,
+          onToggle: () => setFindOpen(!findIsOpen),
+          children: (
+            <>
       <TargetSearch
         catalog={catalog}
         onRetryCatalog={retryCatalog}
@@ -1662,9 +1779,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         renderBodyDetail={solarDetail}
       />
 
-      <section aria-labelledby="list-heading" className={panel}>
+      <section aria-labelledby="list-heading" className="mt-4 border-t border-white/10 pt-3">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
-          <h2 id="list-heading" className="text-xl font-light uppercase text-white tracking-[0.15em]">Best {group.noun} for {nightWord}</h2>
+          <h3 id="list-heading" className="text-base font-medium uppercase text-white tracking-[0.1em]">Best {group.noun} for {nightWord}</h3>
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label htmlFor="f-type" className="block text-white/90 font-normal text-sm mb-1">Type</label>
@@ -1694,13 +1811,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="h-5 w-5 accent-sky-400" />
               Show targets that do not fit
             </label>
-            <OverflowMenu
-              label="More"
-              items={[
-                { label: 'Export CSV', onSelect: exportCsv, disabled: ranked === null || filtered.length === 0 },
-                { label: 'Print or save as PDF', onSelect: () => window.print(), disabled: ranked === null || filtered.length === 0 },
-              ]}
-            />
           </div>
         </div>
 
@@ -1769,6 +1879,58 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </>
         )}
       </section>
+            </>
+          ),
+        }}
+        menu={
+          <OverflowMenu
+            label="More"
+            items={[
+              { label: 'Export CSV', onSelect: exportCsv, disabled: ranked === null || filtered.length === 0 },
+              { label: 'Export plan CSV', onSelect: exportPlanCsv, disabled: planRows.length === 0 },
+              { label: 'Print or save as PDF', onSelect: () => window.print(), disabled: ranked === null || (filtered.length === 0 && planRows.length === 0) },
+            ]}
+          />
+        }
+      >
+        <Collapsible id="night-and-horizon" title="Night and horizon">
+          <div className="space-y-1">
+            <p className="text-white/80 font-normal text-sm" data-testid="night-summary">
+              {nightText}
+              {zoneText}
+            </p>
+            <p className="text-white/80 font-normal text-sm" data-testid="horizon-summary">
+              {horizonText}{' '}
+              <a href="#horizon" className="inline-flex min-h-11 items-center rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                Edit horizon
+              </a>
+            </p>
+          </div>
+        </Collapsible>
+        <Collapsible id="night-timeline" title="Night timeline">
+          {stableNight && astroSite && catalog.status !== 'loading' ? (
+            <ItinerarySection
+              profile={profile}
+              items={timelineItems}
+              startTime={open?.startTime ?? null}
+              unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
+              onChange={applyTimeline}
+              catalog={catalog.status === 'ready' ? catalog.index : null}
+              site={astroSite}
+              night={stableNight}
+              horizon={horizon}
+              minAltitude={minAltitude}
+              bortle={bortle}
+              formatTime={formatTime}
+              nightWord={nightWord}
+              timeZone={siteZone || zone || undefined}
+              report={itineraryReport}
+            />
+          ) : (
+            <p className="text-white/90 font-normal text-sm">The timeline appears once the date and the catalog have loaded.</p>
+          )}
+        </Collapsible>
+      </OpenPlan>
 
       <AiPlanPanel
         base={aiBase}
@@ -1789,6 +1951,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       </div>
 
       <div id="panel-gear" role="tabpanel" aria-labelledby="tab-gear" hidden={tab !== 'gear'} className="space-y-8">
+      <section aria-labelledby="planner-settings-heading" className={panel}>
+        <h2 id="planner-settings-heading" className="mb-2 text-base font-medium uppercase tracking-[0.1em] text-white">Planner settings</h2>
+        <label className="flex min-h-11 w-fit items-center gap-2 text-sm font-normal text-white/90">
+          <input type="checkbox" className="h-5 w-5 shrink-0 accent-sky-400" checked={alwaysRestore} onChange={(e) => chooseAlwaysRestore(e.target.checked)} />
+          <span>Always restore favorites</span>
+        </label>
+        <p className="mt-1 text-xs font-normal text-white/70">When a target you saved a favorite exposure for is added to a plan, its saved exposure is applied at once instead of asking.</p>
+        {favs.blocked !== null && <p className="mt-2 text-sm font-normal text-orange-100" data-testid="favorites-blocked">{favs.blocked}</p>}
+      </section>
+
       <HorizonEditor
         siteName={site.name}
         fields={fields}
@@ -1849,6 +2021,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       nightLine={nightText}
       horizonLine={horizonText}
       entries={filtered}
+      planRows={exposureRows}
       captured={captured}
       formatTime={formatTime}
       itinerary={itineraryReport.current}

@@ -5,7 +5,6 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import type { CatalogObject } from '@/planner/catalog/openngc';
 import { planNightWithAi } from '@/planner/ai/plan';
-import { modeForMinutes } from '@/planner/ai/view';
 import type { AiPlanResult } from '@/planner/ai/plan';
 import { parseBody } from '@/planner/ai/request';
 import type { AiPlanInput } from '@/planner/ai/facts';
@@ -248,16 +247,17 @@ describe('the result', () => {
     expect(within(result()).getByTestId('ai-frames-note').textContent).toBe('Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.');
   });
 
-  it('after apply the plan\'s slots hold the AI plan\'s order and the preset nearest its minutes', async () => {
+  it('after apply the plan\'s slots hold the AI plan\'s order and every target keeps the preset it had', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
     await ready();
+    // The user chose Deep for the nebula before asking; the AI's minutes do not change that choice.
+    fireEvent.click(within(screen.getByRole('group', { name: 'Exposure preset for Flaming Star Nebula' })).getByRole('button', { name: 'Deep' }));
     const user = await planned();
-    const planMinutes = slotsText().map((t) => Number(t.match(/\((\d+) min\)/)![1]));
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
-    expect(storedPlan()!.targets.map((t) => t.preset)).toEqual(planMinutes.map((m) => modeForMinutes(m)));
+    expect(storedPlan()!.targets.map((t) => [t.id, t.preset])).toEqual([['m31', 'balanced'], ['ic405', 'deep']]);
   });
 
   it('lists what was left out with why, and the checker\'s warning in plain words (no ids, no ISO times)', async () => {
@@ -572,7 +572,7 @@ describe('Use this plan', () => {
     await ready();
     const user = await planned();
     expect(apply().disabled).toBe(false);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order, first start time and, for each target, the closest exposure preset to its length/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^This sets the open plan.s order, first start time, and every target keeps its own exposure/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
@@ -581,7 +581,7 @@ describe('Use this plan', () => {
     expect(plan.trainId).toBe('deep-c11-2600'); // the plan's own train is not changed
     expect(plan.targets.every((t) => t.note === undefined)).toBe(true); // the AI's slot notes are not written over the user's own
     expect(plan.startTime).toMatch(/^\d\d:\d\d$/);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this AI plan.s order, first start time and, for each target, the closest exposure preset to its length/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this AI plan.s order, first start time, and every target keeps its own exposure/);
     // The plan's own start box shows the AI plan's first start.
     expect((within(timeline()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(plan.startTime);
     expect(document.body.textContent).not.toMatch(/itinerary/i);

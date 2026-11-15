@@ -51,7 +51,7 @@ function mount(opts: { objects?: CatalogObject[]; hold?: boolean; trainId?: stri
 const typeSelect = () => screen.getByLabelText('Type') as HTMLSelectElement;
 const optionText = (id: string) => (typeSelect().querySelector(`option[value="${id}"]`) as HTMLOptionElement).textContent ?? '';
 const optionCount = (id: string): number => Number(/· (\d+) (?:up|fit)/.exec(optionText(id))?.[1] ?? 'NaN');
-const heading = () => screen.getByRole('heading', { level: 2, name: /^Best / }).textContent;
+const heading = () => document.getElementById('list-heading')!.textContent;
 const stored = () => {
   const p = storedPlan();
   return p === null ? null : { ids: p.targets.map((t) => t.id) };

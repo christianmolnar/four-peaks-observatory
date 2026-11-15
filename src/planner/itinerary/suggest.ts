@@ -55,7 +55,7 @@ export function compareRank(a: Rank, b: Rank): number {
 
 /** What the order search depends on: ids, targets, trains, filters and modes in order, but not notes. Equal keys give equal advice. */
 export function orderKey(items: readonly ItineraryItem[]): string {
-  return JSON.stringify(items.map((i) => [i.id, i.targetId, i.trainId, i.filterId, i.mode]));
+  return JSON.stringify(items.map((i) => [i.id, i.targetId, i.trainId, i.filterId, i.mode, i.overrides ?? null]));
 }
 
 /** Up to this many live slots the search is exact: every order is covered or ruled out by a sound merge. The page holds at most `MAX_SLOTS` (8). `suggestOrder`'s `exactMax` option overrides it (the tests compare the exact search with the old beam). */

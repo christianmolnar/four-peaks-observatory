@@ -38,6 +38,10 @@ export interface PlanTargetRef {
   preset: PlanPreset;
   /** Values that differ from the preset; only with `custom`. */
   custom?: ExposureOverrides;
+  /** The preset a `custom` target differs from (Balanced when absent); only with `custom`. */
+  base?: ExposureMode;
+  /** Set when the target was added while a favorite exposure existed for it: `ask` shows "Restore favorite?" until answered; `restored` says it was applied automatically. */
+  favorite?: 'ask' | 'restored';
   /** Clock times (24 h, in the site's zone) the AI or the user set for this target. */
   start?: string;
   end?: string;
@@ -111,6 +115,14 @@ function checkTarget(raw: unknown, path: string): PlanTargetRef {
       custom[k] = v;
     }
     t.custom = custom;
+  }
+  if (raw.base !== undefined) {
+    if (!MODE_ORDER.includes(raw.base as ExposureMode)) throw new PlansError(`${path}.base`, `must be one of ${MODE_ORDER.join(', ')}`);
+    t.base = raw.base as ExposureMode;
+  }
+  if (raw.favorite !== undefined) {
+    if (raw.favorite !== 'ask' && raw.favorite !== 'restored') throw new PlansError(`${path}.favorite`, 'must be ask or restored');
+    t.favorite = raw.favorite;
   }
   if (raw.start !== undefined) t.start = checkClock(raw.start, `${path}.start`);
   if (raw.end !== undefined) t.end = checkClock(raw.end, `${path}.end`);
@@ -202,6 +214,8 @@ const FIELD_WORDS: Record<string, string> = {
   notes: 'notes',
   preset: 'preset',
   custom: 'custom values',
+  base: 'preset the custom values start from',
+  favorite: 'favorite state',
   start: 'start time',
   end: 'end time',
   note: 'note',
@@ -245,6 +259,7 @@ function readPlan(raw: unknown, i: number, today: string, notices: string[], dat
           changed++;
           const fixed: Record<string, unknown> = { ...t, preset: 'balanced' };
           delete fixed.custom;
+          delete fixed.base;
           return fixed;
         });
         if (changed > 0) fixes.push(`In the plan ${label}, ${changed} ${changed === 1 ? 'target had a preset' : 'targets had presets'} this version does not know, so ${changed === 1 ? 'it is' : 'they are'} set to Balanced.`);
@@ -317,13 +332,13 @@ export interface Backup {
   at: number;
 }
 
-/** Every backup in storage, oldest first. */
-export function listBackups(storage: Pick<Storage, 'length' | 'key' | 'getItem'>): Backup[] {
+/** Every backup in storage, oldest first. `prefix` names another store's copies (the favorites'); the single key of early versions is the plans' alone. */
+export function listBackups(storage: Pick<Storage, 'length' | 'key' | 'getItem'>, prefix: string = PLANS_BACKUP_PREFIX): Backup[] {
   const found: Backup[] = [];
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i);
     if (key === null) continue;
-    const at = key === PLANS_BACKUP_KEY ? -1 : key.startsWith(PLANS_BACKUP_PREFIX) && /^\d+$/.test(key.slice(PLANS_BACKUP_PREFIX.length)) ? Number(key.slice(PLANS_BACKUP_PREFIX.length)) : null;
+    const at = key === PLANS_BACKUP_KEY && prefix === PLANS_BACKUP_PREFIX ? -1 : key.startsWith(prefix) && /^\d+$/.test(key.slice(prefix.length)) ? Number(key.slice(prefix.length)) : null;
     if (at === null) continue;
     const text = storage.getItem(key);
     if (text !== null) found.push({ key, text, at });
@@ -336,12 +351,12 @@ export function listBackups(storage: Pick<Storage, 'length' | 'key' | 'getItem'>
  * again (its key is returned), and a new copy takes a key after the newest. Only when the copy is written, backups older than the newest `MAX_BACKUPS`
  * are removed (a removal that fails leaves them, which loses nothing). Throws when the copy cannot be read for or written; then nothing is removed.
  */
-export function keepCopy(storage: Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 'removeItem'>, text: string, now: number = Date.now()): string {
-  const have = listBackups(storage);
+export function keepCopy(storage: Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 'removeItem'>, text: string, now: number = Date.now(), prefix: string = PLANS_BACKUP_PREFIX): string {
+  const have = listBackups(storage, prefix);
   const same = have.find((b) => b.text === text);
   if (same) return same.key;
   const at = Math.max(now, (have.length > 0 ? have[have.length - 1].at : 0) + 1);
-  const key = `${PLANS_BACKUP_PREFIX}${at}`;
+  const key = `${prefix}${at}`;
   storage.setItem(key, text);
   for (const old of have.slice(0, Math.max(0, have.length + 1 - MAX_BACKUPS))) {
     try {

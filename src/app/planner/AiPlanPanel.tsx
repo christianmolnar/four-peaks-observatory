@@ -454,10 +454,10 @@ function Result({
         <p id="ai-apply-note" className="mt-1 text-white/70 font-normal text-xs" data-testid="ai-apply-note">
           {applyBlock ??
             (applyNote === 'applied'
-              ? 'Done: the open plan now has this AI plan\u2019s order, first start time and, for each target, the closest exposure preset to its length. Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.'
+              ? 'Done: the open plan now has this AI plan\u2019s order, first start time, and every target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.'
               : applyNote === 'kept'
                 ? 'The open plan was left as it was.'
-                : 'This sets the open plan\u2019s order, first start time and, for each target, the closest exposure preset to its length. Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.')}
+                : 'This sets the open plan\u2019s order, first start time, and every target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow them. The AI\u2019s times and exact lengths are not kept: the night timeline times each target again with its own estimate, so its times will not match the AI plan above. The code check above covers the AI\u2019s times, not the timeline\u2019s: the timeline shows its own flip and window notes.')}
         </p>
       </div>
     </div>

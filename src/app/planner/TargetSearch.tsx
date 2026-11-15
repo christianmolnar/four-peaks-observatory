@@ -108,8 +108,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
             : `${rows.length} ${rows.length === 1 ? 'match' : 'matches'}.`;
 
   return (
-    <section aria-labelledby="search-heading" className="bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6">
-      <h2 id="search-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">FIND A TARGET</h2>
+    <div>
       <form
         role="search"
         className="flex flex-wrap items-end gap-3"
@@ -221,6 +220,6 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
           )}
         </div>
       )}
-    </section>
+    </div>
   );
 }

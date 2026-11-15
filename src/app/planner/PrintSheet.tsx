@@ -1,5 +1,6 @@
 import { fitLabel } from '@/planner/plan';
 import type { PlanEntry } from '@/planner/plan';
+import type { PlanExposureRow } from '@/planner/export';
 import { TREND_TEXT } from '@/planner/itinerary';
 import type { ItineraryReport } from './ItinerarySection';
 import { peakText } from './catalogText';
@@ -11,6 +12,8 @@ export interface PrintSheetProps {
   nightLine: string;
   horizonLine: string;
   entries: readonly PlanEntry[];
+  /** The open plan's targets with their exposure; absent or empty: no plan table. */
+  planRows?: readonly PlanExposureRow[];
   captured: ReadonlySet<string>;
   formatTime: (d: Date) => string;
   /** The night itinerary as it stands, or null when there is none to show. */
@@ -22,7 +25,7 @@ export interface PrintSheetProps {
  * opens the browser's print dialog, whose print stylesheet (the rules below) hides everything else.
  * Same rows as the Targets table and the CSV: the filtered list, in rank order.
  */
-export default function PrintSheet({ date, siteLine, trainLine, nightLine, horizonLine, entries, captured, formatTime, itinerary }: PrintSheetProps) {
+export default function PrintSheet({ date, siteLine, trainLine, nightLine, horizonLine, entries, planRows, captured, formatTime, itinerary }: PrintSheetProps) {
   return (
     <div className="planner-print-sheet hidden print:block bg-white text-black text-[11pt]" data-testid="print-sheet">
       <style>{`@media print {
@@ -43,6 +46,36 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
       <p className="mt-1 text-sm">
         Planner estimates, not measurements. Times are local to the site&apos;s time zone when one is set, otherwise to the browser. Made with the Four Peaks Observatory imaging planner (free guest tool).
       </p>
+      {planRows !== undefined && planRows.length > 0 && (
+        <>
+          <h2 className="mt-4 text-xl font-semibold">Plan</h2>
+          <table className="mt-2 text-sm" data-testid="print-plan">
+            <caption className="sr-only">The plan&apos;s targets with their exposure</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Target</th>
+                <th scope="col">Preset</th>
+                <th scope="col">Sub length</th>
+                <th scope="col">Subs</th>
+                <th scope="col">Total light</th>
+              </tr>
+            </thead>
+            <tbody>
+              {planRows.map((r, i) => (
+                <tr key={`${i}-${r.name}`}>
+                  <td>{i + 1}</td>
+                  <th scope="row" className="font-normal">{r.name}</th>
+                  <td>{r.preset}</td>
+                  <td>{r.subSeconds === null ? '' : `${r.subSeconds} s`}</td>
+                  <td>{r.subCount ?? ''}</td>
+                  <td>{r.lightMin === null ? '' : `${Math.round(r.lightMin)} min`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
       {entries.length === 0 ? (
         <p className="mt-4">No targets match the filters on screen.</p>
       ) : (

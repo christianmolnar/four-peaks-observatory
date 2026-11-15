@@ -2,7 +2,7 @@ import { starterTargets } from '../catalog';
 import { planTonight } from '../plan';
 import type { PlanTrain } from '../plan';
 import { opticalTrain } from '../optics';
-import { CSV_HEADER, csvField, formatCsvTime, makeCsvTime, planToCsv } from './csv';
+import { CSV_HEADER, PLAN_CSV_HEADER, csvField, formatCsvTime, makeCsvTime, planRowsToCsv, planToCsv } from './csv';
 
 /** Minimal RFC 4180 reader, to check the writer against something independent of it. */
 function parseCsv(text: string): string[][] {
@@ -138,5 +138,20 @@ describe('makeCsvTime', () => {
     const at = new Date(Date.UTC(2026, 11, 15, 3, 7));
     expect(makeCsvTime('America/Phoenix')(at)).toBe('2026-12-14 20:07 MST');
     expect(makeCsvTime('Europe/Berlin')(at)).toMatch(/^2026-12-15 04:07 /);
+  });
+});
+
+describe('the plan rows CSV', () => {
+  it('has one row per plan target, in plan order, with preset, sub length, count and total light; a body has blanks; text a sheet could read as a formula is quoted', () => {
+    const text = planRowsToCsv([
+      { name: 'Andromeda Galaxy', type: 'Galaxy', preset: 'Deep Project', subSeconds: 120, subCount: 30, lightMin: 60, note: 'first, then M33' },
+      { name: 'Jupiter', type: 'Solar system', preset: '', subSeconds: null, subCount: null, lightMin: null, note: '=cmd' },
+    ]);
+    const rows = parseCsv(text);
+    expect(rows[0]).toEqual([...PLAN_CSV_HEADER]);
+    expect(rows[1]).toEqual(['1', 'Andromeda Galaxy', 'Galaxy', 'Deep Project', '120', '30', '60', 'first, then M33']);
+    expect(rows[2]).toEqual(['2', 'Jupiter', 'Solar system', '', '', '', '', "'=cmd"]);
+    expect(text.endsWith('\r\n')).toBe(true);
+    expect(rows).toHaveLength(3);
   });
 });

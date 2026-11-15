@@ -16,6 +16,8 @@ export interface Selection {
   trainId: string;
   /** The "Best [type] tonight" choice; absent in a selection saved before it existed. */
   typeId?: string;
+  /** The planner setting "Always restore favorites"; absent (off) in a selection saved before it existed. */
+  alwaysRestore?: boolean;
 }
 
 /**
@@ -46,11 +48,16 @@ export function loadSelection(storage: Pick<Storage, 'getItem' | 'removeItem'>):
     throw new Error('Your saved site and train choice is damaged, so the first of each is used.');
   }
   // A type that is not text is dropped (All): the site and train beside it are still good.
-  return typeof o.typeId === 'string' ? { siteId: o.siteId, trainId: o.trainId, typeId: o.typeId } : { siteId: o.siteId, trainId: o.trainId };
+  return {
+    siteId: o.siteId,
+    trainId: o.trainId,
+    ...(typeof o.typeId === 'string' ? { typeId: o.typeId } : {}),
+    ...(o.alwaysRestore === true ? { alwaysRestore: true } : {}),
+  };
 }
 
 export function saveSelection(storage: Pick<Storage, 'setItem'>, selection: Selection): void {
-  storage.setItem(SELECTION_KEY, JSON.stringify({ siteId: selection.siteId, trainId: selection.trainId, typeId: selection.typeId }));
+  storage.setItem(SELECTION_KEY, JSON.stringify({ siteId: selection.siteId, trainId: selection.trainId, typeId: selection.typeId, ...(selection.alwaysRestore ? { alwaysRestore: true } : {}) }));
 }
 
 /**

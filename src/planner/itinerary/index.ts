@@ -3,7 +3,7 @@ import { nextBodyTransit } from '../astro/bodies';
 import type { CardBody } from '../astro/bodies';
 import type { AstronomicalNight, Site } from '../astro';
 import { AUTOFOCUS_MIN, MERIDIAN_FLIP_MIN, MODE_ORDER, exposureFor, presetForSavedMode } from '../exposure';
-import type { ExposureMode, ExposureTarget } from '../exposure';
+import type { ExposureMode, ExposureOverrides, ExposureTarget } from '../exposure';
 import { usableWindows, usableWindowsOnTrack } from '../horizon';
 import type { HorizonPoint, TimeWindow } from '../horizon';
 import { altAzOf } from '../plan';
@@ -43,6 +43,8 @@ export interface ItineraryItem {
   /** Library filter for this slot; null: no filter. */
   filterId: string | null;
   mode: ExposureMode;
+  /** The user's own sub length, count or total, over `mode` (a Custom target of the plan); absent: the preset's own numbers. Not part of the saved form. */
+  overrides?: ExposureOverrides;
   note: string;
 }
 
@@ -468,7 +470,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
             acquisitionStart: start,
             transitTime: nextMeridianTransit(source.raHours, source.decDeg, start, site),
           },
-          { preset: item.mode },
+          { preset: item.mode, ...(item.overrides ? { overrides: item.overrides } : {}) },
         );
         if (!m.ok) {
           return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${m.missing.join(', ')}, so no exposure can be planned.` };

@@ -99,12 +99,19 @@ export const openControls = (): void => {
   if (strip !== null && strip.getAttribute('aria-expanded') === 'false') fireEvent.click(strip);
 };
 
+/** Opens "Find a target" in the open plan (it is one line once the plan has targets); does nothing when it is open. */
+export const openFind = (): void => {
+  const button = document.querySelector<HTMLElement>('[aria-controls="find-a-target-body"]');
+  if (button !== null && button.getAttribute('aria-expanded') === 'false') fireEvent.click(button);
+};
+
 /**
- * Waits for the ranked list to be on the page (the ranking runs off the render, so a page test awaits it), and opens the
- * controls so the test can reach them.
+ * Waits for the ranked list to be on the page (the ranking runs off the render, so a page test awaits it), opens Find a target
+ * (the list is in it) and opens the controls so the test can reach them.
  */
 export const ready = async (): Promise<void> => {
   await screen.findByTestId('target-list', {}, { timeout: 20000 });
+  openFind();
   openControls();
 };
 
@@ -169,8 +176,24 @@ export const openPlanTab = (): void => {
   fireEvent.click(screen.getByRole('tab', { name: 'Plan' }));
 };
 
+/** The rows of the open plan's own target list (not the Find a target lists, which are in the same card). */
+export const planRowItems = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('ol[aria-label="Targets in this plan, in order"] > li')];
+
 /** The slots of the open plan's Night timeline (the part is closed by default; its content is in the page either way). */
 export const timelineSlots = (): HTMLElement[] => [...(document.getElementById('night-timeline-body')?.querySelectorAll<HTMLElement>('ol[aria-label="Night timeline, in order"] > li') ?? [])];
 
 /** The My plans switcher (a select). */
 export const planSwitch = (): HTMLSelectElement => screen.getByRole('combobox', { name: /^My plans/ }) as HTMLSelectElement;
+
+/** Saves one plan of these targets (`{ id, preset, ... }`) for the sample profile's first site and train, on 2026-12-15, before the page mounts. */
+export const seedPlan = (targets: readonly object[], sampleProfile: () => { sites: { id: string }[]; trains: { id: string }[] }): void => {
+  const p = sampleProfile();
+  window.localStorage.setItem(
+    PLANS_KEY,
+    JSON.stringify({
+      version: 1,
+      openId: 'plan-1',
+      plans: [{ id: 'plan-1', name: 'My plan', createdAt: '2026-12-01T00:00:00.000Z', updatedAt: '2026-12-01T00:00:00.000Z', date: '2026-12-15', siteId: p.sites[0].id, trainId: p.trains[0].id, startTime: null, targets, notes: '' }],
+    }),
+  );
+};

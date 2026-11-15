@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import type { CatalogObject } from '@/planner/catalog/openngc';
 import { MY_PLAN_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, rowNames, showAll, storedPlan } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, planRowItems, ready, rowName, rowNames, showAll, storedPlan } from './testkit';
 
 // Planets on a real night: 2026-11-13 at the sample site (Fountain Hills), minimum altitude 20. Mars, Jupiter, Saturn, Uranus and
 // Neptune are up. A hundred and thirty bright galaxies fill the best 100 and outscore every planet, as the real catalog does, so
@@ -101,7 +101,7 @@ describe('planets on 2026-11-13 at Fountain Hills', () => {
     const row = listRows('planet-list').find((r) => rowName(r) === 'Jupiter') as HTMLElement;
     await userEvent.setup().click(within(row).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
-    expect(within(screen.getByRole('region', { name: /^PLAN:/ })).getByText('Solar system')).toBeTruthy();
+    expect(planRowItems()[0].textContent).toContain('Solar system');
     expect(within(row).getByRole('button', { name: 'Jupiter is in the plan' })).toBeTruthy();
   });
 });
@@ -218,7 +218,7 @@ describe('the label', () => {
     const u = userEvent.setup();
     expect([...(screen.getByLabelText('Type') as HTMLSelectElement).options].map((o) => o.textContent ?? '').some((t) => t.startsWith('Solar system'))).toBe(true);
     expect(planGroup().textContent).toContain('Solar system up');
-    expect(within(myPlan()).getByText('Solar system')).toBeTruthy();
+    expect(planRowItems()[0].textContent).toContain('Solar system');
     await u.type(searchBox(), 'Jupiter');
     expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('Solar system');
     const text = document.body.textContent ?? '';

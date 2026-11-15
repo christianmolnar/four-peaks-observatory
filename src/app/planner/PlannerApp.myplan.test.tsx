@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import type { CatalogObject } from '@/planner/catalog/openngc';
 import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, listRows, ready, rowName, showAll, storedPlan } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, listRows, planRowItems, ready, rowName, showAll, storedPlan } from './testkit';
 
 // The open plan is in sight while adding: above the search and the list, with its count and each target's night and preset,
 // feedback next to the Add button, and the keyboard never falls to the page after Add or Remove.
@@ -39,33 +39,38 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('the open plan is in sight', () => {
-  it('sits above the search and the list, in the one layout every width gets', async () => {
+  it('holds Find a target, with the search and the list, at the top of its card, in the one layout every width gets', async () => {
     mount();
     await ready();
     const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(follows(myPlan(), screen.getByRole('region', { name: 'FIND A TARGET' }))).toBe(true);
-    expect(follows(myPlan(), screen.getByTestId('target-list'))).toBe(true);
-    expect(follows(myPlan(), screen.getByRole('region', { name: /^Best targets for/ }))).toBe(true);
+    // Find a target and its list are inside the plan's card, before the plan's own rows and parts.
+    const find = within(myPlan()).getByRole('region', { name: 'Find a target' });
+    expect(find).toBeTruthy();
+    expect(find.contains(screen.getByTestId('target-list'))).toBe(true);
+    expect(within(find).getByRole('region', { name: /^Best targets for/ })).toBeTruthy();
+    expect(within(find).getByRole('search')).toBeTruthy();
+    expect(follows(find, document.getElementById('night-timeline')!)).toBe(true);
+    expect(screen.queryByRole('heading', { name: 'FIND A TARGET' })).toBeNull();
   });
 
   it('is always open: it names the plan and counts its targets, and says what to do when empty', async () => {
     mount();
     await ready();
     expect(header().textContent).toBe('PLAN: My plan (0 targets)');
-    expect(within(myPlan()).queryByRole('list')).toBeNull();
-    expect(within(myPlan()).getByText('Nothing in this plan yet. Use Add on a target below.')).toBeTruthy();
+    expect(planRowItems()).toHaveLength(0);
+    expect(within(myPlan()).getByText('Nothing in this plan yet. Use Add on a target in Find a target.')).toBeTruthy();
     fireEvent.click(add('NGC 891'));
     expect(header().textContent).toBe('PLAN: My plan (1 target)');
     fireEvent.click(add('NGC 7331'));
     expect(header().textContent).toBe('PLAN: My plan (2 targets)');
-    expect(within(myPlan()).getAllByRole('listitem')).toHaveLength(2);
+    expect(planRowItems()).toHaveLength(2);
   });
 
   it('shows on each row the name, type and size, when it is up, its score and the preset as a plain label; no Up or Down', async () => {
     mount();
     await ready();
     fireEvent.click(add('NGC 891'));
-    const row = within(myPlan()).getAllByRole('listitem')[0];
+    const row = planRowItems()[0];
     expect(row.textContent).toContain('NGC 891');
     expect(row.textContent).toMatch(/Galaxy/);
     expect(row.textContent).toMatch(/13/); // its size

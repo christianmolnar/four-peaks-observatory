@@ -88,3 +88,24 @@ export function planToCsv(entries: readonly PlanEntry[], options: CsvOptions): s
   );
   return [CSV_HEADER.map(csvField).join(','), ...rows].join('\r\n') + '\r\n';
 }
+
+export const PLAN_CSV_HEADER = ['Order', 'Name', 'Type', 'Preset', 'Sub length (s)', 'Subs', 'Total light (min)', 'Note'] as const;
+
+/** One row of the open plan with its exposure: numbers are null for a target with none (a solar-system body, or one not yet resolved). */
+export interface PlanExposureRow {
+  name: string;
+  type: string;
+  preset: string;
+  subSeconds: number | null;
+  subCount: number | null;
+  lightMin: number | null;
+  note: string;
+}
+
+/** The open plan's targets in the plan's order, each with its preset, sub length, count and total light. Lines end with CRLF. */
+export function planRowsToCsv(rows: readonly PlanExposureRow[]): string {
+  const lines = rows.map((r, i) =>
+    [i + 1, r.name, r.type, r.preset, r.subSeconds ?? '', r.subCount ?? '', r.lightMin === null ? '' : Math.round(r.lightMin), r.note].map(csvField).join(','),
+  );
+  return [PLAN_CSV_HEADER.map(csvField).join(','), ...lines].join('\r\n') + '\r\n';
+}
