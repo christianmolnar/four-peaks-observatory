@@ -258,7 +258,7 @@ export default function ExposurePanel({ entry, target, optics, camera, filter, s
     return (
       <section aria-labelledby="exposure-heading" className={frame}>
         {heading}
-        <p className="text-white/90 font-normal text-sm">Exposure planning here is for deep-sky targets. Planets use short video clips instead of long integrations.</p>
+        <p className="text-white/90 font-normal text-sm">Exposure planning here is for deep-sky targets. The Moon and planets (solar system) use short video clips instead of long integrations.</p>
       </section>
     );
   }

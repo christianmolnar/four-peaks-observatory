@@ -5,7 +5,7 @@ export const CSV_HEADER = [
   'Rank',
   'Name',
   'Type',
-  'Planet',
+  'Solar system',
   'Season',
   'In season',
   'Fit',
@@ -68,7 +68,7 @@ export function planToCsv(entries: readonly PlanEntry[], options: CsvOptions): s
     [
       i + 1,
       e.name,
-      e.type,
+      e.isPlanet ? 'Solar system' : e.type,
       e.isPlanet ? 'yes' : 'no',
       seasonLabel(e.seasonMonths),
       e.inSeason === null ? '' : e.inSeason ? 'yes' : 'no',

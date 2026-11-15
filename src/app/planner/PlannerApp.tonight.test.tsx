@@ -1,11 +1,11 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, act, fireEvent, within } from '@testing-library/react';
 import { ITINERARY_KEY } from '@/planner/itinerary';
 import { SELECTION_KEY, defaultTonightDate, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { pageProps, ready } from './testkit';
+import { listRows, pageProps, ready } from './testkit';
 
 // Every "tonight" on the page follows the date picked, and the date follows the clock on a page left open.
 
@@ -23,6 +23,14 @@ const app = async (initialDate?: string) => {
   const r = render(<PlannerApp {...pageProps} {...(initialDate ? { initialDate } : {})} initialProfile={profile()} />);
   await ready();
   return r;
+};
+/** Opens the solar-system group and its first row; returns that row's solar-system detail. */
+const openFirstBody = (): HTMLElement => {
+  const group = screen.getByRole('button', { name: /^Solar system up/ });
+  if (group.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
+  const row = listRows('planet-list')[0];
+  fireEvent.click(within(row).getByRole('button', { expanded: false }));
+  return screen.getByTestId(/^solar-detail-/);
 };
 const pageText = () => document.body.textContent ?? '';
 
@@ -45,18 +53,18 @@ describe('"tonight" in every section follows the date', () => {
     expect(pageText()).not.toMatch(/tonight/i);
     expect(pageText()).toMatch(/Tue 15 Dec/i);
     expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
-    expect(screen.getAllByText('Jupiter: Tue 15 Dec').length).toBeGreaterThan(0);
     expect(pageText()).toMatch(/Worked out for Tue 15 Dec\./);
     expect(pageText()).toMatch(/estimates for Tue 15 Dec, not predictions/);
+    expect(openFirstBody().textContent).toMatch(/: Tue 15 Dec/); // last: an open solar-system row takes over the Exposure panel
   });
 
   it('on the real tonight the sections say tonight', async () => {
     const s = site();
     await app(defaultTonightDate(new Date(), s.longitude, s.timeZone));
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
-    expect(screen.getAllByText('Jupiter: tonight').length).toBeGreaterThan(0);
     expect(pageText()).toMatch(/Worked out for tonight\./);
     expect(pageText()).toMatch(/estimates for tonight, not predictions/);
+    expect(openFirstBody().textContent).toMatch(/: tonight/);
   });
 });
 

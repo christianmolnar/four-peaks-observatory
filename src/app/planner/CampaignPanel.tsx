@@ -243,7 +243,7 @@ export default function CampaignPanel({ base, targets, blocked, leftOutNote, pro
         PLAN SEVERAL NIGHTS
       </h2>
       <p className="text-white/80 font-normal text-sm">
-        Spreads My plan over several nights in your order of priority: what does not fit one night rolls to the next, until each target has a useful amount of light or the nights run out. The first night is the evening chosen above, and the site, train, horizon and minimum altitude are the ones chosen above; there is nothing to set again here except the number of nights and, if you want them, the limits per target. Planets are not included.
+        Spreads My plan over several nights in your order of priority: what does not fit one night rolls to the next, until each target has a useful amount of light or the nights run out. The first night is the evening chosen above, and the site, train, horizon and minimum altitude are the ones chosen above; there is nothing to set again here except the number of nights and, if you want them, the limits per target. The Moon and planets (solar system) are not included.
       </p>
 
       <div className="mt-3 max-w-xs">

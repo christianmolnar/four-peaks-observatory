@@ -252,12 +252,12 @@ describe('meridian flip, through the whole page', () => {
   });
 });
 
-describe('Exposure panel for a planet', () => {
+describe('Exposure panel for a solar-system body', () => {
   it('says planning here is for deep-sky targets', async () => {
     const user = userEvent.setup();
     await app(withTrain('deep-c11-2600'));
-    await user.selectOptions(screen.getByLabelText('Type'), 'planets');
-    await user.click(listRows()[0].querySelector('button[aria-expanded]') as HTMLElement);
+    await user.selectOptions(screen.getByLabelText('Type'), 'solar-system');
+    await user.click(listRows('planet-list')[0].querySelector('button[aria-expanded]') as HTMLElement);
     expect(panel().textContent).toMatch(/for deep-sky targets/);
   });
 });

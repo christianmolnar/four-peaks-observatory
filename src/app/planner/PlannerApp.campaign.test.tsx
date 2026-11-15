@@ -129,15 +129,15 @@ describe('empty and planet-only My plan', () => {
     mount(w, { plan: ['planet-jupiter'] });
     await ready();
     expect(go().disabled).toBe(true);
-    expect(screen.getByTestId('campaign-reason').textContent).toMatch(/no deep-sky targets.*not planets/);
-    expect(screen.getByTestId('campaign-left-out-note').textContent).toBe('1 planet is left out: planets move across the sky from night to night, and this plan places fixed objects.');
+    expect(screen.getByTestId('campaign-reason').textContent).toMatch(/no deep-sky targets.*not the Moon and planets/);
+    expect(screen.getByTestId('campaign-left-out-note').textContent).toBe('1 solar-system body is left out: the Moon and planets move across the sky from night to night, and this plan places fixed objects.');
   });
 
   it('planets among targets are left out of the request, with the reason', async () => {
     const w = fakeCampaignWorker();
     mount(w, { plan: ['m42', 'planet-jupiter', 'm81'] });
     await ready();
-    expect(screen.getByTestId('campaign-left-out-note').textContent).toMatch(/^1 planet is left out: planets move/);
+    expect(screen.getByTestId('campaign-left-out-note').textContent).toMatch(/^1 solar-system body is left out: the Moon and planets move/);
     await planned();
     expect(w.sent().subjects.map((s) => s.id)).toEqual(['m42', 'm81']);
   });

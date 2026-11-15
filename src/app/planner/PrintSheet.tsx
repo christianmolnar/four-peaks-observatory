@@ -66,7 +66,7 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
                 <td>{i + 1}</td>
                 <th scope="row" className="font-normal">
                   <strong>{e.name}</strong>
-                  {e.isPlanet ? ' (planet)' : ''}
+                  {e.isPlanet ? ' (solar system)' : ''}
                   <br />
                   <span>{e.why}</span>
                 </th>

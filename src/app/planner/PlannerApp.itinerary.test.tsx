@@ -246,7 +246,7 @@ describe('Night itinerary', () => {
     expect(chips(li)).toMatch(/Note: meridian flip/);
     const [start, end] = times()[0]!;
     expect(toMin(end) - toMin(start)).toBe(30); // 20 min of clips and the 10 min flip
-    expect(li.textContent).toMatch(/Planet: short video clips, about 20 min/);
+    expect(li.textContent).toMatch(/Solar system: short video clips, about 20 min/);
     await user.click(within(li).getByRole('button', { name: 'Details for Neptune' }));
     expect(within(screen.getByTestId('slot-detail')).getAllByText('Neptune crosses the meridian during this slot: a flip adds 10 min.').length).toBeGreaterThan(0);
   });
@@ -256,7 +256,7 @@ describe('Night itinerary', () => {
     await app();
     const options = within(screen.getByLabelText('Target to add')).getAllByRole('option');
     expect(options[options.length - 1].textContent).toMatch(/^Moon: \d+ min clear$/);
-    expect(options.some((o) => /^Neptune \(planet\)/.test(o.textContent ?? ''))).toBe(true);
+    expect(options.some((o) => /^Neptune \(solar system\)/.test(o.textContent ?? ''))).toBe(true);
     await add(user, 'planet-moon');
     expect(names()).toEqual(['Moon']);
     expect(slots()[0].textContent).toMatch(/Moon: short video clips, about 20 min/);
@@ -267,6 +267,6 @@ describe('Night itinerary', () => {
     const user = userEvent.setup();
     await app();
     await add(user, 'planet-saturn');
-    expect(slots()[0].textContent).toMatch(/Planet: short video clips, about 20 min \(estimate\)\. See the Planets checklist\./);
+    expect(slots()[0].textContent).toMatch(/Solar system: short video clips, about 20 min \(estimate\)\. See the checklist in the Solar system row of the list\./);
   });
 });
