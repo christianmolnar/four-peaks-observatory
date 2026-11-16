@@ -471,27 +471,59 @@ export interface ImportResult {
   state: PlansState;
   added: number;
   copies: number;
-  /** Plans whose id is already here and that were not added: identical ones always, the rest when the user chose to skip repeats. */
+  /** Plans not added because they are already here: the same content, whatever the id and name. */
   skipped: number;
+  /** Plans not added because the user chose to skip those whose id is a different plan's here. */
+  clashSkipped: number;
   leftOut: number;
+}
+
+/** A plan's content for comparing: everything but its id and name, with the keys in a fixed order, so a plan exported and imported again is the same plan. */
+const contentKey = (p: Plan): string => {
+  const sorted = (v: unknown): unknown =>
+    Array.isArray(v) ? v.map(sorted) : typeof v === 'object' && v !== null ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, x]) => [k, sorted(x)])) : v;
+  const rest: Partial<Plan> = { ...p };
+  delete rest.id;
+  delete rest.name;
+  return JSON.stringify(sorted(rest));
+};
+
+/** How the plans of a file stand against the plans here: `same` hold the content of a plan here (a repeat), `clash` have the id of a different plan here, `fresh` are new. */
+export function compareIncoming(s: PlansState, incoming: readonly Plan[]): { same: number; clash: number; fresh: number } {
+  const here = new Set(s.plans.map(contentKey));
+  const ids = new Set(s.plans.map((p) => p.id));
+  const out = { same: 0, clash: 0, fresh: 0 };
+  for (const p of incoming) {
+    if (here.has(contentKey(p))) out.same++;
+    else if (ids.has(p.id)) out.clash++;
+    else out.fresh++;
+  }
+  return out;
 }
 
 /**
  * Adds plans read from a file after the plans here; nothing here is changed, replaced or reordered, and the open plan stays open.
- * A plan whose id is already here is never written over: an identical one is skipped, any other is skipped (`skip`) or added as a copy under a new id
- * and a name ending "(imported)" (`copy`). Plans past the 50-plan limit are left out and counted.
+ * A plan whose content is already here (compared without its id and name, so importing the same file twice adds nothing) is skipped. A plan that
+ * has the id of a different plan here is never written over: it is skipped (`skip`) or added as a copy under a new id and a name ending
+ * "(imported)" (`copy`). Plans past the 50-plan limit are left out and counted.
  */
 export function importPlans(s: PlansState, incoming: readonly Plan[], repeats: 'copy' | 'skip'): ImportResult {
   const plans = [...s.plans];
   const have = new Map(plans.map((p) => [p.id, p]));
+  const here = new Set(plans.map(contentKey));
   let added = 0;
   let copies = 0;
   let skipped = 0;
+  let clashSkipped = 0;
   let leftOut = 0;
   for (const p of incoming) {
     const same = have.get(p.id);
-    if (same !== undefined && (repeats === 'skip' || JSON.stringify(same) === JSON.stringify(p))) {
+    if (here.has(contentKey(p))) {
       skipped++;
+      continue;
+    }
+    if (same !== undefined && repeats === 'skip') {
+      clashSkipped++;
       continue;
     }
     if (plans.length >= MAX_PLANS) {
@@ -516,7 +548,7 @@ export function importPlans(s: PlansState, incoming: readonly Plan[], repeats: '
   }
   const state = { ...s, plans };
   validatePlans(state);
-  return { state, added, copies, skipped, leftOut };
+  return { state, added, copies, skipped, clashSkipped, leftOut };
 }
 
 // ------------------------------------------------------------------ migration

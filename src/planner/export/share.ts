@@ -1,4 +1,4 @@
-import { PRESETS } from '../exposure';
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, PRESETS } from '../exposure';
 import type { Profile } from '../profile';
 import { LIST_SPECS, textsOf } from '../state/edit';
 import type { ListKey } from '../state/edit';
@@ -12,6 +12,12 @@ import { csvField } from './csv';
  */
 export interface SheetRow {
   order: number;
+  /**
+   * scheduled: the timeline gives the row a time, so its sub length, count and light are the timeline's own.
+   * unscheduled: the timeline leaves the row out tonight; it carries no numbers and adds no light.
+   * stored: no night was worked out for this plan; only what the plan stores is shown.
+   */
+  state: 'scheduled' | 'unscheduled' | 'stored';
   name: string;
   type: string;
   /** "05h 35m 17s" and "+05° 23' 28\"", or empty for a body that moves (the Moon, a planet). */
@@ -106,6 +112,17 @@ export interface TargetFacts {
   decDeg: number | null;
 }
 
+export const NOT_IN_CATALOG = 'A target that is not in the bundled catalog';
+export const CUSTOM_OUTSIDE = 'Custom values outside the limits (not used)';
+
+/** True when a stored custom sub length and count can be used: a sub of MIN_CUSTOM_SUB_S to MAX_SUB_S seconds and a whole count of 1 to MAX_SUBS. */
+export const customInLimits = (subSeconds: unknown, subCount: unknown): boolean =>
+  typeof subSeconds === 'number' && Number.isFinite(subSeconds) && subSeconds >= MIN_CUSTOM_SUB_S && subSeconds <= MAX_SUB_S && typeof subCount === 'number' && Number.isInteger(subCount) && subCount >= 1 && subCount <= MAX_SUBS;
+
+/** Why a stored custom is not used, in words with the limits and never the stored numbers. */
+export const customOutsideText = (base: keyof typeof PRESETS): string =>
+  `The stored custom numbers are outside the limits (a sub of ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} whole subs), so they are not used; the ${PRESETS[base].label} preset is used instead.`;
+
 export const presetName = (ref: Pick<PlanTargetRef, 'preset' | 'base'>): string => (ref.preset === 'custom' ? `Custom (from ${PRESETS[ref.base ?? 'balanced'].label})` : PRESETS[ref.preset].label);
 
 export const filterNameOf = (profile: Profile, trainId: string): string => {
@@ -138,23 +155,26 @@ export function storedSheet(plan: Plan, profile: Profile, facts: (id: string) =>
   const filter = filterNameOf(profile, plan.trainId) || 'No filter';
   const rows = plan.targets.map((t, i): SheetRow => {
     const f = facts(t.id);
-    const custom = t.preset === 'custom' && t.custom?.subSeconds !== undefined && t.custom.subCount !== undefined ? { s: t.custom.subSeconds, n: t.custom.subCount } : null;
+    const stored = t.preset === 'custom' && t.custom?.subSeconds !== undefined && t.custom.subCount !== undefined ? { s: t.custom.subSeconds, n: t.custom.subCount } : null;
+    const outside = stored !== null && !customInLimits(stored.s, stored.n);
+    const custom = stored !== null && !outside ? stored : null;
     return {
       order: i + 1,
-      name: f?.name ?? 'A target that is not in the bundled catalog',
+      state: 'stored',
+      name: f?.name ?? NOT_IN_CATALOG,
       type: f?.type ?? '',
       ra: f?.raHours != null ? raText(f.raHours) : '',
       dec: f?.decDeg != null ? decText(f.decDeg) : '',
       start: t.start ?? '',
       end: t.end ?? '',
-      preset: presetName(t),
+      preset: outside ? CUSTOM_OUTSIDE : presetName(t),
       subSeconds: custom?.s ?? null,
       subCount: custom?.n ?? null,
       lightMin: custom === null ? null : Math.round((custom.s * custom.n) / 60),
       filter,
       favorite: favorite(t.id),
       note: t.note ?? '',
-      warning: '',
+      warning: outside ? customOutsideText(t.base ?? 'balanced') : '',
     };
   });
   return {
@@ -166,15 +186,43 @@ export function storedSheet(plan: Plan, profile: Profile, facts: (id: string) =>
     startsAt: plan.startTime ?? '',
     notes: plan.notes,
     warnings: [],
-    caveat: 'Sub lengths, counts and times are worked out for the plan that is open; open this plan and share it for them. Shown here: what the plan stores.',
+    caveat: 'Sub lengths, counts, times and total light are worked out for the plan that is open; open this plan and share it for them. Shown here: what the plan stores, with no total.',
     rows,
-    totalLightMin: sheetTotal(rows),
+    totalLightMin: null,
   };
 }
 
 // ------------------------------------------------------------------ gear, in words
 
 const GEAR_ORDER: ListKey[] = ['sites', 'scopes', 'accessories', 'cameras', 'smartScopes', 'filters'];
+
+/** The unit written after a number of the gear lists, so "Pixel size 3.76" reads "Pixel size 3.76 µm". */
+const GEAR_UNITS: Record<string, string> = {
+  latitude: '°',
+  longitude: '°',
+  elevationM: ' m',
+  focalLengthMm: ' mm',
+  apertureMm: ' mm',
+  effectiveFocalLengthMm: ' mm',
+  sizeMm: ' mm',
+  pixelSizeUm: ' µm',
+  sensorWidthPx: ' px',
+  sensorHeightPx: ' px',
+  passbandWidthNm: ' nm',
+  narrowestBandNm: ' nm',
+  maxIncidentAngleDeg: '°',
+};
+/** The words for a stored choice that are not words (alt-az, broadband-LP); anything else reads as stored. */
+const GEAR_WORDS: Record<string, Record<string, string>> = {
+  mountMode: { 'alt-az': 'alt-azimuth', eq: 'equatorial' },
+  kind: { 'broadband-LP': 'broadband light-pollution', 'UV-IR cut': 'UV/IR cut', 'visual-only': 'visual only' },
+  readNoiseClass: { low: 'low', medium: 'medium', high: 'high' },
+};
+
+function gearValue(key: string, kind: string, value: string): string {
+  if (kind === 'number') return `${value}${GEAR_UNITS[key] ?? ''}`;
+  return GEAR_WORDS[key]?.[value] ?? value;
+}
 
 export function gearSheet(profile: Profile): GearSheet {
   const sections: GearSheet['sections'] = [];
@@ -186,7 +234,7 @@ export function gearSheet(profile: Profile): GearSheet {
       title: spec.title,
       lines: items.map((item) => {
         const texts = textsOf(key, item);
-        const parts = spec.fields.filter((f) => f.key !== 'name' && texts[f.key] !== '').map((f) => `${f.label} ${texts[f.key]}${f.kind === 'number' && f.key.endsWith('Mm') ? ' mm' : ''}`);
+        const parts = spec.fields.filter((f) => f.key !== 'name' && texts[f.key] !== '').map((f) => `${f.label} ${f.key === 'bortle' ? `class ${texts[f.key]}` : gearValue(f.key, f.kind, texts[f.key])}`);
         return `${texts.name}${parts.length === 0 ? '' : `: ${parts.join('; ')}`}`;
       }),
     });
@@ -198,9 +246,15 @@ export function gearSheet(profile: Profile): GearSheet {
 // ------------------------------------------------------------------ plain text
 
 const L = (s: string, label: string): string[] => (s === '' ? [] : [`${label}${s}`]);
-const timeSpan = (r: SheetRow): string => (r.start === '' ? 'no time' : r.end === '' ? r.start : `${r.start}-${r.end}`);
+export const NOT_SCHEDULED = 'not scheduled tonight';
+const timeSpan = (r: SheetRow): string => (r.state === 'unscheduled' ? NOT_SCHEDULED : r.start === '' ? 'no time' : r.end === '' ? r.start : `${r.start}-${r.end}`);
 const subsText = (r: SheetRow): string => (r.subSeconds === null || r.subCount === null ? '' : `${r.subCount} x ${r.subSeconds} s`);
-const noSubsText = (r: SheetRow): string => (r.type === 'Solar system' ? 'clips, not subs' : 'subs: not worked out');
+/** What a row says in place of subs: nothing planned (unscheduled), clips (the Moon, a planet) with their minutes, or "not worked out". */
+export const noSubsText = (r: SheetRow): string => {
+  if (r.state === 'unscheduled') return 'no subs, no light';
+  const light = r.lightMin !== null && r.lightMin > 0 ? `, about ${r.lightMin} min` : '';
+  return r.type === 'Solar system' ? `clips, not subs${light}` : `subs: not worked out${light}`;
+};
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
 function planText(p: PlanSheet): string[] {
@@ -249,7 +303,7 @@ function planMarkdown(p: PlanSheet): string[] {
   if (p.rows.length === 0) return [...out, 'No objects in this plan.'];
   out.push('| # | Time | Object | RA / Dec | Subs | Total | Gain | Filter | Notes |', '|---|---|---|---|---|---|---|---|---|');
   for (const r of p.rows) {
-    const sub = subsText(r);
+    const sub = subsText(r) || (r.state === 'unscheduled' ? 'none' : r.type === 'Solar system' ? 'clips' : 'not worked out');
     const notes = [r.preset === '' ? '' : r.preset, r.favorite, r.note, r.warning && `Warning: ${r.warning}`].filter((x) => x !== '').join('; ');
     out.push(`| ${r.order} | ${md(timeSpan(r))} | ${md(r.name)}${r.type === '' ? '' : ` (${md(r.type)})`} | ${r.ra === '' ? '' : `${md(r.ra)}, ${md(r.dec)}`} | ${md(sub)} | ${r.lightMin === null ? '' : `${r.lightMin} min`} |  | ${md(r.filter)} | ${md(notes)} |`);
   }
@@ -282,7 +336,7 @@ export function docToCsv(doc: ShareDoc): string {
       const planWarning = [...p.warnings, p.caveat].filter((x) => x !== '').join(' ');
       if (p.rows.length === 0) return [line([p.name, p.date, p.site, p.train, '', '', '', '', '', '', '', '', '', '', '', '', '', p.notes, planWarning])];
       return p.rows.map((r) =>
-        line([p.name, p.date, p.site, p.train, r.order, r.start, r.end, r.name, r.type, { own: r.ra }, { own: r.dec }, r.preset, r.subSeconds ?? '', r.subCount ?? '', r.lightMin ?? '', r.filter, r.favorite, r.note, [planWarning, r.warning].filter((x) => x !== '').join(' ')]),
+        line([p.name, p.date, p.site, p.train, r.order, r.start, r.end, r.name, r.type, { own: r.ra }, { own: r.dec }, r.preset, r.subSeconds ?? '', r.subCount ?? '', r.lightMin ?? '', r.filter, r.favorite, r.note, [planWarning, r.state === 'unscheduled' ? 'Not scheduled tonight.' : '', r.warning].filter((x) => x !== '').join(' ')]),
       );
     });
     tables.push([line(SHEET_CSV_HEADER), ...rows]);
@@ -294,9 +348,11 @@ export function docToCsv(doc: ShareDoc): string {
 // ------------------------------------------------------------------ ASIAir
 
 /**
- * The ASIAir's Plan > Add > Import takes a Telescopius mosaic CSV: positions only. One pane per object (the research note's reconstruction of
- * the header and rows; whether the app takes unrelated targets as panes is untested). Names are ASCII with no commas. `ascii` writes the degree
- * sign as the letter d, the form to try if the app refuses the real one (U+00BA, as Telescopius writes it).
+ * The ASIAir's Plan > Add > Import takes a Telescopius mosaic CSV: positions only, one pane per row. The header and the row style are copied from a real
+ * Telescopius export (the research note): the first column is "Pane 1", "Pane 2" and so on, and it has no column for a name, so the file cannot say which
+ * object is which pane; `asiairPanes` lists that for the person (the sheet shows it) and the run sheet has the order. Whether the app takes unrelated
+ * targets as the panes of one mosaic is untested. `degreeAsLetter` writes the degree sign as the letter d, the form to try if the app refuses the real one
+ * (U+00BA, as Telescopius writes it).
  */
 export const ASIAIR_HEADER = 'Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column';
 
@@ -308,17 +364,16 @@ export interface AsiairTarget {
 
 export const asciiName = (name: string): string => name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '').replace(/[",]/g, ' ').replace(/\s+/g, ' ').trim();
 
+/** Which object each pane is: "Pane 1: M42". */
+export const asiairPanes = (targets: readonly AsiairTarget[]): string[] => targets.map((t, i) => `Pane ${i + 1}: ${asciiName(t.name) || `Target ${i + 1}`}`);
+
 export function asiairCsv(targets: readonly AsiairTarget[], fov: { widthArcmin: number; heightArcmin: number } | null, degreeAsLetter: boolean): string {
   const w = (fov?.widthArcmin ?? 60).toFixed(2);
   const h = (fov?.heightArcmin ?? 60).toFixed(2);
-  const used = new Map<string, number>();
   const rows = targets.map((t, i) => {
-    const base = asciiName(t.name) || `Target ${i + 1}`;
-    const seen = (used.get(base) ?? 0) + 1;
-    used.set(base, seen);
     const [rh, rm, rs] = hms(t.raHours);
     const { sign, d, m, s } = dms(t.decDeg);
-    return `${seen === 1 ? base : `${base} ${seen}`}, ${pad(rh)}hr ${pad(rm)}' ${pad(rs)}", ${sign}${pad(d)}${degreeAsLetter ? 'd' : 'º'} ${pad(m)}' ${pad(s)}", 0.00, ${w}, ${h}, 20%, ${i + 1}, 1`;
+    return `Pane ${i + 1}, ${pad(rh)}hr ${pad(rm)}' ${pad(rs)}", ${sign}${pad(d)}${degreeAsLetter ? 'd' : 'º'} ${pad(m)}' ${pad(s)}", 0.00, ${w}, ${h}, 20%, ${i + 1}, 1`;
   });
   return `${[ASIAIR_HEADER, ...rows].join('\r\n')}\r\n`;
 }

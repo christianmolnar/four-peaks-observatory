@@ -11,7 +11,7 @@ import type { PlanTarget } from '@/planner/ai/body';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { MAX_PLANS_FILE_CHARS, PlansFileError, asiairCsv, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText, sheetTotal } from '@/planner/export';
+import { MAX_PLANS_FILE_CHARS, NOT_IN_CATALOG, PlansFileError, asiairCsv, asiairPanes, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText } from '@/planner/export';
 import type { AsiairTarget, PlanExposureRow, PlanSheet, SheetRow, ShareDoc, TargetFacts } from '@/planner/export';
 import { opticalTrain } from '@/planner/optics';
 import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError, resolveTrain } from '@/planner/profile';
@@ -66,6 +66,7 @@ import {
   cutMessage,
   deletePlan,
   duplicatePlan,
+  compareIncoming,
   importPlans,
   inspectStored,
   keepCopy,
@@ -99,7 +100,7 @@ import type { ImportPanel, ShareFormat, ShareWhat } from './ShareSheet';
 import { FORMATS } from './ShareSheet';
 import { download } from './download';
 import type { PlanTimelineReport } from './PlanTimeline';
-import { ITINERARY_KEY, MAX_SLOTS } from '@/planner/itinerary';
+import { ITINERARY_KEY, MAX_SLOTS, lightMinutes } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor, { HeldGearError } from './ProfileEditor';
@@ -111,7 +112,7 @@ import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { baseOf, notUsedNoPresetText, presetLabel, rowExposure, storedProblem, withNumber, withPreset } from './rowExposure';
+import { baseOf, notUsedNoPresetText, presetLabel, rowExposure, splitWarnings, storedProblem, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -333,7 +334,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [openTrainTick, setOpenTrainTick] = useState(0);
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
-  // The Share sheet: open or closed, what it shares (also what Print prints), when it was opened (the time written in a JSON file), and the import flow.
+  // The Share sheet: open or closed, what it shares (also what Print prints while the sheet is open; closed, Print and Ctrl+P print the open plan), when it was opened (the time written in a JSON file), and the import flow.
   const [shareOpen, setShareOpen] = useState(false);
   const [shareWhat, setShareWhat] = useState<ShareWhat>('plan');
   const [sharedAt, setSharedAt] = useState('');
@@ -1531,31 +1532,39 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const fav = favoriteOf(favs.state, id);
     return fav === null ? '' : `Favorite saved: ${fav.subCount} x ${fav.subSeconds} s (${fav.trainName === '' ? 'no train named' : fav.trainName}, ${fav.filterName})`;
   };
-  /** The open plan's sheet: the rows' own numbers (the same objects the screen and the plan CSV use) and the timeline's own times. */
+  /**
+   * The open plan's sheet. Times, sub length, sub count and light of a row are the timeline's own slot (so a sheet, a file and the night timeline agree);
+   * a row the timeline leaves out tonight says so, carries no numbers and adds no light; the total is the timeline's "Light".
+   */
   const openSheet = (): PlanSheet => {
     const report = itineraryReport.current;
     const slots = new Map(report?.plan.slots.map((s) => [s.id, s] as const) ?? []);
     const filter = train ? filterNameOf(profile, train.id) || 'No filter' : '';
-    const rows = planItems.map(({ id, target }, i): SheetRow => {
+    const rows = planItems.map(({ id, target, body }, i): SheetRow => {
       const e = exposureRows[i];
       const slot = slots.get(id);
-      const timed = slot !== undefined && slot.altitudes !== null;
+      const view = rowViews.get(id);
+      const scheduled = slot !== undefined && slot.altitudes !== null && slot.end.getTime() > slot.start.getTime();
+      const state = report === null ? 'stored' : scheduled ? 'scheduled' : 'unscheduled';
+      // The row's own warnings (an unusable custom, no filter on a camera without a UV/IR cut) go with the numbers they are about: not for a row the timeline leaves out.
+      const rowWarnings = view?.kind !== 'ok' ? [] : [view.customUnusable ?? '', ...(scheduled ? splitWarnings(view.chosen.warnings).act.map((w) => w.text) : [])];
       return {
         order: i + 1,
-        name: e.name,
+        state,
+        name: body === undefined && target === undefined && catalogById !== null ? NOT_IN_CATALOG : e.name,
         type: e.type,
         ra: target !== undefined ? raText(target.raHours) : '',
         dec: target !== undefined ? decText(target.decDeg) : '',
-        start: timed ? formatTime(slot.start) : '',
-        end: timed ? formatTime(slot.end) : '',
+        start: scheduled ? formatTime(slot.start) : '',
+        end: scheduled ? formatTime(slot.end) : '',
         preset: e.preset,
-        subSeconds: e.subSeconds,
-        subCount: e.subCount,
-        lightMin: e.lightMin === null ? null : Math.round(e.lightMin),
+        subSeconds: scheduled ? slot.subSeconds : null,
+        subCount: scheduled ? slot.subCount : null,
+        lightMin: scheduled ? Math.round(slot.integrationMin * 10) / 10 : null,
         filter,
         favorite: favoriteText(id),
         note: e.note,
-        warning: [e.exposureNote ?? '', ...(slot?.warnings.map((w) => w.text) ?? [])].filter((x) => x !== '').join(' '),
+        warning: [...new Set([...rowWarnings, e.exposureNote ?? '', ...(slot?.warnings.map((w) => w.text) ?? [])].filter((x) => x !== ''))].join(' '),
       };
     });
     return {
@@ -1569,7 +1578,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       warnings: staleNotes.map((n) => n.text),
       caveat: planTargets.length > 0 && report === null ? 'The times were not worked out (the night or the catalog has not loaded).' : '',
       rows,
-      totalLightMin: sheetTotal(rows),
+      totalLightMin: report !== null && rows.some((r) => r.state === 'scheduled') ? lightMinutes(report.plan) : null,
     };
   };
   /** Another plan's sheet: what it stores, said so. */
@@ -1599,7 +1608,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return { text: format === 'text' ? docToText(doc) : format === 'markdown' ? docToMarkdown(doc) : docToCsv(doc), file };
   };
   /** The ASIAir file: the open plan's fixed objects with a position, in the plan's order. */
-  const asiairTargets = planItems.flatMap(({ id, target }): AsiairTarget[] => (target === undefined ? [] : [{ name: designationOf(id) || (target.displayName ?? target.name), raHours: target.raHours, decDeg: target.decDeg }]));
+  const asiairTargets = planItems.flatMap(({ id, target }): AsiairTarget[] => (target === undefined ? [] : [{ name: (target.aliases.find((x) => /^m\d+$/i.test(x))?.toUpperCase() ?? designationOf(id)) || (target.displayName ?? target.name), raHours: target.raHours, decDeg: target.decDeg }]));
   const asiairFov = (() => {
     if (!train) return null;
     try {
@@ -1631,7 +1640,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       pendingImport.current = { plans: read.plans, notices: read.notices };
       const names = read.plans.slice(0, 5).map((p) => `"${p.name}"`);
       if (read.plans.length > 5) names.push(`and ${read.plans.length - 5} more`);
-      setImportPanel({ kind: 'ask', file: file.name.length > 40 ? `${file.name.slice(0, 40)}…` : file.name, names, total: read.plans.length, repeats: read.plans.filter((p) => have.plans.some((x) => x.id === p.id)).length, notices: read.notices, hasGear: read.hasGear });
+      setImportPanel({ kind: 'ask', file: file.name.length > 40 ? `${file.name.slice(0, 40)}…` : file.name, names, total: read.plans.length, ...compareIncoming(have, read.plans), notices: read.notices, hasGear: read.hasGear });
     } catch (e) {
       refuse(e instanceof PlansFileError ? e.message : `The file could not be read: ${(e as Error).message}`);
     }
@@ -1667,6 +1676,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const parts = [
       r.added > 0 ? `Imported ${r.added} ${r.added === 1 ? 'plan' : 'plans'}${r.copies > 0 ? `, ${r.copies} as ${r.copies === 1 ? 'a copy' : 'copies'} (the name ends "(imported)")` : ''}.` : 'No plan was added.',
       r.skipped > 0 ? `${r.skipped} ${r.skipped === 1 ? 'was' : 'were'} already here and ${r.skipped === 1 ? 'was' : 'were'} skipped.` : '',
+      r.clashSkipped > 0 ? `${r.clashSkipped} ${r.clashSkipped === 1 ? 'has' : 'have'} the same id as a different plan here and ${r.clashSkipped === 1 ? 'was' : 'were'} skipped.` : '',
       r.leftOut > 0 ? `Plans hold at most ${MAX_PLANS} plans, so ${r.leftOut} ${r.leftOut === 1 ? 'was' : 'were'} left out. Delete a plan to make room.` : '',
       noGear > 0 ? `${noGear} ${noGear === 1 ? 'uses' : 'use'} a site or train that is not in your gear; ${noGear === 1 ? 'it shows' : 'they show'} the first one until you keep or change it.` : '',
       ...pending.notices,
@@ -2264,6 +2274,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               {
                 label: 'Share and export…',
                 onSelect: () => {
+                  setShareWhat('plan');
                   setSharedAt(new Date().toISOString());
                   setImportPanel({ kind: 'none' });
                   setShareOpen(true);
@@ -2352,7 +2363,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           blocked={shareBlocked}
           note={heldNote}
           make={makeShare}
-          asiair={{ count: asiairTargets.length, left: asiairLeft, fovNote: asiairFov === null && train ? 'The size of the train\u2019s field is not known (a pixel size, sensor size or focal length is not set), so each position is written with a 60 arcminute pane.' : null, make: asiairMake }}
+          asiair={{ count: asiairTargets.length, panes: asiairPanes(asiairTargets), left: asiairLeft, fovNote: asiairFov === null && train ? 'The size of the train\u2019s field is not known (a pixel size, sensor size or focal length is not set), so each position is written with a 60 arcminute pane.' : null, make: asiairMake }}
           onPrint={() => window.print()}
           onPickFile={(f) => void pickPlansFile(f)}
           importPanel={importPanel}
@@ -2360,6 +2371,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           onClose={() => {
             pendingImport.current = null;
             setShareOpen(false);
+            setShareWhat('plan');
             window.setTimeout(() => document.getElementById('plan-more')?.focus(), 0);
           }}
         />
@@ -2444,7 +2456,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       </div>
     </div>
     {printing && (
-    <PrintSheet doc={docFor(shareNow)} />
+    <PrintSheet doc={docFor(shareOpen ? shareNow : 'plan')} />
     )}
     </>
   );

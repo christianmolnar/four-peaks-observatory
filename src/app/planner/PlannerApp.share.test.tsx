@@ -226,7 +226,11 @@ describe('Export for ASIAir', () => {
     const lines = csv.trim().split('\r\n');
     expect(lines[0]).toBe('Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column');
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toMatch(/^M31, \d\dhr \d\d' \d\d", \+\d\d\u00ba \d\d' \d\d", 0\.00, [\d.]+, [\d.]+, 20%, 1, 1$/);
+    // The file has no name column, so the sheet lists which pane is which object.
+    expect(screen.getByTestId('asiair-panes').textContent).toBe('Pane 1: M31Pane 2: IC 405');
+    expect(note).toMatch(/no column for a name/);
+    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).toMatch(/The one test to run: .*each pane arrives at the right RA and Dec/);
+    expect(lines[1]).toMatch(/^Pane 1, \d\dhr \d\d' \d\d", \+\d\d\u00ba \d\d' \d\d", 0\.00, [\d.]+, [\d.]+, 20%, 1, 1$/);
     fireEvent.click(within(section).getByRole('checkbox'));
     fireEvent.click(within(section).getByRole('button', { name: 'Copy text' }));
     await waitFor(() => expect(clip).toHaveLength(1));
@@ -261,33 +265,43 @@ describe('Import plans', () => {
     expect(screen.getByTestId('import-done').textContent).toMatch(/^Imported 2 plans\./);
   });
 
-  it('never overwrites: the same plans again are skipped, a changed one is a copy or skipped on request, and a backup of the saved plans is kept first', async () => {
+  it('never overwrites: the same file again adds nothing, a changed plan with the same id is a copy or skipped on request, and a backup of the saved plans is kept first', async () => {
     await app(undefined, [other('plan-2', 'Second plan')]);
     openSheet();
     choose('All plans', 'JSON');
     const exported = JSON.parse(text());
-    // identical file: nothing new
+    // the same file: every plan is a repeat, so nothing is added whichever button there is
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
-    expect(screen.getByTestId('import-ask').textContent).toMatch(/2 of them are already here/);
-    fireEvent.click(screen.getByRole('button', { name: 'Import, repeats as copies' }));
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/All of them are already here and will be skipped/);
+    expect(screen.getByTestId('import-ask').textContent).not.toMatch(/same id/);
+    fireEvent.click(screen.getByRole('button', { name: 'Import 2 plans' }));
     await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 were already here and were skipped/));
     expect(plansOf()).toHaveLength(2);
-    // a changed plan with the same id
+    // a changed plan with the same id: said in the words it is
     exported.plans[1].notes = 'changed elsewhere';
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/1 of 2 is already here and will be skipped\. One has the same id as a different plan here\./);
     fireEvent.click(screen.getByRole('button', { name: 'Import new plans only' }));
-    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 were already here/));
+    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 1 was already here and was skipped\. 1 has the same id as a different plan here and was skipped\./));
     expect(plansOf().find((p) => p.id === 'plan-2')!.notes).toBe('');
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
     const stored = window.localStorage.getItem(PLANS_KEY);
-    fireEvent.click(screen.getByRole('button', { name: 'Import, repeats as copies' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import, same-id plans as copies' }));
     await waitFor(() => expect(plansOf()).toHaveLength(3));
     expect(plansOf().map((p) => p.name)).toEqual(['My plan', 'Second plan', 'Second plan (imported)']);
     expect(plansOf().find((p) => p.id === 'plan-2')!.notes).toBe('');
     expect(listBackups(window.localStorage).some((b) => b.text === stored)).toBe(true);
+    // the same changed file again: the copy made before is a repeat, so no "(imported) 2"
+    upload(JSON.stringify(exported));
+    await screen.findByTestId('import-ask');
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/All of them are already here and will be skipped/);
+    expect(screen.queryByRole('button', { name: 'Import, same-id plans as copies' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Import 2 plans' }));
+    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 were already here and were skipped/));
+    expect(plansOf().map((p) => p.name)).toEqual(['My plan', 'Second plan', 'Second plan (imported)']);
     // Cancel changes nothing.
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
@@ -334,11 +348,11 @@ describe('Import plans', () => {
   });
 
   it('adds only as many as fit under the plan limit and says how many were left out', async () => {
-    const many = Array.from({ length: MAX_PLANS - 2 }, (_, i) => other(`m${i}`, `Filler ${i}`));
+    const many = Array.from({ length: MAX_PLANS - 2 }, (_, i) => other(`m${i}`, `Filler ${i}`, { notes: `filler ${i}` }));
     await app(undefined, many);
     expect(plansOf()).toHaveLength(MAX_PLANS - 1);
     openSheet();
-    upload(JSON.stringify({ format: 'four-peaks-planner', version: 1, plans: [other('n1', 'New one'), other('n2', 'New two'), other('n3', 'New three')] }));
+    upload(JSON.stringify({ format: 'four-peaks-planner', version: 1, plans: [other('n1', 'New one', { notes: 'one' }), other('n2', 'New two', { notes: 'two' }), other('n3', 'New three', { notes: 'three' })] }));
     await screen.findByTestId('import-ask');
     fireEvent.click(screen.getByRole('button', { name: 'Import 3 plans' }));
     await waitFor(() => expect(plansOf()).toHaveLength(MAX_PLANS));

@@ -246,10 +246,10 @@ describe('print and the plan CSV carry the rows with their exposure', () => {
     const rows = within(table).getAllByRole('row').slice(1).map((r) => [...r.children].map((c) => c.textContent));
     const n = parse(numbers('m31'));
     expect(rows[0][2]).toMatch(/^Andromeda Galaxy/);
-    expect(rows[0][3]).toMatch(new RegExp(`^${n.subs} × ${n.sub} s\\d+ min$`));
+    expect(rows[0][3]).toMatch(new RegExp(`^${n.subs} × ${n.sub} s\\d+(\\.\\d+)? min$`));
     expect(rows[0][6]).toMatch(/^Deep/);
     expect(rows[1][2]).toMatch(/^Jupiter/);
-    expect(rows[1][3]).toBe('clips, not subs');
+    expect(rows[1][3]).toMatch(/^clips, not subs(about \d+ min)?$/);
     act(() => {
       window.dispatchEvent(new Event('afterprint'));
     });

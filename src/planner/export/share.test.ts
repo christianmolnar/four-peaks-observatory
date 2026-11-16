@@ -3,7 +3,7 @@ import { parseProfile } from '../profile';
 import type { Profile } from '../profile';
 import { startPlans, updatePlan } from '../state/plans';
 import type { Plan, PlanTargetRef } from '../state/plans';
-import { ASIAIR_HEADER, GAIN_NOTE, asciiName, asiairCsv, decText, docToCsv, docToMarkdown, docToText, gearSheet, raText, sheetTotal, storedSheet } from './share';
+import { ASIAIR_HEADER, GAIN_NOTE, asciiName, asiairCsv, asiairPanes, decText, docToCsv, docToMarkdown, docToText, gearSheet, raText, sheetTotal, storedSheet } from './share';
 import type { PlanSheet, ShareDoc, SheetRow, TargetFacts } from './share';
 
 const profile: Profile = parseProfile(JSON.stringify(sample));
@@ -19,7 +19,7 @@ function plan(targets: PlanTargetRef[], name = 'Camping trip'): Plan {
 }
 
 const row = (over: Partial<SheetRow> = {}): SheetRow => ({
-  order: 1, name: 'M42 Orion Nebula', type: 'Nebula', ra: raText(5.588), dec: decText(-5.391), start: '20:30', end: '22:10', preset: 'Balanced',
+  order: 1, state: 'scheduled', name: 'M42 Orion Nebula', type: 'Nebula', ra: raText(5.588), dec: decText(-5.391), start: '20:30', end: '22:10', preset: 'Balanced',
   subSeconds: 180, subCount: 40, lightMin: 120, filter: 'Dual narrowband', favorite: '', note: '', warning: '', ...over,
 });
 const sheet = (rows: SheetRow[], over: Partial<PlanSheet> = {}): PlanSheet => ({
@@ -112,7 +112,7 @@ describe('a plan as stored', () => {
     expect(s.rows.map((r) => r.name)).toEqual(['Orion Nebula', 'Andromeda "Galaxy", big', 'A target that is not in the bundled catalog']);
     expect(s.rows[0]).toMatchObject({ preset: 'Custom (from Deep Project)', subSeconds: 120, subCount: 30, lightMin: 60, start: '20:30', end: '22:00', note: 'check focus', favorite: 'Favorite saved: 120 s x 30' });
     expect(s.rows[1]).toMatchObject({ preset: 'Quick & Beautiful', subSeconds: null, lightMin: null });
-    expect(s.totalLightMin).toBe(60);
+    expect(s.totalLightMin).toBeNull();
   });
   it('says the numbers are not worked out for it', () => {
     expect(s.caveat).toMatch(/open this plan/);
@@ -132,14 +132,14 @@ describe('ASIAir CSV', () => {
     const lines = asiairCsv(targets, { widthArcmin: 120.4, heightArcmin: 80 }, false).trim().split('\r\n');
     expect(lines[0]).toBe(ASIAIR_HEADER);
     expect(lines).toHaveLength(5);
-    expect(lines[1]).toBe(`M42, 05hr 35' 17", -05º 23' 28", 0.00, 120.40, 80.00, 20%, 1, 1`);
-    expect(lines[2]).toBe(`Andromeda Galaxy big, 00hr 42' 43", +41º 16' 08", 0.00, 120.40, 80.00, 20%, 2, 1`);
+    expect(lines[1]).toBe(`Pane 1, 05hr 35' 17", -05º 23' 28", 0.00, 120.40, 80.00, 20%, 1, 1`);
+    expect(lines[2]).toBe(`Pane 2, 00hr 42' 43", +41º 16' 08", 0.00, 120.40, 80.00, 20%, 2, 1`);
   });
-  it('writes ASCII names, unique and with no comma or quote', () => {
+  it('numbers the panes as the real export does, and lists which object each pane is in ASCII, with no comma or quote', () => {
     const lines = asiairCsv(targets, null, false).trim().split('\r\n');
-    expect(lines[3].startsWith('Orion, ')).toBe(true);
-    expect(lines[4].startsWith('M42 2, ')).toBe(true);
+    expect(lines.slice(1).map((l) => l.split(',')[0])).toEqual(['Pane 1', 'Pane 2', 'Pane 3', 'Pane 4']);
     for (const l of lines.slice(1)) expect(l.split(',')).toHaveLength(9);
+    expect(asiairPanes(targets)).toEqual(['Pane 1: M42', 'Pane 2: Andromeda Galaxy big', 'Pane 3: Orion', 'Pane 4: M42']);
   });
   it('writes the degree sign as the letter d on request, and the file is then plain ASCII', () => {
     const csv = asiairCsv(targets, null, true);
@@ -149,5 +149,68 @@ describe('ASIAir CSV', () => {
   it('asciiName strips accents and the marks that break a CSV row', () => {
     expect(asciiName('Orión, "Nébula"')).toBe('Orion Nebula');
     expect(asciiName('日本')).toBe('');
+  });
+});
+
+describe('a stored plan never prints a custom value outside the limits as a number', () => {
+  const BAD: [string, unknown, unknown][] = [
+    ['999 s', 999, 50],
+    ['5000 subs', 60, 5000],
+    ['1e308 x 1e308', 1e308, 1e308],
+    ['negative', -5, -3],
+    ['zero', 0, 0],
+    ['text', 'abc', '12'],
+    ['a fraction of a sub', 60, 2.5],
+    ['Infinity as JSON null', null, null],
+  ];
+  const sheetOf = (c: unknown, n: unknown) => {
+    // The store refuses a zero, a negative or a text, so the plan is built past it: the sheet must still judge whatever a plan holds.
+    const p: Plan = { ...plan([{ id: 'm42', preset: 'balanced' }, { id: 'm31', preset: 'quick' }], 'Out of limits') };
+    p.targets = [{ id: 'm42', preset: 'custom', base: 'deep', custom: { subSeconds: c as number, subCount: n as number } }, { id: 'm31', preset: 'quick' }];
+    return storedSheet(p, profile, (id) => FACTS[id] ?? null, dateText, () => '');
+  };
+  for (const [label, c, n] of BAD) {
+    it(`${label}: the row says the custom is not used, with no numbers, in text, Markdown, CSV and the sheet itself`, () => {
+      const s = sheetOf(c, n);
+      expect(s.rows[0]).toMatchObject({ preset: 'Custom values outside the limits (not used)', subSeconds: null, subCount: null, lightMin: null });
+      expect(s.rows[0].warning).toMatch(/outside the limits.*not used.*Deep Project preset is used instead/);
+      expect(s.totalLightMin).toBeNull();
+      const d = doc([s]);
+      for (const out of [docToText(d), docToMarkdown(d), docToCsv(d), JSON.stringify(s)]) {
+        expect(out).toContain('Custom values outside the limits (not used)');
+        expect(out).not.toMatch(/Infinity|NaN|e\+\d|\b999\b|\b5000\b|-\d+ min|= 0 min|Total light:/);
+      }
+    });
+  }
+  it('a custom inside the limits keeps its numbers, and no stored plan carries a total', () => {
+    const s = sheetOf(300, 500);
+    expect(s.rows[0]).toMatchObject({ subSeconds: 300, subCount: 500, lightMin: 2500 });
+    expect(docToText(doc([s]))).not.toMatch(/Total light/);
+  });
+});
+
+describe('the run sheet says what the timeline schedules', () => {
+  it('an unscheduled row says so in every format, with no numbers and no light in the total', () => {
+    const rows = [row(), row({ order: 2, state: 'unscheduled', name: 'M31', start: '', end: '', subSeconds: null, subCount: null, lightMin: null })];
+    const d = doc([sheet(rows, { totalLightMin: 120 })]);
+    expect(docToText(d)).toMatch(/2\. not scheduled tonight {2}M31/);
+    expect(docToText(d)).toContain('no subs, no light');
+    expect(docToText(d)).toContain('Total light: 120 min');
+    expect(docToMarkdown(d)).toMatch(/\| 2 \| not scheduled tonight \| M31 .*\| none \| {2}\|/);
+    expect(docToCsv(d)).toMatch(/M31,.*,Not scheduled tonight\./);
+  });
+  it('a clip row (the Moon, a planet) says its minutes without a sub count', () => {
+    const d = doc([sheet([row({ type: 'Solar system', name: 'Jupiter', subSeconds: null, subCount: null, lightMin: 25 })])]);
+    expect(docToText(d)).toContain('clips, not subs, about 25 min');
+  });
+});
+
+describe('gear with units and plain words', () => {
+  it('writes units after numbers and words for stored choices', () => {
+    const t = docToText(doc([], true));
+    expect(t).toMatch(/Pixel size [\d.]+ µm/);
+    expect(t).toMatch(/Sensor width \d+ px/);
+    expect(t).toMatch(/Latitude [\d.-]+°/);
+    expect(t).not.toMatch(/broadband-LP|alt-az\b|Pixel size [\d.]+;/);
   });
 });

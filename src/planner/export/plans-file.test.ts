@@ -1,4 +1,4 @@
-import { MAX_PLANS, MAX_PLAN_NAME, importPlans, startPlans, updatePlan, validatePlans } from '../state/plans';
+import { MAX_PLANS, MAX_PLAN_NAME, compareIncoming, importPlans, startPlans, updatePlan, validatePlans } from '../state/plans';
 import type { Plan, PlansState } from '../state/plans';
 import { MAX_ENTRIES_READ, MAX_PLANS_FILE_CHARS, PlansFileError, gearInEverything, plansFileText, readPlansFile } from './plans-file';
 import { sheetTotal } from './share';
@@ -139,7 +139,7 @@ describe('importPlans never overwrites', () => {
   const here = state(2);
   const mine = (p: Plan, over: Partial<Plan> = {}): Plan => ({ ...p, ...over });
   it('adds new ids after the existing plans and leaves the open plan and every existing plan alone', () => {
-    const r = importPlans(here, [mine(here.plans[0], { id: 'new', name: 'New' })], 'copy');
+    const r = importPlans(here, [mine(here.plans[0], { id: 'new', name: 'New', notes: 'a new one' })], 'copy');
     expect(r).toMatchObject({ added: 1, copies: 0, skipped: 0, leftOut: 0 });
     expect(r.state.plans.slice(0, 2)).toEqual(here.plans);
     expect(r.state.openId).toBe(here.openId);
@@ -156,9 +156,25 @@ describe('importPlans never overwrites', () => {
     expect(c.state.plans[1]).toEqual(here.plans[1]);
     expect(c.state.plans[2].name).toBe('Changed (imported)');
     expect(here.plans.some((p) => p.id === c.state.plans[2].id)).toBe(false);
-    expect(importPlans(here, [changed], 'skip')).toMatchObject({ added: 0, skipped: 1 });
-    const twice = importPlans(c.state, [changed], 'copy');
+    expect(importPlans(here, [changed], 'skip')).toMatchObject({ added: 0, skipped: 0, clashSkipped: 1 });
+    expect(importPlans(c.state, [changed], 'copy')).toMatchObject({ added: 0, skipped: 1 });
+    const twice = importPlans(c.state, [{ ...changed, notes: 'other again' }], 'copy');
     expect(twice.state.plans[3].name).toBe('Changed (imported) 2');
+  });
+  it('a plan whose content is already here is a repeat whatever its id and name, so the same file twice adds nothing', () => {
+    const renamed = mine(here.plans[1], { id: 'other-id', name: 'Another name' });
+    expect(importPlans(here, [renamed], 'copy')).toMatchObject({ added: 0, skipped: 1 });
+    const changed = mine(here.plans[1], { notes: 'changed' });
+    const once = importPlans(here, [changed], 'copy');
+    expect(once).toMatchObject({ added: 1, copies: 1 });
+    const again = importPlans(once.state, [changed], 'copy');
+    expect(again).toMatchObject({ added: 0, skipped: 1 });
+    expect(again.state.plans).toHaveLength(once.state.plans.length);
+    expect(importPlans(once.state, [changed], 'skip')).toMatchObject({ added: 0, skipped: 1, clashSkipped: 0 });
+  });
+  it('compareIncoming counts repeats, id clashes and new plans apart', () => {
+    const incoming = [mine(here.plans[0], { id: 'x', name: 'x' }), mine(here.plans[1], { notes: 'changed' }), mine(here.plans[1], { id: 'new', notes: 'brand new' })];
+    expect(compareIncoming(here, incoming)).toEqual({ same: 1, clash: 1, fresh: 1 });
   });
   it('a long name stays within the name limit when "(imported)" is added', () => {
     const long = mine(here.plans[1], { name: 'n'.repeat(MAX_PLAN_NAME), notes: 'z' });
@@ -168,7 +184,7 @@ describe('importPlans never overwrites', () => {
   });
   it('stops at the plan limit and counts what it left out', () => {
     const full = state(MAX_PLANS - 1);
-    const r = importPlans(full, [raw({}, 1), raw({}, 2), raw({}, 3)].map((p) => p as Plan), 'copy');
+    const r = importPlans(full, [raw({ notes: 'a' }, 1), raw({ notes: 'b' }, 2), raw({ notes: 'c' }, 3)].map((p) => p as Plan), 'copy');
     expect(r.state.plans).toHaveLength(MAX_PLANS);
     expect(r).toMatchObject({ added: 1, leftOut: 2 });
     expect(() => validatePlans(r.state)).not.toThrow();

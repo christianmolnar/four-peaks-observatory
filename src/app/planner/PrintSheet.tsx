@@ -1,11 +1,27 @@
-import { GAIN_NOTE } from '@/planner/export';
-import type { PlanSheet, ShareDoc } from '@/planner/export';
+import { GAIN_NOTE, NOT_SCHEDULED } from '@/planner/export';
+import type { PlanSheet, SheetRow, ShareDoc } from '@/planner/export';
 
 export interface PrintSheetProps {
   doc: ShareDoc;
 }
 
-const timeText = (r: { start: string; end: string }): string => (r.start === '' ? 'no time' : r.end === '' ? r.start : `${r.start}–${r.end}`);
+const timeText = (r: SheetRow): string => (r.state === 'unscheduled' ? NOT_SCHEDULED : r.start === '' ? 'no time' : r.end === '' ? r.start : `${r.start}–${r.end}`);
+
+/** What the Subs cell says: the timeline's subs and light, or why there are none. */
+function Subs({ r }: { r: SheetRow }) {
+  if (r.subSeconds !== null && r.subCount !== null) {
+    return (
+      <>
+        <strong className="run-sheet-nowrap">{r.subCount} &times; {r.subSeconds} s</strong>
+        <br />
+        {r.lightMin} min
+      </>
+    );
+  }
+  if (r.state === 'unscheduled') return <>none</>;
+  const light = r.lightMin !== null && r.lightMin > 0 ? <><br />about {r.lightMin} min</> : null;
+  return r.type === 'Solar system' ? <>clips, not subs{light}</> : <>not worked out{light}</>;
+}
 
 function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
   return (
@@ -29,12 +45,12 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
           <caption className="sr-only">Run sheet for {p.name}, in order</caption>
           <colgroup>
             <col style={{ width: '5%' }} />
-            <col style={{ width: '14%' }} />
-            <col style={{ width: '24%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '20%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '23%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '18%' }} />
           </colgroup>
           <thead>
             <tr>
@@ -51,7 +67,7 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
             {p.rows.map((r) => (
               <tr key={r.order}>
                 <td>{r.order}</td>
-                <td className="run-sheet-time">{timeText(r)}</td>
+                <td>{r.state === 'unscheduled' || r.start === '' ? timeText(r) : <span className="run-sheet-nowrap">{timeText(r)}</span>}</td>
                 <th scope="row" className="font-normal">
                   <strong>{r.name}</strong>
                   {r.type !== '' && <> ({r.type})</>}
@@ -65,15 +81,7 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
                   )}
                 </th>
                 <td>
-                  {r.subSeconds === null || r.subCount === null ? (
-                    r.type === 'Solar system' ? 'clips, not subs' : 'not worked out'
-                  ) : (
-                    <>
-                      <strong>{r.subCount} &times; {r.subSeconds} s</strong>
-                      <br />
-                      {r.lightMin} min
-                    </>
-                  )}
+                  <Subs r={r} />
                 </td>
                 <td className="run-sheet-gain" />
                 <td>{r.filter}</td>
@@ -104,7 +112,7 @@ export default function PrintSheet({ doc }: PrintSheetProps) {
   body { background: #fff !important; }
   .planner-print-sheet { width: 100%; overflow-wrap: break-word; }
   .planner-print-sheet table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  .planner-print-sheet .run-sheet-time { white-space: nowrap; }
+  .planner-print-sheet .run-sheet-nowrap { white-space: nowrap; }
   .planner-print-sheet tr { break-inside: avoid; }
   .planner-print-sheet th, .planner-print-sheet td { border: 1px solid #555; padding: 3pt 4pt; text-align: left; vertical-align: top; }
   .planner-print-sheet .run-sheet-gain { min-width: 14mm; }

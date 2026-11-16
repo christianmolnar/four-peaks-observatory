@@ -19,7 +19,7 @@ export type ImportPanel =
   | { kind: 'none' }
   | { kind: 'error'; text: string }
   | { kind: 'done'; text: string }
-  | { kind: 'ask'; file: string; names: string[]; total: number; repeats: number; notices: string[]; hasGear: boolean };
+  | { kind: 'ask'; file: string; names: string[]; total: number; same: number; clash: number; notices: string[]; hasGear: boolean };
 
 export interface ShareSheetProps {
   planName: string;
@@ -35,6 +35,8 @@ export interface ShareSheetProps {
   asiair: {
     /** Objects that go in the file, and what is left out (solar-system bodies, targets without a position) in words, or ''. */
     count: number;
+    /** Which object each pane of the file is ("Pane 1: M42"): the file has no column for a name. */
+    panes: string[];
     left: string;
     /** Why the pane size is not the train's own field, or null. */
     fovNote: string | null;
@@ -184,8 +186,15 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
         <section aria-labelledby="share-asiair" className="mb-4 border-t border-white/10 pt-3">
           <h3 id="share-asiair" className="mb-1 text-base font-normal text-white">Export for ASIAir (CSV)</h3>
           <p className="mb-2 text-sm font-normal text-white/80" data-testid="asiair-note">
-            Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, as name and RA and Dec. Exposure, gain, filter and times do not import into the ASIAir; read those from the run sheet.{asiair.left === '' ? '' : ` ${asiair.left}`}
+            Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, one pane each (Pane 1, Pane 2 and so on) with its RA and Dec. The file has no column for a name, so the panes are listed below in the order of the plan. Exposure, gain, filter and times do not import into the ASIAir; read those from the run sheet.{asiair.left === '' ? '' : ` ${asiair.left}`}
           </p>
+          {asiair.panes.length > 0 && (
+            <ul className="mb-2 list-none break-words text-sm font-normal text-white/90" data-testid="asiair-panes">
+              {asiair.panes.map((p) => (
+                <li key={p} className="break-words [overflow-wrap:anywhere]">{p}</li>
+              ))}
+            </ul>
+          )}
           {asiair.fovNote !== null && <p className="mb-2 break-words text-sm font-normal text-orange-100">{asiair.fovNote}</p>}
           <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-white/90">
             <input type="checkbox" checked={letter} onChange={(e) => setLetter(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-sky-400" />
@@ -196,13 +205,13 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => void copy(asi.text, 'the ASIAir CSV')}>Copy text</button>
           </div>
           <p className="mt-2 text-xs font-normal text-white/70">
-            Not yet tested on a real ASIAir. One test: in the ASIAir app open Plan, Add, Import, load the downloaded file (download works better than paste), and check that each target arrives with the right RA and Dec. If it refuses the file, tick the box above and try again.
+            Not yet tested on a real ASIAir. The format is copied from a real Telescopius export, and the ASIAir may not take unrelated targets as panes. The one test to run: in the ASIAir app open Plan, Add, Import, load the downloaded file (download works better than paste), and check that each pane arrives at the right RA and Dec. If it refuses the file, tick the box above and try again.
           </p>
         </section>
 
         <section aria-labelledby="share-import" className="mb-4 border-t border-white/10 pt-3">
           <h3 id="share-import" className="mb-1 text-base font-normal text-white">Import plans</h3>
-          <p className="mb-2 text-sm font-normal text-white/80">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped or added as a copy.</p>
+          <p className="mb-2 text-sm font-normal text-white/80">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped, and a plan that has the id of a different plan here is skipped or added as a copy.</p>
           <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-white/90">Plans file (JSON)</label>
           <input
             id="plans-import"
@@ -220,16 +229,17 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
             <div role="group" aria-label="Import choice" className="mt-2 rounded border border-white/30 p-3" data-testid="import-ask">
               <p className="break-words text-sm font-normal text-white">
                 {importPanel.file} holds {importPanel.total} {importPanel.total === 1 ? 'plan' : 'plans'}: {importPanel.names.join(', ')}.
-                {importPanel.repeats > 0 ? ` ${importPanel.repeats} of ${importPanel.repeats === 1 ? 'it is' : 'them are'} already here.` : ''}
+                {importPanel.same > 0 ? (importPanel.same === importPanel.total ? ` ${importPanel.total === 1 ? 'It is' : 'All of them are'} already here and will be skipped.` : ` ${importPanel.same} of ${importPanel.total} ${importPanel.same === 1 ? 'is' : 'are'} already here and will be skipped.`) : ''}
+                {importPanel.clash > 0 ? ` ${importPanel.clash === 1 ? 'One has' : `${importPanel.clash} have`} the same id as a different plan here.` : ''}
               </p>
               {importPanel.notices.map((n) => (
                 <p key={n} className="mt-1 break-words text-sm font-normal text-orange-100">{n}</p>
               ))}
               {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-white/80">The file also holds gear. Import it under Gear and site, Import profile.</p>}
               <div className="mt-2 flex flex-wrap gap-2">
-                {importPanel.repeats > 0 ? (
+                {importPanel.clash > 0 ? (
                   <>
-                    <button type="button" className={btn} onClick={() => onImport('copy')}>Import, repeats as copies</button>
+                    <button type="button" className={btn} onClick={() => onImport('copy')}>Import, same-id plans as copies</button>
                     <button type="button" className={btn} onClick={() => onImport('skip')}>Import new plans only</button>
                   </>
                 ) : (
