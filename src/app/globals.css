@@ -510,11 +510,11 @@ html[data-theme="red"] .p-chip-plain {
   background-color: #1f0404;
   box-shadow: inset 0 0 0 1px #a01010;
 }
-/* Chip fills: the selected mode chip is #240505 (5.1:1 for red text) and the gear chips #1f0404 (5.18:1); the alpha fills of Day would mix to 4.74 and 5.03. */
+/* Chip fills: the selected mode chip is #240505 (5.1:1 for red text) and the gear chips, the pressed class tabs and the /15 warning boxes #1f0404 (5.18:1); the alpha fills of Day would mix to 4.74 and 5.03. */
 html[data-theme="red"] :is(.planner-root,.planner-ground) .bg-p-info-fill\/20 {
   background-color: #240505;
 }
-html[data-theme="red"] :is(.planner-root,.planner-ground) :is([class*="bg-p-chip-"][class*="-fill/15"]) {
+html[data-theme="red"] :is(.planner-root,.planner-ground) :is([class*="bg-p-chip-"][class*="-fill/15"], .bg-p-warn-fill\/15, .bg-p-raised\/15) {
   background-color: #1f0404;
 }
 /* Overflow menu items: the tint alone is 1.08:1, so the focused item gets the same outline as every other control (inset, so the menu does not clip it). */

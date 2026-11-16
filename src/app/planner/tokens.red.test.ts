@@ -85,7 +85,7 @@ describe('red night theme tokens', () => {
 
   it('chip fills in red: selected mode chip and gear chips carry red text at the design ratios', () => {
     expect(css).toMatch(/\.bg-p-info-fill\\\/20 \{\s*background-color: #240505;/);
-    expect(css).toMatch(/\[class\*="bg-p-chip-"\]\[class\*="-fill\/15"\]\) \{\s*background-color: #1f0404;/);
+    expect(css).toMatch(/\[class\*="bg-p-chip-"\]\[class\*="-fill\/15"\], \.bg-p-warn-fill\\\/15, \.bg-p-raised\\\/15\) \{\s*background-color: #1f0404;/);
     expect(ratio('#ff2828', '#240505')).toBeGreaterThanOrEqual(4.98);
     expect(ratio('#ff2828', '#1f0404')).toBeGreaterThanOrEqual(5.15);
   });
