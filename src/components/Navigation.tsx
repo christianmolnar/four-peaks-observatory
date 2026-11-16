@@ -5,7 +5,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { globalConfig } from '@/config/global';
 
-export default function Navigation() {
+/**
+ * `slim`: the 48 px header of the imaging planner (small logo, a slot for the page's own controls, the menu at every width).
+ * The slot is `#planner-nav-actions`; the planner puts its Night mode toggle and Sign in there. Every other page keeps the full header.
+ */
+export default function Navigation({ slim = false }: { slim?: boolean }) {
   const { navigation } = globalConfig;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -43,28 +47,30 @@ export default function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-sm">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Logo Section */}
-        <div className="flex items-center justify-between md:justify-center py-0">
-          <Link href="/" className="hover:opacity-80 transition-opacity">
+        <div className={slim ? 'flex h-12 items-center gap-2' : 'flex items-center justify-between md:justify-center py-0'}>
+          <Link href="/" className={`${slim ? 'shrink-0 ' : ''}hover:opacity-80 transition-opacity`}>
             {/* Observatory Logo */}
             <div
               className="flex items-center justify-center"
-              style={{ maxWidth: '484px', width: '100%' }}
+              style={slim ? undefined : { maxWidth: '484px', width: '100%' }}
             >
               <Image
                 src={navigation.logo.src}
                 alt={navigation.logo.alt}
                 width={navigation.logo.width}
                 height={navigation.logo.height}
-                className="object-contain w-full h-auto"
+                className={slim ? 'h-7 w-auto object-contain' : 'object-contain w-full h-auto'}
                 priority
               />
             </div>
           </Link>
 
-          {/* Hamburger Menu Button - Mobile Only */}
+          {slim && <div id="planner-nav-actions" className="planner-ground ml-auto flex min-w-0 items-center justify-end gap-2" />}
+
+          {/* Hamburger Menu Button - Mobile Only (every width in the slim header) */}
           <button
             onClick={toggleMobileMenu}
-            className="md:hidden flex flex-col items-center justify-center w-10 h-10 space-y-1.5 hover:opacity-80 transition-opacity"
+            className={`${slim ? 'shrink-0 ' : 'md:hidden '}flex flex-col items-center justify-center w-10 h-10 space-y-1.5 hover:opacity-80 transition-opacity`}
             aria-label="Toggle mobile menu"
             aria-expanded={isMobileMenuOpen}
           >
@@ -87,12 +93,12 @@ export default function Navigation() {
         </div>
 
         {/* Centered Dividing Line - Desktop Only */}
-        <div className="hidden md:flex justify-center pb-1">
+        <div className={`${slim ? 'hidden' : 'hidden md:flex'} justify-center pb-1`}>
           <div className="w-full max-w-[800px] h-px bg-white"></div>
         </div>
 
         {/* Desktop Navigation Links */}
-        <div className="hidden md:block pb-2">
+        <div className={`${slim ? 'hidden' : 'hidden md:block'} pb-2`}>
           <ul className="flex items-center justify-center space-x-4 lg:space-x-8">
             {navigation.items.map((item) => (
               <li key={item.href}>
@@ -111,8 +117,8 @@ export default function Navigation() {
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 z-40 md:hidden"
-          style={{ top: '80px' }} // Start below the navigation bar
+          className={`fixed inset-0 z-40 ${slim ? '' : 'md:hidden'}`}
+          style={{ top: slim ? '48px' : '80px' }} // Start below the navigation bar
         >
           {/* Backdrop */}
           <div 

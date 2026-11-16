@@ -27,3 +27,9 @@ describe('planner page sign-in', () => {
     expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).not.toContain('AuthControl');
   });
 });
+
+describe('planner page header', () => {
+  it('uses the slim 48 px site header (this page only)', () => {
+    expect(readFileSync(join(__dirname, 'page.tsx'), 'utf8')).toContain('<SiteLayout slim>');
+  });
+});

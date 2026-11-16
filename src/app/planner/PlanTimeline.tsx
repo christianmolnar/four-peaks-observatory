@@ -57,6 +57,8 @@ export interface PlanTimelineProps {
   timeZone?: string;
   /** The page's print sheet reads the current timeline from here; written on every change, so it never causes a render. */
   report?: MutableRefObject<PlanTimelineReport | null>;
+  /** Told the plan each time it is built (null when there is none): the plan rail shows the timeline's own numbers. */
+  onPlan?: (plan: ItineraryPlan | null) => void;
 }
 
 /** What the print sheet and the exports need of the timeline. */
@@ -130,7 +132,7 @@ function Detail({
  * AI plan); this shows the times and takes the two edits that live here (a note, the start time) back to it. Subs and counts come from
  * the exposure module; every time and number here is an estimate.
  */
-export default function PlanTimeline({ profile, items, startTime, presetUsed, rowNumbers, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report }: PlanTimelineProps) {
+export default function PlanTimeline({ profile, items, startTime, presetUsed, rowNumbers, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report, onPlan }: PlanTimelineProps) {
   // What is being typed in the start box; null: show the plan's start time.
   const [startDraft, setStartDraft] = useState<string | null>(null);
   // The start box complains when it is left or Enter is pressed, or when the text can no longer become a time; not on a half-typed "2".
@@ -180,7 +182,8 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
   const plan = useMemo(() => (buildInput ? buildItinerary(buildInput) : null), [buildInput]);
   useEffect(() => {
     if (report) report.current = plan ? { plan } : null;
-  }, [report, plan]);
+    onPlan?.(plan);
+  }, [report, plan, onPlan]);
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
 
   if (night.kind !== 'normal' || plan === null) {

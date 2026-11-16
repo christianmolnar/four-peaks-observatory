@@ -17,7 +17,7 @@ export const viewport: Viewport = { themeColor: '#000000' };
 
 export default function PlannerPage() {
   return (
-    <SiteLayout>
+    <SiteLayout slim>
       <div className="planner-ground min-h-screen bg-p-bg print:bg-white">
         <main className="relative z-10 pt-8 pb-16 print:pt-0 print:pb-0">
           <div className="max-w-6xl mx-auto px-6">

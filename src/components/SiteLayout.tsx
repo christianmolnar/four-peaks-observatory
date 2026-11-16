@@ -8,9 +8,11 @@ import { globalConfig } from '@/config/global';
 
 interface SiteLayoutProps {
   children: React.ReactNode;
+  /** The imaging planner's slim 48 px header; every other page keeps the full one. */
+  slim?: boolean;
 }
 
-export default function SiteLayout({ children }: SiteLayoutProps) {
+export default function SiteLayout({ children, slim = false }: SiteLayoutProps) {
   const pathname = usePathname();
   
   // DESIGN-PROTECTED: SubNavigation visibility logic
@@ -70,9 +72,9 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
 
   return (
     <>
-      <Navigation />
-      {shouldShowSubNav && <SubNavigation items={subNavItems} />}
-      <div className={shouldShowSubNav ? 'pt-[160px]' : 'pt-[148px]'}>
+      <Navigation slim={slim} />
+      {!slim && shouldShowSubNav && <SubNavigation items={subNavItems} />}
+      <div className={slim ? 'pt-12' : shouldShowSubNav ? 'pt-[160px]' : 'pt-[148px]'}>
         {children}
       </div>
     </>

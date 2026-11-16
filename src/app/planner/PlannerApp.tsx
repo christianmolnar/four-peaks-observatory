@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
 import { apparentDiameterArcsec } from '@/planner/planets';
 import type { CardBody } from '@/planner/planets';
@@ -102,7 +102,7 @@ import { FORMATS } from './ShareSheet';
 import { download } from './download';
 import type { PlanTimelineReport } from './PlanTimeline';
 import { ITINERARY_KEY, MAX_SLOTS, lightMinutes } from '@/planner/itinerary';
-import type { ItineraryItem } from '@/planner/itinerary';
+import type { ItineraryItem, ItineraryPlan } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor, { HeldGearError } from './ProfileEditor';
 import { missingOf } from '@/planner/state/gear';
@@ -110,6 +110,7 @@ import type { PlanRef } from '@/planner/state/gear';
 import { problemText, reducedFocalNote, siteProblems, usableSites } from '@/planner/profile';
 import ResetAll from './ResetAll';
 import OpenPlan from './OpenPlan';
+import PlanRail, { RAIL_MIN_WIDTH, useMinWidth } from './PlanRail';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
@@ -339,6 +340,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [controlsOpen, setControlsOpen] = useState(false);
   const stripRef = useRef<HTMLElement>(null);
   const [stickyTop, setStickyTop] = useState({ nav: 0, strip: 0 });
+  // The plan rail (from 1024 px): the timeline's own plan, handed up each time it is built, so the rail's Light and time windows are the timeline's numbers, not a second calculation.
+  const railWide = useMinWidth(RAIL_MIN_WIDTH);
+  const [timelinePlan, setTimelinePlan] = useState<ItineraryPlan | null>(null);
+  const [timelineTick, setTimelineTick] = useState(0);
+  // The site header's slot for the Night mode toggle and Sign in (the slim header on this page); undefined until looked for, null when the page has none (the header row below keeps them).
+  const [navSlot, setNavSlot] = useState<HTMLElement | null | undefined>(undefined);
+  useLayoutEffect(() => setNavSlot(document.getElementById('planner-nav-actions')), []);
   // "Change or find a site": a count that the site editor answers by opening its Site list with the Find box focused.
   const [findSiteTick, setFindSiteTick] = useState(0);
   const [openTrainTick, setOpenTrainTick] = useState(0);
@@ -1803,11 +1811,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       ? 'Horizon not set: only the flat minimum altitude applies.'
       : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.${describeOverlaps(savedArcs) && ` ${describeOverlaps(savedArcs)}`}`;
   const midMoon = night?.kind === 'normal' ? moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) : null;
+  const nightHours = night?.kind === 'normal' ? (((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1) : null;
   const nightText =
     night === undefined
       ? 'Loading the date…'
       : night.kind === 'normal'
-        ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${(((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1)} h), Moon ${((midMoon ?? 0) * 100).toFixed(0)}% lit at mid-night. `
+        ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${nightHours} h), Moon ${((midMoon ?? 0) * 100).toFixed(0)}% lit at mid-night. `
         : night.kind === 'none'
           ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
           : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
@@ -1942,6 +1951,40 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     onToggle: (id: string) => setOpenId(openId === id ? '' : id),
     renderDetail,
   };
+  const headerActions = (
+    <>
+      <ThemeToggle />
+      <AuthControl state={auth} />
+    </>
+  );
+  // The plan rail's numbers: the timeline's plan while the timeline can be built, else none.
+  const railPlan = stableNight && astroSite && catalog.status !== 'loading' ? timelinePlan : null;
+  const railSlots = new Map(railPlan?.slots.map((x) => [x.id, x] as const) ?? []);
+  const railRows = planRows.map((r) => {
+    const slot = railSlots.get(r.id);
+    return { id: r.id, name: r.name, mode: r.preset, window: slot !== undefined && slot.end.getTime() > slot.start.getTime() ? `${formatTime(slot.start)} to ${formatTime(slot.end)}` : null };
+  });
+  const railWarnings = railPlan?.slots.reduce((n, x) => n + x.warnings.filter((w) => w.severity === 'warning').length, 0) ?? 0;
+  const goToRow = (id: string) => {
+    const el = document.getElementById(`plan-row-${id}`);
+    if (el === null) return;
+    el.scrollIntoView({ block: 'start' });
+    el.focus({ preventScroll: true });
+  };
+  const goToWarnings = () => {
+    flushSync(() => setTimelineTick((t) => t + 1));
+    const part = document.getElementById('night-timeline');
+    part?.scrollIntoView({ block: 'start' });
+    part?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+  };
+  const openAi = () => setAiOpen(true);
+  const openShare = () => {
+    setShareWhat('plan');
+    setSharedAt(new Date().toISOString());
+    setImportPanel({ kind: 'none' });
+    setShareOpen(true);
+  };
+  const showRail = railWide && tab === 'plan';
   return (
     <>
     <div
@@ -1950,11 +1993,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     >
       <header className="flex items-center justify-between gap-x-4">
         <h1 className="shrink-0 text-xl font-light tracking-[0.15em] text-p-t1 sm:text-3xl sm:tracking-[0.2em] md:text-4xl">IMAGING PLANNER</h1>
-        <div className="flex min-w-0 items-center justify-end gap-2 print:hidden">
-          <ThemeToggle />
-          <AuthControl state={auth} />
-        </div>
+        {navSlot === null && <div className="flex min-w-0 items-center justify-end gap-2 print:hidden">{headerActions}</div>}
       </header>
+      {navSlot && createPortal(headerActions, navSlot)}
 
       <p aria-live="polite" className="sr-only">{added?.say ?? ''}</p>
 
@@ -2123,7 +2164,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </div>
         </div>
       </section>
-      <div id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" hidden={tab !== 'plan'} className="space-y-8">
+      <div id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" hidden={tab !== 'plan'} className={showRail ? 'grid grid-cols-[minmax(0,1fr)_280px] gap-x-6' : 'space-y-8'}>
+      <div className="min-w-0 space-y-8">
       <PlansBar
         plans={plans?.plans.map((p) => ({ id: p.id, name: p.name, targets: p.targets.length })) ?? []}
         openId={plans?.openId ?? ''}
@@ -2273,7 +2315,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             className={`${btn} min-h-11`}
             aria-haspopup="dialog"
             aria-expanded={aiOpen}
-            onClick={() => setAiOpen(true)}
+            onClick={openAi}
           >
             Plan my night with AI
           </button>
@@ -2285,12 +2327,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             items={[
               {
                 label: 'Share and export…',
-                onSelect: () => {
-                  setShareWhat('plan');
-                  setSharedAt(new Date().toISOString());
-                  setImportPanel({ kind: 'none' });
-                  setShareOpen(true);
-                },
+                onSelect: openShare,
               },
               { label: 'Export CSV', onSelect: exportCsv, disabled: ranked === null || filtered.length === 0 },
               { label: 'Print or save as PDF', onSelect: () => window.print() },
@@ -2312,7 +2349,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </p>
           </div>
         </Collapsible>
-        <Collapsible id="night-timeline" title="Night timeline">
+        <Collapsible id="night-timeline" title="Night timeline" openTick={timelineTick}>
           {stableNight && astroSite && catalog.status !== 'loading' ? (
             <PlanTimeline
               profile={profile}
@@ -2332,6 +2369,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               nightWord={nightWord}
               timeZone={siteZone || zone || undefined}
               report={itineraryReport}
+              onPlan={setTimelinePlan}
             />
           ) : (
             <p className="text-p-t1/90 font-normal text-sm">The timeline appears once the date and the catalog have loaded.</p>
@@ -2386,6 +2424,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             setShareWhat('plan');
             window.setTimeout(() => document.getElementById('plan-more')?.focus(), 0);
           }}
+        />
+      )}
+      </div>
+      {showRail && (
+        <PlanRail
+          name={open?.name ?? ''}
+          rows={railRows}
+          lightMin={railPlan !== null && railPlan.slots.length > 0 ? lightMinutes(railPlan) : null}
+          nightHours={nightHours}
+          warnings={railWarnings}
+          onGoToRow={goToRow}
+          onGoToWarnings={goToWarnings}
+          onPlanWithAi={openAi}
+          onShare={openShare}
         />
       )}
       </div>

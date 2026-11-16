@@ -3,7 +3,7 @@ import { useLayoutEffect, useState } from 'react';
 import { THEME_KEY } from './themeScript';
 
 const btn =
-  'inline-flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] rounded border border-p-line/30 text-p-t1/90 text-sm font-normal hover:bg-p-raised/10 px-0 sm:px-4';
+  'inline-flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] rounded border border-p-line/30 text-p-t1/90 text-sm font-normal hover:bg-p-raised/10 px-0 min-[390px]:px-3 sm:px-4';
 
 const setTheme = (red: boolean) => {
   if (red) document.documentElement.setAttribute('data-theme', 'red');
@@ -49,7 +49,9 @@ export default function ThemeToggle() {
         <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
           <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
         </svg>
-        <span className="sr-only sm:not-sr-only whitespace-nowrap">Night mode (red)</span>
+        {/* The words show when the slim header has room (from 390 px "Night mode", from 640 px with "(red)"); below that the moon stands alone and the name is read aloud. */}
+        <span className="sr-only min-[390px]:not-sr-only whitespace-nowrap">Night mode</span>
+        <span className="sr-only sm:not-sr-only whitespace-nowrap">{' (red)'}</span>
       </button>
       <svg aria-hidden="true" focusable="false" width="0" height="0" className="absolute" data-testid="theme-hatches">
         <defs>
