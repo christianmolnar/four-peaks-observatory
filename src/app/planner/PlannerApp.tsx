@@ -1540,7 +1540,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   const favoriteText = (id: string): string => {
     const fav = favoriteOf(favs.state, id);
-    return fav === null ? '' : `Favorite saved: ${fav.subCount} x ${fav.subSeconds} s (${fav.trainName === '' ? 'no setup named' : fav.trainName}, ${fav.filterName})`;
+    return fav === null ? '' : `Favorite saved: ${fav.subCount} x ${fav.subSeconds} s (${fav.trainName === '' ? 'no train named' : fav.trainName}, ${fav.filterName})`;
   };
   /**
    * The open plan's sheet. Times, sub length, sub count and light of a row are the timeline's own slot (so a sheet, a file and the night timeline agree);
