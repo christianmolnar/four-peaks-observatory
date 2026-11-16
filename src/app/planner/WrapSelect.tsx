@@ -15,10 +15,10 @@ export default function WrapSelect({ className = '', children, ...rest }: Select
     if (t !== text) setText(t);
   }, [rest.value, children, text]);
   return (
-    <div className={`relative focus-within:ring-2 focus-within:ring-sky-400 rounded ${className}`}>
-      <div className={`flex min-h-11 items-center gap-2 rounded border border-white/30 bg-black/60 px-2 py-1 text-sm font-normal ${rest.disabled ? 'text-white/70' : 'text-white'}`} aria-hidden="true">
+    <div className={`relative focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-p-focus rounded ${className}`}>
+      <div className={`flex min-h-11 items-center gap-2 rounded border border-p-line/30 bg-p-bg/60 px-2 py-1 text-sm font-normal ${rest.disabled ? 'text-p-t1/70' : 'text-p-t1'}`} aria-hidden="true">
         <span className="min-w-0 flex-1 break-words">{text || ' '}</span>
-        <span className="shrink-0 text-white/70">▾</span>
+        <span className="shrink-0 text-p-t1/70">▾</span>
       </div>
       <select ref={ref} {...rest} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default">
         {children}

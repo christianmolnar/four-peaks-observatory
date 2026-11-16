@@ -52,7 +52,7 @@ export interface OpenPlanProps {
 }
 
 const btn =
-  'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
+  'min-h-11 min-w-11 px-3 py-1.5 rounded border border-p-line/30 text-p-t1 font-normal text-sm hover:bg-p-raised/10 disabled:opacity-40';
 
 /**
  * The open plan: its targets in the plan's order (the user's picks; the AI plan orders them), each with what it does on the night and its
@@ -71,9 +71,9 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
   }, [rows]);
 
   return (
-    <section aria-labelledby="open-plan-heading" className="bg-black/70 rounded-lg border border-white/10 px-4 py-2 sm:px-6">
+    <section aria-labelledby="open-plan-heading" className="bg-p-bg/70 rounded-lg border border-p-line/10 px-4 py-2 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4">
-        <h2 ref={headingRef} tabIndex={-1} id="open-plan-heading" className="min-h-11 min-w-0 max-w-full break-words py-2 text-xl font-light text-white tracking-[0.15em] focus:outline-none">
+        <h2 ref={headingRef} tabIndex={-1} id="open-plan-heading" className="min-h-11 min-w-0 max-w-full break-words py-2 text-xl font-light text-p-t1 tracking-[0.15em] focus:outline-none">
           PLAN: {name} ({rows.length} {rows.length === 1 ? 'target' : 'targets'})
         </h2>
         <div className="flex flex-wrap items-center gap-x-2">
@@ -82,7 +82,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
         </div>
       </div>
       {pastDate !== null && (
-        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-past">
+        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1/90 font-normal text-sm" data-testid="plan-past">
           <span>This plan is for {pastDate}, which has passed.</span>
           <button
             type="button"
@@ -97,31 +97,31 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
         </p>
       )}
       {staleNotes.map((n) => (
-        <p key={n.key} role="status" className="mb-3 flex flex-wrap items-center gap-x-3 text-orange-100 font-normal text-sm" data-testid={`plan-stale-${n.key}`}>
+        <p key={n.key} role="status" className="mb-3 flex flex-wrap items-center gap-x-3 text-p-warn-text font-normal text-sm" data-testid={`plan-stale-${n.key}`}>
           <span className="min-w-0 break-words">{n.text}</span>
           <button type="button" className={`${btn} max-w-full min-w-0 break-words text-left`} onClick={n.onKeep}>{n.keepLabel}</button>
           {n.key === 'train' && <button type="button" className={btn} onClick={onChangeTrain}>Change setup</button>}
         </p>
       ))}
       {trainNote !== null && (
-        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-train-note">
+        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1/90 font-normal text-sm" data-testid="plan-train-note">
           <span className="min-w-0 max-w-full break-words">{trainNote}</span>
           <button type="button" className={btn} onClick={onChangeTrain}>Change setup</button>
         </p>
       )}
       {rows.length === 0 ? (
-        <div data-testid="plan-empty" className="flex flex-wrap items-center gap-x-4 pb-3 text-sm text-white/90">
+        <div data-testid="plan-empty" className="flex flex-wrap items-center gap-x-4 pb-3 text-sm text-p-t1/90">
           <p className="min-w-0">No targets yet. Search below or tap Add on a suggestion.</p>
           {emptyAction}
         </div>
       ) : (
         <ol className="space-y-2 pb-3" aria-label="Targets in this plan, in order">
           {rows.map((r, i) => (
-            <li key={r.id} className="rounded border border-white/15 p-3 text-sm font-normal text-white/90">
+            <li key={r.id} className="rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
               <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1 basis-40 break-words">
-                <p className="text-white"><span className="text-white/70">{i + 1}.</span> {r.name}</p>
-                {r.detail !== '' && <p className="text-white/70">{r.detail}</p>}
+                <p className="text-p-t1"><span className="text-p-t1/70">{i + 1}.</span> {r.name}</p>
+                {r.detail !== '' && <p className="text-p-t1/70">{r.detail}</p>}
                 <p className="mt-1" data-testid={`plan-row-status-${r.id}`}>
                   {r.up}
                   {r.score !== null && <> · Score {r.score}</>}
@@ -151,16 +151,16 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
           ))}
         </ol>
       )}
-      <div id="find-a-target" role="region" aria-label="Find a target" className="border-t border-white/10">
-        <h3 className="text-base font-normal text-white">
+      <div id="find-a-target" role="region" aria-label="Find a target" className="border-t border-p-line/10">
+        <h3 className="text-base font-normal text-p-t1">
           <button
             type="button"
             aria-expanded={find.open}
             aria-controls="find-a-target-body"
             onClick={find.onToggle}
-            className="flex min-h-11 w-full flex-wrap items-center gap-x-2 rounded text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
+            className="flex min-h-11 w-full flex-wrap items-center gap-x-2 rounded text-left"
           >
-            <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{find.open ? '▾' : '▸'}</span>
+            <span aria-hidden="true" className="w-4 shrink-0 text-p-t1/70">{find.open ? '▾' : '▸'}</span>
             <span>Find a target{find.count !== null && <span data-testid="find-count"> ({find.count})</span>}</span>
           </button>
         </h3>

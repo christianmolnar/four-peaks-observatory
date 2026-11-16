@@ -118,7 +118,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
         }}
       >
         <div className="min-w-0 flex-1 basis-56">
-          <label htmlFor={inputId} className="block text-white/90 font-normal text-sm mb-1">Search the catalog by name or number</label>
+          <label htmlFor={inputId} className="block text-p-t1/90 font-normal text-sm mb-1">Search the catalog by name or number</label>
           <input
             id={inputId}
             type="search"
@@ -128,36 +128,36 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
             placeholder="M31, NGC 7000, Orion, Veil"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="min-h-11 w-full bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+            className="min-h-11 w-full bg-p-bg/60 border border-p-line/30 rounded px-2 py-1 text-p-t1 font-normal text-sm"
           />
         </div>
         <button
           type="submit"
-          className="min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400"
+          className="min-h-11 px-3 py-1.5 rounded border border-p-line/30 text-p-t1 font-normal text-sm hover:bg-p-raised/10"
         >
           Search
         </button>
       </form>
-      <p id={hintId} className="mt-1 text-white/60 font-normal text-sm">
+      <p id={hintId} className="mt-1 text-p-t1/60 font-normal text-sm">
         Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}, the solar system (Moon and planets) on this device, as you type. Nothing is sent anywhere.
       </p>
 
-      {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-white/80 font-normal text-sm">Loading the catalog…</p>}
+      {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-p-t1/80 font-normal text-sm">Loading the catalog…</p>}
       {catalog.status === 'error' && (
-        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded border border-orange-300/40 bg-orange-400/15 px-3 py-2 text-orange-100 font-normal text-sm">
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-p-warn-text font-normal text-sm">
           <span className="min-w-0 break-words">The catalog could not be loaded, so search is off: {catalog.message}</span>
-          <button type="button" onClick={onRetryCatalog} className="min-h-11 px-3 rounded border border-orange-200/60 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400">
+          <button type="button" onClick={onRetryCatalog} className="min-h-11 px-3 rounded border border-p-warn-strong/60 hover:bg-p-raised/10">
             Retry
           </button>
         </div>
       )}
 
       {/* Always on the page, so a screen reader hears the count or the miss when the text in it changes. */}
-      <p aria-live="polite" className={`mt-3 min-h-4 font-normal ${notFound ? 'text-sm text-white/90' : 'text-sm text-white/70'}`}>{summary}</p>
+      <p aria-live="polite" className={`mt-3 min-h-4 font-normal ${notFound ? 'text-sm text-p-t1/90' : 'text-sm text-p-t1/70'}`}>{summary}</p>
       {(result !== null || bodies.length > 0) && (
         <div className="mt-1" data-testid="search-results">
           {notFound && renderNotFound !== undefined && (
-            <div className="rounded border border-white/15 p-3 text-white/90 font-normal text-sm">
+            <div className="rounded border border-p-line/15 p-3 text-p-t1/90 font-normal text-sm">
               {renderNotFound?.(typed)}
             </div>
           )}
@@ -170,13 +170,13 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                 const bodyOpen = body !== undefined && renderBodyDetail !== undefined && openBody === r.id;
                 const outside = r.type !== null && place === undefined && r.entry !== null && r.entry.usableMinutes > 0 ? outsideTheList(r.type, r.entry) : '';
                 return (
-                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-white/15 p-3 text-sm font-normal text-white/90">
+                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
                     <div className="min-w-0 flex-1 basis-56 break-words">
-                      <p className="text-white">
+                      <p className="text-p-t1">
                         {r.name}
-                        {r.aka !== '' && <span className="ml-2 text-white/70">{r.aka}</span>}
+                        {r.aka !== '' && <span className="ml-2 text-p-t1/70">{r.aka}</span>}
                       </p>
-                      <p className="text-white/70">{r.meta}</p>
+                      <p className="text-p-t1/70">{r.meta}</p>
                       <p className="mt-1">
                         {r.entry === null ? `No astronomical night ${nightWord === 'tonight' ? 'tonight' : 'on that date'}.` : nightStatus(r.entry, nightWord, formatTime)}
                         {place !== undefined && ` ${place}`}
@@ -188,7 +188,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                           aria-expanded={bodyOpen}
                           aria-controls={`${uid}-body-${r.id}`}
                           onClick={() => setOpenBody(bodyOpen ? '' : r.id)}
-                          className="mt-1 min-h-11 rounded border border-white/30 px-3 text-sm text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                          className="mt-1 min-h-11 rounded border border-p-line/30 px-3 text-sm text-p-t1 hover:bg-p-raised/10"
                         >
                           {bodyOpen ? `Hide ${r.name} detail` : `Show ${r.name} detail`}
                         </button>
@@ -202,14 +202,14 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                         onClick={() => {
                           if (!inPlan) onAdd(r.id);
                         }}
-                        className={`min-h-11 px-3 py-1.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 ${inPlan ? 'border-white/15 text-white/70' : 'border-white/30 text-white hover:bg-white/10'}`}
+                        className={`min-h-11 px-3 py-1.5 rounded border text-sm ${inPlan ? 'border-p-line/15 text-p-t1/70' : 'border-p-line/30 text-p-t1 hover:bg-p-raised/10'}`}
                       >
                         {inPlan ? 'In plan' : 'Add to plan'}
                       </button>
-                      {added?.id === r.id && <span aria-hidden="true" className="mt-0.5 text-sm text-emerald-300">{added.text}</span>}
+                      {added?.id === r.id && <span aria-hidden="true" className="mt-0.5 text-sm text-p-ok">{added.text}</span>}
                     </div>
                     {bodyOpen && (
-                      <div id={`${uid}-body-${r.id}`} className="basis-full rounded border border-white/15 bg-black/40 p-3">
+                      <div id={`${uid}-body-${r.id}`} className="basis-full rounded border border-p-line/15 bg-p-bg/40 p-3">
                         {renderBodyDetail!(body!)}
                       </div>
                     )}

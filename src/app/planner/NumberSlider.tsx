@@ -34,7 +34,7 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
   const msgId = `${id}-msg`;
   return (
     <div className="mb-3">
-      <label htmlFor={`${id}-number`} className="block text-white/90 font-medium text-sm mb-1 leading-5">
+      <label htmlFor={`${id}-number`} className="block text-p-t1/90 font-medium text-sm mb-1 leading-5">
         {label} ({unit})
       </label>
       <div className={`flex items-center gap-3 ${stackedAtXl ? 'xl:flex-col xl:items-stretch xl:gap-0' : ''}`}>
@@ -51,8 +51,8 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
           onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(); }}
           aria-invalid={error !== null}
           aria-describedby={msgId}
-          className={`h-11 w-20 shrink-0 ${stackedAtXl ? 'xl:w-full' : ''} rounded-lg bg-black/60 px-2 text-right text-white font-normal text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-400 ${
-            error ? 'border-2 border-orange-400' : 'border border-white/30'
+          className={`h-11 w-20 shrink-0 ${stackedAtXl ? 'xl:w-full' : ''} rounded-lg bg-p-bg/60 px-2 text-right text-p-t1 font-normal text-sm tabular-nums ${
+            error ? 'border-2 border-p-warn-fill' : 'border border-p-line/30'
           }`}
         />
         <input
@@ -64,10 +64,10 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
           value={sliderValue}
           onChange={(e) => onText(e.target.value)}
           onFocus={onFocus}
-          className={`h-11 min-w-0 flex-1 ${stackedAtXl ? 'xl:flex-none' : ''} accent-sky-400`}
+          className={`h-11 min-w-0 flex-1 ${stackedAtXl ? 'xl:flex-none' : ''} accent-p-focus`}
         />
       </div>
-      <p id={msgId} aria-live="polite" className={`${lines === 2 ? 'h-10' : stackedAtXl ? (error ? 'h-5 xl:h-10' : 'h-5 xl:h-0') : 'h-5'} text-sm leading-5 text-orange-300 font-normal overflow-hidden`}>
+      <p id={msgId} aria-live="polite" className={`${lines === 2 ? 'h-10' : stackedAtXl ? (error ? 'h-5 xl:h-10' : 'h-5 xl:h-0') : 'h-5'} text-sm leading-5 text-p-warn font-normal overflow-hidden`}>
         {error && (
           <>
             <span aria-hidden="true">! </span>

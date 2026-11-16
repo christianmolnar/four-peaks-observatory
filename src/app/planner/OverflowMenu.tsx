@@ -64,7 +64,7 @@ export default function OverflowMenu({ label, items, triggerId }: { label: strin
             setOpen(true);
           }
         }}
-        className="min-h-11 rounded border border-white/30 px-3 text-sm font-normal text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400"
+        className="min-h-11 rounded border border-p-line/30 px-3 text-sm font-normal text-p-t1 hover:bg-p-raised/10"
       >
         {label} <span aria-hidden="true">⋯</span>
       </button>
@@ -73,7 +73,7 @@ export default function OverflowMenu({ label, items, triggerId }: { label: strin
           id={id}
           role="menu"
           aria-label={label}
-          className="absolute left-0 z-40 md:left-auto md:right-0 mt-1 min-w-48 rounded border border-white/30 bg-slate-900 py-1 shadow-lg"
+          className="absolute left-0 z-40 md:left-auto md:right-0 mt-1 min-w-48 rounded border border-p-line/30 bg-p-surface py-1 shadow-lg"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -107,7 +107,7 @@ export default function OverflowMenu({ label, items, triggerId }: { label: strin
                 close(true);
                 it.onSelect();
               }}
-              className="block min-h-11 w-full px-3 text-left text-sm font-normal text-white hover:bg-white/10 focus:bg-white/10 focus:outline-none disabled:opacity-40"
+              className="block min-h-11 w-full px-3 text-left text-sm font-normal text-p-t1 hover:bg-p-raised/10 focus:bg-p-raised/10 focus:outline-none disabled:opacity-40"
             >
               {it.label}
             </button>

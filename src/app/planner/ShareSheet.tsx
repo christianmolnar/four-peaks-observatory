@@ -50,8 +50,8 @@ export interface ShareSheetProps {
 }
 
 const btn =
-  'inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-white/30 px-3 py-1.5 text-sm font-normal text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
-const radio = 'flex min-h-11 items-start gap-2 py-2 text-sm font-normal text-white/90';
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-p-line/30 px-3 py-1.5 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
+const radio = 'flex min-h-11 items-start gap-2 py-2 text-sm font-normal text-p-t1/90';
 
 /**
  * The Share sheet: what to share (this plan, all plans, gear, everything) and in what format, each as a file or as text to copy; Print; the ASIAir
@@ -136,33 +136,33 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
       aria-modal="true"
       aria-labelledby="share-heading"
       data-testid="share-sheet"
-      className="planner-root fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
+      className="planner-root fixed inset-0 z-[60] flex flex-col bg-p-bg text-p-t1 shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-p-line/20"
     >
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
-        <h2 id="share-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-white focus:outline-none">
+        <h2 id="share-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-p-t1 focus:outline-none">
           SHARE AND EXPORT
         </h2>
-        {note !== null && <p className="mb-3 break-words text-sm font-normal text-orange-100" data-testid="share-note">{note}</p>}
+        {note !== null && <p className="mb-3 break-words text-sm font-normal text-p-warn-text" data-testid="share-note">{note}</p>}
 
         <fieldset className="mb-3 min-w-0">
-          <legend className="mb-1 text-sm font-medium text-white">What to share</legend>
+          <legend className="mb-1 text-sm font-medium text-p-t1">What to share</legend>
           {choices.map((c) => (
             <div key={c.id}>
               <label className={radio}>
-                <input type="radio" name="share-what" value={c.id} checked={what === c.id} disabled={blocked[c.id] !== undefined} onChange={() => onWhat(c.id)} className="mt-0.5 h-5 w-5 shrink-0 accent-sky-400" />
+                <input type="radio" name="share-what" value={c.id} checked={what === c.id} disabled={blocked[c.id] !== undefined} onChange={() => onWhat(c.id)} className="mt-0.5 h-5 w-5 shrink-0 accent-p-focus" />
                 <span className="min-w-0 break-words [overflow-wrap:anywhere]">{c.label}</span>
               </label>
-              {blocked[c.id] !== undefined && <p className="ml-7 break-words text-sm font-normal text-orange-100">{blocked[c.id]}</p>}
+              {blocked[c.id] !== undefined && <p className="ml-7 break-words text-sm font-normal text-p-warn-text">{blocked[c.id]}</p>}
             </div>
           ))}
         </fieldset>
 
         <fieldset className="mb-3 min-w-0">
-          <legend className="mb-1 text-sm font-medium text-white">Format</legend>
+          <legend className="mb-1 text-sm font-medium text-p-t1">Format</legend>
           <div className="flex flex-wrap gap-x-4">
             {FORMATS.map((f) => (
               <label key={f.id} className={radio}>
-                <input type="radio" name="share-format" value={f.id} checked={format === f.id} onChange={() => setFormat(f.id)} className="mt-0.5 h-5 w-5 shrink-0 accent-sky-400" />
+                <input type="radio" name="share-format" value={f.id} checked={format === f.id} onChange={() => setFormat(f.id)} className="mt-0.5 h-5 w-5 shrink-0 accent-p-focus" />
                 {f.label}
               </label>
             ))}
@@ -174,68 +174,68 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
           <button type="button" className={btn} onClick={() => void copy(out.text, fmt.label.toLowerCase())}>Copy text</button>
         </div>
         <label htmlFor="share-text" className="sr-only">Text to share</label>
-        <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-white/30 bg-black/60 p-2 font-mono text-sm font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        <p className="mb-4 text-sm font-normal text-white/70">Plain text and Markdown are run sheets: order, time, name, position, subs, filter. JSON keeps everything and can be imported again below.</p>
+        <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-p-line/30 bg-p-bg/60 p-2 font-mono text-sm font-normal text-p-t1" />
+        <p className="mb-4 text-sm font-normal text-p-t1/70">Plain text and Markdown are run sheets: order, time, name, position, subs, filter. JSON keeps everything and can be imported again below.</p>
 
-        <section aria-labelledby="share-print" className="mb-4 border-t border-white/10 pt-3">
-          <h3 id="share-print" className="mb-1 text-base font-normal text-white">Print</h3>
-          <p className="mb-2 text-sm font-normal text-white/80">Prints the run sheet for what is chosen above, black on white, one column, A4 or Letter. In the print dialog choose Save as PDF for a PDF.</p>
+        <section aria-labelledby="share-print" className="mb-4 border-t border-p-line/10 pt-3">
+          <h3 id="share-print" className="mb-1 text-base font-normal text-p-t1">Print</h3>
+          <p className="mb-2 text-sm font-normal text-p-t1/80">Prints the run sheet for what is chosen above, black on white, one column, A4 or Letter. In the print dialog choose Save as PDF for a PDF.</p>
           <button type="button" className={btn} onClick={onPrint}>Print run sheet</button>
         </section>
 
-        <section aria-labelledby="share-asiair" className="mb-4 border-t border-white/10 pt-3">
-          <h3 id="share-asiair" className="mb-1 text-base font-normal text-white">Export for ASIAir (CSV)</h3>
-          <p className="mb-2 text-sm font-normal text-white/80" data-testid="asiair-note">
+        <section aria-labelledby="share-asiair" className="mb-4 border-t border-p-line/10 pt-3">
+          <h3 id="share-asiair" className="mb-1 text-base font-normal text-p-t1">Export for ASIAir (CSV)</h3>
+          <p className="mb-2 text-sm font-normal text-p-t1/80" data-testid="asiair-note">
             Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, one pane each (Pane 1, Pane 2 and so on) with its RA and Dec. The file has no column for a name, so the panes are listed below in the order of the plan. Exposure, gain, filter and times do not import into the ASIAir; read those from the run sheet.{asiair.left === '' ? '' : ` ${asiair.left}`}
           </p>
           {asiair.panes.length > 0 && (
-            <ul className="mb-2 list-none break-words text-sm font-normal text-white/90" data-testid="asiair-panes">
+            <ul className="mb-2 list-none break-words text-sm font-normal text-p-t1/90" data-testid="asiair-panes">
               {asiair.panes.map((p) => (
                 <li key={p} className="break-words [overflow-wrap:anywhere]">{p}</li>
               ))}
             </ul>
           )}
-          {asiair.fovNote !== null && <p className="mb-2 break-words text-sm font-normal text-orange-100">{asiair.fovNote}</p>}
-          <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-white/90">
-            <input type="checkbox" checked={letter} onChange={(e) => setLetter(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-sky-400" />
+          {asiair.fovNote !== null && <p className="mb-2 break-words text-sm font-normal text-p-warn-text">{asiair.fovNote}</p>}
+          <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-p-t1/90">
+            <input type="checkbox" checked={letter} onChange={(e) => setLetter(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-p-focus" />
             <span>Write the degree sign as the letter d (try this if the ASIAir refuses the file)</span>
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => save(asi.file, asi.text, 'text/csv;charset=utf-8', false)}>Download file</button>
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => void copy(asi.text, 'the ASIAir CSV')}>Copy text</button>
           </div>
-          <p className="mt-2 text-sm font-normal text-white/70">
+          <p className="mt-2 text-sm font-normal text-p-t1/70">
             Not yet tested on a real ASIAir. The format is copied from a real Telescopius export, and the ASIAir may not take unrelated targets as panes. The one test to run: in the ASIAir app open Plan, Add, Import, load the downloaded file (download works better than paste), and check that each pane arrives at the right RA and Dec. If it refuses the file, tick the box above and try again.
           </p>
         </section>
 
-        <section aria-labelledby="share-import" className="mb-4 border-t border-white/10 pt-3">
-          <h3 id="share-import" className="mb-1 text-base font-normal text-white">Import plans</h3>
-          <p className="mb-2 text-sm font-normal text-white/80">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped, and a plan that has the id of a different plan here is skipped or added as a copy.</p>
-          <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-white/90">Plans file (JSON)</label>
+        <section aria-labelledby="share-import" className="mb-4 border-t border-p-line/10 pt-3">
+          <h3 id="share-import" className="mb-1 text-base font-normal text-p-t1">Import plans</h3>
+          <p className="mb-2 text-sm font-normal text-p-t1/80">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped, and a plan that has the id of a different plan here is skipped or added as a copy.</p>
+          <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-p-t1/90">Plans file (JSON)</label>
           <input
             id="plans-import"
             type="file"
             accept="application/json,.json"
-            className="block w-full min-w-0 text-sm font-normal text-white file:mr-3 file:min-h-11 file:rounded file:border file:border-white/30 file:bg-transparent file:px-3 file:text-white"
+            className="block w-full min-w-0 text-sm font-normal text-p-t1 file:mr-3 file:min-h-11 file:rounded file:border file:border-p-line/30 file:bg-transparent file:px-3 file:text-p-t1"
             onChange={(e) => {
               onPickFile(e.target.files?.[0]);
               e.target.value = '';
             }}
           />
-          {importPanel.kind === 'error' && <p role="alert" className="mt-2 break-words text-sm font-normal text-orange-100" data-testid="import-error">Nothing was imported. {importPanel.text}</p>}
-          {importPanel.kind === 'done' && <p role="status" className="mt-2 break-words text-sm font-normal text-white" data-testid="import-done">{importPanel.text}</p>}
+          {importPanel.kind === 'error' && <p role="alert" className="mt-2 break-words text-sm font-normal text-p-warn-text" data-testid="import-error">Nothing was imported. {importPanel.text}</p>}
+          {importPanel.kind === 'done' && <p role="status" className="mt-2 break-words text-sm font-normal text-p-t1" data-testid="import-done">{importPanel.text}</p>}
           {importPanel.kind === 'ask' && (
-            <div role="group" aria-label="Import choice" className="mt-2 rounded border border-white/30 p-3" data-testid="import-ask">
-              <p className="break-words text-sm font-normal text-white">
+            <div role="group" aria-label="Import choice" className="mt-2 rounded border border-p-line/30 p-3" data-testid="import-ask">
+              <p className="break-words text-sm font-normal text-p-t1">
                 {importPanel.file} holds {importPanel.total} {importPanel.total === 1 ? 'plan' : 'plans'}: {importPanel.names.join(', ')}.
                 {importPanel.same > 0 ? (importPanel.same === importPanel.total ? ` ${importPanel.total === 1 ? 'It is' : 'All of them are'} already here and will be skipped.` : ` ${importPanel.same} of ${importPanel.total} ${importPanel.same === 1 ? 'is' : 'are'} already here and will be skipped.`) : ''}
                 {importPanel.clash > 0 ? ` ${importPanel.clash === 1 ? 'One has' : `${importPanel.clash} have`} the same id as a different plan here.` : ''}
               </p>
               {importPanel.notices.map((n) => (
-                <p key={n} className="mt-1 break-words text-sm font-normal text-orange-100">{n}</p>
+                <p key={n} className="mt-1 break-words text-sm font-normal text-p-warn-text">{n}</p>
               ))}
-              {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-white/80">The file also holds gear. Import it under Gear and site, Import profile.</p>}
+              {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-p-t1/80">The file also holds gear. Import it under Gear and site, Import profile.</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 {importPanel.clash > 0 ? (
                   <>
@@ -251,9 +251,9 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
           )}
         </section>
 
-        <p role="status" aria-live="polite" className="min-h-5 break-words text-sm font-normal text-white" data-testid="share-status">{said}</p>
+        <p role="status" aria-live="polite" className="min-h-5 break-words text-sm font-normal text-p-t1" data-testid="share-status">{said}</p>
       </div>
-      <div className="border-t border-white/20 p-3">
+      <div className="border-t border-p-line/20 p-3">
         <button type="button" className={btn} onClick={onClose}>Close</button>
       </div>
     </div>,

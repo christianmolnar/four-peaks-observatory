@@ -4,7 +4,7 @@
  */
 export default function DisclosureChevron() {
   return (
-    <span aria-hidden="true" data-disclosure-chevron className="mr-2 inline-block w-4 shrink-0 text-white/70 group-open:rotate-90">
+    <span aria-hidden="true" data-disclosure-chevron className="mr-2 inline-block w-4 shrink-0 text-p-t1/70 group-open:rotate-90">
       ▸
     </span>
   );

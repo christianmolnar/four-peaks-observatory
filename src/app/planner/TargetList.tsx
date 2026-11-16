@@ -69,14 +69,14 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
 
   return (
     <div>
-      <div className={`${GRID} sticky top-[var(--planner-top,0px)] z-20 hidden gap-x-3 border-b border-white/20 bg-black px-1 pb-1 pt-1 text-sm text-white/70 md:grid`} aria-hidden="true">
+      <div className={`${GRID} sticky top-[var(--planner-top,0px)] z-20 hidden gap-x-3 border-b border-p-line/20 bg-p-bg px-1 pb-1 pt-1 text-sm text-p-t1/70 md:grid`} aria-hidden="true">
         <span>Target</span>
         <span>Up and peak</span>
         <span>Fit, Score (max 100)</span>
         <span>Why</span>
         <span />
       </div>
-      <ul aria-label={label} className="text-sm leading-5 font-normal text-white/90" data-testid={`${idPrefix}-list`}>
+      <ul aria-label={label} className="text-sm leading-5 font-normal text-p-t1/90" data-testid={`${idPrefix}-list`}>
         {visible.map((e, i) => {
           const d = describe(e);
           const isOpen = openId === e.id;
@@ -84,7 +84,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
           const nameId = `${idPrefix}-name-${e.id}`;
           const detailId = `${idPrefix}-detail-${e.id}`;
           return (
-            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-white/10 px-1 py-0 md:py-1.5 ${isOpen ? 'bg-sky-400/10' : ''}`}>
+            <li key={e.id} className={`${GRID} items-start gap-x-3 border-b border-p-line/10 px-1 py-0 md:py-1.5 ${isOpen ? 'bg-p-info-fill/10' : ''}`}>
               <div className="col-start-1 min-w-0 md:col-auto">
                 <button
                   type="button"
@@ -92,13 +92,13 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                   aria-expanded={isOpen}
                   aria-controls={detailId}
                   onClick={() => onToggle(e.id)}
-                  className="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded py-0.5 text-left text-[15px] font-medium leading-[18px] text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded py-0.5 text-left text-[15px] font-medium leading-[18px] text-p-t1"
                 >
-                  <span aria-hidden="true" className="w-4 shrink-0 text-sm text-white/70">{isOpen ? '▾' : '▸'}</span>
-                  <span className="break-words">{notClear === undefined && <span className="text-white/70">{i + 1}. </span>}{e.name}</span>
+                  <span aria-hidden="true" className="w-4 shrink-0 text-sm text-p-t1/70">{isOpen ? '▾' : '▸'}</span>
+                  <span className="break-words">{notClear === undefined && <span className="text-p-t1/70">{i + 1}. </span>}{e.name}</span>
                 </button>
-                {d.aka !== '' && <span className="ml-1.5 text-white/70">{d.aka}</span>}
-                <p className="pl-[1.375rem] text-white/70">{d.meta}</p>
+                {d.aka !== '' && <span className="ml-1.5 text-p-t1/70">{d.aka}</span>}
+                <p className="pl-[1.375rem] text-p-t1/70">{d.meta}</p>
               </div>
               {/* On a phone the up window, peak, fit and score are one line; from md they are two columns. */}
               <div className="col-start-1 pl-[1.375rem] md:contents">
@@ -110,13 +110,13 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                 <span data-testid="row-fit-score" className="md:col-auto md:block">
                   {(fitText ? fitText(e) : fitWords(e)) !== '' && <span className="md:hidden"> · </span>}
                   <span>{fitText ? fitText(e) : fitWords(e)}</span>
-                  {notClear === undefined && <span className="hidden md:block">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>}
+                  {notClear === undefined && <span className="hidden md:block">Score <span className="font-medium text-p-t1">{Math.round(e.score.total)}</span></span>}
                 </span>
               </div>
-              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-white/70 md:col-auto md:line-clamp-2 md:pl-0">{notClear === undefined ? rowWhy(e) : 'Never clear of your horizon and minimum altitude.'}</p>
+              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-p-t1/70 md:col-auto md:line-clamp-2 md:pl-0">{notClear === undefined ? rowWhy(e) : 'Never clear of your horizon and minimum altitude.'}</p>
               <div className="col-start-2 row-span-3 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
                 {/* On a phone the score sits above the button, so the stats line keeps to one line. */}
-                {notClear === undefined && <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-white">{Math.round(e.score.total)}</span></span>}
+                {notClear === undefined && <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-p-t1">{Math.round(e.score.total)}</span></span>}
                 <button
                   type="button"
                   aria-label={inPlan ? `${e.name} is in the plan` : `Add ${e.name} to the plan`}
@@ -124,14 +124,14 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                   onClick={() => {
                     if (!inPlan) onAdd(e.id);
                   }}
-                  className={`min-h-11 min-w-11 whitespace-nowrap rounded border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 ${inPlan ? 'border-white/15 text-white/70' : 'border-white/30 text-white hover:bg-white/10'}`}
+                  className={`min-h-11 min-w-11 whitespace-nowrap rounded border px-2.5 text-sm ${inPlan ? 'border-p-line/15 text-p-t1/70' : 'border-p-line/30 text-p-t1 hover:bg-p-raised/10'}`}
                 >
                   {inPlan ? 'In plan' : 'Add'}
                 </button>
-                {added?.id === e.id && <span aria-hidden="true" className="mt-0.5 max-w-[6.5rem] text-right text-sm text-emerald-300">{added.text}</span>}
+                {added?.id === e.id && <span aria-hidden="true" className="mt-0.5 max-w-[6.5rem] text-right text-sm text-p-ok">{added.text}</span>}
               </div>
               {isOpen && (
-                <div id={detailId} className="col-span-full mt-2 rounded border border-white/15 bg-black/40 p-3 text-sm">
+                <div id={detailId} className="col-span-full mt-2 rounded border border-p-line/15 bg-p-bg/40 p-3 text-sm">
                   {renderDetail(e)}
                 </div>
               )}
@@ -140,7 +140,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
         })}
       </ul>
       {total > FIRST_ROWS && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-normal text-white/80">
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-normal text-p-t1/80">
           <span aria-live="polite">Showing {visible.length} of {total}</span>
           {visible.length < total && (
             <button
@@ -149,7 +149,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                 focusRow.current = visible.length;
                 setShown(visible.length + MORE_ROWS);
               }}
-              className="min-h-11 rounded border border-white/30 px-3 text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400"
+              className="min-h-11 rounded border border-p-line/30 px-3 text-p-t1 hover:bg-p-raised/10"
             >
               Show {Math.min(MORE_ROWS, total - visible.length)} more
             </button>
@@ -163,16 +163,16 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
 /** A heading-and-button that opens or closes a group of rows (the planets, the targets that do not fit). */
 export function Group({ id, title, open, onToggle, children }: { id: string; title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
   return (
-    <div className="mt-4 border-t border-white/15 pt-1">
+    <div className="mt-4 border-t border-p-line/15 pt-1">
       <h3>
         <button
           type="button"
           aria-expanded={open}
           aria-controls={id}
           onClick={onToggle}
-          className="flex min-h-11 w-full items-center gap-2 rounded text-left text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+          className="flex min-h-11 w-full items-center gap-2 rounded text-left text-base font-medium text-p-t1"
         >
-          <span aria-hidden="true" className="w-4 text-white/70">{open ? '▾' : '▸'}</span>
+          <span aria-hidden="true" className="w-4 text-p-t1/70">{open ? '▾' : '▸'}</span>
           {title}
         </button>
       </h3>

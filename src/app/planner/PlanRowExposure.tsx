@@ -10,8 +10,8 @@ import type { PlanPreset } from '@/planner/state/plans';
 import { ACT_ON, checkNumber, differsText, exposureSummary, minutesText, presetLabel, resultProblem, splitWarnings } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 
-const btn = 'min-h-11 min-w-11 whitespace-nowrap rounded border border-white/30 px-3 text-sm font-normal text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
-const input = 'min-h-11 w-24 rounded border border-white/30 bg-black/60 px-2 text-sm font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400';
+const btn = 'min-h-11 min-w-11 whitespace-nowrap rounded border border-p-line/30 px-3 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
+const input = 'min-h-11 w-24 rounded border border-p-line/30 bg-p-bg/60 px-2 text-sm font-normal text-p-t1';
 
 const SUB_LIMIT: Record<ExposureResult['limitedBy']['sub'], string> = {
   'read-noise': 'the sky and read noise (long enough that the sky, not read noise, sets the noise)',
@@ -35,16 +35,16 @@ const GO_LABEL = { date: 'Change the date', train: 'Change the setup', filter: '
 function Fold({ id, title, children, level = 0 }: { id: string; title: string; children: ReactNode; level?: 0 | 1 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={level === 1 ? 'ml-3 border-l border-white/15 pl-3' : ''}>
+    <div className={level === 1 ? 'ml-3 border-l border-p-line/15 pl-3' : ''}>
       <button
         type="button"
         id={id}
         aria-expanded={open}
         aria-controls={`${id}-body`}
         onClick={() => setOpen(!open)}
-        className="flex min-h-11 w-full items-center gap-2 rounded text-left text-sm font-normal text-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-400"
+        className="flex min-h-11 w-full items-center gap-2 rounded text-left text-sm font-normal text-p-accent"
       >
-        <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{open ? '▾' : '▸'}</span>
+        <span aria-hidden="true" className="w-4 shrink-0 text-p-t1/70">{open ? '▾' : '▸'}</span>
         {title}
       </button>
       <div id={`${id}-body`} hidden={!open} className="pb-2">
@@ -123,7 +123,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
     const err = liveError[field];
     return (
       <div>
-        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-white/80">{label}</label>
+        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-p-t1/80">{label}</label>
         <input
           id={`plan-${field}-${id}`}
           type="text"
@@ -132,7 +132,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
           aria-label={`${label} for ${name}`}
           aria-invalid={err !== undefined}
           aria-describedby={err ? `plan-${field}-err-${id}` : undefined}
-          className={`${input} ${err ? 'border-orange-300' : ''}`}
+          className={`${input} ${err ? 'border-p-warn' : ''}`}
           value={draft[field] ?? String(chosen === null ? '' : field === 'subSeconds' ? chosen.subSeconds : chosen.subCount)}
           onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))}
           onBlur={() => apply(field)}
@@ -178,7 +178,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               clear();
               onPreset(p);
             }}
-            className={`min-h-11 rounded border px-0 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-sky-400 ${preset === p ? 'border-sky-300 bg-sky-400/20 text-white' : 'border-white/30 text-white/90 hover:bg-white/10'}`}
+            className={`min-h-11 rounded border px-0 text-sm font-normal ${preset === p ? 'border-p-accent bg-p-info-fill/20 text-p-t1' : 'border-p-line/30 text-p-t1/90 hover:bg-p-raised/10'}`}
           >
             {p === 'custom' ? 'Custom' : presetLabel(p)}
           </button>
@@ -186,7 +186,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       </div>
 
       {chosen === null ? (
-        <p className="break-words text-sm font-normal text-white/80" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
+        <p className="break-words text-sm font-normal text-p-t1/80" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
@@ -194,21 +194,21 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
             {box('subCount', 'Number of shots')}
           </div>
           {(liveError.subSeconds || liveError.subCount) && (
-            <p role="alert" className="text-sm font-normal text-orange-200">
+            <p role="alert" className="text-sm font-normal text-p-warn-strong">
               {liveError.subSeconds && <span id={`plan-subSeconds-err-${id}`} className="block">{liveError.subSeconds}</span>}
               {liveError.subCount && <span id={`plan-subCount-err-${id}`} className="block">{liveError.subCount}</span>}
             </p>
           )}
           {ok?.customUnusable != null && (
-            <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
+            <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
           )}
-          <p className="text-sm font-normal text-white/90" data-testid={`plan-numbers-${id}`}>
-            <span data-testid="plan-figure" className="block font-medium text-white/90">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
+          <p className="text-sm font-normal text-p-t1/90" data-testid={`plan-numbers-${id}`}>
+            <span data-testid="plan-figure" className="block font-medium text-p-t1/90">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
             <span className="sr-only"> · </span>{chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
             {chosen.finish !== null && <> · finish about {formatTime(chosen.finish)} if it starts when the target is up</>}
           </p>
           {preset === 'custom' && base !== null && (
-            <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-custom-${id}`}>
+            <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-custom-${id}`}>
               <span>{unusable === null ? differsText(chosen) : 'Custom: not used on this night.'}</span>
               <button type="button" className={btn} onClick={() => { clear(); onBack(); requestAnimationFrame(() => document.getElementById(`plan-preset-${id}-${base}`)?.focus()); }}>
                 Back to {presetLabel(base)}
@@ -221,8 +221,8 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       {split?.act.map((w) => {
         const a = ACT_ON[w.code];
         return (
-          <div key={w.code} className="rounded border border-orange-300/40 bg-orange-400/10 p-2 text-sm font-normal text-white/90" data-testid={`plan-warning-${id}`}>
-            <p><span className="mr-2 rounded bg-orange-300/30 px-1.5 py-0.5 text-sm text-white">Warning</span>{w.text}</p>
+          <div key={w.code} className="rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-sm font-normal text-p-t1/90" data-testid={`plan-warning-${id}`}>
+            <p><span className="mr-2 rounded bg-p-warn/30 px-1.5 py-0.5 text-sm text-p-t1">Warning</span>{w.text}</p>
             <p className="mt-1">What to change: {a.change}</p>
             {a.to.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-2">
@@ -237,7 +237,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
 
       {chosen !== null && ok !== null && split !== null && (
         <Fold id={`plan-why-${id}`} title="Why these numbers">
-          <div className="space-y-1 text-sm font-normal text-white/90">
+          <div className="space-y-1 text-sm font-normal text-p-t1/90">
             <p>Sub length is held by {SUB_LIMIT[chosen.limitedBy.sub]}. Total light is held by {TOTAL_LIMIT[chosen.limitedBy.total]}.</p>
             <p>Range: subs of {chosen.subSecondsRange[0]} to {chosen.subSecondsRange[1]} s; total light {minutesText(chosen.modeRangeMin[0])} to {minutesText(chosen.modeRangeMin[1])}; about {minutesText(chosen.usableIntegrationRangeMin[0])} to {minutesText(chosen.usableIntegrationRangeMin[1])} usable after clouds, trails and rejected frames.</p>
             <p>
@@ -245,7 +245,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               Surface brightness {chosen.knee.surfaceBrightnessMu.toFixed(1)} mag per square arcsecond ({chosen.knee.surfaceBrightnessFrom === 'catalog' ? 'the catalog’s number' : chosen.knee.surfaceBrightnessFrom === 'class' ? 'a stand-in for its class' : 'assumed medium'}).
             </p>
             <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}% to the noise at this sub length. Dither every {chosen.ditherEveryFrames} subs. {chosen.filterNote} {chosen.gain.note}</p>
-            <p className="text-sm text-white/70">Every number is an estimate, computed by the planner from the sky, optics and camera.</p>
+            <p className="text-sm text-p-t1/70">Every number is an estimate, computed by the planner from the sky, optics and camera.</p>
             <Fold id={`plan-notes-${id}`} title={`Notes (${split.notes.length})`} level={1}>
               {split.notes.length === 0 ? (
                 <p>No notes for this target.</p>
@@ -258,7 +258,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               )}
             </Fold>
             <Fold id={`plan-compare-${id}`} title="Compare presets" level={1}>
-              <table className="w-full table-fixed text-left text-sm font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
+              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
                 <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
                 <thead>
                   <tr>
@@ -269,15 +269,15 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><th scope="row" className="font-normal text-white/70">Sub length</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subSeconds} s</td>)}</tr>
-                  <tr><th scope="row" className="font-normal text-white/70">Subs</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subCount}</td>)}</tr>
-                  <tr><th scope="row" className="font-normal text-white/70">Light</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].integrationMin)}</td>)}</tr>
-                  <tr><th scope="row" className="font-normal text-white/70">Elapsed</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].elapsedMin)}</td>)}</tr>
+                  <tr><th scope="row" className="font-normal text-p-t1/70">Sub length</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subSeconds} s</td>)}</tr>
+                  <tr><th scope="row" className="font-normal text-p-t1/70">Subs</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subCount}</td>)}</tr>
+                  <tr><th scope="row" className="font-normal text-p-t1/70">Light</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].integrationMin)}</td>)}</tr>
+                  <tr><th scope="row" className="font-normal text-p-t1/70">Elapsed</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].elapsedMin)}</td>)}</tr>
                 </tbody>
               </table>
             </Fold>
             <Fold id={`plan-buys-${id}`} title="What more time buys and the inputs used" level={1}>
-              <table className="w-full table-fixed text-left text-sm font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
+              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
                 <caption className="sr-only">What more light buys for {name}, sky-limited</caption>
                 <thead>
                   <tr><th scope="col">Light</th><th scope="col">Signal to noise</th><th scope="col">Gain</th><th scope="col">Tonight</th></tr>
@@ -293,19 +293,19 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
                   ))}
                 </tbody>
               </table>
-              <p className="mt-1 text-sm text-white/70" data-testid={`plan-inputs-${id}`}>Inputs: {ok.inputs}.</p>
+              <p className="mt-1 text-sm text-p-t1/70" data-testid={`plan-inputs-${id}`}>Inputs: {ok.inputs}.</p>
             </Fold>
           </div>
         </Fold>
       )}
 
       {favorite !== null && favoriteUnusable !== null && (
-        <p className="text-sm font-normal text-orange-200" data-testid={`plan-favorite-unusable-${id}`}>
+        <p className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-unusable-${id}`}>
           Your saved exposure for this object ({summary}) cannot be used: {favoriteUnusable}. It stays saved; save new numbers to replace it, or remove it.
         </p>
       )}
       {prompt === 'ask' && favorite !== null && favoriteUnusable === null && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-ask-${id}`}>
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-ask-${id}`}>
           <span>You saved an exposure for this object: {summary}. Restore favorite?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { onRestore(); dropFavoriteFocus(); }}>Restore</button>
@@ -314,17 +314,17 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
         </p>
       )}
       {prompt === 'restored' && favorite !== null && favoriteUnusable === null && (
-        <p className="text-sm font-normal text-white/90" data-testid={`plan-favorite-restored-${id}`}>
+        <p className="text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-restored-${id}`}>
           Your saved exposure for this object was restored automatically: {summary}.
         </p>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4">
-        <label className="flex min-h-11 w-fit items-center gap-2 pr-2 text-sm font-normal text-white/90">
+        <label className="flex min-h-11 w-fit items-center gap-2 pr-2 text-sm font-normal text-p-t1/90">
           <input
             id={`plan-fav-${id}`}
             type="checkbox"
-            className="h-5 w-5 shrink-0 accent-sky-400"
+            className="h-5 w-5 shrink-0 accent-p-focus"
             checked={favorite !== null}
             disabled={favoritesBlocked !== null || (favorite === null && chosen === null)}
             onChange={() => {
@@ -340,21 +340,21 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
           />
           <span>Save as favorite</span>
         </label>
-        {favorite !== null && <span className="rounded border border-white/20 px-1.5 py-0.5 text-sm font-normal text-white/80">Favorite saved</span>}
+        {favorite !== null && <span className="rounded border border-p-line/20 px-1.5 py-0.5 text-sm font-normal text-p-t1/80">Favorite saved</span>}
         {favorite !== null && differsFromFavorite && favoritesBlocked === null && prompt !== 'ask' && !confirmUpdate && (
           <button type="button" className={btn} onClick={() => { setConfirmRemove(false); if (refuse) setRefusedFavorite(true); else setConfirmUpdate(true); }}>Update favorite to these numbers</button>
         )}
       </div>
       {refusedFavorite && refuse && (
-        <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-favorite-refused-${id}`}>
+        <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-refused-${id}`}>
           {unusable !== null
             ? 'The favorite was not saved: your custom numbers do not work on this night. Change the sub length or the number of subs, or go back to the preset.'
             : 'The favorite was not saved: this night gives no subs for this target. Pick another night or target.'}
         </p>
       )}
-      {favoritesBlocked !== null && <p className="text-sm font-normal text-orange-100" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
+      {favoritesBlocked !== null && <p className="text-sm font-normal text-p-warn-text" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
       {confirmUpdate && favorite !== null && differsFromFavorite && prompt !== 'ask' && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-update-confirm-${id}`}>
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-update-confirm-${id}`}>
           <span>Replace the favorite for {name} ({summary}) with {exposureSummary({ preset, ...(base !== null && preset === 'custom' ? { base } : {}), subSeconds: chosen?.subSeconds ?? 0, subCount: chosen?.subCount ?? 0 })}?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { setConfirmUpdate(false); onSaveFavorite(); dropFavoriteFocus(); }}>Update favorite</button>
@@ -363,7 +363,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
         </p>
       )}
       {confirmRemove && favorite !== null && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-white/90" data-testid={`plan-favorite-confirm-${id}`}>
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-confirm-${id}`}>
           <span>Remove the favorite exposure for {name}? Only this favorite is removed.</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { setConfirmRemove(false); onRemoveFavorite(); dropFavoriteFocus(); }}>Remove favorite</button>

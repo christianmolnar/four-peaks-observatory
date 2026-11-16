@@ -7,9 +7,9 @@ import type { PlaceCandidate } from '@/planner/location/types';
 import WrapText from './WrapText';
 
 const field =
-  'min-h-11 w-full bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
+  'min-h-11 w-full bg-p-bg/60 border border-p-line/30 rounded px-2 py-1 text-p-t1 font-normal text-sm';
 const btn =
-  'min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
+  'min-h-11 px-3 py-1.5 rounded border border-p-line/30 text-p-t1 font-normal text-sm hover:bg-p-raised/10 disabled:opacity-40';
 
 export interface SiteFinderProps {
   /** The site's boxes as they were at the last render, for what is shown. */
@@ -135,9 +135,9 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
     pending && (texts.latitude ?? '') === pending.latitude && (texts.longitude ?? '') === pending.longitude ? fillSiteFields(texts, overwritable, pending.values).kept : [];
 
   return (
-    <div className="sm:col-span-2 xl:col-span-3 rounded border border-white/15 p-3">
-      <label htmlFor={queryId} className="block text-white/90 font-normal text-sm mb-1">Find my site: city and state, or postal code</label>
-      <p id={hintId} className="text-white/60 font-normal text-sm mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
+    <div className="sm:col-span-2 xl:col-span-3 rounded border border-p-line/15 p-3">
+      <label htmlFor={queryId} className="block text-p-t1/90 font-normal text-sm mb-1">Find my site: city and state, or postal code</label>
+      <p id={hintId} className="text-p-t1/60 font-normal text-sm mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-56">
           <WrapText
@@ -164,9 +164,9 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
           Look up elevation and time zone for the latitude and longitude below
         </button>
       </div>
-      <p ref={messageRef} tabIndex={-1} aria-live="polite" className="mt-2 text-sky-100 font-normal text-sm min-h-5 focus:outline-none focus:ring-2 focus:ring-sky-400 rounded">{busy ? 'Looking up…' : message}</p>
+      <p ref={messageRef} tabIndex={-1} aria-live="polite" className="mt-2 text-p-info-text font-normal text-sm min-h-5 rounded">{busy ? 'Looking up…' : message}</p>
       {pendingKept.length > 0 && pending && (
-        <div className="mt-2 flex flex-wrap items-center gap-3 rounded border border-white/15 p-2 text-white font-normal text-sm">
+        <div className="mt-2 flex flex-wrap items-center gap-3 rounded border border-p-line/15 p-2 text-p-t1 font-normal text-sm">
           <div className="min-w-0 flex-1 basis-56 break-words">{wouldChange(pendingKept)}</div>
           <button
             type="button"
@@ -181,7 +181,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+        <p role="alert" className="mt-2 bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text font-normal text-sm">
           <span aria-hidden="true">! </span>
           {error}
         </p>
@@ -192,14 +192,14 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
             const would = fillSiteFields(texts, overwritable, placeValues(c)).kept;
             const done = () => setFound(null);
             return (
-              <li key={`${c.latitude},${c.longitude},${i}`} className="flex flex-wrap items-center gap-3 rounded border border-white/15 p-2">
-                <div className="min-w-0 flex-1 basis-56 text-white font-normal text-sm break-words">
+              <li key={`${c.latitude},${c.longitude},${i}`} className="flex flex-wrap items-center gap-3 rounded border border-p-line/15 p-2">
+                <div className="min-w-0 flex-1 basis-56 text-p-t1 font-normal text-sm break-words">
                   <div>{where(c)}</div>
-                  <div className="text-white/70">
+                  <div className="text-p-t1/70">
                     {c.latitude.toFixed(4)}, {c.longitude.toFixed(4)}
                     {c.elevationM !== undefined ? ` · ${Math.round(c.elevationM)} m` : ' · elevation unknown'} · {c.timeZone}
                   </div>
-                  {would.length > 0 && <div className="text-amber-100 mt-1">{wouldChange(would)}</div>}
+                  {would.length > 0 && <div className="text-p-would mt-1">{wouldChange(would)}</div>}
                 </div>
                 <button
                   type="button"
@@ -230,8 +230,8 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
           })}
         </ul>
       )}
-      {credits.length > 0 && <p className="mt-2 text-white/60 font-normal text-sm">{credits.join(' ')}</p>}
-      <p className="mt-2 text-white/60 font-normal text-sm">Sky darkness (Bortle class) is not looked up. Set it in the box below.</p>
+      {credits.length > 0 && <p className="mt-2 text-p-t1/60 font-normal text-sm">{credits.join(' ')}</p>}
+      <p className="mt-2 text-p-t1/60 font-normal text-sm">Sky darkness (Bortle class) is not looked up. Set it in the box below.</p>
     </div>
   );
 }

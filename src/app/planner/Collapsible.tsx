@@ -10,16 +10,16 @@ import type { ReactNode } from 'react';
 export default function Collapsible({ id, title, children, defaultOpen = false }: { id: string; title: string; children: ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div id={id} className="border-t border-white/10">
-      <h3 className="text-base font-normal text-white">
+    <div id={id} className="border-t border-p-line/10">
+      <h3 className="text-base font-normal text-p-t1">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={`${id}-body`}
           onClick={() => setOpen(!open)}
-          className="flex min-h-11 w-full items-center gap-2 rounded text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
+          className="flex min-h-11 w-full items-center gap-2 rounded text-left"
         >
-          <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{open ? '▾' : '▸'}</span>
+          <span aria-hidden="true" className="w-4 shrink-0 text-p-t1/70">{open ? '▾' : '▸'}</span>
           {title}
         </button>
       </h3>

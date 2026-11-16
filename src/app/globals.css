@@ -50,6 +50,54 @@
   .planner-root .font-medium { font-weight: 500 !important; }
   .planner-root .font-semibold { font-weight: 600 !important; }
 
+  /*
+   * Planner colour tokens. Every planner colour class reads one of these (`bg-p-bg`, `text-p-t1/70`, `border-p-line/30`, ...), so a theme only swaps values.
+   * Day values equal the colours the planner has always rendered (Tailwind palette values written out, so they do not depend on which palette utilities the build emits).
+   * The `--p-` prefix keeps clear of the shadcn `--border` / `--accent` set below. `.planner-ground` is the page wrapper outside the planner root.
+   * Print: `print:` rules in the markup win over tokens. Alpha-base tokens (raised, line, *-fill) are used as `bg-p-raised/15`, `border-p-line/30`.
+   * Meaning never rides on colour: warnings, notes, chips and states all carry words.
+   */
+  .planner-root,
+  .planner-ground {
+    --p-bg: #000;
+    --p-surface: oklch(20.8% 0.042 265.755) /* slate-900 */;
+    --p-raised: #fff;
+    --p-t1: #fff;
+    --p-t2: oklch(70.7% 0.022 261.325) /* gray-400 */;
+    --p-line: #fff;
+    --p-focus: oklch(74.6% 0.16 232.661) /* sky-400 */;
+    --p-accent: oklch(82.8% 0.111 230.318) /* sky-300 */;
+    --p-warn-text: oklch(95.4% 0.038 75.164) /* orange-100 */;
+    --p-warn-strong: oklch(90.1% 0.076 70.697) /* orange-200 */;
+    --p-warn: oklch(83.7% 0.128 66.29) /* orange-300 */;
+    --p-warn-fill: oklch(75% 0.183 55.934) /* orange-400 */;
+    --p-info-text: oklch(95.1% 0.026 236.824) /* sky-100 */;
+    --p-info-strong: oklch(90.1% 0.058 230.902) /* sky-200 */;
+    --p-info-fill: oklch(74.6% 0.16 232.661) /* sky-400 */;
+    --p-ok-text: oklch(90.5% 0.093 164.15) /* emerald-200 */;
+    --p-ok: oklch(84.5% 0.143 164.978) /* emerald-300 */;
+    --p-ok-fill: oklch(76.5% 0.177 163.223) /* emerald-400 */;
+    --p-pending: oklch(94.5% 0.129 101.54) /* yellow-200 */;
+    --p-would: oklch(96.2% 0.059 95.617) /* amber-100 */;
+    --p-night: oklch(58.5% 0.233 277.117) /* indigo-500 */;
+    --p-chip-scope: oklch(82.8% 0.111 230.318) /* sky-300 */;
+    --p-chip-scope-fill: oklch(74.6% 0.16 232.661) /* sky-400 */;
+    --p-chip-smart: oklch(81.1% 0.111 293.571) /* violet-300 */;
+    --p-chip-smart-fill: oklch(70.2% 0.183 293.541) /* violet-400 */;
+    --p-chip-accessory: oklch(87.9% 0.169 91.605) /* amber-300 */;
+    --p-chip-accessory-fill: oklch(82.8% 0.189 84.429) /* amber-400 */;
+    --p-chip-camera: oklch(84.5% 0.143 164.978) /* emerald-300 */;
+    --p-chip-camera-fill: oklch(76.5% 0.177 163.223) /* emerald-400 */;
+    --p-chip-filter: oklch(83.3% 0.145 321.434) /* fuchsia-300 */;
+    --p-chip-filter-fill: oklch(74% 0.238 322.16) /* fuchsia-400 */;
+  }
+
+  /* One focus style for everything in the planner: buttons, links, summaries, native selects, checkboxes, sliders. */
+  .planner-root :focus-visible {
+    outline: 2px solid var(--p-focus);
+    outline-offset: 2px;
+  }
+
   /* The planner's print sheet: the site's weight 200 prints pale, so its text prints at normal weight (headings and bold stay as they are). */
   @media print {
     .planner-print-sheet :is(p, span) {
@@ -104,6 +152,40 @@
       transform: translateY(0);
     }
   }
+}
+
+@theme inline {
+  --color-p-bg: var(--p-bg);
+  --color-p-surface: var(--p-surface);
+  --color-p-raised: var(--p-raised);
+  --color-p-t1: var(--p-t1);
+  --color-p-t2: var(--p-t2);
+  --color-p-line: var(--p-line);
+  --color-p-focus: var(--p-focus);
+  --color-p-accent: var(--p-accent);
+  --color-p-warn-text: var(--p-warn-text);
+  --color-p-warn-strong: var(--p-warn-strong);
+  --color-p-warn: var(--p-warn);
+  --color-p-warn-fill: var(--p-warn-fill);
+  --color-p-info-text: var(--p-info-text);
+  --color-p-info-strong: var(--p-info-strong);
+  --color-p-info-fill: var(--p-info-fill);
+  --color-p-ok-text: var(--p-ok-text);
+  --color-p-ok: var(--p-ok);
+  --color-p-ok-fill: var(--p-ok-fill);
+  --color-p-pending: var(--p-pending);
+  --color-p-would: var(--p-would);
+  --color-p-night: var(--p-night);
+  --color-p-chip-scope: var(--p-chip-scope);
+  --color-p-chip-scope-fill: var(--p-chip-scope-fill);
+  --color-p-chip-smart: var(--p-chip-smart);
+  --color-p-chip-smart-fill: var(--p-chip-smart-fill);
+  --color-p-chip-accessory: var(--p-chip-accessory);
+  --color-p-chip-accessory-fill: var(--p-chip-accessory-fill);
+  --color-p-chip-camera: var(--p-chip-camera);
+  --color-p-chip-camera-fill: var(--p-chip-camera-fill);
+  --color-p-chip-filter: var(--p-chip-filter);
+  --color-p-chip-filter-fill: var(--p-chip-filter-fill);
 }
 
 @theme inline {

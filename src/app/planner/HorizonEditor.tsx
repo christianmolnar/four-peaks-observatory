@@ -91,7 +91,7 @@ const FIELDS: { key: HorizonField; id: string; label: string; unit: string }[] =
 const fieldId = (id: string, zone: number): string => (zone === 0 ? id : `${id}-${zone + 1}`);
 
 const btn =
-  'inline-flex h-11 w-full sm:w-44 items-center justify-center rounded-lg border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40 disabled:hover:bg-transparent';
+  'inline-flex h-11 w-full sm:w-44 items-center justify-center rounded-lg border border-p-line/30 text-p-t1 font-normal text-sm hover:bg-p-raised/10 disabled:opacity-40 disabled:hover:bg-transparent';
 
 export default function HorizonEditor({
   siteName,
@@ -148,23 +148,23 @@ export default function HorizonEditor({
   const status = invalid ? 'Fix the highlighted box to save' : dirty ? 'Unsaved changes' : saved ? 'Saved' : '';
 
   return (
-    <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-black/70 rounded-lg border border-white/10 p-6">
+    <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-p-bg/70 rounded-lg border border-p-line/10 p-6">
       <div className="col-start-1 row-start-1 flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
-        <h2 id="horizon-heading" className="min-w-0 max-w-full break-words basis-full md:basis-auto text-xl font-light text-white tracking-[0.15em]">
+        <h2 id="horizon-heading" className="min-w-0 max-w-full break-words basis-full md:basis-auto text-xl font-light text-p-t1 tracking-[0.15em]">
           HORIZON: {siteName.toUpperCase()}
         </h2>
         {fields.length === 0 ? (
-          <span className="inline-block rounded bg-orange-400/20 text-orange-200 font-normal text-sm px-2 py-0.5" data-testid="horizon-not-set">
+          <span className="inline-block rounded bg-p-warn-fill/20 text-p-warn-strong font-normal text-sm px-2 py-0.5" data-testid="horizon-not-set">
             Horizon not set
           </span>
         ) : (
-          <span className="inline-block rounded bg-emerald-400/20 text-emerald-200 font-normal text-sm px-2 py-0.5">Horizon set</span>
+          <span className="inline-block rounded bg-p-ok-fill/20 text-p-ok-text font-normal text-sm px-2 py-0.5">Horizon set</span>
         )}
         <p
           id="horizon-status"
           aria-live="polite"
           data-testid="horizon-status"
-          className={`flex h-11 w-60 max-w-full items-center text-sm leading-5 font-normal ${invalid ? 'text-orange-300' : saved && !dirty ? 'text-emerald-300' : 'text-yellow-200'}`}
+          className={`flex h-11 w-60 max-w-full items-center text-sm leading-5 font-normal ${invalid ? 'text-p-warn' : saved && !dirty ? 'text-p-ok' : 'text-p-pending'}`}
         >
           {status}
         </p>
@@ -183,23 +183,23 @@ export default function HorizonEditor({
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             {fields.length === 0 && (
-              <p className="text-white/80 font-normal text-sm mb-3">
+              <p className="text-p-t1/80 font-normal text-sm mb-3">
                 No obstruction is entered, so the planner uses the flat minimum altitude only. It does not guess a horizon.
               </p>
             )}
             {/* At most 2 columns by 2 rows (MAX_ZONES = 4); one column on a phone. */}
             <div data-testid="zone-grid" className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             {fields.map((zone, n) => (
-              <div key={n} role="group" aria-labelledby={`zone-${n + 1}-title`} className="min-w-0 rounded-lg border border-white/15 p-3">
+              <div key={n} role="group" aria-labelledby={`zone-${n + 1}-title`} className="min-w-0 rounded-lg border border-p-line/15 p-3">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <h3 id={`zone-${n + 1}-title`} className="text-sm font-medium text-white tracking-wide">
+                  <h3 id={`zone-${n + 1}-title`} className="text-sm font-medium text-p-t1 tracking-wide">
                     Zone {n + 1}
                   </h3>
                   <button
                     type="button"
                     onClick={() => remove(n)}
                     aria-label={`Remove zone ${n + 1}`}
-                    className="h-11 px-3 text-sm font-normal text-white/90 underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded"
+                    className="h-11 px-3 text-sm font-normal text-p-t1/90 underline underline-offset-2 hover:text-p-t1 rounded"
                   >
                     Remove zone
                   </button>
@@ -283,7 +283,7 @@ export default function HorizonEditor({
               <button ref={addRef} type="button" className={btn} onClick={add} disabled={fields.length >= MAX_ZONES}>
                 {fields.length === 0 ? 'Add a zone' : 'Add another zone'}
               </button>
-              {fields.length >= MAX_ZONES && <p className="text-white/80 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
+              {fields.length >= MAX_ZONES && <p className="text-p-t1/80 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <button type="submit" className={btn} disabled={!canSave}>
                   Save horizon
@@ -295,8 +295,8 @@ export default function HorizonEditor({
                   Use sample horizon
                 </button>
               </div>
-              <p className="text-white/80 font-normal text-sm leading-5 mt-3">{summary}</p>
-              <p className="text-white/75 font-normal text-sm leading-5 mt-3">
+              <p className="text-p-t1/80 font-normal text-sm leading-5 mt-3">{summary}</p>
+              <p className="text-p-t1/75 font-normal text-sm leading-5 mt-3">
                 Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone is blocked from its first number clockwise to its second, and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
               </p>
             </div>
@@ -310,15 +310,15 @@ export default function HorizonEditor({
         type="button"
         onClick={onClear}
         disabled={fields.length === 0}
-        className="col-start-2 row-start-1 self-start h-11 px-1 text-sm font-normal text-white/90 underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 rounded disabled:opacity-40 disabled:no-underline"
+        className="col-start-2 row-start-1 self-start h-11 px-1 text-sm font-normal text-p-t1/90 underline underline-offset-2 hover:text-p-t1 rounded disabled:opacity-40 disabled:no-underline"
       >
         Clear horizon
       </button>
 
       <details className="col-span-2 mt-4">
-        <summary className="cursor-pointer py-3 text-white/90 font-normal text-sm">Horizon as a table</summary>
-        <p className="mt-2 text-sm font-normal text-white/90">{describeOverlaps(drawn) || 'No zones overlap.'} Where zones overlap the table shows the highest height.</p>
-        <table className="mt-2 text-sm font-normal text-white/90">
+        <summary className="cursor-pointer py-3 text-p-t1/90 font-normal text-sm">Horizon as a table</summary>
+        <p className="mt-2 text-sm font-normal text-p-t1/90">{describeOverlaps(drawn) || 'No zones overlap.'} Where zones overlap the table shows the highest height.</p>
+        <table className="mt-2 text-sm font-normal text-p-t1/90">
           <caption className="sr-only">Obstruction height by compass direction</caption>
           <thead>
             <tr>

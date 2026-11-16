@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function PlannerPage() {
   return (
     <SiteLayout>
-      <div className="min-h-screen bg-black print:bg-white">
+      <div className="planner-ground min-h-screen bg-p-bg print:bg-white">
         <main className="relative z-10 pt-8 pb-16 print:pt-0 print:pb-0">
           <div className="max-w-6xl mx-auto px-6">
             <PlannerApp />

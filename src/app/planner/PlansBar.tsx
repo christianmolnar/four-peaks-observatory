@@ -16,7 +16,7 @@ export interface PlansBarProps {
 }
 
 const btn =
-  'inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-white/30 px-3 py-1.5 text-sm font-normal text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-p-line/30 px-3 py-1.5 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
 
 /**
  * My plans: the saved plans, one open at a time. The switcher opens another; New, Rename, Duplicate and Delete act on the open one
@@ -55,10 +55,10 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
   };
 
   return (
-    <section aria-labelledby="plans-heading" data-testid="plans-bar" className="rounded-lg border border-white/10 bg-black/70 px-4 py-3 sm:px-6">
+    <section aria-labelledby="plans-heading" data-testid="plans-bar" className="rounded-lg border border-p-line/10 bg-p-bg/70 px-4 py-3 sm:px-6">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <div className="min-w-0 basis-full sm:basis-72">
-          <h2 id="plans-heading" className="mb-1 text-sm font-normal text-white/90">
+          <h2 id="plans-heading" className="mb-1 text-sm font-normal text-p-t1/90">
             <label htmlFor="plan-switch">My plans ({plans.length})</label>
           </h2>
           <WrapSelect id="plan-switch" className="w-full" value={open.id} onChange={(e) => onOpen(e.target.value)}>
@@ -96,7 +96,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
           }}
         >
           <div className="min-w-0 basis-72">
-            <label htmlFor="plan-name" className="mb-1 block text-sm font-normal text-white/90">Plan name</label>
+            <label htmlFor="plan-name" className="mb-1 block text-sm font-normal text-p-t1/90">Plan name</label>
             <input
               ref={nameBox}
               id="plan-name"
@@ -108,7 +108,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
               onKeyDown={(e) => {
                 if (e.key === 'Escape') close(renameButton.current);
               }}
-              className="min-h-11 w-full rounded border border-white/30 bg-black/60 px-2 py-1 text-sm font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+              className="min-h-11 w-full rounded border border-p-line/30 bg-p-bg/60 px-2 py-1 text-sm font-normal text-p-t1"
             />
           </div>
           <button type="submit" className={btn} disabled={draft.trim() === ''}>Save name</button>
@@ -116,11 +116,11 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
         </form>
       )}
       {mode === 'delete' && (
-        <div role="group" aria-labelledby="plan-delete-title" data-testid="plan-delete-confirm" className="mt-3 max-w-xl rounded-lg border border-orange-300/50 bg-black/80 p-4">
-          <p id="plan-delete-title" className="break-words text-sm font-normal text-white">
+        <div role="group" aria-labelledby="plan-delete-title" data-testid="plan-delete-confirm" className="mt-3 max-w-xl rounded-lg border border-p-warn/50 bg-p-bg/80 p-4">
+          <p id="plan-delete-title" className="break-words text-sm font-normal text-p-t1">
             Delete the plan “{open.name}”?
           </p>
-          <p className="mt-1 text-sm font-normal text-white/90">
+          <p className="mt-1 text-sm font-normal text-p-t1/90">
             Its {open.targets} {open.targets === 1 ? 'target' : 'targets'}, times and notes are removed from this browser. This cannot be undone.
           </p>
           <div className="mt-3 flex flex-wrap gap-3">

@@ -15,10 +15,10 @@ import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
 
 const field =
-  'min-h-11 w-full bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
+  'min-h-11 w-full bg-p-bg/60 border border-p-line/30 rounded px-2 py-1 text-p-t1 font-normal text-sm';
 const btn =
-  'min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
-const labelClass = 'block text-white/90 font-normal text-sm mb-1';
+  'min-h-11 px-3 py-1.5 rounded border border-p-line/30 text-p-t1 font-normal text-sm hover:bg-p-raised/10 disabled:opacity-40';
+const labelClass = 'block text-p-t1/90 font-normal text-sm mb-1';
 
 export interface ProfileEditorProps {
   profile: Profile;
@@ -134,18 +134,18 @@ function FormShell({ legend, error, notice, onSave, onClose, focusTo, nameId, ch
         e.stopPropagation();
         onClose();
       }}
-      className="mt-3 min-w-0 rounded border border-white/15 p-3 sm:p-4"
+      className="mt-3 min-w-0 rounded border border-p-line/15 p-3 sm:p-4"
     >
       <fieldset className="min-w-0">
-        <legend className="max-w-full break-words px-1 text-white font-normal text-sm">{legend}</legend>
-        {notice && <p className="mb-3 break-words text-sm font-normal text-sky-100">{notice}</p>}
+        <legend className="max-w-full break-words px-1 text-p-t1 font-normal text-sm">{legend}</legend>
+        {notice && <p className="mb-3 break-words text-sm font-normal text-p-info-text">{notice}</p>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">{children}</div>
         <div className="flex flex-wrap items-center gap-3 mt-3">
           <button ref={saveRef} type="submit" className={btn}>Save</button>
           <button type="button" className={btn} onClick={onClose}>Close</button>
         </div>
         {error && (
-          <p role="alert" className="mt-3 break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          <p role="alert" className="mt-3 break-words bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text font-normal text-sm">
             <span aria-hidden="true">! </span>
             {error}
           </p>
@@ -268,13 +268,13 @@ function TrainForm({ profile, train, use, onChange, onRefuse, onClose, focusTo }
           {select(`${base}-filter`, 'Filter', filterId, setFilterId, eq.filters, 'No filter')}
           <fieldset className="sm:col-span-2 xl:col-span-3">
             <legend className={labelClass}>Accessories</legend>
-            {eq.accessories.length === 0 && <p className="text-white/70 text-sm">None in the library.</p>}
+            {eq.accessories.length === 0 && <p className="text-p-t1/70 text-sm">None in the library.</p>}
             <div className="flex flex-wrap gap-x-6">
               {eq.accessories.map((a) => (
-                <label key={a.id} className="flex min-h-11 min-w-0 max-w-full items-center gap-2 break-words text-white/90 font-normal text-sm">
+                <label key={a.id} className="flex min-h-11 min-w-0 max-w-full items-center gap-2 break-words text-p-t1/90 font-normal text-sm">
                   <input
                     type="checkbox"
-                    className="shrink-0 accent-sky-400"
+                    className="shrink-0 accent-p-focus"
                     checked={accessoryIds.includes(a.id)}
                     onChange={(e) => setAccessoryIds((ids) => (e.target.checked ? [...ids, a.id] : ids.filter((x) => x !== a.id)))}
                   />
@@ -289,8 +289,8 @@ function TrainForm({ profile, train, use, onChange, onRefuse, onClose, focusTo }
   );
 }
 
-const chip = 'min-w-0 break-words rounded border px-2 py-1 text-sm font-normal text-white';
-const chipLabel = 'block text-sm uppercase tracking-wide text-white/70';
+const chip = 'min-w-0 break-words rounded border px-2 py-1 text-sm font-normal text-p-t1';
+const chipLabel = 'block text-sm uppercase tracking-wide text-p-t1/70';
 
 function Chip({ tone, label, name }: { tone: string; label: string; name: string }) {
   return (
@@ -302,7 +302,7 @@ function Chip({ tone, label, name }: { tone: string; label: string; name: string
 }
 
 const Join = () => (
-  <span aria-hidden="true" className="text-white/60">
+  <span aria-hidden="true" className="text-p-t1/60">
     ›
   </span>
 );
@@ -313,24 +313,24 @@ function TrainChain({ profile, train }: { profile: Profile; train: TrainEntry })
   if (train.kind === 'smart') {
     return (
       <div className="flex flex-wrap items-stretch gap-2">
-        <Chip tone="border-violet-300/50 bg-violet-400/15" label="Smart scope" name={eq.smartScopes.find((s) => s.id === train.smartScopeId)?.name ?? train.smartScopeId} />
+        <Chip tone="border-p-chip-smart/50 bg-p-chip-smart-fill/15" label="Smart scope" name={eq.smartScopes.find((s) => s.id === train.smartScopeId)?.name ?? train.smartScopeId} />
       </div>
     );
   }
   const nameOf = <T extends { id: string; name: string }>(xs: T[], id: string) => xs.find((x) => x.id === id)?.name ?? id;
   return (
     <div className="flex flex-wrap items-stretch gap-x-2 gap-y-2">
-      <Chip tone="border-sky-300/50 bg-sky-400/15" label="Scope" name={nameOf(eq.scopes, train.scopeId)} />
+      <Chip tone="border-p-chip-scope/50 bg-p-chip-scope-fill/15" label="Scope" name={nameOf(eq.scopes, train.scopeId)} />
       {train.accessoryIds.map((id) => (
         <span key={id} className="contents">
           <Join />
-          <Chip tone="border-amber-300/50 bg-amber-400/15" label="Accessory" name={nameOf(eq.accessories, id)} />
+          <Chip tone="border-p-chip-accessory/50 bg-p-chip-accessory-fill/15" label="Accessory" name={nameOf(eq.accessories, id)} />
         </span>
       ))}
       <Join />
-      <Chip tone="border-emerald-300/50 bg-emerald-400/15" label="Camera" name={nameOf(eq.cameras, train.cameraId)} />
+      <Chip tone="border-p-chip-camera/50 bg-p-chip-camera-fill/15" label="Camera" name={nameOf(eq.cameras, train.cameraId)} />
       <Join />
-      <Chip tone="border-fuchsia-300/50 bg-fuchsia-400/15" label="Filter" name={train.filterId === undefined ? 'No filter' : nameOf(eq.filters, train.filterId)} />
+      <Chip tone="border-p-chip-filter/50 bg-p-chip-filter-fill/15" label="Filter" name={train.filterId === undefined ? 'No filter' : nameOf(eq.filters, train.filterId)} />
     </div>
   );
 }
@@ -494,26 +494,26 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
         : [{ label: `Add ${LIST_SPECS[cls].noun}`, run: () => tryAdd(() => addItem(profile, cls), `Added a ${LIST_SPECS[cls].noun}. Change it and press Save.`, (p) => `${cls}:${lastOf(itemsOf(p, cls))}`) }];
 
   return (
-    <section aria-labelledby="gear-heading" className="bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6">
-      <h2 id="gear-heading" className="text-xl font-light text-white tracking-[0.15em] mb-2">GEAR</h2>
-      <p data-testid="setup-help" className="text-white/80 font-normal text-sm mb-3">
+    <section aria-labelledby="gear-heading" className="bg-p-bg/70 rounded-lg border border-p-line/10 p-4 sm:p-6">
+      <h2 id="gear-heading" className="text-xl font-light text-p-t1 tracking-[0.15em] mb-2">GEAR</h2>
+      <p data-testid="setup-help" className="text-p-t1/80 font-normal text-sm mb-3">
         A setup (also called a train) is one scope with its camera, filter and accessories, the combination you image with. Pick a class, then add, change or remove its items. Leave an optional box empty when you do not know it: the planner then says the value is missing instead of guessing.
       </p>
       <div role="group" aria-label="Gear class" className="flex flex-wrap gap-2">
         {GEAR_CLASSES.map((c) => (
-          <button key={c.id} type="button" aria-pressed={cls === c.id} className={`${btn} ${cls === c.id ? 'bg-white/15 border-sky-300' : ''}`} onClick={() => pick(c.id)}>
+          <button key={c.id} type="button" aria-pressed={cls === c.id} className={`${btn} ${cls === c.id ? 'bg-p-raised/15 border-p-accent' : ''}`} onClick={() => pick(c.id)}>
             {classWord(c.id)} ({count(c.id)})
           </button>
         ))}
       </div>
-      <p aria-live="polite" className="my-2 min-h-5 break-words text-sky-100 font-normal text-sm">
+      <p aria-live="polite" className="my-2 min-h-5 break-words text-p-info-text font-normal text-sm">
         {status}
         {undo !== null && undo.after === profile && (
           <>
             {' '}
             <button
               type="button"
-              className="min-h-11 rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
+              className="min-h-11 rounded px-1 text-p-accent underline underline-offset-2"
               onClick={() => {
                 try {
                   commit(undo.before, `Put back ${undo.name}.`);
@@ -528,14 +528,14 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
         )}
       </p>
       {problem?.card === '' && (
-        <p role="alert" className="mb-3 break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+        <p role="alert" className="mb-3 break-words bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text font-normal text-sm">
           <span aria-hidden="true">! </span>
           {problem.text}
         </p>
       )}
-      <h3 className="mb-2 text-base font-normal text-white">{classLabel}</h3>
+      <h3 className="mb-2 text-base font-normal text-p-t1">{classLabel}</h3>
       <ul ref={listRef} tabIndex={-1} aria-label={classLabel} className="space-y-3 focus:outline-none">
-        {entries.length === 0 && <li className="text-white/70 text-sm">None yet.</li>}
+        {entries.length === 0 && <li className="text-p-t1/70 text-sm">None yet.</li>}
         {entries.map((e) => {
           const id = e.kind === 'train' ? e.train.id : e.item.id;
           const card = e.kind === 'train' ? `trains:${id}` : `${e.list}:${id}`;
@@ -554,18 +554,18 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           const detail = e.kind === 'train' ? '' : summaryOf(e.list, e.item);
           const tag = e.kind === 'item' && e.list === 'smartScopes' ? 'Smart scope' : e.kind === 'train' && e.train.kind === 'smart' ? 'Smart-scope setup' : '';
           return (
-            <li key={card} data-testid={`gear-card-${card}`} className="min-w-0 rounded border border-white/15 p-3">
+            <li key={card} data-testid={`gear-card-${card}`} className="min-w-0 rounded border border-p-line/15 p-3">
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="min-w-0 break-words text-base font-normal text-white">{name}</span>
-                {tag && <span className="text-sm text-white/70">{tag}</span>}
-                {here && <span className="rounded border border-sky-300/60 px-1.5 text-sm text-sky-100">In this plan</span>}
+                <span className="min-w-0 break-words text-base font-normal text-p-t1">{name}</span>
+                {tag && <span className="text-sm text-p-t1/70">{tag}</span>}
+                {here && <span className="rounded border border-p-accent/60 px-1.5 text-sm text-p-info-text">In this plan</span>}
               </div>
               {e.kind === 'train' && <div className="mt-2"><TrainChain profile={profile} train={e.train} /></div>}
-              {focalNote !== null && <p className="mt-1 break-words text-sm font-normal text-sky-100" data-testid="gear-focal-note">{focalNote}</p>}
-              {detail && <p className="mt-1 break-words text-sm font-normal text-white/80">{detail}</p>}
-              <p className="mt-1 break-words text-sm font-normal text-white/80">{usedText(use)}</p>
+              {focalNote !== null && <p className="mt-1 break-words text-sm font-normal text-p-info-text" data-testid="gear-focal-note">{focalNote}</p>}
+              {detail && <p className="mt-1 break-words text-sm font-normal text-p-t1/80">{detail}</p>}
+              <p className="mt-1 break-words text-sm font-normal text-p-t1/80">{usedText(use)}</p>
               {flags.map((t) => (
-                <p key={t} className="mt-1 break-words text-sm font-normal text-orange-100" data-testid="gear-flag">
+                <p key={t} className="mt-1 break-words text-sm font-normal text-p-warn-text" data-testid="gear-flag">
                   <span aria-hidden="true">! </span>
                   {t} Change it and press Save.
                 </p>
@@ -591,7 +591,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
                 </button>
               </div>
               {problem?.card === card && (
-                <div role="alert" className="mt-2 break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+                <div role="alert" className="mt-2 break-words bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text font-normal text-sm">
                   <span aria-hidden="true">! </span>
                   {problem.text}
                   {problem.plan && (
@@ -614,7 +614,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
         })}
       </ul>
       {flagged.length > 0 && (
-        <p className="mt-3 break-words text-sm font-normal text-orange-100" data-testid="gear-flagged">
+        <p className="mt-3 break-words text-sm font-normal text-p-warn-text" data-testid="gear-flagged">
           <span aria-hidden="true">! </span>
           {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} not usable (outside the allowed range or not a number). They are marked on their cards.
         </p>

@@ -148,7 +148,7 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
           role="img"
           tabIndex={0}
           aria-labelledby={`${idPrefix}-title ${idPrefix}-desc`}
-          className="block w-full rounded focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400"
+          className="block w-full rounded"
           style={{ height: 'auto', aspectRatio: `${width} / ${height}` }}
         >
           <title id={`${idPrefix}-title`}>Altitude of every slot through the night</title>
@@ -254,16 +254,16 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
         </svg>
       </div>
 
-      <ul className="mt-2 space-y-1 text-white/90 font-normal text-sm" aria-label="Chart key">
+      <ul className="mt-2 space-y-1 text-p-t1/90 font-normal text-sm" aria-label="Chart key">
         <li>Numbers and thick lines: your slots. Faint line: the rest of that target&apos;s night.</li>
         <li>Dotted white line: changeover or wait between slots. Dashed orange line: minimum altitude {minAltitude}°.</li>
         <li>Dotted orange on a curve: under your horizon or minimum there. Dashed white line: your start.</li>
       </ul>
 
       {plan.slots.length === 0 ? (
-        <p className="mt-2 text-white/90 font-normal text-sm">Add a target to draw it on the night.</p>
+        <p className="mt-2 text-p-t1/90 font-normal text-sm">Add a target to draw it on the night.</p>
       ) : (
-        <ol className="mt-2 space-y-1 text-white font-normal text-sm" aria-label="Slots on the graph">
+        <ol className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Slots on the graph">
           {plan.slots.map((s, i) => (
             <li key={s.id} className="flex items-baseline gap-2">
               <span aria-hidden="true" className="inline-block h-3 w-3 shrink-0 rounded-full border-2" style={{ borderColor: colour(i) }} />
@@ -276,8 +276,8 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
       )}
 
       <details className="group mt-2" data-testid="timeline-numbers">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
-        <table className="mt-1 w-full table-fixed text-left text-sm font-normal text-white/90">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1/90 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
+        <table className="mt-1 w-full table-fixed text-left text-sm font-normal text-p-t1/90">
           <caption className="sr-only">Altitude and compass direction at the start, middle and end of each slot</caption>
           <thead>
             <tr>

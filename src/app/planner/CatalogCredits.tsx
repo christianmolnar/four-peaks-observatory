@@ -1,7 +1,7 @@
 // Planner footer credits: CC BY-SA 4.0 for the bundled OpenNGC extract (public/catalog; wording: docs/reference/planner-catalog.md), and ODbL for the OpenStreetMap-derived time-zone boundaries in the site-location lookup (docs/guides/planner-location-lookup.md).
 export default function CatalogCredits() {
   return (
-    <footer className="mt-10 text-xs text-gray-500 print:hidden">
+    <footer className="mt-10 text-xs text-p-t2 print:hidden">
       Deep-sky catalog data:{' '}
       <a className="inline-flex min-h-11 items-center underline" href="https://github.com/mattiaverga/OpenNGC" rel="noreferrer">
         OpenNGC
