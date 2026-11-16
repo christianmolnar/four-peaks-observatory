@@ -647,6 +647,12 @@ function contextFor(object: ExposureTarget, rig: ExposureRig, site: ExposureSite
   if (imageScale === undefined) missing.push('train.imageScale');
   if (pixelUm === undefined) missing.push('camera.pixelSizeUm');
   if (fRatio === undefined || pixelUm === undefined || imageScale === undefined) return { missing };
+  // A number that is not a finite positive one (a stored value no range allows) gives no rate: the rig is missing it, the render never throws.
+  const usable = (v: number) => Number.isFinite(v) && v > 0;
+  if (!usable(fRatio)) missing.push('train.focalRatio');
+  if (!usable(imageScale)) missing.push('train.imageScale');
+  if (!usable(pixelUm)) missing.push('camera.pixelSizeUm');
+  if (missing.length > 0) return { missing };
 
   const bw = bandwidthOf(rig.filter);
   const rnClass = rig.camera.readNoiseClass ?? DEFAULT_READ_NOISE_CLASS;
@@ -654,6 +660,7 @@ function contextFor(object: ExposureTarget, rig: ExposureRig, site: ExposureSite
   const readNoiseE = READ_NOISE_E[rnClass];
   const sky: SkyInput = { bortle: site.bortle, moonIllumination: night.moonIllumination, moonSeparationDeg: night.moonSeparationDeg, moonUp: night.moonUp };
   const rate = skyRate({ pixelUm, fRatio, bandwidthNm: bw.nm, sky });
+  if (!usable(rate)) return { missing: ['train.focalRatio', 'camera.pixelSizeUm'] };
 
   const shared: ExposureWarning[] = [...filterWarnings(fRatio, rig.filter, rig.camera)];
   if (bw.assumed || rnAssumed) {

@@ -149,8 +149,8 @@ describe('the plan rows CSV', () => {
     ]);
     const rows = parseCsv(text);
     expect(rows[0]).toEqual([...PLAN_CSV_HEADER]);
-    expect(rows[1]).toEqual(['1', 'Andromeda Galaxy', 'Galaxy', 'Deep Project', '120', '30', '60', 'first, then M33']);
-    expect(rows[2]).toEqual(['2', 'Jupiter', 'Solar system', '', '', '', '', "'=cmd"]);
+    expect(rows[1]).toEqual(['1', 'Andromeda Galaxy', 'Galaxy', 'Deep Project', '120', '30', '60', 'first, then M33', '']);
+    expect(rows[2]).toEqual(['2', 'Jupiter', 'Solar system', '', '', '', '', "'=cmd", '']);
     expect(text.endsWith('\r\n')).toBe(true);
     expect(rows).toHaveLength(3);
   });

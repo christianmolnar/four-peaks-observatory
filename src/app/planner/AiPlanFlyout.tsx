@@ -41,6 +41,10 @@ export interface AiPlanFlyoutProps {
   targets: readonly PlanTarget[];
   /** Why there is nothing to send yet, in words for the user; null when there is. */
   blocked: string | null;
+  /** The plan's site or train is gone from the gear: what is shown instead. The AI is not asked until the user keeps it or changes it. */
+  staleNotes?: readonly { key: string; text: string; keepLabel: string; onKeep: () => void }[];
+  /** Closes the flyout and focuses the page's Train control. */
+  onChangeStale?: () => void;
   /** What the open plan holds that the AI plan leaves out (planets, targets past the limit); empty when nothing. */
   leftOutNote: string;
   profile: Profile;
@@ -118,7 +122,7 @@ function Step({ n, title, state, children }: { n: number; title: string; state: 
  * the AI is given it, the AI ordering and timing the targets, the code checking every slot against the sky. It ends in a result; the open
  * plan changes only when "Use this plan" is pressed. Closing it stops any request in flight.
  */
-export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
+export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, staleNotes = [], onChangeStale = () => undefined, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
   const [run, setRun] = useState<Run>('idle');
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -352,6 +356,15 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, prof
                 </li>
               </ul>
             ) : null}
+            {staleNotes.map((n) => (
+              <div key={n.key} className="mt-2 rounded border border-orange-300/50 bg-orange-400/15 p-2 text-sm font-normal text-orange-100" data-testid={`ai-stale-${n.key}`}>
+                <p className="break-words">{n.text}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" className={btn44} onClick={n.onKeep}>{n.keepLabel}</button>
+                  <button type="button" className={btn44} onClick={onChangeStale}>Change</button>
+                </div>
+              </div>
+            ))}
             {leftOutNote !== '' && <p className="mt-1 text-sm font-normal text-white/70" data-testid="ai-left-out-note">{leftOutNote}</p>}
             {disabledReason !== null && (
               <p id="ai-plan-reason" className="mt-1 text-sm font-normal text-orange-100" data-testid="ai-plan-reason">

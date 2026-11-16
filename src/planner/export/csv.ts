@@ -89,7 +89,7 @@ export function planToCsv(entries: readonly PlanEntry[], options: CsvOptions): s
   return [CSV_HEADER.map(csvField).join(','), ...rows].join('\r\n') + '\r\n';
 }
 
-export const PLAN_CSV_HEADER = ['Order', 'Name', 'Type', 'Preset', 'Sub length (s)', 'Subs', 'Total light (min)', 'Note'] as const;
+export const PLAN_CSV_HEADER = ['Order', 'Name', 'Type', 'Preset', 'Sub length (s)', 'Subs', 'Total light (min)', 'Note', 'Warning'] as const;
 
 /** One row of the open plan with its exposure: numbers are null for a target with none (a solar-system body, or one not yet resolved). */
 export interface PlanExposureRow {
@@ -100,12 +100,17 @@ export interface PlanExposureRow {
   subCount: number | null;
   lightMin: number | null;
   note: string;
+  /** Why this row has no numbers when its train gives none (a pixel size not set, a value outside its range), in plain words; empty otherwise. */
+  exposureNote?: string;
 }
 
-/** The open plan's targets in the plan's order, each with its preset, sub length, count and total light. Lines end with CRLF. */
-export function planRowsToCsv(rows: readonly PlanExposureRow[]): string {
+/**
+ * The open plan's targets in the plan's order, each with its preset, sub length, count and total light. Lines end with CRLF.
+ * `planWarning` (the plan's site or train is gone from the gear, so another is used) is said on every row, with the row's own reason when it has no numbers.
+ */
+export function planRowsToCsv(rows: readonly PlanExposureRow[], planWarning = ''): string {
   const lines = rows.map((r, i) =>
-    [i + 1, r.name, r.type, r.preset, r.subSeconds ?? '', r.subCount ?? '', r.lightMin === null ? '' : Math.round(r.lightMin), r.note].map(csvField).join(','),
+    [i + 1, r.name, r.type, r.preset, r.subSeconds ?? '', r.subCount ?? '', r.lightMin === null ? '' : Math.round(r.lightMin), r.note, [planWarning, r.exposureNote ?? ''].filter((x) => x !== '').join(' ')].map(csvField).join(','),
   );
   return [PLAN_CSV_HEADER.map(csvField).join(','), ...lines].join('\r\n') + '\r\n';
 }

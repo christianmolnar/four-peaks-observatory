@@ -15,6 +15,8 @@ export const GEAR_CLASSES: readonly { id: GearClass; label: string }[] = [
 
 /** What a saved plan points at: its name and the site and train it was made for. */
 export interface PlanRef {
+  /** The plan's id; absent for a reference that cannot be opened. */
+  id?: string;
   name: string;
   siteId: string;
   trainId: string;
@@ -24,13 +26,21 @@ export interface PlanRef {
 export interface Use {
   trains: string[];
   plans: string[];
+  /** The ids of `plans`, in the same order, for the ones that can be opened. */
+  planIds: string[];
 }
 
-/** Who uses an item: gear is used by trains; a site or a train is used by plans (the saved plans and the profile's own examples). */
+/**
+ * Who uses an item: gear is used by trains; a site or a train is used by the saved plans. The profile's own example plans (hidden: no plan
+ * switcher shows them) never count: removing a site or train drops them, so nothing the user cannot open ever blocks a removal.
+ */
 export function usesOf(profile: Profile, plans: readonly PlanRef[], what: ListKey | 'trains', id: string): Use {
-  const all: PlanRef[] = [...plans, ...profile.plans];
-  if (what === 'sites') return { trains: [], plans: all.filter((p) => p.siteId === id).map((p) => p.name) };
-  if (what === 'trains') return { trains: [], plans: all.filter((p) => p.trainId === id).map((p) => p.name) };
+  const byPlan = (match: (p: PlanRef) => boolean): Use => {
+    const hit = plans.filter(match);
+    return { trains: [], plans: hit.map((p) => p.name), planIds: hit.flatMap((p) => (p.id === undefined ? [] : [p.id])) };
+  };
+  if (what === 'sites') return byPlan((p) => p.siteId === id);
+  if (what === 'trains') return byPlan((p) => p.trainId === id);
   const trains = profile.trains
     .filter((t) => {
       if (t.kind === 'smart') return what === 'smartScopes' && t.smartScopeId === id;
@@ -42,7 +52,7 @@ export function usesOf(profile: Profile, plans: readonly PlanRef[], what: ListKe
       );
     })
     .map((t) => t.name);
-  return { trains, plans: [] };
+  return { trains, plans: [], planIds: [] };
 }
 
 const quoted = (names: readonly string[]) => {

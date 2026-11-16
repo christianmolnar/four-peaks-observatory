@@ -136,6 +136,8 @@ export interface SlotInput {
   optics: { focalRatio?: number; imageScale?: number } | null;
   camera: ProfileCamera | null;
   filter: ProfileFilter | null;
+  /** Why the train's gear gives no exposure (a number not set, or outside its range), as one plain sentence; null when it does. */
+  gearNote?: string | null;
   /** Set when the item points at something missing from the catalog or profile; the slot shows it and takes no time. */
   problem?: string;
 }
@@ -473,7 +475,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
           { preset: item.mode, ...(item.overrides ? { overrides: item.overrides } : {}) },
         );
         if (!m.ok) {
-          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: the profile lacks ${m.missing.join(', ')}, so no exposure can be planned.` };
+          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: ${si.gearNote ?? 'the train has no usable optics numbers'}` };
         }
         subSeconds = m.subSeconds;
         subCount = m.subCount;

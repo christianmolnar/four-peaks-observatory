@@ -131,7 +131,7 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
   }
   if (text === null) return { profile: sampleProfile(), error: null, stored: false };
   try {
-    return { profile: parseProfile(text), error: null, stored: true };
+    return { profile: parseProfile(text, { lenient: true }), error: null, stored: true };
   } catch (e) {
     if (e instanceof ProfileError) {
       const why = e.path === '$' && /not valid JSON/.test(e.message)
@@ -145,7 +145,7 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
 
 /** Validates, then stores. Throws ProfileError on an invalid profile and writes nothing. */
 export function saveProfile(storage: Pick<Storage, 'setItem'>, profile: Profile): void {
-  validateProfile(profile);
+  validateProfile(profile, { lenient: true }); // a stored number outside its range is kept and flagged (gearProblems), so one such value never blocks saving the rest
   storage.setItem(PROFILE_KEY, JSON.stringify(profile));
 }
 
@@ -182,7 +182,7 @@ export function withSiteArcs(profile: Profile, siteId: string, arcs: BlockedArc[
   return validateProfile({
     ...profile,
     sites: profile.sites.map((s) => (s.id === siteId ? { ...s, blockedArcs: arcs } : s)),
-  });
+  }, { lenient: true });
 }
 
 /**
@@ -202,7 +202,7 @@ export function withTrainFilter(profile: Profile, trainId: string, filterId: str
       delete next.filterId;
       return filterId === null ? next : { ...next, filterId };
     }),
-  });
+  }, { lenient: true });
 }
 
 /**

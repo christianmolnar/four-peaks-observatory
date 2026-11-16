@@ -3,7 +3,7 @@ import { exposureTargetFrom } from '../exposure';
 import type { ExposureSource } from '../exposure';
 import { PLANETS, planTrainFor } from '../plan';
 import type { PlanEntry } from '../plan';
-import { resolveTrain } from '../profile';
+import { resolveTrain, trainGearNote } from '../profile';
 import type { Profile } from '../profile';
 import type { ItineraryItem, SlotInput } from './index';
 
@@ -44,6 +44,7 @@ export function slotInputFor(item: ItineraryItem, profile: Profile, targets: rea
     source,
     exposureTarget,
     optics: optics ? { focalRatio: optics.focalRatio, imageScale: optics.imageScale } : null,
+    gearNote: trainGearNote(profile, train),
     camera: resolved.cameraSpec ?? null,
     filter,
   };

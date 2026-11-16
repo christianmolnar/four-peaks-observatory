@@ -67,9 +67,15 @@ export default function PrintSheet({ date, siteLine, trainLine, nightLine, horiz
                   <td>{i + 1}</td>
                   <th scope="row" className="font-normal">{r.name}</th>
                   <td>{r.preset}</td>
-                  <td>{r.subSeconds === null ? '' : `${r.subSeconds} s`}</td>
-                  <td>{r.subCount ?? ''}</td>
-                  <td>{r.lightMin === null ? '' : `${Math.round(r.lightMin)} min`}</td>
+                  {r.exposureNote ? (
+                    <td colSpan={3}>{r.exposureNote}</td>
+                  ) : (
+                    <>
+                      <td>{r.subSeconds === null ? '' : `${r.subSeconds} s`}</td>
+                      <td>{r.subCount ?? ''}</td>
+                      <td>{r.lightMin === null ? '' : `${Math.round(r.lightMin)} min`}</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

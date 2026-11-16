@@ -1,3 +1,5 @@
+import { GEAR_LIMITS, MAX_NAME_CHARS, SITE_LIMITS, enterText, inRange } from './limits';
+import type { GearLimitKey, SiteLimitKey } from './limits';
 import { migrateProfile } from './migrate';
 import { MAX_ZONES, PROFILE_VERSION } from './types';
 import type {
@@ -68,21 +70,32 @@ function num(o: Obj, key: string, path: string, min: number, max: number): numbe
   return v;
 }
 
-/** Optional positive number: absent is allowed ("unknown"), anything else must be valid. */
-function optPositive(o: Obj, key: string, path: string): number | undefined {
+/**
+ * Optional gear number: absent is allowed ("unknown"). Strict (a typed or imported value) it must be inside its range in GEAR_LIMITS.
+ * Lenient (a profile already stored) any positive finite number is kept, so an older value never costs the user the profile;
+ * `gearProblems` flags it and `resolveTrain` leaves it out.
+ */
+function optLimited(o: Obj, key: GearLimitKey, path: string, strict: boolean): number | undefined {
   if (o[key] === undefined) return undefined;
   const v = o[key];
-  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) {
-    throw new ProfileError(`${path}.${key}`, `expected a positive number, got ${JSON.stringify(v)}`);
-  }
+  const limit = GEAR_LIMITS[key];
+  const ok = strict ? inRange(limit, v) : typeof v === 'number' && Number.isFinite(v) && v > 0 && (!('whole' in limit) || Number.isInteger(v));
+  if (!ok) throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${JSON.stringify(v)}.`);
+  return v as number;
+}
+
+/** A name: not empty, and (strict) at most MAX_NAME_CHARS characters. A longer stored name is kept: it wraps, and the form asks for a shorter one on the next Save. */
+function nameOf(o: Obj, path: string, strict: boolean): string {
+  const v = str(o, 'name', path);
+  if (strict && v.length > MAX_NAME_CHARS) throw new ProfileError(`${path}.name`, `Use at most ${MAX_NAME_CHARS} characters for a name. It has ${v.length}.`);
   return v;
 }
 
-function optPositiveInt(o: Obj, key: string, path: string): number | undefined {
-  const v = optPositive(o, key, path);
-  if (v !== undefined && !Number.isInteger(v)) {
-    throw new ProfileError(`${path}.${key}`, `expected a whole number, got ${v}`);
-  }
+/** A site number inside its range, in a plain sentence. */
+function siteNum(o: Obj, key: SiteLimitKey, path: string): number {
+  const limit = SITE_LIMITS[key];
+  const v = o[key];
+  if (!inRange(limit, v)) throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${JSON.stringify(v)}.`);
   return v;
 }
 
@@ -154,41 +167,41 @@ function bortle(o: Obj, path: string): number {
   return v;
 }
 
-function site(v: unknown, path: string): ProfileSite {
+function site(v: unknown, path: string, strict: boolean): ProfileSite {
   const o = obj(v, path);
   onlyKeys(o, path, ['id', 'name', 'latitude', 'longitude', 'elevationM', 'timeZone', 'bortle', 'blockedArcs']);
   if (o.blockedArcs === undefined) throw new ProfileError(`${path}.blockedArcs`, 'expected a list of zones (may be empty)');
   return withoutUndefined({
     id: str(o, 'id', path),
-    name: str(o, 'name', path),
-    latitude: num(o, 'latitude', path, -90, 90),
-    longitude: num(o, 'longitude', path, -180, 180),
-    elevationM: o.elevationM === undefined ? undefined : num(o, 'elevationM', path, -500, 9000),
+    name: nameOf(o, path, strict),
+    latitude: siteNum(o, 'latitude', path),
+    longitude: siteNum(o, 'longitude', path),
+    elevationM: o.elevationM === undefined ? undefined : siteNum(o, 'elevationM', path),
     timeZone: o.timeZone === undefined ? undefined : timeZone(o, path),
     bortle: o.bortle === undefined ? undefined : bortle(o, path),
     blockedArcs: blockedArcs(o.blockedArcs, `${path}.blockedArcs`),
   });
 }
 
-function scope(v: unknown, path: string): ProfileScope {
+function scope(v: unknown, path: string, strict: boolean): ProfileScope {
   const o = obj(v, path);
   onlyKeys(o, path, ['id', 'name', 'focalLengthMm', 'apertureMm']);
   return withoutUndefined({
     id: str(o, 'id', path),
-    name: str(o, 'name', path),
-    focalLengthMm: optPositive(o, 'focalLengthMm', path),
-    apertureMm: optPositive(o, 'apertureMm', path),
+    name: nameOf(o, path, strict),
+    focalLengthMm: optLimited(o, 'focalLengthMm', path, strict),
+    apertureMm: optLimited(o, 'apertureMm', path, strict),
   });
 }
 
-function accessory(v: unknown, path: string): ProfileAccessory {
+function accessory(v: unknown, path: string, strict: boolean): ProfileAccessory {
   const o = obj(v, path);
   onlyKeys(o, path, ['id', 'name', 'factor', 'effectiveFocalLengthMm']);
   return withoutUndefined({
     id: str(o, 'id', path),
-    name: str(o, 'name', path),
-    factor: optPositive(o, 'factor', path),
-    effectiveFocalLengthMm: optPositive(o, 'effectiveFocalLengthMm', path),
+    name: nameOf(o, path, strict),
+    factor: optLimited(o, 'factor', path, strict),
+    effectiveFocalLengthMm: optLimited(o, 'effectiveFocalLengthMm', path, strict),
   });
 }
 
@@ -201,7 +214,7 @@ function optBool(o: Obj, key: string, path: string): boolean | undefined {
 const READ_NOISE_CLASSES: readonly ReadNoiseClass[] = ['low', 'medium', 'high'];
 const FILTER_KINDS: readonly FilterKind[] = ['broadband-LP', 'dual-band', 'tri-band', 'narrowband', 'UV-IR cut', 'visual-only'];
 
-function camera(v: unknown, path: string): ProfileCamera {
+function camera(v: unknown, path: string, strict: boolean): ProfileCamera {
   const o = obj(v, path);
   onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx', 'colour', 'hasUvIrCut', 'readNoiseClass']);
   if (o.readNoiseClass !== undefined && !READ_NOISE_CLASSES.includes(o.readNoiseClass as ReadNoiseClass)) {
@@ -209,39 +222,37 @@ function camera(v: unknown, path: string): ProfileCamera {
   }
   return withoutUndefined({
     id: str(o, 'id', path),
-    name: str(o, 'name', path),
-    pixelSizeUm: optPositive(o, 'pixelSizeUm', path),
-    sensorWidthPx: optPositiveInt(o, 'sensorWidthPx', path),
-    sensorHeightPx: optPositiveInt(o, 'sensorHeightPx', path),
+    name: nameOf(o, path, strict),
+    pixelSizeUm: optLimited(o, 'pixelSizeUm', path, strict),
+    sensorWidthPx: optLimited(o, 'sensorWidthPx', path, strict),
+    sensorHeightPx: optLimited(o, 'sensorHeightPx', path, strict),
     colour: optBool(o, 'colour', path),
     hasUvIrCut: optBool(o, 'hasUvIrCut', path),
     readNoiseClass: o.readNoiseClass as ReadNoiseClass | undefined,
   });
 }
 
-function filter(v: unknown, path: string): ProfileFilter {
+function filter(v: unknown, path: string, strict: boolean): ProfileFilter {
   const o = obj(v, path);
   onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg']);
   if (o.kind !== undefined && !FILTER_KINDS.includes(o.kind as FilterKind)) {
     throw new ProfileError(`${path}.kind`, `expected one of ${FILTER_KINDS.join(', ')}, got ${JSON.stringify(o.kind)}`);
   }
-  const angle = optPositive(o, 'maxIncidentAngleDeg', path);
-  if (angle !== undefined && angle >= 90) throw new ProfileError(`${path}.maxIncidentAngleDeg`, `expected less than 90, got ${angle}`);
   return withoutUndefined({
     id: str(o, 'id', path),
-    name: str(o, 'name', path),
+    name: nameOf(o, path, strict),
     kind: o.kind as FilterKind | undefined,
-    sizeMm: optPositive(o, 'sizeMm', path),
+    sizeMm: optLimited(o, 'sizeMm', path, strict),
     bandpassNotes: o.bandpassNotes === undefined ? undefined : str(o, 'bandpassNotes', path),
-    passbandWidthNm: optPositive(o, 'passbandWidthNm', path),
-    narrowestBandNm: optPositive(o, 'narrowestBandNm', path),
+    passbandWidthNm: optLimited(o, 'passbandWidthNm', path, strict),
+    narrowestBandNm: optLimited(o, 'narrowestBandNm', path, strict),
     blocksUvIr: optBool(o, 'blocksUvIr', path),
-    ratedMinFRatio: optPositive(o, 'ratedMinFRatio', path),
-    maxIncidentAngleDeg: angle,
+    ratedMinFRatio: optLimited(o, 'ratedMinFRatio', path, strict),
+    maxIncidentAngleDeg: optLimited(o, 'maxIncidentAngleDeg', path, strict),
   });
 }
 
-function smartScope(v: unknown, path: string): ProfileSmartScope {
+function smartScope(v: unknown, path: string, strict: boolean): ProfileSmartScope {
   const o = obj(v, path);
   onlyKeys(o, path, ['id', 'name', 'mountMode', 'focalLengthMm', 'apertureMm', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx']);
   if (o.mountMode !== 'alt-az' && o.mountMode !== 'eq') {
@@ -249,13 +260,13 @@ function smartScope(v: unknown, path: string): ProfileSmartScope {
   }
   return withoutUndefined({
     id: str(o, 'id', path),
-    name: str(o, 'name', path),
+    name: nameOf(o, path, strict),
     mountMode: o.mountMode,
-    focalLengthMm: optPositive(o, 'focalLengthMm', path),
-    apertureMm: optPositive(o, 'apertureMm', path),
-    pixelSizeUm: optPositive(o, 'pixelSizeUm', path),
-    sensorWidthPx: optPositiveInt(o, 'sensorWidthPx', path),
-    sensorHeightPx: optPositiveInt(o, 'sensorHeightPx', path),
+    focalLengthMm: optLimited(o, 'focalLengthMm', path, strict),
+    apertureMm: optLimited(o, 'apertureMm', path, strict),
+    pixelSizeUm: optLimited(o, 'pixelSizeUm', path, strict),
+    sensorWidthPx: optLimited(o, 'sensorWidthPx', path, strict),
+    sensorHeightPx: optLimited(o, 'sensorHeightPx', path, strict),
   });
 }
 
@@ -264,14 +275,14 @@ function trainTag(o: Record<string, unknown>, path: string): 'planetary' {
   return 'planetary';
 }
 
-function train(v: unknown, path: string): TrainEntry {
+function train(v: unknown, path: string, strict: boolean): TrainEntry {
   const o = obj(v, path);
   if (o.kind === 'optical') {
     onlyKeys(o, path, ['kind', 'id', 'name', 'scopeId', 'accessoryIds', 'cameraId', 'filterId', 'tag']);
     return withoutUndefined({
       kind: 'optical' as const,
       id: str(o, 'id', path),
-      name: str(o, 'name', path),
+      name: nameOf(o, path, strict),
       scopeId: str(o, 'scopeId', path),
       accessoryIds: strings(o, 'accessoryIds', path),
       cameraId: str(o, 'cameraId', path),
@@ -284,7 +295,7 @@ function train(v: unknown, path: string): TrainEntry {
     return {
       kind: 'smart',
       id: str(o, 'id', path),
-      name: str(o, 'name', path),
+      name: nameOf(o, path, strict),
       smartScopeId: str(o, 'smartScopeId', path),
     };
   }
@@ -322,7 +333,8 @@ function list<T extends { id: string }>(v: unknown, path: string, item: (x: unkn
 }
 
 /** Checks a parsed JSON value and returns it as a Profile, or throws ProfileError with the field path. */
-export function validateProfile(raw: unknown): Profile {
+export function validateProfile(raw: unknown, options: { lenient?: boolean } = {}): Profile {
+  const strict = options.lenient !== true;
   const input = migrateProfile(raw);
   const o = obj(input, '$');
   onlyKeys(o, '$', ['version', 'sites', 'equipment', 'trains', 'plans']);
@@ -333,15 +345,15 @@ export function validateProfile(raw: unknown): Profile {
   onlyKeys(eq, '$.equipment', ['scopes', 'accessories', 'cameras', 'smartScopes', 'filters']);
   const profile: Profile = {
     version: PROFILE_VERSION,
-    sites: list(o.sites, '$.sites', site),
+    sites: list(o.sites, '$.sites', (x, p) => site(x, p, strict)),
     equipment: {
-      scopes: list(eq.scopes, '$.equipment.scopes', scope),
-      accessories: list(eq.accessories, '$.equipment.accessories', accessory),
-      cameras: list(eq.cameras, '$.equipment.cameras', camera),
-      smartScopes: list(eq.smartScopes, '$.equipment.smartScopes', smartScope),
-      filters: list(eq.filters, '$.equipment.filters', filter),
+      scopes: list(eq.scopes, '$.equipment.scopes', (x, p) => scope(x, p, strict)),
+      accessories: list(eq.accessories, '$.equipment.accessories', (x, p) => accessory(x, p, strict)),
+      cameras: list(eq.cameras, '$.equipment.cameras', (x, p) => camera(x, p, strict)),
+      smartScopes: list(eq.smartScopes, '$.equipment.smartScopes', (x, p) => smartScope(x, p, strict)),
+      filters: list(eq.filters, '$.equipment.filters', (x, p) => filter(x, p, strict)),
     },
-    trains: list(o.trains, '$.trains', train),
+    trains: list(o.trains, '$.trains', (x, p) => train(x, p, strict)),
     plans: list(o.plans, '$.plans', plan),
   };
 
@@ -373,14 +385,14 @@ export function validateProfile(raw: unknown): Profile {
 }
 
 /** Parses profile JSON text. Malformed JSON and invalid profiles both throw ProfileError. */
-export function parseProfile(text: string): Profile {
+export function parseProfile(text: string, options: { lenient?: boolean } = {}): Profile {
   let json: unknown;
   try {
     json = JSON.parse(text);
   } catch (e) {
     throw new ProfileError('$', `not valid JSON (${(e as Error).message})`);
   }
-  return validateProfile(json);
+  return validateProfile(json, options);
 }
 
 export function emptyProfile(): Profile {

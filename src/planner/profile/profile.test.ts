@@ -170,7 +170,7 @@ describe('parseProfile', () => {
   it('names the field when a value is wrong', () => {
     const bad = clone(full());
     bad.sites[0].latitude = 200;
-    expect(() => parseProfile(JSON.stringify(bad))).toThrow(/\$\.sites\[0\]\.latitude: expected a number from -90 to 90/);
+    expect(() => parseProfile(JSON.stringify(bad))).toThrow(/\$\.sites\[0\]\.latitude: Enter a latitude between -90 and 90 deg/);
   });
 });
 

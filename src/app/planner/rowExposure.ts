@@ -141,7 +141,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   const presets = {} as Record<ExposureMode, ExposureResult>;
   for (const m of MODE_ORDER) {
     const r = run({ preset: m });
-    if (!r.ok) return { kind: 'missing', reason: `The profile lacks ${r.missing.join(', ')}, so no exposure can be computed.` };
+    if (!r.ok) return { kind: 'missing', reason: slot.gearNote ?? 'The train has no usable optics numbers, so no exposure is shown. Check it in Gear.' };
     presets[m] = r;
   }
   // A stored custom number outside the limits never reaches the engine (it throws on a count that is not whole): the preset's numbers are used.
@@ -150,7 +150,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   let chosen = presets[baseOf(ref)];
   if (ref.preset === 'custom' && stored === null) {
     const own = run(choiceOf(ref));
-    if (!own.ok) return { kind: 'missing', reason: `The profile lacks ${own.missing.join(', ')}, so no exposure can be computed.` };
+    if (!own.ok) return { kind: 'missing', reason: slot.gearNote ?? 'The train has no usable optics numbers, so no exposure is shown. Check it in Gear.' };
     problem = resultProblem(own, entry.usableMinutes, true);
     if (problem === null) chosen = own;
   } else if (ref.preset !== 'custom') {

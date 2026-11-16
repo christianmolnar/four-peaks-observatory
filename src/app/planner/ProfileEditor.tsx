@@ -2,9 +2,11 @@
 
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
-import { LIST_SPECS, addItem, addTrain, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
+import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText } from '@/planner/profile';
+import { LIST_SPECS, addItem, addTrain, boxHint, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
 import { GEAR_CLASSES, usedText, usesOf } from '@/planner/state/gear';
+import type { Use } from '@/planner/state/gear';
 import type { GearClass, PlanRef } from '@/planner/state/gear';
 import type { SiteFieldKey } from '@/planner/location/client';
 import SiteFinder from './SiteFinder';
@@ -29,7 +31,14 @@ export interface ProfileEditorProps {
   openTrainId: string;
   /** Makes a train the open plan's train (sticky: it stays until changed). */
   onUseTrain: (id: string) => void;
+  /** Each change of `tick` opens the Trains class on that train's form, with its Name focused (the page's "Change" next to the train). */
+  openTrain?: { trainId: string; tick: number };
+  /** Opens a saved plan (a refusal to remove its site or train offers it). */
+  onOpenPlan: (id: string) => void;
 }
+
+/** Which box a form takes the keyboard to when it appears: its Save (after saving) or its Name (a new item). */
+type FocusTo = 'save' | 'name' | null;
 
 /** The Find box of a site's form. */
 export const findBoxId = (siteId: string) => `site-find-${siteId}`;
@@ -50,7 +59,8 @@ function summaryOf(list: ListKey, item: object): string {
 }
 
 function Box({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value: string; onChange: (v: string) => void }) {
-  const label = spec.unit ? `${spec.label} (${spec.unit})` : spec.label;
+  const hint = spec.key === 'name' ? `up to ${MAX_NAME_CHARS} characters` : boxHint(spec);
+  const label = hint ? `${spec.label} (${hint})` : spec.label;
   const options: readonly { value: string; text: string }[] | null =
     spec.kind === 'tristate'
       ? [{ value: '', text: 'Unknown' }, { value: 'yes', text: 'Yes' }, { value: 'no', text: 'No' }]
@@ -73,38 +83,55 @@ function Box({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value
             type="text"
             inputMode="decimal"
             autoComplete="off"
-            required={spec.required}
             className={field}
             value={value}
             onChange={(e) => onChange(e.target.value)}
           />
         ) : (
-          <WrapText id={id} autoComplete="off" required={spec.required} className={field} value={value} onChange={(e) => onChange(e.target.value)} />
+          <WrapText id={id} autoComplete="off" className={field} value={value} onChange={(e) => onChange(e.target.value)} />
         )
       )}
     </div>
   );
 }
 
-/** Save and Close with the error line under them. */
-function FormShell({ legend, error, onSave, onClose, children }: { legend: string; error: string | null; onSave: () => void; onClose: () => void; children: React.ReactNode }) {
+/** Save and Close with the error line under them. Escape closes the form (not while a list box is open). `focusTo` is where the keyboard goes when the form appears. */
+function FormShell({ legend, error, notice, onSave, onClose, focusTo, nameId, children }: { legend: string; error: string | null; notice?: string; onSave: () => void; onClose: () => void; focusTo: () => FocusTo; nameId: string; children: React.ReactNode }) {
+  const saveRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const to = focusTo();
+    if (to === 'save') saveRef.current?.focus();
+    if (to === 'name') {
+      const box = document.getElementById(nameId);
+      box?.scrollIntoView({ block: 'center' });
+      box?.focus({ preventScroll: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the form appears
+  }, []);
   return (
     <form
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
         onSave();
       }}
-      className="mt-3 rounded border border-white/15 p-3 sm:p-4"
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || e.target instanceof HTMLSelectElement) return;
+        e.stopPropagation();
+        onClose();
+      }}
+      className="mt-3 min-w-0 rounded border border-white/15 p-3 sm:p-4"
     >
-      <fieldset>
-        <legend className="px-1 text-white font-normal text-sm">{legend}</legend>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+      <fieldset className="min-w-0">
+        <legend className="max-w-full break-words px-1 text-white font-normal text-sm">{legend}</legend>
+        {notice && <p className="mb-3 break-words text-sm font-normal text-sky-100">{notice}</p>}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">{children}</div>
         <div className="flex flex-wrap items-center gap-3 mt-3">
-          <button type="submit" className={btn}>Save</button>
+          <button ref={saveRef} type="submit" className={btn}>Save</button>
           <button type="button" className={btn} onClick={onClose}>Close</button>
         </div>
         {error && (
-          <p role="alert" className="mt-3 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          <p role="alert" className="mt-3 break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
             <span aria-hidden="true">! </span>
             {error}
           </p>
@@ -114,7 +141,7 @@ function FormShell({ legend, error, onSave, onClose, children }: { legend: strin
   );
 }
 
-function ItemForm({ profile, list, item, onChange, onClose }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onClose: () => void }) {
+function ItemForm({ profile, list, item, onChange, onClose, focusTo }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onClose: () => void; focusTo: () => FocusTo }) {
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
   // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
@@ -145,6 +172,8 @@ function ItemForm({ profile, list, item, onChange, onClose }: { profile: Profile
       error={error}
       onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
       onClose={onClose}
+      focusTo={focusTo}
+      nameId={`edit-${list}-${item.id}-name`}
     >
       {list === 'sites' && <SiteFinder inputId={findBoxId(item.id)} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
       {spec.fields.map((f) => (
@@ -163,7 +192,7 @@ function ItemForm({ profile, list, item, onChange, onClose }: { profile: Profile
   );
 }
 
-function TrainForm({ profile, train, onChange, onClose }: { profile: Profile; train: TrainEntry; onChange: (p: Profile, what: string) => void; onClose: () => void }) {
+function TrainForm({ profile, train, use, onChange, onClose, focusTo }: { profile: Profile; train: TrainEntry; use: Use; onChange: (p: Profile, what: string) => void; onClose: () => void; focusTo: () => FocusTo }) {
   const [name, setName] = useState(train.name);
   const [scopeId, setScopeId] = useState(train.kind === 'optical' ? train.scopeId : '');
   const [cameraId, setCameraId] = useState(train.kind === 'optical' ? train.cameraId : '');
@@ -204,10 +233,13 @@ function TrainForm({ profile, train, onChange, onClose }: { profile: Profile; tr
         )
       }
       onClose={onClose}
+      focusTo={focusTo}
+      nameId={`${base}-name`}
+      notice={use.plans.length > 0 ? `${usedText(use)} Their exposure follows this change.` : undefined}
     >
       <div>
-        <label htmlFor={`${base}-name`} className={labelClass}>Name</label>
-        <WrapText id={`${base}-name`} required autoComplete="off" className={field} value={name} onChange={(e) => setName(e.target.value)} />
+        <label htmlFor={`${base}-name`} className={labelClass}>Name (up to {MAX_NAME_CHARS} characters)</label>
+        <WrapText id={`${base}-name`} autoComplete="off" className={field} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       {train.kind === 'smart' ? (
         select(`${base}-smart`, 'Smart scope', smartScopeId, setSmartScopeId, eq.smartScopes)
@@ -293,12 +325,20 @@ type Entry = { kind: 'item'; list: ListKey; item: { id: string; name: string } &
  * its items. Every Save goes through the profile validator; a refused edit leaves the profile as it was and shows the reason on the card.
  * Removing something a train or plan still uses is refused, in words, naming what uses it. The horizon has its own editor.
  */
-function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain }: ProfileEditorProps) {
+function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain, openTrain, onOpenPlan }: ProfileEditorProps) {
   const [status, setStatus] = useState('');
+  // The last removal, so the status line can offer one Undo while the profile is still the one that removal made.
+  const [undo, setUndo] = useState<{ before: Profile; after: Profile } | null>(null);
+  const focusNext = useRef<FocusTo>(null);
+  const takeFocus = () => {
+    const to = focusNext.current;
+    focusNext.current = null;
+    return to;
+  };
   const [cls, setCls] = useState<GearClass>('trains');
   // The one card whose form is open, and the one message (an error from Add, or a refusal) with the card it belongs to ('' for the class).
   const [editing, setEditing] = useState<string>('');
-  const [problem, setProblem] = useState<{ card: string; text: string } | null>(null);
+  const [problem, setProblem] = useState<{ card: string; text: string; plan?: { id: string; name: string } } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [wantFind, setWantFind] = useState(0);
   const lastTick = useRef(findSite?.tick ?? 0);
@@ -318,12 +358,41 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     box.focus({ preventScroll: true });
     setWantFind(0);
   }, [wantFind, cls, editing, findSite]);
+  // A request to change a train (the page's "Change" next to the train) opens the Trains class on that train's form, Name focused.
+  const lastTrainTick = useRef(openTrain?.tick ?? 0);
+  const [wantTrain, setWantTrain] = useState('');
+  useEffect(() => {
+    if (openTrain === undefined || openTrain.tick === lastTrainTick.current) return;
+    lastTrainTick.current = openTrain.tick;
+    setCls('trains');
+    setEditing(`trains:${openTrain.trainId}`);
+    setWantTrain(openTrain.trainId);
+  }, [openTrain]);
+  useEffect(() => {
+    if (wantTrain === '') return;
+    const box = document.getElementById(`edit-train-${wantTrain}-name`);
+    if (!box) return;
+    box.scrollIntoView({ block: 'center' });
+    box.focus({ preventScroll: true });
+    setWantTrain('');
+  }, [wantTrain, cls, editing]);
   const commit = (next: Profile, what: string) => {
     setStatus(what);
     setProblem(null);
+    setUndo(null);
     onChange(next);
   };
+  /** A form's Save: the form that replaces this one (its card changed) puts the keyboard back on Save. */
+  const saveFromForm = (next: Profile, what: string) => {
+    focusNext.current = 'save';
+    commit(next, what);
+  };
+  const closeForm = (card: string) => {
+    setEditing('');
+    window.setTimeout(() => document.getElementById(`gear-change-${card}`)?.focus(), 0);
+  };
   const pick = (next: GearClass) => {
+    focusNext.current = null;
     setCls(next);
     setEditing('');
     setProblem(null);
@@ -332,22 +401,27 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     try {
       const next = fn();
       commit(next, what);
+      focusNext.current = 'name';
       setEditing(cardOf(next));
     } catch (e) {
       setProblem({ card: '', text: (e as Error).message });
     }
   };
   const lastOf = <T extends { id: string }>(xs: T[]) => xs[xs.length - 1].id;
-  const remove = (card: string, name: string, fn: () => Profile) => {
+  const remove = (card: string, name: string, use: Use, fn: () => Profile) => {
     try {
       const next = fn();
       commit(next, `Removed ${name}.`);
+      setUndo({ before: profile, after: next });
       setEditing((e) => (e === card ? '' : e));
       listRef.current?.focus();
     } catch (e) {
-      setProblem({ card, text: (e as Error).message });
+      // A plan that uses a site or train can be opened from the refusal.
+      const planId = use.trains.length === 0 ? use.planIds[0] : undefined;
+      setProblem({ card, text: (e as Error).message, ...(planId !== undefined ? { plan: { id: planId, name: use.plans[0] } } : {}) });
     }
   };
+  const flagged = gearProblems(profile);
 
   const entries: Entry[] =
     cls === 'trains'
@@ -386,9 +460,26 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           </button>
         ))}
       </div>
-      <p aria-live="polite" className="text-sky-100 font-normal text-sm min-h-5 my-2">{status}</p>
+      <p aria-live="polite" className="my-2 min-h-5 break-words text-sky-100 font-normal text-sm">
+        {status}
+        {undo !== null && undo.after === profile && (
+          <>
+            {' '}
+            <button
+              type="button"
+              className="min-h-11 rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
+              onClick={() => {
+                const before = undo.before;
+                commit(before, 'Put it back.');
+              }}
+            >
+              Undo
+            </button>
+          </>
+        )}
+      </p>
       {problem?.card === '' && (
-        <p role="alert" className="mb-3 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+        <p role="alert" className="mb-3 break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
           <span aria-hidden="true">! </span>
           {problem.text}
         </p>
@@ -401,12 +492,13 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           const card = e.kind === 'train' ? `trains:${id}` : `${e.list}:${id}`;
           const name = e.kind === 'train' ? e.train.name : e.item.name;
           const use = usesOf(profile, plans, e.kind === 'train' ? 'trains' : e.list, id);
+          const flags = e.kind === 'item' && e.list !== 'sites' ? outOfRangeKeys(e.item).map((key) => problemText({ key, value: (e.item as unknown as Record<string, number>)[key] })) : [];
           const isOpen = editing === card;
           const here = e.kind === 'train' && id === openTrainId;
           const detail = e.kind === 'train' ? '' : summaryOf(e.list, e.item);
           const tag = e.kind === 'item' && e.list === 'smartScopes' ? 'Smart scope' : e.kind === 'train' && e.train.kind === 'smart' ? 'Smart-scope train' : '';
           return (
-            <li key={card} data-testid={`gear-card-${card}`} className="rounded border border-white/15 p-3">
+            <li key={card} data-testid={`gear-card-${card}`} className="min-w-0 rounded border border-white/15 p-3">
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="min-w-0 break-words text-base font-normal text-white">{name}</span>
                 {tag && <span className="text-xs text-white/70">{tag}</span>}
@@ -415,39 +507,61 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
               {e.kind === 'train' && <div className="mt-2"><TrainChain profile={profile} train={e.train} /></div>}
               {detail && <p className="mt-1 break-words text-sm font-normal text-white/80">{detail}</p>}
               <p className="mt-1 break-words text-sm font-normal text-white/80">{usedText(use)}</p>
+              {flags.map((t) => (
+                <p key={t} className="mt-1 break-words text-sm font-normal text-orange-100" data-testid="gear-flag">
+                  <span aria-hidden="true">! </span>
+                  {t} Change it and press Save.
+                </p>
+              ))}
               <div className="mt-2 flex flex-wrap gap-2">
                 {e.kind === 'train' && (
                   <button type="button" className={btn} disabled={here} onClick={() => onUseTrain(id)}>
                     {here ? 'Used in this plan' : 'Use in this plan'}
                   </button>
                 )}
-                <button type="button" className={btn} aria-expanded={isOpen} onClick={() => setEditing(isOpen ? '' : card)}>
+                <button type="button" id={`gear-change-${card}`} className={btn} aria-expanded={isOpen} onClick={() => {
+                  focusNext.current = null;
+                  setEditing(isOpen ? '' : card);
+                }}>
                   Change
                 </button>
                 <button
                   type="button"
                   className={btn}
-                  onClick={() => remove(card, name, () => (e.kind === 'train' ? removeTrain(profile, id, plans) : removeItem(profile, e.list, id, plans)))}
+                  onClick={() => remove(card, name, use, () => (e.kind === 'train' ? removeTrain(profile, id, plans) : removeItem(profile, e.list, id, plans)))}
                 >
                   Remove
                 </button>
               </div>
               {problem?.card === card && (
-                <p role="alert" className="mt-2 bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+                <div role="alert" className="mt-2 break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
                   <span aria-hidden="true">! </span>
                   {problem.text}
-                </p>
+                  {problem.plan && (
+                    <div className="mt-2">
+                      <button type="button" className={btn} onClick={() => onOpenPlan(problem.plan!.id)}>
+                        Open {problem.plan.name}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
               {isOpen &&
                 (e.kind === 'train' ? (
-                  <TrainForm key={`train:${JSON.stringify(e.train)}`} profile={profile} train={e.train} onChange={commit} onClose={() => setEditing('')} />
+                  <TrainForm key={`train:${JSON.stringify(e.train)}`} profile={profile} train={e.train} use={use} onChange={saveFromForm} onClose={() => closeForm(card)} focusTo={takeFocus} />
                 ) : (
-                  <ItemForm key={`${e.list}:${JSON.stringify(e.item)}`} profile={profile} list={e.list} item={e.item} onChange={commit} onClose={() => setEditing('')} />
+                  <ItemForm key={`${e.list}:${JSON.stringify(e.item)}`} profile={profile} list={e.list} item={e.item} onChange={saveFromForm} onClose={() => closeForm(card)} focusTo={takeFocus} />
                 ))}
             </li>
           );
         })}
       </ul>
+      {flagged.length > 0 && (
+        <p className="mt-3 break-words text-sm font-normal text-orange-100" data-testid="gear-flagged">
+          <span aria-hidden="true">! </span>
+          {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} outside the allowed range and not used. They are marked on their cards.
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-3">
         {addButtons.map((b) => (
           <button key={b.label} type="button" className={btn} onClick={b.run}>{b.label}</button>

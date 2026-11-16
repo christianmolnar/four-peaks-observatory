@@ -42,26 +42,26 @@ describe('who uses an item', () => {
     const s = smart(p);
     expect(usesOf(p, noPlans, 'smartScopes', s.smartScopeId).trains).toContain(s.name);
   });
-  it('a site and a train are used by the plans that name them, saved plans and the profile examples together', () => {
+  it('a site and a train are used by the saved plans that name them; the hidden example plans never count', () => {
     const p = sample();
     const plans: PlanRef[] = [{ name: 'Camping', siteId: p.sites[0].id, trainId: p.trains[1].id }];
     expect(usesOf(p, plans, 'sites', p.sites[0].id).plans).toContain('Camping');
     expect(usesOf(p, plans, 'trains', p.trains[1].id).plans).toContain('Camping');
-    expect(usesOf(p, plans, 'trains', p.trains[1].id).plans).toContain(p.plans[0].name); // the sample's example plan uses deep-c11-reducer-2600
+    expect(usesOf(p, plans, 'trains', p.trains[1].id).plans).not.toContain(p.plans[0].name); // the sample's example plan is hidden: no plan switcher can open it
     expect(usesOf(p, plans, 'trains', p.trains[0].id).plans).toEqual([]);
   });
   it('says it in plain words', () => {
-    expect(usedText({ trains: ['A', 'B'], plans: [] })).toBe('Used by 2 trains: "A", "B".');
-    expect(usedText({ trains: ['A'], plans: [] })).toBe('Used by 1 train: "A".');
-    expect(usedText({ trains: [], plans: ['Trip'] })).toBe('Used by 1 plan: "Trip".');
-    expect(usedText({ trains: ['1', '2', '3', '4', '5'], plans: [] })).toBe('Used by 5 trains: "1", "2", "3" and 2 more.');
-    expect(usedText({ trains: [], plans: [] })).toBe('Not used.');
-    expect(isUsed({ trains: [], plans: [] })).toBe(false);
+    expect(usedText({ trains: ['A', 'B'], plans: [], planIds: [] })).toBe('Used by 2 trains: "A", "B".');
+    expect(usedText({ trains: ['A'], plans: [], planIds: [] })).toBe('Used by 1 train: "A".');
+    expect(usedText({ trains: [], plans: ['Trip'], planIds: [] })).toBe('Used by 1 plan: "Trip".');
+    expect(usedText({ trains: ['1', '2', '3', '4', '5'], plans: [], planIds: [] })).toBe('Used by 5 trains: "1", "2", "3" and 2 more.');
+    expect(usedText({ trains: [], plans: [], planIds: [] })).toBe('Not used.');
+    expect(isUsed({ trains: [], plans: [], planIds: [] })).toBe(false);
   });
   it('refusal names the users and the way out', () => {
-    expect(refusalText({ trains: ['A', 'B'], plans: [] }, 'gear')).toBe('Not removed. Used by 2 trains: "A", "B". Change or remove those trains first.');
-    expect(refusalText({ trains: [], plans: ['Trip'] }, 'site')).toBe('Not removed. Used by 1 plan: "Trip". Open that plan and choose another site first.');
-    expect(refusalText({ trains: [], plans: ['T', 'U'] }, 'train')).toBe('Not removed. Used by 2 plans: "T", "U". Open those plans and choose another train first.');
+    expect(refusalText({ trains: ['A', 'B'], plans: [], planIds: [] }, 'gear')).toBe('Not removed. Used by 2 trains: "A", "B". Change or remove those trains first.');
+    expect(refusalText({ trains: [], plans: ['Trip'], planIds: [] }, 'site')).toBe('Not removed. Used by 1 plan: "Trip". Open that plan and choose another site first.');
+    expect(refusalText({ trains: [], plans: ['T', 'U'], planIds: [] }, 'train')).toBe('Not removed. Used by 2 plans: "T", "U". Open those plans and choose another train first.');
   });
 });
 
@@ -129,9 +129,18 @@ describe('trains: select data, create, change, remove', () => {
     const one = { ...p, trains: [p.trains[0]], plans: [] };
     expect(() => removeTrain(one, one.trains[0].id, noPlans)).toThrow(/at least one train/);
   });
-  it('the sample example plan keeps its train in use', () => {
+  it('the sample example plan does not block removing its train; it goes with it', () => {
     const p = sample();
-    expect(() => removeTrain(p, p.plans[0].trainId, noPlans)).toThrow(`"${p.plans[0].name}"`);
+    const gone = p.plans[0].trainId;
+    const next = removeTrain(p, gone, noPlans);
+    expect(next.trains.some((t) => t.id === gone)).toBe(false);
+    expect(next.plans.every((x) => x.trainId !== gone)).toBe(true);
+  });
+  it('a saved plan that uses the train still blocks it, and the refusal carries the plan id', () => {
+    const p = sample();
+    const plans: PlanRef[] = [{ id: 'plan-7', name: 'Camping', siteId: p.sites[0].id, trainId: p.trains[1].id }];
+    expect(usesOf(p, plans, 'trains', p.trains[1].id).planIds).toEqual(['plan-7']);
+    expect(() => removeTrain(p, p.trains[1].id, plans)).toThrow('"Camping"');
   });
 });
 

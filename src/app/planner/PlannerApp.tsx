@@ -13,7 +13,7 @@ import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { makeCsvTime, planRowsToCsv, planToCsv } from '@/planner/export';
 import type { PlanExposureRow } from '@/planner/export';
-import { arcToHorizonPoints, ProfileError } from '@/planner/profile';
+import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, PRESETS } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
@@ -48,7 +48,6 @@ import {
   saveProfile,
   saveSelection,
   withSiteArcs,
-  withTrainFilter,
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
 import { FAVORITES_KEY, favoriteOf, favoriteProblem, listFavoritesBackups, withFavorite, withoutFavorite } from '@/planner/state/favorites';
@@ -310,6 +309,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [stickyTop, setStickyTop] = useState({ nav: 0, strip: 0 });
   // "Change or find a site": a count that the site editor answers by opening its Site list with the Find box focused.
   const [findSiteTick, setFindSiteTick] = useState(0);
+  const [openTrainTick, setOpenTrainTick] = useState(0);
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
   // The night timeline leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
@@ -415,7 +415,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const r = loadProfile({ getItem: (k) => window.localStorage.getItem(k) }); // the getter itself throws when storage is blocked
       loaded = r.profile;
       setProfile(r.profile);
+      try {
+        profileText.current = r.stored ? window.localStorage.getItem(PROFILE_KEY) : null;
+      } catch {
+        profileText.current = null;
+      }
       if (r.error) setImportError(r.error);
+      const flagged = gearProblems(r.profile).length;
+      if (flagged > 0) setNotice(`${flagged === 1 ? 'One saved gear value is' : `${flagged} saved gear values are`} outside the allowed range, so the planner does not use ${flagged === 1 ? 'it' : 'them'}. Open Gear to change ${flagged === 1 ? 'it' : 'them'}.`);
     }
     // The site and train last chosen; one that is gone from the profile falls back to the first, as before.
     let remembered = null;
@@ -531,15 +538,55 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return () => clearTimeout(t);
   }, [importError, profile]);
 
-  /** Stores an edited profile. The edit has been validated; a storage failure is said out loud and the edit stays on screen. */
-  const applyProfile = useCallback((next: Profile) => {
-    setProfile(next);
+  /** The profile text this page last read from or wrote to storage; a different text in storage was saved by another tab. */
+  const profileText = useRef<string | null>(null);
+  const readProfileText = (): string | null => {
     try {
-      saveProfile(window.localStorage, next);
-    } catch (e) {
-      setNotice(`Edit not saved, so it is lost on reload: ${(e as Error).message}`);
+      return window.localStorage.getItem(PROFILE_KEY);
+    } catch {
+      return null; // the save that follows says storage is unavailable
     }
-  }, []);
+  };
+  /** Writes the profile and remembers the text written, so this page's own save is not mistaken for another tab's. */
+  const storeProfile = (next: Profile) => {
+    saveProfile(window.localStorage, next);
+    profileText.current = readProfileText();
+  };
+  /** Another tab saved gear: this page shows it (nothing here is written over it). Text this version cannot read is not adopted, and this page says so. */
+  const adoptProfile = (text: string): boolean => {
+    try {
+      const next = parseProfile(text, { lenient: true });
+      profileText.current = text;
+      setProfile(next);
+      const here = next.sites.find((x) => x.id === (open?.siteId ?? site?.id)) ?? next.sites[0];
+      if (here && !dirty) loadForm(here.blockedArcs, false);
+      return true;
+    } catch (e) {
+      if (!(e instanceof ProfileError)) throw e;
+      setNotice('Another tab saved gear this page cannot read. This page keeps what it has and will not save over it. Reload the page to see the saved gear.');
+      return false;
+    }
+  };
+  /** Stores an edited profile. The edit has been validated. It throws, in words, when it is not saved: another tab saved gear since this page last looked (this page then shows that gear, and the edit is not made), or storage failed. */
+  const applyProfile = (next: Profile) => {
+    const stored = readProfileText();
+    if (stored !== null && stored !== profileText.current) {
+      if (adoptProfile(stored)) {
+        const said = 'Another tab changed your gear since this page last looked, so your last edit was not made. This page now shows the other tab\u2019s gear. Make the edit again.';
+        setNotice(said);
+        throw new Error(said);
+      }
+      throw new Error('Not saved: another tab saved gear this page cannot read. Reload the page.');
+    }
+    try {
+      storeProfile(next);
+    } catch (e) {
+      setProfile(next);
+      setNotice(`Edit not saved, so it is lost on reload: ${(e as Error).message}`);
+      return;
+    }
+    setProfile(next);
+  };
 
   const open = plans?.plans.find((p) => p.id === plans.openId) ?? null;
   // The open plan's night, site and train; a site or train that is gone from the profile is the first, as before.
@@ -636,6 +683,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     // Reset all or a clear in another tab: nothing is saved any more, so this page starts fresh too (its own copy would otherwise be written back).
     if ((e.key === null || e.key === PLANS_KEY) && e.newValue === null) {
       if (readPlansText() === null && (savedText.current !== null || heldRef.current !== null)) loadAll(RESET_ELSEWHERE);
+      return;
+    }
+    if (e.key === PROFILE_KEY && e.newValue !== null && e.newValue !== profileText.current) {
+      if (adoptProfile(e.newValue)) setNotice('Another tab changed your gear. This page now shows it.');
       return;
     }
     if (e.key !== PLANS_KEY || e.newValue === null) return;
@@ -974,7 +1025,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
 
   /** What each saved plan points at, for the Gear section's "used by" check. */
-  const planRefs = useMemo(() => plans?.plans.map((p) => ({ name: p.name, siteId: p.siteId, trainId: p.trainId })) ?? [], [plans]);
+  const planRefs = useMemo(() => plans?.plans.map((p) => ({ id: p.id, name: p.name, siteId: p.siteId, trainId: p.trainId })) ?? [], [plans]);
   /** The open plan's site or train that is no longer in the gear: said in the plan, with what is shown instead; nothing is changed until the user keeps or picks one. */
   const staleNotes = useMemo(() => {
     const m = missingOf(profile, open);
@@ -999,21 +1050,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, open, train, site]);
 
-  const chooseFilter = (filterId: string) => {
-    if (!train) return;
-    try {
-      const next = withTrainFilter(profile, train.id, filterId === '' ? null : filterId);
-      setProfile(next);
-      try {
-        saveProfile(window.localStorage, next);
-      } catch (e) {
-        setNotice(`Filter choice not saved, so it is lost on reload: ${(e as Error).message}`);
-      }
-    } catch (e) {
-      setNotice(`Filter not changed: ${(e as Error).message}`);
-    }
-  };
-
   const editField = (zone: number, field: HorizonField, text: string) => {
     setFields((f) => f.map((z, i) => (i === zone ? { ...z, [field]: text } : z)));
     setJustSaved(false);
@@ -1024,7 +1060,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     try {
       const arcs = fields.map((z) => ({ startAz: Number(z.start) % 360, endAz: Number(z.end) % 360, heightDeg: Number(z.height) }));
       const next = withSiteArcs(profile, site.id, arcs);
-      saveProfile(window.localStorage, next);
+      storeProfile(next);
       setProfile(next);
       setBases(arcs);
       setJustSaved(true);
@@ -1065,6 +1101,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       }
     }
     setCaptured(new Set());
+    profileText.current = null;
     const sample = sampleProfile();
     setProfile(sample);
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
@@ -1088,10 +1125,23 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     setResetFocus((n) => n + 1);
   };
 
-  /** Opens the strip's controls and puts focus on the plan's own Evening of, Train or Filter control (a warning's "Change the ..." and "Change train"). */
+  /** Opens the strip's controls and puts focus on the plan's own Evening of or Train control (a warning's "Change the ..." and "Change train"); the filter is the train's own, set on its card in Gear. */
   const goToControl = (control: 'date' | 'train' | 'filter') => {
+    if (control === 'filter') {
+      changeTrain();
+      return;
+    }
     flushSync(() => setControlsOpen(true));
     document.getElementById(`plan-${control}`)?.focus();
+  };
+  /** The one place a filter is chosen is the train's own card in Gear: the strip's "Change" and a warning's "Change the filter" both open it. */
+  const changeTrain = () => {
+    flushSync(() => {
+      setControlsOpen(false);
+      setTab('gear');
+    });
+    if (window.location.hash !== '#gear') window.history.pushState(null, '', '#gear');
+    setOpenTrainTick((n) => n + 1);
   };
 
   const toggleCaptured = (id: string) => {
@@ -1320,7 +1370,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     setType('all');
     try {
       window.localStorage.removeItem(SELECTION_KEY); // the old ids belong to the old profile
-      saveProfile(window.localStorage, next);
+      storeProfile(next);
       setNotice(`Imported ${file.name}.${moved}`);
     } catch (e) {
       setNotice(`Imported ${file.name}.${moved} Not saved, so it is lost on reload: ${(e as Error).message}`);
@@ -1337,7 +1387,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     );
   };
 
-  const exportPlanCsv = () => download(`planner-plan-${date}.csv`, planRowsToCsv(exposureRows), 'text/csv;charset=utf-8', true);
+  const exportPlanCsv = () => download(`planner-plan-${date}.csv`, planRowsToCsv(exposureRows, staleNotes.map((n) => n.text).join(' ')), 'text/csv;charset=utf-8', true);
 
   const planRows: PlanRow[] = planItems.map(({ id, ref, target, body, entry }) => {
     const name = body ?? target?.displayName ?? target?.name ?? id;
@@ -1401,6 +1451,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       subCount: ok?.subCount ?? null,
       lightMin: ok?.integrationMin ?? null,
       note: ref.note ?? '',
+      ...(view?.kind === 'missing' ? { exposureNote: view.reason } : {}),
     };
   });
 
@@ -1418,7 +1469,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const planets = planItems.filter((p) => p.body !== undefined).length;
   const unresolved = planItems.length - planets - aiTargets.length;
   const aiBlocked =
-    planIds.length === 0
+    staleNotes.length > 0
+      ? 'This plan was made with a train or site that is no longer in your gear. Keep the one shown or change it first.'
+      : planIds.length === 0
       ? 'Add at least one target to the plan first.'
       : !hasNight
         ? 'There is no astronomical night on this date, so there is nothing to plan.'
@@ -1716,7 +1769,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </button>
         </div>
         <div id="controls-panel" hidden={!controlsOpen} className="max-h-[60vh] overflow-y-auto border-t border-white/10 p-4">
-          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.2fr_1.2fr_1.6fr]">
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.6fr_1.6fr] [&>*]:min-w-0">
           <div>
             <label htmlFor="plan-date" className="block text-white/90 font-normal text-sm mb-1">Evening of</label>
             <input id="plan-date" type="date" className={`${field} w-full`} value={date} onChange={(e) => e.target.value && editOpen({ date: e.target.value })} />
@@ -1766,28 +1819,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
                 <option key={t.id} value={t.id}>{t.name}{t.kind === 'smart' ? ' (smart scope)' : ''}</option>
               ))}
             </WrapSelect>
-          </div>
-          <div>
-            <label htmlFor="plan-filter" className="block text-white/90 font-normal text-sm mb-1">Filter</label>
-            <WrapSelect
-              id="plan-filter"
-              className="w-full"
-              value={train.kind === 'optical' ? (train.filterId ?? '') : ''}
-              disabled={train.kind !== 'optical'}
-              aria-describedby="plan-filter-msg"
-              onChange={(e) => chooseFilter(e.target.value)}
-            >
-              <option value="">{train.kind === 'optical' ? 'No filter' : 'Built in (smart scope)'}</option>
-              {train.kind === 'optical' &&
-                profile.equipment.filters.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}{f.sizeMm !== undefined ? ` (${f.sizeMm} mm)` : ''}</option>
-                ))}
-            </WrapSelect>
-            <p id="plan-filter-msg" className="mt-1 h-10 overflow-hidden text-sm leading-5 text-white/70 font-normal">
-              {train.kind === 'optical' && profile.equipment.filters.length === 0
-                ? (<>No filters yet. <a href="#gear-heading" className="text-sky-300 underline underline-offset-2">Add one in Gear and site.</a></>)
-                : ''}
+            <p className="mt-1 break-words text-sm font-normal text-white/80" data-testid="train-filter">
+              Filter: {train.kind !== 'optical' ? 'built in (smart scope)' : train.filterId === undefined ? 'none' : (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? 'none')}
             </p>
+            <button
+              type="button"
+              onClick={changeTrain}
+              className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
+            >
+              Change this train
+            </button>
           </div>
           <NumberSlider
             id="min-alt"
@@ -2022,6 +2063,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           targets={aiTargets}
           blocked={aiBlocked}
           leftOutNote={aiLeftOut}
+          staleNotes={staleNotes}
+          onChangeStale={() => {
+            flushSync(() => setAiOpen(false));
+            goToControl('train');
+          }}
           profile={profile}
           train={train}
           siteName={site.name}
@@ -2041,6 +2087,19 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       </div>
 
       <div id="panel-gear" role="tabpanel" aria-labelledby="tab-gear" hidden={tab !== 'gear'} className="space-y-8">
+      <ProfileEditor
+        profile={profile}
+        onChange={applyProfile}
+        findSite={{ siteId: site.id, tick: findSiteTick }}
+        plans={planRefs}
+        openTrainId={train.id}
+        onUseTrain={chooseTrain}
+        openTrain={{ trainId: train.id, tick: openTrainTick }}
+        onOpenPlan={(id) => {
+          if (openPlanById(id)) selectTab('plan');
+        }}
+      />
+
       <section aria-labelledby="planner-settings-heading" className={panel}>
         <h2 id="planner-settings-heading" className="mb-2 text-base font-medium uppercase tracking-[0.1em] text-white">Planner settings</h2>
         <label className="flex min-h-11 w-fit items-center gap-2 text-sm font-normal text-white/90">
@@ -2080,7 +2139,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         }}
       />
 
-      <ProfileEditor profile={profile} onChange={applyProfile} findSite={{ siteId: site.id, tick: findSiteTick }} plans={planRefs} openTrainId={train.id} onUseTrain={chooseTrain} />
+      
 
       <section aria-labelledby="profile-heading" className={panel}>
         <h2 id="profile-heading" className="text-xl font-light text-white tracking-[0.15em] mb-4">PROFILE</h2>
@@ -2107,7 +2166,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     <PrintSheet
       date={date}
       siteLine={`Site: ${site.name} (${site.latitude.toFixed(4)}°, ${site.longitude.toFixed(4)}°${site.elevationM !== undefined ? `, ${site.elevationM} m` : ''}). ${zoneText}`}
-      trainLine={`Train: ${train.name}${train.kind === 'optical' && train.filterId ? `, filter ${profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? train.filterId}` : ''}. Minimum altitude ${minAltitude}°.`}
+      trainLine={`Train: ${train.name}${train.kind === 'optical' && train.filterId ? `, filter ${profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? train.filterId}` : ''}. Minimum altitude ${minAltitude}°.${staleNotes.length > 0 ? ` ${staleNotes.map((n) => n.text).join(' ')}` : ''}`}
       nightLine={nightText}
       horizonLine={horizonText}
       entries={filtered}

@@ -5,5 +5,7 @@ export { MAX_ZONES } from './types';
 export { ProfileError, emptyProfile, parseProfile, validateProfile } from './validate';
 export { EDGE_STEP_DEG, arcToHorizonPoints, zoneSpans } from './horizon-arc';
 export type { ZoneSpan } from './horizon-arc';
-export { resolveTrain } from './train';
+export { resolveTrain, trainGearNote } from './train';
 export type { ResolvedTrain } from './train';
+export { GEAR_LIMITS, MAX_NAME_CHARS, SITE_LIMITS, capitalised, enterText, gearProblems, inRange, outOfRangeKeys, problemText, rangeProblem, rangeText, valueText } from './limits';
+export type { GearLimit, GearLimitKey, GearProblem, SiteLimitKey } from './limits';

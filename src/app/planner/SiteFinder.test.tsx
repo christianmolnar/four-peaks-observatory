@@ -21,7 +21,7 @@ afterEach(cleanup);
 /** The editor with the Site list open and the first site's form in view. */
 function open() {
   const onChange = jest.fn();
-  render(<ProfileEditor profile={sampleProfile()} onChange={onChange} plans={[]} openTrainId="" onUseTrain={() => {}} />);
+  render(<ProfileEditor profile={sampleProfile()} onChange={onChange} plans={[]} openTrainId="" onUseTrain={() => {}} onOpenPlan={() => {}} />);
   const card = openGearItem('Sites');
   return { onChange, form: () => within(card) };
 }

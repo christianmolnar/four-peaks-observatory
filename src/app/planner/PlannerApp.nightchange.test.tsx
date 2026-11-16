@@ -304,7 +304,7 @@ describe('round 7: a stored value outside the limits never reaches the engine, w
     async (custom) => {
       await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom }], withoutPixelSize);
       openPart('Night timeline');
-      expect(screen.getByTestId('plan-numbers-m31').textContent).toMatch(/The profile lacks .*camera\.pixelSizeUm, so no exposure can be computed\./);
+      expect(screen.getByTestId('plan-numbers-m31').textContent).toMatch(/^Pixel size is not set for .*, so no exposure is shown\. Add it in Gear\.$/);
       // Nothing is computed for this target, so no preset is used and none is named.
       expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('The stored number of subs is not a whole number of 1 or more. Your custom numbers are not used.');
       expect(screen.getByTestId('slot-preset-m31').textContent).not.toMatch(/Balanced|Quick|Deep|preset/);

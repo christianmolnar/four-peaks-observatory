@@ -186,7 +186,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       </div>
 
       {chosen === null ? (
-        <p className="text-sm font-normal text-white/80" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
+        <p className="break-words text-sm font-normal text-white/80" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">

@@ -54,13 +54,13 @@ describe('the class picker', () => {
 });
 
 describe('each class lists, adds, changes and removes', () => {
-  const cases: { cls: string; add: string; field: string }[] = [
-    { cls: 'Scopes', add: 'Add scope', field: 'Focal length (mm)' },
-    { cls: 'Scopes', add: 'Add smart scope', field: 'Focal length (mm)' },
-    { cls: 'Cameras', add: 'Add camera', field: 'Pixel size (µm)' },
-    { cls: 'Filters', add: 'Add filter', field: 'Size (mm)' },
-    { cls: 'Accessories', add: 'Add accessory', field: 'Focal length factor (0.7 reducer, 2.5 extender)' },
-    { cls: 'Sites', add: 'Add site', field: 'Elevation (m)' },
+  const cases: { cls: string; add: string; field: RegExp; value: string }[] = [
+    { cls: 'Scopes', add: 'Add scope', field: /^Focal length \(/, value: '800' },
+    { cls: 'Scopes', add: 'Add smart scope', field: /^Focal length \(/, value: '250' },
+    { cls: 'Cameras', add: 'Add camera', field: /^Pixel size \(/, value: '3.76' },
+    { cls: 'Filters', add: 'Add filter', field: /^Size \(/, value: '36' },
+    { cls: 'Accessories', add: 'Add accessory', field: /^Focal length factor \(/, value: '0.7' },
+    { cls: 'Sites', add: 'Add site', field: /^Elevation \(/, value: '500' },
   ];
   for (const c of cases) {
     it(`${c.add}: the new card opens its form, Save stores a change, Remove deletes it and says so`, async () => {
@@ -75,14 +75,14 @@ describe('each class lists, adds, changes and removes', () => {
       const card = newCard();
       expect(status()).toMatch(/^Added an? .*Change it and press Save\.$/);
       expect(within(card).getByText('Not used.')).toBeTruthy();
-      fireEvent.change(within(card).getByLabelText('Name'), { target: { value: 'Mine' } });
-      fireEvent.change(within(card).getByLabelText(c.field), { target: { value: '5' } });
+      fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'Mine' } });
+      fireEvent.change(within(card).getByLabelText(c.field), { target: { value: c.value } });
       fireEvent.click(button(card, 'Save'));
       expect(status()).toBe('Saved Mine.');
       const list = JSON.stringify(stored());
       expect(list).toContain('"name":"Mine"');
       fireEvent.click(button(newCard(), 'Remove'));
-      expect(status()).toBe('Removed Mine.');
+      expect(status()).toBe('Removed Mine. Undo');
       expect(cards()).toHaveLength(before);
       expect(JSON.stringify(stored())).not.toContain('"name":"Mine"');
     });
@@ -92,9 +92,9 @@ describe('each class lists, adds, changes and removes', () => {
     await mount();
     openGear();
     const card = openGearItem('Sites');
-    fireEvent.change(within(card).getByLabelText('Latitude (deg, north is positive)'), { target: { value: '95' } });
+    fireEvent.change(within(card).getByLabelText(/^Latitude/), { target: { value: '95' } });
     fireEvent.click(button(card, 'Save'));
-    expect(within(card).getByRole('alert').textContent).toMatch(/Latitude: expected a number from -90 to 90/);
+    expect(within(card).getByRole('alert').textContent).toBe('! Latitude: 95 is outside the allowed range. Enter a latitude between -90 and 90 deg.');
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull();
   });
 });
@@ -110,7 +110,7 @@ describe('in use', () => {
     pickClass('Trains');
     expect(within(cards().find((c) => c.textContent?.includes('Orion region') === false)!).getAllByText(/Used by|Not used/).length).toBe(1);
     pickClass('Sites');
-    expect(within(cards()[0]).getByText('Used by 2 plans: "My plan", "Orion region, C11 + reducer".')).toBeTruthy(); // the open plan and the sample's example plan
+    expect(within(cards()[0]).getByText('Used by 1 plan: "My plan".')).toBeTruthy(); // the open plan; the sample's hidden example plan never counts
   });
 
   it('scope, camera, filter, accessory and smart scope: Remove on a used one is refused with the trains named, nothing is stored', async () => {
@@ -155,7 +155,7 @@ describe('in use', () => {
     const card = cards()[1];
     expect(within(card).getByText('Used by 1 plan: "Camping trip".')).toBeTruthy();
     fireEvent.click(button(card, 'Remove'));
-    expect(within(card).getByRole('alert').textContent).toBe('! Not removed. Used by 1 plan: "Camping trip". Open that plan and choose another site first.');
+    expect(within(card).getByRole('alert').textContent).toBe('! Not removed. Used by 1 plan: "Camping trip". Open that plan and choose another site first.Open Camping trip');
     expect(cards()).toHaveLength(2);
   });
 });
@@ -199,7 +199,7 @@ describe('trains are chain cards', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add train' }));
     expect(cards()).toHaveLength(n + 1);
     let card = cards()[n];
-    fireEvent.change(within(card).getByLabelText('Name'), { target: { value: 'Wide field' } });
+    fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'Wide field' } });
     fireEvent.change(within(card).getByLabelText('Filter'), { target: { value: sampleProfile().equipment.filters[0].id } });
     fireEvent.click(button(card, 'Save'));
     expect(status()).toBe('Saved Wide field.');
@@ -208,18 +208,45 @@ describe('trains are chain cards', () => {
     expect(stored().trains[n]).toMatchObject({ name: 'Wide field', filterId: sampleProfile().equipment.filters[0].id });
     expect(within(card).getByText('Not used.')).toBeTruthy();
     fireEvent.click(button(card, 'Remove'));
-    expect(status()).toBe('Removed Wide field.');
+    expect(status()).toBe('Removed Wide field. Undo');
     expect(cards()).toHaveLength(n);
   });
 
-  it('a train a saved plan uses is not removed, and the card names the plan', async () => {
+  it('the sample\'s hidden example plan never blocks a train: it is removed, and the example goes with it', async () => {
     await mount();
     openGear();
-    // The open plan is a saved plan once it is changed; the sample's own example plan already uses deep-c11-reducer-2600.
-    const card = cards().find((c) => c.textContent?.includes('Orion region'))!;
-    expect(card.textContent).toContain('Used by 1 plan: "Orion region, C11 + reducer".');
+    const card = cards().find((c) => c.textContent?.includes('C11 + 0.7x reducer'))!;
+    expect(card.textContent).toContain('Not used.');
     fireEvent.click(button(card, 'Remove'));
-    expect(within(card).getByRole('alert').textContent).toMatch(/Open that plan and choose another train first\.$/);
+    expect(status()).toMatch(/^Removed .*Undo$/);
+    expect(stored().plans).toEqual([]);
+  });
+
+  it('a train a saved plan uses is refused, and the refusal has an Open button that opens that plan', async () => {
+    await mount();
+    openGear();
+    // Make a second plan on the first train, then ask to remove that train: the refusal names the plan the user can open.
+    const trainName = cards()[0].querySelector('span')!.textContent!;
+    fireEvent.click(button(cards()[0], 'Remove'));
+    const alert = within(cards()[0]).getByRole('alert');
+    expect(alert.textContent).toContain('Used by 1 plan: "My plan".');
+    fireEvent.click(within(alert).getByRole('button', { name: 'Open My plan' }));
+    expect(screen.getByRole('tab', { name: /^Plan/ }).getAttribute('aria-selected')).toBe('true');
+    expect(trainName).not.toBe('');
+  });
+
+  it('Undo puts a removed item back, in one step, and only while nothing else has changed', async () => {
+    await mount();
+    openGear();
+    pickClass('Cameras');
+    fireEvent.click(screen.getByRole('button', { name: 'Add camera' }));
+    fireEvent.click(button(cards().at(-1)!, 'Save'));
+    const before = cards().length;
+    fireEvent.click(button(cards().at(-1)!, 'Remove'));
+    expect(cards()).toHaveLength(before - 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(cards()).toHaveLength(before);
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
   });
 });
 
@@ -301,5 +328,239 @@ describe('a profile missing an optional number', () => {
     pickClass('Cameras');
     const card = cards().find((c) => c.textContent?.includes('Used by'))!;
     expect(card.textContent).not.toContain('Pixel size');
+  });
+});
+
+describe('the strip names the train once and has no filter selector', () => {
+  it('shows the train\'s filter as text and opens that train\'s card from "Change this train"', async () => {
+    const p = sampleProfile();
+    const t = p.trains.find((x) => x.kind === 'optical');
+    if (!t || t.kind !== 'optical') throw new Error('x');
+    const withFilter = { ...p, trains: p.trains.map((x) => (x.id === t.id ? { ...t, filterId: p.equipment.filters[0].id } : x)) };
+    seedPlan([], () => withFilter);
+    await mount({ initialProfile: withFilter });
+    expect(document.getElementById('plan-filter')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Filter' })).toBeNull();
+    expect(screen.getByTestId('train-filter').textContent).toBe(`Filter: ${p.equipment.filters[0].name}`);
+    fireEvent.click(screen.getByRole('button', { name: 'Change this train' }));
+    expect(screen.getByRole('tab', { name: 'Gear and site' }).getAttribute('aria-selected')).toBe('true');
+    const card = cards().find((c) => c.querySelector(`#edit-train-${t.id}-name`) !== null)!;
+    expect(card).toBeTruthy();
+    expect(document.activeElement).toBe(card.querySelector(`#edit-train-${t.id}-name`));
+    // The filter is chosen only here, inside the train.
+    expect(within(card).getAllByRole('combobox').map((s) => (s as HTMLSelectElement).id)).toContain(`edit-train-${t.id}-filter`);
+  });
+});
+
+describe('a stored profile with values outside their ranges', () => {
+  const bad = () => {
+    const p = sampleProfile();
+    const t = p.trains.find((x) => x.kind === 'optical');
+    if (!t || t.kind !== 'optical') throw new Error('x');
+    return {
+      p,
+      t,
+      profile: {
+        ...p,
+        equipment: {
+          ...p.equipment,
+          scopes: p.equipment.scopes.map((s) => (s.id === t.scopeId ? { ...s, focalLengthMm: 1e300, apertureMm: 1e300 } : s)),
+          cameras: p.equipment.cameras.map((c) => (c.id === t.cameraId ? { ...c, pixelSizeUm: 1e-300, sensorWidthPx: 1e9 } : c)),
+        },
+      },
+    };
+  };
+
+  it('opens with a plain note, the value kept and flagged on its card, and the exposure row says why it shows nothing', async () => {
+    const { profile, t } = bad();
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    seedPlan([{ id: 'm42', preset: 'balanced' }], () => profile);
+    await mount();
+    expect(document.body.textContent).not.toMatch(/Application error|NaN|Infinity/);
+    expect(screen.getByText(/saved gear values are outside the allowed range, so the planner does not use them/)).toBeTruthy();
+    openPlanTab();
+    await waitFor(() => expect(planRowItems()).toHaveLength(1));
+    expect(planRowItems()[0].textContent).toMatch(/Focal length of .* \(1\.00e\+300 mm\) is outside 50 to 10,000 mm.*so no exposure is shown\. Change it in Gear\./);
+    openGear();
+    expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values are outside the allowed range and not used.');
+    pickClass('Scopes');
+    const card = cards().find((c) => c.textContent?.includes(profile.equipment.scopes.find((s) => s.id === t.scopeId)!.name))!;
+    expect(within(card).getAllByTestId('gear-flag').map((x) => x.textContent)).toEqual([
+      '! Focal length 1.00e+300 mm is outside 50 to 10,000 mm, so the planner does not use it. Change it and press Save.',
+      '! Aperture 1.00e+300 mm is outside 20 to 1,000 mm, so the planner does not use it. Change it and press Save.',
+    ]);
+    expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes.find((s: { id: string }) => s.id === t.scopeId).focalLengthMm).toBe(1e300); // kept
+    // Fixing the value is possible: Save with a value in range stores it.
+    const form = openGearItem('Scopes', cards().indexOf(card));
+    fireEvent.change(within(form).getByLabelText(/^Focal length \(/), { target: { value: '2800' } });
+    fireEvent.change(within(form).getByLabelText(/^Aperture \(/), { target: { value: '280' } });
+    fireEvent.click(button(form, 'Save'));
+    expect(status()).toMatch(/^Saved /);
+    expect(stored().equipment.scopes.find((s: { id: string }) => s.id === t.scopeId)).toMatchObject({ focalLengthMm: 2800, apertureMm: 280 });
+  });
+
+  it('an edit elsewhere is not blocked by a flagged value', async () => {
+    const { profile } = bad();
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    await mount();
+    openGear();
+    pickClass('Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    expect(status()).toMatch(/^Added a filter/);
+    expect(stored().equipment.filters.length).toBe(profile.equipment.filters.length + 1);
+  });
+});
+
+describe('two tabs', () => {
+  const otherTabSaves = (profile: unknown) => {
+    const text = JSON.stringify(profile);
+    window.localStorage.setItem(PROFILE_KEY, text);
+    fireEvent(window, new StorageEvent('storage', { key: PROFILE_KEY, newValue: text, storageArea: window.localStorage }));
+  };
+
+  it('a profile saved by another tab is adopted, so this tab\'s next edit does not erase it', async () => {
+    await mount();
+    openGear();
+    const other = addItem(sampleProfile(), 'cameras'); // the other tab added a camera
+    otherTabSaves(other);
+    await waitFor(() => expect(screen.getByText('Another tab changed your gear. This page now shows it.')).toBeTruthy());
+    pickClass('Cameras');
+    expect(cards()).toHaveLength(other.equipment.cameras.length);
+    pickClass('Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length); // the other tab's camera is still there
+    expect(stored().equipment.filters).toHaveLength(other.equipment.filters.length + 1);
+  });
+
+  it('an edit made before the event arrives is refused, in words, and this tab shows the other tab\'s gear', async () => {
+    await mount();
+    openGear();
+    const other = addItem(sampleProfile(), 'cameras');
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(other)); // saved by the other tab; no event reached this one yet
+    pickClass('Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    expect(screen.getByRole('alert').textContent).toContain('Another tab changed your gear since this page last looked, so your last edit was not made.');
+    expect(stored().equipment.filters).toHaveLength(other.equipment.filters.length); // nothing of this tab's was written over it
+    expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length);
+    pickClass('Cameras');
+    expect(cards()).toHaveLength(other.equipment.cameras.length);
+  });
+});
+
+describe('a plan whose train is gone is never used silently', () => {
+  const seedStale = () => {
+    seedPlan([{ id: 'm31', preset: 'balanced' }], sampleProfile);
+    const raw = JSON.parse(window.localStorage.getItem(PLANS_KEY) as string);
+    raw.plans[0].trainId = 'removed-train';
+    window.localStorage.setItem(PLANS_KEY, JSON.stringify(raw));
+  };
+  const noteText = 'This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.';
+
+  it('the AI flyout says it in step 1 and does not offer to ask until the user keeps or changes the train', async () => {
+    seedStale();
+    await mount();
+    openPlanTab();
+    await waitFor(() => expect(planRowItems()).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Plan my night with AI' }));
+    const flyout = screen.getByTestId('ai-flyout');
+    expect(within(flyout).getByTestId('ai-stale-train').textContent).toContain(noteText);
+    const ask = within(flyout).getByRole('button', { name: /^Ask the AI/ });
+    expect(ask.hasAttribute('disabled')).toBe(true);
+    expect(within(flyout).getByTestId('ai-plan-reason').textContent).toMatch(/no longer in your gear\. Keep the one shown or change it first\./);
+    fireEvent.click(within(flyout).getByRole('button', { name: /^Keep / }));
+    await waitFor(() => expect(within(screen.getByTestId('ai-flyout')).queryByTestId('ai-stale-train')).toBeNull());
+    expect(within(screen.getByTestId('ai-flyout')).getByRole('button', { name: /^Ask the AI/ }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('the print header and the plan CSV carry the note', async () => {
+    seedStale();
+    await mount();
+    openPlanTab();
+    await waitFor(() => expect(planRowItems()).toHaveLength(1));
+    fireEvent(window, new Event('beforeprint'));
+    expect(screen.getByTestId('print-sheet').textContent).toContain(noteText);
+    fireEvent(window, new Event('afterprint'));
+    const blobs: Blob[] = [];
+    (URL as unknown as { createObjectURL: (b: Blob) => string }).createObjectURL = (b) => (blobs.push(b), 'blob:test');
+    (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {};
+    jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    chooseMore('Export plan CSV');
+    const csv = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.onerror = () => rej(r.error);
+      r.readAsText(blobs[0]);
+    });
+    expect(csv.split('\r\n')[0]).toContain('Warning');
+    expect(csv).toContain('no longer in your gear');
+  });
+});
+
+describe('the gear forms', () => {
+  it('Save keeps the keyboard on Save, and Add puts it in the new form\'s Name', async () => {
+    await mount();
+    openGear();
+    pickClass('Cameras');
+    fireEvent.click(screen.getByRole('button', { name: 'Add camera' }));
+    const card = cards().at(-1)!;
+    expect(document.activeElement).toBe(card.querySelector('[id$="-name"]'));
+    fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'Mine' } });
+    fireEvent.click(button(card, 'Save'));
+    expect(document.activeElement).toBe(button(cards().at(-1)!, 'Save'));
+  });
+
+  it('Escape closes an open form and returns to the card\'s Change', async () => {
+    await mount();
+    openGear();
+    const card = openGearItem('Scopes');
+    fireEvent.keyDown(within(card).getByLabelText(/^Name/), { key: 'Escape' });
+    expect(within(card).queryByLabelText(/^Name/)).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(button(card, 'Change')));
+  });
+
+  it('a train a plan uses says so in its form before Save', async () => {
+    await mount();
+    openGear();
+    const card = openGearItem('Trains', 0);
+    expect(card.querySelector('form')!.textContent).toContain('Used by 1 plan: "My plan". Their exposure follows this change.');
+  });
+
+  it('an empty name and a name already taken are said plainly; Add never makes twins', async () => {
+    await mount();
+    openGear();
+    pickClass('Cameras');
+    fireEvent.click(screen.getByRole('button', { name: 'Add camera' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add camera' }));
+    const names = cards().map((c) => c.querySelector('span')!.textContent);
+    expect(names).toContain('New camera');
+    expect(names).toContain('New camera 2');
+    const card = cards().at(-1)!;
+    fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: '' } });
+    fireEvent.click(button(card, 'Save'));
+    expect(within(card).getByRole('alert').textContent).toBe('! Name: enter a name for this camera.');
+    fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'new camera' } });
+    fireEvent.click(button(card, 'Save'));
+    expect(within(card).getByRole('alert').textContent).toBe('! Name: there is already a camera named "new camera". Give this one a different name.');
+  });
+
+  it('a name of 81 characters is refused with the cap said; long names wrap instead of widening the page', async () => {
+    await mount();
+    openGear();
+    const card = openGearItem('Trains', 0);
+    const name = within(card).getByLabelText(/^Name/);
+    fireEvent.change(name, { target: { value: 'T'.repeat(81) } });
+    fireEvent.click(button(card, 'Save'));
+    expect(within(card).getByRole('alert').textContent).toBe('! Name: use at most 80 characters. This one has 81.');
+    expect(within(card).getByLabelText(/^Name/).closest('label, div')!.textContent).toContain('up to 80 characters');
+    // 320 px is held by these classes: the fieldset may shrink, the legend, the status and the messages break inside a word.
+    expect(card.querySelector('fieldset')!.className).toContain('min-w-0');
+    expect(card.querySelector('legend')!.className).toContain('break-words');
+    expect(card.className).toContain('min-w-0');
+  });
+
+  it('the Gear section comes first on the tab, above Planner settings and the horizon editor', async () => {
+    await mount();
+    const panel = document.getElementById('panel-gear')!;
+    expect(panel.firstElementChild!.getAttribute('aria-labelledby')).toBe('gear-heading');
   });
 });

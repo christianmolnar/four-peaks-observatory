@@ -1,5 +1,5 @@
 import { opticalTrain } from '../optics';
-import { resolveTrain } from '../profile';
+import { resolveTrain, trainGearNote } from '../profile';
 import type { Profile, TrainEntry } from '../profile';
 import type { GuideTrain } from './guide';
 
@@ -46,7 +46,7 @@ export function planetTrainInfo(profile: Profile, train: TrainEntry): PlanetTrai
     aperture === undefined
       ? 'The telescope has no aperture in the profile, so clip, dispersion and sampling numbers are not given.'
       : optics.imageScale === undefined
-        ? `The profile lacks ${optics.missing.join(', ')}, so the image scale is not given.`
+        ? (trainGearNote(profile, train) ?? 'The train has no usable optics numbers, so the image scale is not given.').replace('no exposure is shown', 'the image scale is not given')
         : null;
   return {
     apertureMm: aperture,

@@ -68,7 +68,7 @@ describe('editing site and gear', () => {
     const first = await app();
     const before = nightSummary();
     const siteBox = await open(u, /^Site \(1\)/);
-    const lat = within(siteBox).getByLabelText('Latitude (deg, north is positive)');
+    const lat = within(siteBox).getByLabelText(/^Latitude/);
     await u.clear(lat);
     await u.type(lat, '-33.9');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
@@ -98,25 +98,25 @@ describe('editing site and gear', () => {
     const u = userEvent.setup();
     await app();
     const siteBox = await open(u, /^Site \(1\)/);
-    const lat = within(siteBox).getByLabelText('Latitude (deg, north is positive)');
+    const lat = within(siteBox).getByLabelText(/^Latitude/);
     await u.clear(lat);
     await u.type(lat, '95');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
-    expect(within(siteBox).getByRole('alert').textContent).toMatch(/Latitude: expected a number from -90 to 90/);
+    expect(within(siteBox).getByRole('alert').textContent).toMatch(/Latitude: 95 is outside the allowed range. Enter a latitude between -90 and 90 deg\./);
     expect(window.localStorage.getItem(PROFILE_KEY)).toBeNull();
     await u.clear(within(siteBox).getByLabelText(/^Time zone/));
     await u.type(within(siteBox).getByLabelText(/^Time zone/), 'Mars/Base');
     await u.clear(lat);
     await u.type(lat, '33');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
-    expect(within(siteBox).getByRole('alert').textContent).toMatch(/Time zone: not a time zone name/);
+    expect(within(siteBox).getByRole('alert').textContent).toMatch(/Time zone: "Mars\/Base" is not a time zone name\. Enter one such as America\/Phoenix/);
   });
 
   it('renaming a train is stored and shows in the Train box', async () => {
     const u = userEvent.setup();
     await app();
     const trainsBox = await open(u, /^Trains \(/);
-    fireEvent.change(within(trainsBox).getAllByLabelText('Name')[0], { target: { value: 'My own train' } });
+    fireEvent.change(within(trainsBox).getAllByLabelText(/^Name/)[0], { target: { value: 'My own train' } });
     await u.click(within(trainsBox).getAllByRole('button', { name: 'Save' })[0]);
     expect(stored().trains[0].name).toBe('My own train');
     expect(within(screen.getByLabelText('Train')).getByRole('option', { name: 'My own train' })).toBeTruthy();
@@ -126,7 +126,7 @@ describe('editing site and gear', () => {
     const u = userEvent.setup();
     await app();
     const scopesBox = await open(u, /^Scopes \(/);
-    fireEvent.change(within(scopesBox).getByLabelText('Focal length (mm)'), { target: { value: '2000' } });
+    fireEvent.change(within(scopesBox).getByLabelText(/^Focal length \(/), { target: { value: '2000' } });
     await u.click(within(scopesBox).getByRole('button', { name: 'Save' }));
     expect(stored().equipment.scopes[0].focalLengthMm).toBe(2000);
   });
@@ -165,7 +165,7 @@ describe('editing site and gear', () => {
     const u = userEvent.setup();
     await app();
     const siteBox = await open(u, /^Site \(1\)/);
-    const name = within(siteBox).getByLabelText('Name');
+    const name = within(siteBox).getByLabelText(/^Name/);
     await u.clear(name);
     await u.type(name, 'Backyard');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
@@ -183,7 +183,7 @@ describe('profile JSON', () => {
     const u = userEvent.setup();
     await app();
     const siteBox = await open(u, /^Site \(1\)/);
-    const elev = within(siteBox).getByLabelText('Elevation (m)');
+    const elev = within(siteBox).getByLabelText(/^Elevation/);
     await u.type(elev, '550');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
     const edited = stored();
