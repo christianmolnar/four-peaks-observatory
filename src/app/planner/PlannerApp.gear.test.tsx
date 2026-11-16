@@ -377,12 +377,12 @@ describe('a stored profile with values outside their ranges', () => {
     seedPlan([{ id: 'm42', preset: 'balanced' }], () => profile);
     await mount();
     expect(document.body.textContent).not.toMatch(/Application error|NaN|Infinity/);
-    expect(screen.getByText(/saved gear values are outside the allowed range, so the planner does not use them/)).toBeTruthy();
+    expect(screen.getByText(/saved gear values are not usable \(outside the allowed range or not a number\), so the planner does not use them/)).toBeTruthy();
     openPlanTab();
     await waitFor(() => expect(planRowItems()).toHaveLength(1));
     expect(planRowItems()[0].textContent).toMatch(/Focal length of .* \(an impossibly large number\) is outside 10 to 10,000 mm.*so no exposure is shown\. Change it in Gear\./);
     openGear();
-    expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values are outside the allowed range and not used.');
+    expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values are not usable (outside the allowed range or not a number).');
     pickClass('Scopes');
     const card = cards().find((c) => c.textContent?.includes(profile.equipment.scopes.find((s) => s.id === t.scopeId)!.name))!;
     expect(within(card).getAllByTestId('gear-flag').map((x) => x.textContent)).toEqual([
@@ -700,7 +700,7 @@ describe('a stored value that is negative, zero, empty or text opens plainly and
         window.localStorage.setItem(PROFILE_KEY, JSON.stringify(withScopeField(value, key)));
         await mount();
         expect(document.body.textContent).not.toMatch(/\$\.|Problem at|could not be used/);
-        expect(screen.getByText(/One saved gear value is outside the allowed range, so the planner does not use it/)).toBeTruthy();
+        expect(screen.getByText(/One saved gear value is not usable \(outside the allowed range or not a number\), so the planner does not use it/)).toBeTruthy();
         openGear();
         pickClass(key === 'focalLengthMm' ? 'Scopes' : 'Cameras');
         expect(document.querySelector('[data-testid="gear-flag"]')!.textContent).toMatch(/^! (Focal length|Pixel size) /);
@@ -711,30 +711,6 @@ describe('a stored value that is negative, zero, empty or text opens plainly and
         expect(stored().equipment.filters.length).toBe(sampleProfile().equipment.filters.length + 1);
       });
     }
-  }
-
-  for (const [label, value] of values) {
-    it(`latitude ${label}: says which site and box in words, shows the sample, and a gear edit still saves`, async () => {
-      const raw = JSON.parse(JSON.stringify(sampleProfile()));
-      if (value === 0) raw.sites[0].latitude = 0; // 0 is a real latitude: the profile opens as it is
-      else raw.sites[0].latitude = value;
-      window.localStorage.setItem(PROFILE_KEY, JSON.stringify(raw));
-      await mount();
-      const name = raw.sites[0].name;
-      if (value === 0) {
-        expect(document.body.textContent).not.toContain('could not be used');
-      } else {
-        const said = screen.getByRole('alert').textContent!;
-        expect(said).toContain(`Site "${name}", latitude: Enter a latitude between -90 and 90 deg.`);
-        expect(said).not.toMatch(/\$\.|Problem at/);
-      }
-      openGear();
-      pickClass('Filters');
-      fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
-      expect(status()).toMatch(/^Added a filter/);
-      expect(document.body.textContent).not.toContain('another tab saved gear this page cannot read');
-      expect(stored().equipment.filters.length).toBe(sampleProfile().equipment.filters.length + 1);
-    });
   }
 });
 

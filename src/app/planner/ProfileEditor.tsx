@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
-import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText } from '@/planner/profile';
+import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText, reducedFocalNote, siteBadKeys, siteProblems } from '@/planner/profile';
 import { limitOf } from '@/planner/profile/limits';
 import { LIST_SPECS, addItem, addTrain, boxHint, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
@@ -36,7 +36,12 @@ export interface ProfileEditorProps {
   openTrain?: { trainId: string; tick: number };
   /** Opens a saved plan (a refusal to remove its site or train offers it). */
   onOpenPlan: (id: string) => void;
+  /** The class the section opens on; Trains when not given. */
+  startOn?: GearClass;
 }
+
+/** A refusal the Gear section has already put on screen (commit says it); a form that sees this one does not say it again. */
+class ShownError extends Error {}
 
 /** Which box a form takes the keyboard to when it appears: its Save (after saving) or its Name (a new item). */
 type FocusTo = 'save' | 'name' | null;
@@ -53,7 +58,7 @@ function summaryOf(list: ListKey, item: object): string {
     .filter((f) => f.key !== 'name' && texts[f.key] !== '')
     .map((f) => {
       const t = f.kind === 'tristate' ? (texts[f.key] === 'yes' ? 'yes' : 'no') : texts[f.key];
-      const unit = f.kind === 'number' && limitOf(f.key)?.unit ? ` ${limitOf(f.key)?.unit}` : '';
+      const unit = f.kind === 'number' && limitOf(f.key)?.unit && Number.isFinite(Number(t)) ? ` ${limitOf(f.key)?.unit}` : ''; // a saved "abc" has no unit
       return `${f.label} ${t}${unit}`;
     })
     .join(', ');
@@ -142,7 +147,7 @@ function FormShell({ legend, error, notice, onSave, onClose, focusTo, nameId, ch
   );
 }
 
-function ItemForm({ profile, list, item, onChange, onClose, focusTo }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onClose: () => void; focusTo: () => FocusTo }) {
+function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onRefuse: () => void; onClose: () => void; focusTo: () => FocusTo }) {
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
   // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
@@ -160,6 +165,8 @@ function ItemForm({ profile, list, item, onChange, onClose, focusTo }: { profile
       setError(null);
       onChange(next, what);
     } catch (e) {
+      if (e instanceof ShownError) return; // the Gear section has said it already
+      onRefuse(); // an earlier "Saved ..." is not the news now
       setError((e as Error).message);
     }
   };
@@ -193,7 +200,7 @@ function ItemForm({ profile, list, item, onChange, onClose, focusTo }: { profile
   );
 }
 
-function TrainForm({ profile, train, use, onChange, onClose, focusTo }: { profile: Profile; train: TrainEntry; use: Use; onChange: (p: Profile, what: string) => void; onClose: () => void; focusTo: () => FocusTo }) {
+function TrainForm({ profile, train, use, onChange, onRefuse, onClose, focusTo }: { profile: Profile; train: TrainEntry; use: Use; onChange: (p: Profile, what: string) => void; onRefuse: () => void; onClose: () => void; focusTo: () => FocusTo }) {
   const [name, setName] = useState(train.name);
   const [scopeId, setScopeId] = useState(train.kind === 'optical' ? train.scopeId : '');
   const [cameraId, setCameraId] = useState(train.kind === 'optical' ? train.cameraId : '');
@@ -208,6 +215,8 @@ function TrainForm({ profile, train, use, onChange, onClose, focusTo }: { profil
       setError(null);
       onChange(next, what);
     } catch (e) {
+      if (e instanceof ShownError) return; // the Gear section has said it already
+      onRefuse(); // an earlier "Saved ..." is not the news now
       setError((e as Error).message);
     }
   };
@@ -326,7 +335,7 @@ type Entry = { kind: 'item'; list: ListKey; item: { id: string; name: string } &
  * its items. Every Save goes through the profile validator; a refused edit leaves the profile as it was and shows the reason on the card.
  * Removing something a train or plan still uses is refused, in words, naming what uses it. The horizon has its own editor.
  */
-function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain, openTrain, onOpenPlan }: ProfileEditorProps) {
+function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain, openTrain, onOpenPlan, startOn = 'trains' }: ProfileEditorProps) {
   const [status, setStatus] = useState('');
   // The last removal, so the status line can offer one Undo while the profile is still the one that removal made.
   const [undo, setUndo] = useState<{ before: Profile; after: Profile; name: string } | null>(null);
@@ -336,7 +345,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     focusNext.current = null;
     return to;
   };
-  const [cls, setCls] = useState<GearClass>('trains');
+  const [cls, setCls] = useState<GearClass>(startOn);
   // The one card whose form is open, and the one message (an error from Add, or a refusal) with the card it belongs to ('' for the class).
   const [editing, setEditing] = useState<string>('');
   const [problem, setProblem] = useState<{ card: string; text: string; plan?: { id: string; name: string } } | null>(null);
@@ -384,7 +393,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     } catch (e) {
       setStatus(''); // the last "Saved ..." is not the news now
       setProblem({ card: '', text: (e as Error).message });
-      throw e;
+      throw new ShownError((e as Error).message);
     }
     setStatus(what);
     setProblem(null);
@@ -395,6 +404,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     commit(next, what);
     focusNext.current = 'save';
   };
+  const refuse = () => setStatus('');
   const closeForm = (card: string) => {
     setEditing('');
     window.setTimeout(() => document.getElementById(`gear-change-${card}`)?.focus(), 0);
@@ -412,6 +422,8 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
       focusNext.current = 'name';
       setEditing(cardOf(next));
     } catch (e) {
+      if (e instanceof ShownError) return;
+      setStatus('');
       setProblem({ card: '', text: (e as Error).message });
     }
   };
@@ -423,6 +435,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     } catch (e) {
       // Only a refusal because plans use a site or train offers to open one of them.
       const planId = e instanceof UsedError && use.trains.length === 0 ? use.planIds[0] : undefined;
+      setStatus('');
       setProblem({ card, text: (e as Error).message, ...(planId !== undefined ? { plan: { id: planId, name: use.plans[0] } } : {}) });
       return;
     }
@@ -435,7 +448,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     setEditing((e) => (e === card ? '' : e));
     listRef.current?.focus();
   };
-  const flagged = gearProblems(profile);
+  const flagged = [...gearProblems(profile), ...siteProblems(profile)];
 
   const entries: Entry[] =
     cls === 'trains'
@@ -509,7 +522,14 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           const card = e.kind === 'train' ? `trains:${id}` : `${e.list}:${id}`;
           const name = e.kind === 'train' ? e.train.name : e.item.name;
           const use = usesOf(profile, plans, e.kind === 'train' ? 'trains' : e.list, id);
-          const flags = e.kind === 'item' && e.list !== 'sites' ? outOfRangeKeys(e.item).map((key) => problemText({ key, value: (e.item as unknown as Record<string, unknown>)[key] })) : [];
+          const valueOf = (item: object, key: string) => (item as unknown as Record<string, unknown>)[key];
+          const flags =
+            e.kind !== 'item'
+              ? []
+              : e.list === 'sites'
+                ? siteBadKeys(e.item).map((key) => problemText({ key, value: valueOf(e.item, key) }, 'this site'))
+                : outOfRangeKeys(e.item).map((key) => problemText({ key, value: valueOf(e.item, key) }));
+          const focalNote = e.kind === 'train' ? reducedFocalNote(profile, e.train) : null;
           const isOpen = editing === card;
           const here = e.kind === 'train' && id === openTrainId;
           const detail = e.kind === 'train' ? '' : summaryOf(e.list, e.item);
@@ -522,6 +542,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
                 {here && <span className="rounded border border-sky-300/60 px-1.5 text-xs text-sky-100">In this plan</span>}
               </div>
               {e.kind === 'train' && <div className="mt-2"><TrainChain profile={profile} train={e.train} /></div>}
+              {focalNote !== null && <p className="mt-1 break-words text-sm font-normal text-sky-100" data-testid="gear-focal-note">{focalNote}</p>}
               {detail && <p className="mt-1 break-words text-sm font-normal text-white/80">{detail}</p>}
               <p className="mt-1 break-words text-sm font-normal text-white/80">{usedText(use)}</p>
               {flags.map((t) => (
@@ -556,7 +577,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
                   {problem.text}
                   {problem.plan && (
                     <div className="mt-2">
-                      <button type="button" className={btn} onClick={() => onOpenPlan(problem.plan!.id)}>
+                      <button type="button" className={`${btn} max-w-full min-w-0 break-words text-left`} onClick={() => onOpenPlan(problem.plan!.id)}>
                         Open {problem.plan.name}
                       </button>
                     </div>
@@ -565,9 +586,9 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
               )}
               {isOpen &&
                 (e.kind === 'train' ? (
-                  <TrainForm key={`train:${JSON.stringify(e.train)}`} profile={profile} train={e.train} use={use} onChange={saveFromForm} onClose={() => closeForm(card)} focusTo={takeFocus} />
+                  <TrainForm key={`train:${JSON.stringify(e.train)}`} profile={profile} train={e.train} use={use} onChange={saveFromForm} onRefuse={refuse} onClose={() => closeForm(card)} focusTo={takeFocus} />
                 ) : (
-                  <ItemForm key={`${e.list}:${JSON.stringify(e.item)}`} profile={profile} list={e.list} item={e.item} onChange={saveFromForm} onClose={() => closeForm(card)} focusTo={takeFocus} />
+                  <ItemForm key={`${e.list}:${JSON.stringify(e.item)}`} profile={profile} list={e.list} item={e.item} onChange={saveFromForm} onRefuse={refuse} onClose={() => closeForm(card)} focusTo={takeFocus} />
                 ))}
             </li>
           );
@@ -576,7 +597,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
       {flagged.length > 0 && (
         <p className="mt-3 break-words text-sm font-normal text-orange-100" data-testid="gear-flagged">
           <span aria-hidden="true">! </span>
-          {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} outside the allowed range and not used. They are marked on their cards.
+          {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} not usable (outside the allowed range or not a number). They are marked on their cards.
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-3">

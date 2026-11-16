@@ -98,6 +98,7 @@ import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor from './ProfileEditor';
 import { missingOf } from '@/planner/state/gear';
+import { problemText, reducedFocalNote, siteProblems, usableSites } from '@/planner/profile';
 import ResetAll from './ResetAll';
 import OpenPlan from './OpenPlan';
 import type { PlanRow } from './OpenPlan';
@@ -154,6 +155,9 @@ function readPlansText(): string | null {
 
 /** An edit refused because another tab saved gear first. The page has already said so; the message is for a form that shows it too. */
 class StaleGearError extends Error {}
+
+/** Why a gear edit is refused while the saved gear could not be loaded. */
+const HELD_REFUSAL = 'Not saved. Your saved gear could not be loaded, so the page shows the sample and keeps your saved copy as it is. Use Export profile to keep the copy, then Reset all or import a corrected file to replace it.';
 
 /** What the page says when another tab has reset the saved data. */
 const RESET_ELSEWHERE = 'The plans were reset in another tab, so this page starts fresh too.';
@@ -247,6 +251,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [profile, setProfile] = useState<Profile>(initialProfile ?? sampleProfile());
   const [notice, setNotice] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  /** Saved gear this page could not load (the sample is shown instead): its text and what is wrong with it. Never written over by an edit; only Reset all or an import replaces it. */
+  const [profileHeld, setProfileHeld] = useState<{ text: string; why: string } | null>(null);
   // The saved plans and which one is open. The open plan owns the night's date, site and train (and its targets); null until the saved ones are read.
   const [plans, setPlans] = useState<PlansState | null>(null);
   const plansRef = useRef<PlansState | null>(null);
@@ -419,15 +425,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const r = loadProfile({ getItem: (k) => window.localStorage.getItem(k) }); // the getter itself throws when storage is blocked
       loaded = r.profile;
       setProfile(r.profile);
+      // The text in storage is what this page last read; a saved profile it could not load (r.held) is held back, never written over by an edit.
       try {
-        // A saved profile this page could not read (r.error) is still the text in storage: it is this page's own, not another tab's, so an edit saves over it.
-        profileText.current = r.stored || r.error ? window.localStorage.getItem(PROFILE_KEY) : null;
+        profileText.current = r.stored ? window.localStorage.getItem(PROFILE_KEY) : r.held;
       } catch {
         profileText.current = null;
       }
-      if (r.error) setImportError(r.error);
+      setProfileHeld(r.held !== null && r.error !== null ? { text: r.held, why: r.error } : null);
+      if (r.error && r.held === null) setImportError(r.error);
       const flagged = gearProblems(r.profile).length;
-      if (flagged > 0) setNotice(`${flagged === 1 ? 'One saved gear value is' : `${flagged} saved gear values are`} outside the allowed range, so the planner does not use ${flagged === 1 ? 'it' : 'them'}. Open Gear to change ${flagged === 1 ? 'it' : 'them'}.`);
+      const sites = siteProblems(r.profile);
+      const said = [
+        flagged > 0 ? `${flagged === 1 ? 'One saved gear value is' : `${flagged} saved gear values are`} not usable (outside the allowed range or not a number), so the planner does not use ${flagged === 1 ? 'it' : 'them'}. Open Gear to change ${flagged === 1 ? 'it' : 'them'}.` : '',
+        ...sites.map((x) => `Site "${x.siteName}": ${problemText(x, 'this site')} Open Gear, Sites to change it.`),
+      ].filter((x) => x !== '');
+      if (said.length > 0) setNotice(said.join(' '));
     }
     // The site and train last chosen; one that is gone from the profile falls back to the first, as before.
     let remembered = null;
@@ -436,7 +448,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     } catch (e) {
       setNotice((e as Error).message);
     }
-    const home = loaded.sites.find((s) => s.id === remembered?.siteId) ?? loaded.sites[0];
+    const loadedUsable = usableSites(loaded);
+    const home = loadedUsable.find((s) => s.id === remembered?.siteId) ?? loadedUsable[0];
     const homeTrain = loaded.trains.find((t) => t.id === remembered?.trainId) ?? loaded.trains[0];
     setType(typeGroupOf(remembered?.typeId).id); // a type that no longer exists is All
     setAlwaysRestore(remembered?.alwaysRestore === true);
@@ -513,7 +526,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       plansRef.current = state;
       setPlans(state);
       const open = state.plans.find((p) => p.id === state.openId)!;
-      const openSite = loaded.sites.find((x) => x.id === open.siteId) ?? loaded.sites[0];
+      const openSite = loadedUsable.find((x) => x.id === open.siteId) ?? loadedUsable[0];
       if (openSite && openSite.id !== home.id) loadForm(openSite.blockedArcs, true);
     }
   }, [initialDate, initialProfile, cutNames]);
@@ -562,8 +575,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     try {
       const next = parseProfile(text, { lenient: true });
       profileText.current = text;
+      setProfileHeld(null); // another tab saved gear this page can read: the held copy is no longer what is stored
       setProfile(next);
-      const here = next.sites.find((x) => x.id === (open?.siteId ?? site?.id)) ?? next.sites[0];
+      const nextUsable = usableSites(next);
+      const here = nextUsable.find((x) => x.id === (open?.siteId ?? site?.id)) ?? nextUsable[0];
       if (here && !dirty) loadForm(here.blockedArcs, false);
       return true;
     } catch (e) {
@@ -574,12 +589,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   /** Throws, in words, when another tab saved gear since this page last looked: this page then shows that gear and the edit is not made. */
   const refuseIfStale = () => {
+    if (profileHeld !== null) throw new StaleGearError(HELD_REFUSAL);
     const stored = readProfileText();
     if (stored !== null && stored !== profileText.current) {
       if (adoptProfile(stored)) {
-        const said = 'Another tab changed your gear since this page last looked, so your last edit was not made. This page now shows the other tab\u2019s gear. Make the edit again.';
-        setNotice(said);
-        throw new StaleGearError(said);
+        throw new StaleGearError('Another tab changed your gear since this page last looked, so your last edit was not made. This page now shows the other tab\u2019s gear. Make the edit again.');
       }
       throw new StaleGearError('Not saved: another tab saved gear this page cannot read. Reload the page.');
     }
@@ -587,6 +601,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   /** Stores an edited profile. The edit has been validated. It throws, in words, when it is not saved: another tab saved gear since this page last looked, or storage failed. */
   const applyProfile = (next: Profile) => {
     refuseIfStale();
+    const wasUsable = usableSites(profile).length > 0;
     try {
       storeProfile(next);
     } catch (e) {
@@ -595,12 +610,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return;
     }
     setProfile(next);
+    // The page had no site it could use and this edit gave it one: read the page's state again from what is now stored, as a reload would.
+    if (!wasUsable && usableSites(next).length > 0) loadAll();
   };
 
   const open = plans?.plans.find((p) => p.id === plans.openId) ?? null;
   // The open plan's night, site and train; a site or train that is gone from the profile is the first, as before.
   const date = open?.date ?? initialDate ?? '';
-  const site = profile.sites.find((s) => s.id === open?.siteId) ?? profile.sites[0];
+  const usable = usableSites(profile);
+  const site = usable.find((s) => s.id === open?.siteId) ?? usable[0];
   const train = profile.trains.find((t) => t.id === open?.trainId) ?? profile.trains[0];
   /** Stored plans this page must not write over (found after it loaded): kept, said, and not saved over until the user chooses. */
   const holdText = (text: string, why: Held['why']) => {
@@ -638,7 +656,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     }
     plansRef.current = next;
     setPlans(next);
-    const siteOf = (st: PlansState) => profile.sites.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? profile.sites[0];
+    const siteOf = (st: PlansState) => usable.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? usable[0];
     const to = siteOf(next);
     if (to && siteOf(prev)?.id !== to.id) loadForm(to.blockedArcs, false);
     if (heldRef.current !== null) {
@@ -677,7 +695,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     savedText.current = text;
     plansRef.current = next;
     setPlans(next);
-    const siteOf = (st: PlansState) => profile.sites.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? profile.sites[0];
+    const siteOf = (st: PlansState) => usable.find((x) => x.id === st.plans.find((p) => p.id === st.openId)?.siteId) ?? usable[0];
     const to = siteOf(next);
     if (to && siteOf(prev)?.id !== to.id) loadForm(to.blockedArcs, false);
     if (wasHeld) {
@@ -736,7 +754,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const current = window.localStorage.getItem(PLANS_KEY);
       if (current === null) copied = 'Nothing was stored, so no copy was needed.';
       else copied = `A copy of what was stored is kept ${backupWhere(keepCopy(window.localStorage, current))}.`;
-      const home = profile.sites.find((x) => x.id === open?.siteId) ?? profile.sites[0];
+      const home = usable.find((x) => x.id === open?.siteId) ?? usable[0];
       const homeTrain = profile.trains.find((x) => x.id === open?.trainId) ?? profile.trains[0];
       const m = migrateOldPlan(window.localStorage, { date: open?.date ?? date, siteId: home?.id ?? '', trainId: homeTrain?.id ?? '', now: new Date().toISOString() });
       said.push(...m.problems);
@@ -1050,7 +1068,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (m.site && site) {
       notes.push({
         key: 'site',
-        text: `This plan was made for a site that is no longer in your gear. It shows "${site.name}" for now.`,
+        text: m.siteKept
+          ? `This plan was made for a site whose saved numbers cannot be used (Gear, Sites says which). It shows "${site.name}" for now.`
+          : `This plan was made for a site that is no longer in your gear. It shows "${site.name}" for now.`,
         keepLabel: `Keep ${site.name}`,
         onKeep: () => void editOpen({ siteId: site.id }),
       });
@@ -1075,7 +1095,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       setBases(arcs);
       setJustSaved(true);
     } catch (e) {
-      if (e instanceof StaleGearError) return; // already said, with the other tab's gear now shown
+      if (e instanceof StaleGearError) {
+        setNotice(e.message); // the gear editor shows it on its own refusals; this save is in the horizon editor
+        return;
+      }
       setNotice(`Not saved: ${e instanceof ProfileError ? profileProblemText(e, profile) : (e as Error).message}`);
     }
   };
@@ -1113,6 +1136,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     }
     setCaptured(new Set());
     profileText.current = null;
+    setProfileHeld(null); // the stored copies are gone: nothing is held back any more
     const sample = sampleProfile();
     setProfile(sample);
     loadForm(sample.sites[0]?.blockedArcs ?? [], true);
@@ -1366,6 +1390,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return;
     }
     setProfile(next);
+    setProfileHeld(null); // the user chose to replace the held copy with this file
     // The plans stay (their targets are catalog ids); the open one moves to the new profile's first site and train, on its first evening,
     // because the old ids belong to the old profile. The others fall back to the first the same way.
     const [first] = next.sites;
@@ -1523,9 +1548,22 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return (
       <div className={panel}>
         <h1 className="text-2xl font-light text-white tracking-[0.2em]">IMAGING PLANNER</h1>
-        <p className="text-white/90 font-normal mt-4">
-          The profile needs at least one site and one train. Import a profile below, or reset all to start from the sample.
-        </p>
+        {profile.sites.length > 0 && usable.length === 0 ? (
+          <div className="mt-4 space-y-2" data-testid="no-usable-site">
+            <p className="text-white/90 font-normal break-words">
+              {profile.sites.length === 1 ? 'Your saved site cannot be used' : 'None of your saved sites can be used'}, so the planner has no night to show yet. Correct it in Gear below: the site&apos;s own form says what is wrong. Your gear is untouched.
+            </p>
+            {siteProblems(profile).map((x) => (
+              <p key={`${x.id}-${x.key}`} className="text-orange-100 font-normal text-sm break-words">
+                <span aria-hidden="true">! </span>Site &quot;{x.siteName}&quot;: {problemText(x, 'this site')}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="text-white/90 font-normal mt-4">
+            The profile needs at least one site and one train. Import a profile below, or reset all to start from the sample.
+          </p>
+        )}
         {importError && (
           <p role="alert" className="bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm mt-4">
             {importError}
@@ -1535,6 +1573,19 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           {importControl}
           <ResetAll onConfirm={resetAll} />
         </div>
+        {profile.sites.length > 0 && usable.length === 0 && profile.trains.length > 0 && (
+          <div className="mt-6">
+            <ProfileEditor
+              profile={profile}
+              onChange={applyProfile}
+              plans={planRefs}
+              openTrainId={profile.trains[0].id}
+              onUseTrain={chooseTrain}
+              onOpenPlan={() => undefined}
+              startOn="sites"
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -1567,7 +1618,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       ? 'The plan mixes a solar-system train and deep-sky targets.'
       : !planetary && planets > 0
         ? 'The plan mixes a deep-sky train and solar-system bodies.'
-        : null;
+        : reducedFocalNote(profile, train);
   // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
   const deepTrain = planetary ? (profile.trains.find((t) => t.kind === 'optical' && t.tag !== 'planetary') ?? profile.trains.find((t) => t.kind === 'smart')) : undefined;
   const frame = planTrain === null ? null : fieldOf(planTrain);
@@ -1715,6 +1766,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
       </div>
 
+      {profileHeld !== null && (
+        <p role="alert" data-testid="profile-held" className="break-words bg-orange-400/15 border border-orange-300/40 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          {profileHeld.why}
+        </p>
+      )}
+
       {(heldPlans !== null || planMessages.length > 0 || favs.notes.length > 0) && (
         <div className="space-y-3" data-testid="plans-notices">
           {heldPlans !== null && (
@@ -1801,10 +1858,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               onChange={(e) => {
                 editOpen({ siteId: e.target.value });
                 rememberSelection(e.target.value, train.id);
-                loadForm(profile.sites.find((x) => x.id === e.target.value)?.blockedArcs ?? [], true);
+                loadForm(usable.find((x) => x.id === e.target.value)?.blockedArcs ?? [], true);
               }}
             >
-              {profile.sites.map((s) => (
+              {usable.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </WrapSelect>
@@ -2158,7 +2215,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <button
             type="button"
             className={btn}
-            onClick={() => download('fpo-planner-profile.json', `${JSON.stringify(profile, null, 2)}\n`, 'application/json')}
+            onClick={() => download('fpo-planner-profile.json', profileHeld !== null ? profileHeld.text : `${JSON.stringify(profile, null, 2)}\n`, 'application/json')}
           >
             Export profile (JSON)
           </button>

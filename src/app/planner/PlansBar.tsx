@@ -117,7 +117,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
       )}
       {mode === 'delete' && (
         <div role="group" aria-labelledby="plan-delete-title" data-testid="plan-delete-confirm" className="mt-3 max-w-xl rounded-lg border border-orange-300/50 bg-black/80 p-4">
-          <p id="plan-delete-title" className="text-sm font-normal text-white">
+          <p id="plan-delete-title" className="break-words text-sm font-normal text-white">
             Delete the plan “{open.name}”?
           </p>
           <p className="mt-1 text-sm font-normal text-white/90">
@@ -126,7 +126,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
           <div className="mt-3 flex flex-wrap gap-3">
             <button
               type="button"
-              className={btn}
+              className={`${btn} max-w-full min-w-0 [overflow-wrap:anywhere] text-left`}
               onClick={() => {
                 setMode(null);
                 focusSwitch.current = onDelete();

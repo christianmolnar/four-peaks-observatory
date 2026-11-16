@@ -1,4 +1,4 @@
-import { MAX_NAME_CHARS, PROFILE_VERSION, ProfileError, enterText, migrateProfile, rangeProblem, rangeText, validateProfile } from '../profile';
+import { MAX_NAME_CHARS, PROFILE_VERSION, ProfileError, enterText, migrateProfile, rangeProblem, rangeText, usableSites, validateProfile } from '../profile';
 import { limitOf } from '../profile/limits';
 import type { Profile, TrainEntry } from '../profile';
 import { resolveTrain } from '../profile';
@@ -122,6 +122,8 @@ export function textsOf(list: ListKey, item: object): Record<string, string> {
       const v = rec[f.key];
       if (v === undefined || v === null) return [f.key, ''];
       if (f.kind === 'tristate') return [f.key, v ? 'yes' : 'no'];
+      // A stored number box holds a number or the text that was saved; anything else (an object, a list) is an empty box, never "[object Object]".
+      if (f.kind === 'number' && typeof v !== 'number' && typeof v !== 'string') return [f.key, ''];
       return [f.key, String(v)];
     }),
   );
@@ -231,7 +233,7 @@ export function addItem(profile: Profile, list: ListKey): Profile {
   const name = uniqueName(`New ${LIST_SPECS[list].noun}`, items.map((x) => x.name));
   const item: Record<string, unknown> =
     list === 'sites'
-      ? { id, name, latitude: profile.sites[0]?.latitude ?? 0, longitude: profile.sites[0]?.longitude ?? 0, blockedArcs: [] }
+      ? { id, name, latitude: usableSites(profile)[0]?.latitude ?? 0, longitude: usableSites(profile)[0]?.longitude ?? 0, blockedArcs: [] }
       : list === 'smartScopes'
         ? { id, name, mountMode: 'alt-az' }
         : { id, name };

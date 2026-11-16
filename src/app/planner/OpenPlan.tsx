@@ -71,7 +71,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
   return (
     <section aria-labelledby="open-plan-heading" className="bg-black/70 rounded-lg border border-white/10 px-4 py-2 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4">
-        <h2 ref={headingRef} tabIndex={-1} id="open-plan-heading" className="min-h-11 py-2 text-xl font-light text-white tracking-[0.15em] focus:outline-none">
+        <h2 ref={headingRef} tabIndex={-1} id="open-plan-heading" className="min-h-11 min-w-0 max-w-full break-words py-2 text-xl font-light text-white tracking-[0.15em] focus:outline-none">
           PLAN: {name} ({rows.length} {rows.length === 1 ? 'target' : 'targets'})
         </h2>
         <div className="flex flex-wrap items-center gap-x-2">

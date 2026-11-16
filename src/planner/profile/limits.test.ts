@@ -4,8 +4,8 @@ import { planTrainFor } from '../plan';
 import { sampleProfile } from '../state';
 import { addItem, replaceItem } from '../state/edit';
 import { profilePathInWords, profileProblemText } from '../state/words';
-import { GEAR_LIMITS, MAX_NAME_CHARS, enterText, gearProblems, problemText, rangeText } from './limits';
-import { resolveTrain, trainGearNote } from './train';
+import { GEAR_LIMITS, MAX_NAME_CHARS, enterText, gearProblems, problemText, rangeText, siteProblems, usableSites, valueText } from './limits';
+import { reducedFocalNote, resolveTrain, trainGearNote } from './train';
 import { ProfileError, parseProfile, validateProfile } from './validate';
 import type { Profile } from './types';
 
@@ -208,5 +208,50 @@ describe('a stored value that is negative, zero, empty or text (round 3)', () =>
     expect(profileProblemText(bad, p)).toBe(`Camera "${p.equipment.cameras[0].name}", sensor width: Enter a whole number for the sensor width between 100 and 20,000 px. It is "wide".`);
     expect(profilePathInWords('$.trains[1].accessoryIds[0]', p)).toBe(`train "${p.trains[1].name}", accessory 1`);
     expect(profilePathInWords('$', p)).toBe('the saved profile');
+  });
+});
+
+describe('round 4: odd stored types and the whole-scope range', () => {
+  it('the whole-scope focal length range is the scope range: one floor', () => {
+    expect(GEAR_LIMITS.effectiveFocalLengthMm.min).toBe(GEAR_LIMITS.focalLengthMm.min);
+    expect(GEAR_LIMITS.effectiveFocalLengthMm.max).toBe(GEAR_LIMITS.focalLengthMm.max);
+  });
+
+  it.each([
+    [{}, 'something that is not a number'],
+    [[1], 'something that is not a number'],
+    ['abc', '"abc"'],
+    [null, 'nothing'],
+    [true, '"true"'],
+  ])('a stored %j reads in words, never "[object Object]", and is not called "outside" the range', (value, shown) => {
+    expect(valueText('focalLengthMm', value)).toBe(shown);
+    const text = problemText({ key: 'focalLengthMm', value });
+    expect(text).not.toMatch(/\[object|outside/);
+    expect(text).toContain(`Focal length is saved as ${shown}`);
+    expect(text).toContain('so the planner does not use it. Enter a number from 10 to 10,000 mm.');
+  });
+
+  it('a site number says "this site"; a site with a bad number is kept, flagged and not usable', () => {
+    const p = base();
+    const bad = { ...p, sites: [{ ...p.sites[0], latitude: -100 }, { ...p.sites[0], id: 'ok', name: 'Fine' }] };
+    const kept = validateProfile(bad, { lenient: true });
+    expect(kept.sites[0].latitude).toBe(-100);
+    expect(siteProblems(kept).map((x) => [x.id, x.key])).toEqual([[p.sites[0].id, 'latitude']]);
+    expect(usableSites(kept).map((s) => s.id)).toEqual(['ok']);
+    expect(problemText({ key: 'latitude', value: -100 }, 'this site')).toBe('Latitude -100 deg is outside -90 to 90 deg, so the planner does not use this site.');
+    expect(() => validateProfile(bad)).toThrow(ProfileError); // typed or imported: still refused
+  });
+
+  it('a 14 mm lens with a 0.7x reducer is 9.8 mm: a note, and the exposure is still given', () => {
+    const p = base();
+    const t = opticalTrain(p);
+    const scopes = [...p.equipment.scopes, { id: 'wide', name: '14 mm lens', focalLengthMm: 14, apertureMm: 5 }];
+    const accessories = [...p.equipment.accessories, { id: 'red', name: 'Reducer 0.7x', factor: 0.7 }];
+    const next: Profile = { ...p, equipment: { ...p.equipment, scopes, accessories } };
+    const train = { ...t, scopeId: 'wide', accessoryIds: ['red'] };
+    expect(reducedFocalNote(next, train)).toBe('With Reducer 0.7x the focal length of 14 mm lens is 9.8 mm, under the 10 mm the planner is built for. Numbers are still shown; check them.');
+    expect(trainGearNote(next, train)).toBeNull();
+    expect(reducedFocalNote(next, { ...train, accessoryIds: [] })).toBeNull();
+    expect(reducedFocalNote(next, { ...train, scopeId: t.scopeId })).toBeNull(); // 2800 mm x 0.7 is far over the floor
   });
 });

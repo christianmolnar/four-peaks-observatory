@@ -25,7 +25,7 @@ export const GEAR_LIMITS = {
   sensorWidthPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor width' },
   sensorHeightPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor height' },
   factor: { min: 0.2, max: 5, unit: '', noun: 'focal length factor' },
-  effectiveFocalLengthMm: { min: 50, max: 10000, unit: 'mm', noun: 'whole-scope focal length' },
+  effectiveFocalLengthMm: { min: 10, max: 10000, unit: 'mm', noun: 'whole-scope focal length' },
   sizeMm: { min: 10, max: 100, unit: 'mm', noun: 'filter size' },
   passbandWidthNm: { min: 0.1, max: 1000, unit: 'nm', noun: 'total passband width' },
   narrowestBandNm: { min: 0.1, max: 1000, unit: 'nm', noun: 'narrowest band' },
@@ -88,25 +88,36 @@ export interface GearProblem {
   value: unknown;
 }
 
-/** A stored value as text: "99,999 mm", "an impossibly large number", "abc" (in quotes), "nothing". */
-export function valueText(key: GearLimitKey, value: unknown): string {
-  const limit = GEAR_LIMITS[key];
+/** Every number the planner range-checks, gear or site. The two key sets do not overlap. */
+const ALL_LIMITS: Record<GearLimitKey | SiteLimitKey, GearLimit> = { ...GEAR_LIMITS, ...SITE_LIMITS };
+
+/** A stored value as text: "99,999 mm", "an impossibly large number", "abc" (in quotes), "nothing", "something that is not a number" (an object or list). */
+export function valueText(key: GearLimitKey | SiteLimitKey, value: unknown): string {
+  const limit = ALL_LIMITS[key];
   if (value === null) return 'nothing';
   if (typeof value === 'string') return `"${value.length > 20 ? `${value.slice(0, 20)}…` : value}"`;
+  if (typeof value === 'boolean') return `"${value}"`;
+  if (typeof value === 'object') return 'something that is not a number';
   if (typeof value !== 'number' || !Number.isFinite(value)) return `"${String(value).slice(0, 20)}"`;
   if (Math.abs(value) >= 1e7) return 'an impossibly large number';
   if (value !== 0 && Math.abs(value) < 1e-3) return 'an impossibly small number';
   return `${fmt(value)}${limit.unit === '' ? '' : ` ${limit.unit}`}`;
 }
 
-/** "Focal length 99,999 mm is outside 10 to 10,000 mm, so the planner does not use it." A saved value that is not a number says so. */
-export function problemText(p: { key: GearLimitKey; value: unknown }): string {
-  const limit = GEAR_LIMITS[p.key];
+/**
+ * "Focal length 99,999 mm is outside 10 to 10,000 mm, so the planner does not use it." A saved value that is not a number says so, in words
+ * for any stored type. `use` is what is not used: "it" for a gear value, "this site" for a site's.
+ */
+export function problemText(p: { key: GearLimitKey | SiteLimitKey; value: unknown }, use = 'it'): string {
+  const limit = ALL_LIMITS[p.key];
   const noun = capitalised(limit.noun);
   const shown = valueText(p.key, p.value);
-  if (typeof p.value !== 'number') return `${noun} is saved as ${shown}, which is not a number, so the planner does not use it. Enter ${(limit as GearLimit).whole ? 'a whole number' : 'a number'} from ${rangeText(limit)}.`;
-  if (shown.startsWith('an ')) return `${noun} is ${shown}, outside ${rangeText(limit)}, so the planner does not use it.`;
-  return `${noun} ${shown} is outside ${rangeText(limit)}, so the planner does not use it.`;
+  if (typeof p.value !== 'number') {
+    const odd = typeof p.value === 'object' && p.value !== null;
+    return `${noun} is saved as ${shown}${odd ? '' : ', which is not a number'}, so the planner does not use ${use}. Enter ${limit.whole ? 'a whole number' : 'a number'} from ${rangeText(limit)}.`;
+  }
+  if (shown.startsWith('an ')) return `${noun} is ${shown}, outside ${rangeText(limit)}, so the planner does not use ${use}.`;
+  return `${noun} ${shown} is outside ${rangeText(limit)}, so the planner does not use ${use}.`;
 }
 
 const KEYS = Object.keys(GEAR_LIMITS) as GearLimitKey[];
@@ -136,4 +147,30 @@ export function gearProblems(profile: Profile): GearProblem[] {
     }
   }
   return out;
+}
+
+const SITE_KEYS = Object.keys(SITE_LIMITS) as SiteLimitKey[];
+
+/** The keys of a site that hold a number outside its range, or something that is not a number. */
+export function siteBadKeys(site: object): SiteLimitKey[] {
+  const rec = site as Record<string, unknown>;
+  return SITE_KEYS.filter((k) => rec[k] !== undefined && !inRange(SITE_LIMITS[k], rec[k]));
+}
+
+/** One stored site number that cannot be used. The value is kept; the site is not used until it is changed. */
+export interface SiteProblem {
+  id: string;
+  siteName: string;
+  key: SiteLimitKey;
+  value: unknown;
+}
+
+/** Every stored site number outside its range, in the profile's order. */
+export function siteProblems(profile: Profile): SiteProblem[] {
+  return profile.sites.flatMap((s) => siteBadKeys(s).map((key) => ({ id: s.id, siteName: s.name, key, value: (s as unknown as Record<string, unknown>)[key] })));
+}
+
+/** The sites the planner can use: those with every number in range. A site with a bad number is kept in the profile and flagged, never used. */
+export function usableSites(profile: Profile): Profile['sites'] {
+  return profile.sites.filter((s) => siteBadKeys(s).length === 0);
 }

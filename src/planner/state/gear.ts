@@ -1,3 +1,4 @@
+import { usableSites } from '../profile';
 import type { Profile } from '../profile';
 import type { ListKey } from './edit';
 
@@ -81,10 +82,14 @@ export function refusalText(use: Use, of: 'site' | 'train' | 'gear'): string {
   return `Not removed. ${usedText(use)} ${way}`;
 }
 
-/** The open plan's site or train that is no longer in the profile; absent when both are there. */
-export function missingOf(profile: Profile, plan: { siteId: string; trainId: string } | null): { site: boolean; train: boolean } {
+/**
+ * The open plan's site or train that is not usable: gone from the profile, or (a site) kept with a saved number that cannot be used.
+ * `siteKept` is true when the site is still in the profile and only its saved numbers are bad.
+ */
+export function missingOf(profile: Profile, plan: { siteId: string; trainId: string } | null): { site: boolean; siteKept: boolean; train: boolean } {
   return {
-    site: plan !== null && !profile.sites.some((s) => s.id === plan.siteId),
+    site: plan !== null && !usableSites(profile).some((s) => s.id === plan.siteId),
+    siteKept: plan !== null && profile.sites.some((s) => s.id === plan.siteId) && !usableSites(profile).some((s) => s.id === plan.siteId),
     train: plan !== null && !profile.trains.some((t) => t.id === plan.trainId),
   };
 }

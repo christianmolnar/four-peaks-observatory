@@ -89,11 +89,17 @@ function nameOf(o: Obj, path: string, strict: boolean): string {
   return v;
 }
 
-/** A site number inside its range, in a plain sentence. */
-function siteNum(o: Obj, key: SiteLimitKey, path: string): number {
+/**
+ * A site number inside its range, in a plain sentence. Lenient (a profile already stored) whatever is stored is kept, even a number outside its range, null or text:
+ * the site is then flagged (`siteProblems`) and not used (`usableSites`), and its form lets the user correct it. A profile is never set aside for it.
+ */
+function siteNum(o: Obj, key: SiteLimitKey, path: string, strict: boolean): number {
   const limit = SITE_LIMITS[key];
   const v = o[key];
-  if (!inRange(limit, v)) throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${v === null ? 'empty' : JSON.stringify(v)}.`);
+  if (!inRange(limit, v)) {
+    if (!strict) return v as number;
+    throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${v === null ? 'empty' : JSON.stringify(v)}.`);
+  }
   return v;
 }
 
@@ -157,10 +163,12 @@ function timeZone(o: Obj, path: string): string {
 }
 
 /** A hand-edited file may write the class as text ("6"); a whole number in text is read as that number, anything else is rejected at this field. */
-function bortle(o: Obj, path: string): number {
+function bortle(o: Obj, path: string, strict: boolean): number {
   const raw = o.bortle;
   const asText = typeof raw === 'string' && /^\s*[1-9]\s*$/.test(raw);
-  const v = num(asText ? { bortle: Number(raw) } : o, 'bortle', path, 1, 9);
+  const value = asText ? Number(raw) : raw;
+  if (!strict && !inRange(SITE_LIMITS.bortle, value)) return raw as number; // kept and flagged, like the other site numbers
+  const v = num({ bortle: value }, 'bortle', path, 1, 9);
   if (!Number.isInteger(v)) throw new ProfileError(`${path}.bortle`, `expected a whole number from 1 to 9, got ${v}`);
   return v;
 }
@@ -172,11 +180,11 @@ function site(v: unknown, path: string, strict: boolean): ProfileSite {
   return withoutUndefined({
     id: str(o, 'id', path),
     name: nameOf(o, path, strict),
-    latitude: siteNum(o, 'latitude', path),
-    longitude: siteNum(o, 'longitude', path),
-    elevationM: o.elevationM === undefined ? undefined : siteNum(o, 'elevationM', path),
+    latitude: siteNum(o, 'latitude', path, strict),
+    longitude: siteNum(o, 'longitude', path, strict),
+    elevationM: o.elevationM === undefined ? undefined : siteNum(o, 'elevationM', path, strict),
     timeZone: o.timeZone === undefined ? undefined : timeZone(o, path),
-    bortle: o.bortle === undefined ? undefined : bortle(o, path),
+    bortle: o.bortle === undefined ? undefined : bortle(o, path, strict),
     blockedArcs: blockedArcs(o.blockedArcs, `${path}.blockedArcs`),
   });
 }

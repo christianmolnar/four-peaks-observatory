@@ -1,5 +1,5 @@
 import sample from '../data/sample-profile.json';
-import { ProfileError, parseProfile, validateProfile } from '../profile';
+import { ProfileError, parseProfile, usableSites, validateProfile } from '../profile';
 import type { BlockedArc, Profile } from '../profile';
 import { zoneOffsetMs } from '../plan';
 import { profileProblemText } from './words';
@@ -112,12 +112,14 @@ export interface LoadedProfile {
   error: string | null;
   /** True when the profile came from storage, false for the sample. */
   stored: boolean;
+  /** The stored text this page could not load (the sample is shown). It is never written over by an edit: only Reset all or an import replaces it. Null when nothing was held back. */
+  held: string | null;
 }
 
 /**
  * Reads the saved profile. Nothing stored gives the sample. Stored text that
- * fails validation gives the sample plus the error with its field path; the
- * bad text stays in storage until the user saves or resets.
+ * fails validation gives the sample plus the error in words, and the text it
+ * held back: that text stays in storage until the user resets or imports.
  */
 export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
   let text: string | null;
@@ -128,15 +130,17 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
       profile: sampleProfile(),
       error: `Saved profile could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`,
       stored: false,
+      held: null,
     };
   }
-  if (text === null) return { profile: sampleProfile(), error: null, stored: false };
+  if (text === null) return { profile: sampleProfile(), error: null, stored: false, held: null };
   try {
-    return { profile: parseProfile(text, { lenient: true }), error: null, stored: true };
+    return { profile: parseProfile(text, { lenient: true }), error: null, stored: true, held: null };
   } catch (e) {
     if (e instanceof ProfileError) {
-      const why = e.path === '$' && /not valid JSON/.test(e.message) ? 'It is not valid JSON.' : profileProblemText(e, JSON.parse(text));
-      return { profile: sampleProfile(), error: `Your saved profile could not be used, so the sample is shown. ${why} The saved copy stays until you save a change in Gear, which replaces it.`, stored: false };
+      const said = e.path === '$' && /not valid JSON/.test(e.message) ? 'It is not valid JSON.' : profileProblemText(e, JSON.parse(text));
+      const why = /[.!?]$/.test(said) ? said : `${said}.`;
+      return { profile: sampleProfile(), error: `Your saved profile could not be used, so the sample is shown. ${why} Your saved copy is kept as it is: gear changes are not saved over it. Export profile gives you that copy. Reset all, or importing a corrected file, replaces it.`, stored: false, held: text };
     }
     throw e;
   }
@@ -355,9 +359,10 @@ export function newZoneFields(zones: readonly HorizonFields[]): HorizonFields {
 /**
  * The evening date for a profile: its first site's longitude, or the
  * browser's own (from its UTC offset in minutes, as `getTimezoneOffset` gives it)
- * when the profile has no site.
+ * when the profile has no usable site.
  */
 export function defaultDateForProfile(now: Date, profile: Profile): string {
-  const lon = profile.sites[0]?.longitude ?? (-now.getTimezoneOffset() / 60) * 15;
-  return defaultTonightDate(now, lon, profile.sites[0]?.timeZone);
+  const first = usableSites(profile)[0];
+  const lon = first?.longitude ?? (-now.getTimezoneOffset() / 60) * 15;
+  return defaultTonightDate(now, lon, first?.timeZone);
 }

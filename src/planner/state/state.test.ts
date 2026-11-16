@@ -1,4 +1,4 @@
-import { ProfileError } from '../profile';
+import { ProfileError, siteProblems, usableSites } from '../profile';
 import {
   CAPTURED_KEY,
   HORIZON_RANGE,
@@ -47,14 +47,33 @@ describe('profile storage', () => {
     expect(r.profile.sites[0].blockedArcs).toEqual([{ startAz: 10, endAz: 50, heightDeg: 25 }]);
   });
 
-  it('rejects stored data with the field path, shows the sample, and leaves the stored text alone', () => {
-    const bad = JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 120 }] });
+  it('rejects stored data it cannot load in words, shows the sample, holds the stored text back and leaves it alone', () => {
+    const p = sampleProfile();
+    const bad = JSON.stringify({ ...p, trains: p.trains.map((t, i) => (i === 0 && t.kind === 'optical' ? { ...t, scopeId: 'gone' } : t)) });
     const s = memory({ [PROFILE_KEY]: bad });
     const r = loadProfile(s);
-    expect(r.error).toContain(`Site "${sampleProfile().sites[0].name}", latitude: Enter a latitude between -90 and 90 deg. It is 120.`);
+    expect(r.error).toContain('Train "');
+    expect(r.error).toContain('unknown scope "gone". Your saved copy is kept as it is');
     expect(r.error).not.toContain('$.');
     expect(r.profile).toEqual(sampleProfile());
+    expect(r.held).toBe(bad);
     expect(s.data.get(PROFILE_KEY)).toBe(bad);
+  });
+
+  it('a stored site number outside its range, null or text keeps the profile: loaded, kept as stored, flagged and not usable', () => {
+    for (const latitude of [120, -100, null, 'abc', {}, [1]]) {
+      const own = { ...sampleProfile().equipment.cameras[0], id: 'own', name: 'My own camera' };
+      const base = sampleProfile();
+      const text = JSON.stringify({ ...base, equipment: { ...base.equipment, cameras: [...base.equipment.cameras, own] }, sites: [{ ...base.sites[0], latitude }] });
+      const r = loadProfile(memory({ [PROFILE_KEY]: text }));
+      expect(r.error).toBeNull();
+      expect(r.held).toBeNull();
+      expect(r.stored).toBe(true);
+      expect(r.profile.equipment.cameras.map((c) => c.name)).toContain('My own camera');
+      expect(r.profile.sites[0].latitude).toEqual(latitude);
+      expect(siteProblems(r.profile).map((x) => x.key)).toEqual(['latitude']);
+      expect(usableSites(r.profile)).toEqual([]);
+    }
   });
 
   it('reports malformed stored JSON as an error, not a crash', () => {
@@ -66,7 +85,7 @@ describe('profile storage', () => {
   it('refuses to save an invalid profile and writes nothing', () => {
     const s = memory();
     const p = sampleProfile();
-    const bad = { ...p, sites: [{ ...p.sites[0], longitude: 500 }] };
+    const bad = { ...p, trains: [{ ...p.trains[0], id: p.trains[1].id }, ...p.trains.slice(1)] }; // two trains with one id
     expect(() => saveProfile(s, bad)).toThrow(ProfileError);
     expect(s.data.size).toBe(0);
   });

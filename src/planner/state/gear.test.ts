@@ -147,10 +147,13 @@ describe('trains: select data, create, change, remove', () => {
 describe('a plan whose site or train is gone', () => {
   it('is reported by what is missing, not changed', () => {
     const p = sample();
-    expect(missingOf(p, { siteId: p.sites[0].id, trainId: p.trains[0].id })).toEqual({ site: false, train: false });
-    expect(missingOf(p, { siteId: 'gone', trainId: p.trains[0].id })).toEqual({ site: true, train: false });
-    expect(missingOf(p, { siteId: p.sites[0].id, trainId: 'gone' })).toEqual({ site: false, train: true });
-    expect(missingOf(p, null)).toEqual({ site: false, train: false });
+    expect(missingOf(p, { siteId: p.sites[0].id, trainId: p.trains[0].id })).toEqual({ site: false, siteKept: false, train: false });
+    expect(missingOf(p, { siteId: 'gone', trainId: p.trains[0].id })).toEqual({ site: true, siteKept: false, train: false });
+    expect(missingOf(p, { siteId: p.sites[0].id, trainId: 'gone' })).toEqual({ site: false, siteKept: false, train: true });
+    expect(missingOf(p, null)).toEqual({ site: false, siteKept: false, train: false });
+    // A site kept with a saved number that cannot be used is not usable, and the plan says it is still there.
+    const bad = { ...p, sites: [{ ...p.sites[0], latitude: -100 }] };
+    expect(missingOf(bad, { siteId: p.sites[0].id, trainId: p.trains[0].id })).toEqual({ site: true, siteKept: true, train: false });
   });
 });
 

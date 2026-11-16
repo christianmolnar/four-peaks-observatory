@@ -763,9 +763,10 @@ describe('toasts clear themselves and never take a click', () => {
 
   it('an error toast also clears and is click-through', async () => {
     jest.useFakeTimers();
-    window.localStorage.setItem(PROFILE_KEY, '{not json');
     render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
     await ready();
+    // A rejected import is a toast. (Saved gear the page cannot load is not: it stays on the page in its own box, because edits are refused until it is dealt with.)
+    fireEvent.change(screen.getByLabelText('Import profile (JSON)'), { target: { files: [new File(['{not json'], 'p.json', { type: 'application/json' })] } });
     const alert = await screen.findByRole('alert');
     expect(alert.className).toContain('pointer-events-none');
     expect(alert.parentElement?.className).toContain('pointer-events-none');

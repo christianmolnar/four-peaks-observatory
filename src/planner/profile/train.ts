@@ -102,3 +102,19 @@ export function trainGearNote(profile: Profile, train: TrainEntry): string | nul
   const unset = parts.every((p) => p.includes(' is not set for '));
   return `${capitalised(parts.join('; '))}, so no exposure is shown. ${unset ? (parts.length === 1 ? 'Add it in Gear.' : 'Add them in Gear.') : 'Change it in Gear.'}`;
 }
+
+/**
+ * A note, not a refusal: the accessories take the whole-scope focal length under the scope range's floor (a 14 mm lens with a 0.7x reducer is 9.8 mm).
+ * The exposure is still shown. Null when the focal length is known and at or over the floor, or cannot be worked out.
+ */
+export function reducedFocalNote(profile: Profile, train: TrainEntry): string | null {
+  if (train.kind !== 'optical') return null;
+  const scope = profile.equipment.scopes.find((s) => s.id === train.scopeId);
+  const accessories = train.accessoryIds.flatMap((id) => profile.equipment.accessories.find((a) => a.id === id) ?? []);
+  if (!scope || accessories.some((a) => a.effectiveFocalLengthMm !== undefined) || accessories.length === 0) return null;
+  if (!inRange(GEAR_LIMITS.focalLengthMm, scope.focalLengthMm) || !accessories.every((a) => inRange(GEAR_LIMITS.factor, a.factor))) return null;
+  const effective = accessories.reduce((k, a) => k * (a.factor as number), scope.focalLengthMm);
+  const floor = GEAR_LIMITS.focalLengthMm.min;
+  if (effective >= floor) return null;
+  return `With ${accessories.map((a) => a.name).join(' + ')} the focal length of ${scope.name} is ${Math.round(effective * 100) / 100} mm, under the ${floor} mm the planner is built for. Numbers are still shown; check them.`;
+}
