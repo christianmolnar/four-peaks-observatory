@@ -244,4 +244,17 @@ describe('the small should-fixes', () => {
     expect(items[1].textContent).toMatch(/Solar system/);
     for (const li of planRowItems()) expect(li.textContent).not.toMatch(/Planet/);
   });
+
+  it('sets scroll-padding-top on html to the bars height, so focus scrolling lands below them, and removes it on leave', async () => {
+    const nav = document.createElement('nav');
+    nav.className = 'fixed';
+    nav.getBoundingClientRect = () => ({ height: 100 }) as DOMRect;
+    document.body.appendChild(nav);
+    const { container, unmount } = await app();
+    const top = (container.firstElementChild as HTMLElement).style.getPropertyValue('--planner-top');
+    expect(document.documentElement.style.scrollPaddingTop).toBe(top);
+    unmount();
+    expect(document.documentElement.style.scrollPaddingTop).toBe('');
+    nav.remove();
+  });
 });

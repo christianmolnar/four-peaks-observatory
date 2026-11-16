@@ -14,7 +14,7 @@ export default function Collapsible({ id, title, children, defaultOpen = false, 
     if (openTick > 0) setOpen(true);
   }, [openTick]);
   return (
-    <div id={id} className="scroll-mt-[calc(var(--planner-top,0px)+1rem)] border-t border-p-line/10">
+    <div id={id} className="scroll-mt-4 border-t border-p-line/10">
       <h3 className="text-base font-normal text-p-t1">
         <button
           type="button"

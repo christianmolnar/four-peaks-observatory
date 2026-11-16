@@ -38,6 +38,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('the plan rail', () => {
+  it('caps its height to the room the panel leaves above the page bottom (the real geometry is checked in a browser)', async () => {
+    await app([m31]);
+    expect(rail().style.getPropertyValue('--rail-below')).toMatch(/^\d+px$/);
+    expect(rail().className).toContain('var(--rail-below');
+  });
+
   it('is not in the page below 1024 px (no second copy of its buttons)', async () => {
     await app([m31], false);
     expect(screen.queryByTestId('plan-rail')).toBeNull();
@@ -98,7 +104,7 @@ describe('the plan rail', () => {
     expect(rows[1].id).toBe(`plan-row-${ic405.id}`);
     expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
     expect((window.HTMLElement.prototype.scrollIntoView as jest.Mock).mock.contexts.at(-1)).toBe(rows[1]);
-    expect(rows[1].className).toContain('scroll-mt-[calc(var(--planner-top,0px)+1rem)]');
+    expect(rows[1].className).toContain('scroll-mt-4');
   });
 
   it('is read-only: no Remove and no exposure control inside it', async () => {

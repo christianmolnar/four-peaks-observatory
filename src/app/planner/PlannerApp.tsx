@@ -849,6 +849,38 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       observer?.disconnect();
     };
   }, [hasControls]);
+  // Keyboard focus (Shift+Tab, Tab) scrolls its target below the bars, not under them: `html` is the scroll container, so it carries the bars' height.
+  const barsHeight = stickyTop.nav + stickyTop.strip;
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.scrollPaddingTop = `${barsHeight}px`;
+    // Chrome's own focus scroll can stop 12 px short when the target is mostly in view (a field found 6 to 28 px under the strip stays there), so once the scroll has settled the page checks and finishes the job.
+    let frame = 0;
+    const onFocusIn = (ev: FocusEvent) => {
+      const el = ev.target;
+      if (!(el instanceof HTMLElement) || el.closest('nav.fixed, section[aria-labelledby="controls-heading"]')) return;
+      cancelAnimationFrame(frame);
+      let last = Number.NaN;
+      let still = 0;
+      const settle = () => {
+        still = window.scrollY === last ? still + 1 : 0;
+        last = window.scrollY;
+        if (still < 4) {
+          frame = requestAnimationFrame(settle);
+          return;
+        }
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.top < barsHeight - 1 && r.bottom > 0) window.scrollBy({ top: r.top - barsHeight });
+      };
+      frame = requestAnimationFrame(settle);
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('focusin', onFocusIn);
+      root.style.removeProperty('scroll-padding-top');
+    };
+  }, [barsHeight]);
   // The site as the astro functions take it, stable between renders so the sections below can memoise on it.
   const siteLat = site?.latitude;
   const siteLon = site?.longitude;
@@ -1988,7 +2020,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   return (
     <>
     <div
-      className="planner-root space-y-8 text-p-t1 print:hidden [&_h2]:scroll-mt-[calc(var(--planner-top,0px)+1rem)] [&_section[id]]:scroll-mt-[calc(var(--planner-top,0px)+1rem)]"
+      className="planner-root space-y-8 text-p-t1 print:hidden [&_h2]:scroll-mt-4 [&_section[id]]:scroll-mt-4"
       style={{ '--planner-nav': `${stickyTop.nav}px`, '--planner-top': `${stickyTop.nav + stickyTop.strip}px` } as React.CSSProperties}
     >
       <header className="flex items-center justify-between gap-x-4">

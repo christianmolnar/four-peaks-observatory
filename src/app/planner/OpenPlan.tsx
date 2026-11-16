@@ -117,7 +117,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
       ) : (
         <ol className="space-y-2 pb-3" aria-label="Targets in this plan, in order">
           {rows.map((r, i) => (
-            <li key={r.id} id={`plan-row-${r.id}`} tabIndex={-1} className="scroll-mt-[calc(var(--planner-top,0px)+1rem)] rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
+            <li key={r.id} id={`plan-row-${r.id}`} tabIndex={-1} className="scroll-mt-4 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
               <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1 basis-40 break-words">
                 <p className="text-p-t1"><span className="text-p-t1/70">{i + 1}.</span> {r.name}</p>

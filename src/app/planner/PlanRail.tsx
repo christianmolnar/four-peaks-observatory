@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
 /** The width from which the plan rail is shown (Tailwind `lg`). */
 export const RAIL_MIN_WIDTH = 1024;
@@ -61,11 +61,32 @@ export const hoursMinutes = (min: number): string => {
  * Light and the page's own night length) and offers no editing; the rows, with their Remove and exposure controls, stay the one place to change a plan.
  */
 export default function PlanRail({ name, rows, lightMin, nightHours, warnings, onGoToRow, onGoToWarnings, onPlanWithAi, onShare }: PlanRailProps) {
+  // A sticky box cannot leave its panel, so at the page bottom (the credits and padding sit below the panel) a rail as tall as the window would be
+  // pushed up under the bars. Its height is capped to the room the panel's bottom edge leaves, so it stays below --planner-top at every scroll position.
+  const ref = useRef<HTMLElement>(null);
+  const [below, setBelow] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const panel = el?.parentElement;
+    const main = el?.closest('main');
+    if (!panel || !main) return undefined;
+    const measure = () => setBelow(Math.max(0, Math.round(main.getBoundingClientRect().bottom - panel.getBoundingClientRect().bottom)));
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(main);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, []);
   return (
     <aside
+      ref={ref}
+      style={{ '--rail-below': `${below + 8}px` } as CSSProperties}
       aria-label="Plan summary"
       data-testid="plan-rail"
-      className="sticky top-[calc(var(--planner-top,0px)+0.5rem)] max-h-[calc(100vh-var(--planner-top,0px)-1rem)] w-[280px] self-start overflow-y-auto rounded-lg border border-p-line/10 bg-p-bg/70 p-4 text-sm font-normal text-p-t1"
+      className="sticky top-[calc(var(--planner-top,0px)+0.5rem)] max-h-[calc(100vh-var(--planner-top,0px)-0.5rem-var(--rail-below,0.5rem))] w-[280px] self-start overflow-y-auto rounded-lg border border-p-line/10 bg-p-bg/70 p-4 text-sm font-normal text-p-t1"
     >
       <h2 className="break-words text-base font-normal tracking-[0.1em] text-p-t1" data-testid="rail-title">
         {name}

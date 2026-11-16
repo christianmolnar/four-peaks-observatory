@@ -50,8 +50,9 @@ export default function ThemeToggle() {
           <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
         </svg>
         {/* The words show when the slim header has room (from 390 px "Night mode", from 640 px with "(red)"); below that the moon stands alone and the name is read aloud. */}
-        <span className="sr-only min-[390px]:not-sr-only whitespace-nowrap">Night mode</span>
-        <span className="sr-only sm:not-sr-only whitespace-nowrap">{' (red)'}</span>
+        <span className="sr-only min-[390px]:not-sr-only whitespace-nowrap">
+          Night mode<span className="sr-only sm:not-sr-only">{' (red)'}</span>
+        </span>
       </button>
       <svg aria-hidden="true" focusable="false" width="0" height="0" className="absolute" data-testid="theme-hatches">
         <defs>
