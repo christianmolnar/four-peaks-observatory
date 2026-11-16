@@ -97,7 +97,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
       {staleNotes.map((n) => (
         <p key={n.key} role="status" className="mb-3 flex flex-wrap items-center gap-x-3 text-orange-100 font-normal text-sm" data-testid={`plan-stale-${n.key}`}>
           <span className="min-w-0 break-words">{n.text}</span>
-          <button type="button" className={btn} onClick={n.onKeep}>{n.keepLabel}</button>
+          <button type="button" className={`${btn} max-w-full min-w-0 break-words text-left`} onClick={n.onKeep}>{n.keepLabel}</button>
           {n.key === 'train' && <button type="button" className={btn} onClick={onChangeTrain}>Change train</button>}
         </p>
       ))}

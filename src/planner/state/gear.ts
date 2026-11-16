@@ -67,6 +67,9 @@ export function usedText(use: Use): string {
   return 'Not used.';
 }
 
+/** A removal refused because trains or plans still use the item (the way out is to change those). */
+export class UsedError extends Error {}
+
 export const isUsed = (use: Use) => use.trains.length > 0 || use.plans.length > 0;
 
 /** Why an item is not removed, in plain words, with the way out. `of` is what the item is when plans use it ("site" or "train"). */

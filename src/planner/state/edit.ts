@@ -3,7 +3,8 @@ import { limitOf } from '../profile/limits';
 import type { Profile, TrainEntry } from '../profile';
 import { resolveTrain } from '../profile';
 import { DEFAULT_BORTLE } from '../exposure';
-import { isUsed, refusalText, usesOf } from './gear';
+import { UsedError, isUsed, refusalText, usesOf } from './gear';
+import { profileProblemText } from './words';
 import type { PlanRef } from './gear';
 
 /** The lists a guest can edit item by item. */
@@ -119,7 +120,7 @@ export function textsOf(list: ListKey, item: object): Record<string, string> {
   return Object.fromEntries(
     LIST_SPECS[list].fields.map((f) => {
       const v = rec[f.key];
-      if (v === undefined) return [f.key, ''];
+      if (v === undefined || v === null) return [f.key, ''];
       if (f.kind === 'tristate') return [f.key, v ? 'yes' : 'no'];
       return [f.key, String(v)];
     }),
@@ -164,7 +165,7 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>,
       continue;
     }
     if (t === '') {
-      if (f.required) throw new Error(limit ? `${f.label}: ${enterText(limit)}` : `${f.label}: choose one.`);
+      if (f.required) throw new Error(limit ? `${f.label}: the box is empty. ${enterText(limit)}` : `${f.label}: choose one.`);
       continue;
     }
     if (f.kind === 'number') {
@@ -241,7 +242,7 @@ export function addItem(profile: Profile, list: ListKey): Profile {
 export function removeItem(profile: Profile, list: ListKey, id: string, plans: readonly PlanRef[] = []): Profile {
   if (list === 'sites' && profile.sites.length <= 1) throw new Error('The planner needs at least one site.');
   const use = usesOf(profile, plans, list, id);
-  if (isUsed(use)) throw new Error(refusalText(use, list === 'sites' ? 'site' : 'gear'));
+  if (isUsed(use)) throw new UsedError(refusalText(use, list === 'sites' ? 'site' : 'gear'));
   const next = withItems(profile, list, itemsOf(profile, list).filter((x) => x.id !== id));
   // The profile's own example plans are hidden and cannot be opened: one that points at a removed site goes with it.
   return validateProfile(list === 'sites' ? { ...next, plans: next.plans.filter((p) => p.siteId !== id) } : next, LENIENT);
@@ -309,7 +310,7 @@ export function addTrain(profile: Profile, kind: 'optical' | 'smart'): Profile {
 export function removeTrain(profile: Profile, id: string, plans: readonly PlanRef[] = []): Profile {
   if (profile.trains.length <= 1) throw new Error('The planner needs at least one train.');
   const use = usesOf(profile, plans, 'trains', id);
-  if (isUsed(use)) throw new Error(refusalText(use, 'train'));
+  if (isUsed(use)) throw new UsedError(refusalText(use, 'train'));
   // The profile's own example plans are hidden and cannot be opened: one that used this train goes with it.
   return checkTrains({ ...profile, plans: profile.plans.filter((p) => p.trainId !== id) }, profile.trains.filter((t) => t.id !== id));
 }
@@ -325,11 +326,11 @@ export function assertImportSize(size: number): void {
 }
 
 /** Plain-language text for any error from reading an imported file. */
-export function describeImportError(e: unknown): string {
+export function describeImportError(e: unknown, raw?: unknown): string {
   if (e instanceof ProfileError) {
     if (e.path === '$' && /not valid JSON/.test(e.message)) return `${NOT_A_PROFILE} It is not valid JSON.`;
     if (e.path === '$.version') return `${NOT_A_PROFILE} ${e.message.slice(e.path.length + 2)}.`;
-    return `${NOT_A_PROFILE} Problem at ${e.path}: ${e.message.slice(e.path.length + 2)}`;
+    return `${NOT_A_PROFILE} ${profileProblemText(e, raw)}`;
   }
   return `The file could not be read: ${(e as Error).message}`;
 }
@@ -362,6 +363,6 @@ export function profileFromText(text: string): Profile {
   try {
     return validateProfile(migrated);
   } catch (e) {
-    throw new Error(describeImportError(e));
+    throw new Error(describeImportError(e, migrated));
   }
 }

@@ -51,7 +51,8 @@ describe('profile storage', () => {
     const bad = JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 120 }] });
     const s = memory({ [PROFILE_KEY]: bad });
     const r = loadProfile(s);
-    expect(r.error).toContain('$.sites[0].latitude');
+    expect(r.error).toContain(`Site "${sampleProfile().sites[0].name}", latitude: Enter a latitude between -90 and 90 deg. It is 120.`);
+    expect(r.error).not.toContain('$.');
     expect(r.profile).toEqual(sampleProfile());
     expect(s.data.get(PROFILE_KEY)).toBe(bad);
   });

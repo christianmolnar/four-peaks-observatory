@@ -50,6 +50,7 @@ import {
   withSiteArcs,
 } from '@/planner/state';
 import { assertImportSize, profileFromText } from '@/planner/state/edit';
+import { profileProblemText } from '@/planner/state/words';
 import { FAVORITES_KEY, favoriteOf, favoriteProblem, listFavoritesBackups, withFavorite, withoutFavorite } from '@/planner/state/favorites';
 import type { Favorite } from '@/planner/state/favorites';
 import {
@@ -150,6 +151,9 @@ function readPlansText(): string | null {
     return null;
   }
 }
+
+/** An edit refused because another tab saved gear first. The page has already said so; the message is for a form that shows it too. */
+class StaleGearError extends Error {}
 
 /** What the page says when another tab has reset the saved data. */
 const RESET_ELSEWHERE = 'The plans were reset in another tab, so this page starts fresh too.';
@@ -416,7 +420,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       loaded = r.profile;
       setProfile(r.profile);
       try {
-        profileText.current = r.stored ? window.localStorage.getItem(PROFILE_KEY) : null;
+        // A saved profile this page could not read (r.error) is still the text in storage: it is this page's own, not another tab's, so an edit saves over it.
+        profileText.current = r.stored || r.error ? window.localStorage.getItem(PROFILE_KEY) : null;
       } catch {
         profileText.current = null;
       }
@@ -567,17 +572,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return false;
     }
   };
-  /** Stores an edited profile. The edit has been validated. It throws, in words, when it is not saved: another tab saved gear since this page last looked (this page then shows that gear, and the edit is not made), or storage failed. */
-  const applyProfile = (next: Profile) => {
+  /** Throws, in words, when another tab saved gear since this page last looked: this page then shows that gear and the edit is not made. */
+  const refuseIfStale = () => {
     const stored = readProfileText();
     if (stored !== null && stored !== profileText.current) {
       if (adoptProfile(stored)) {
         const said = 'Another tab changed your gear since this page last looked, so your last edit was not made. This page now shows the other tab\u2019s gear. Make the edit again.';
         setNotice(said);
-        throw new Error(said);
+        throw new StaleGearError(said);
       }
-      throw new Error('Not saved: another tab saved gear this page cannot read. Reload the page.');
+      throw new StaleGearError('Not saved: another tab saved gear this page cannot read. Reload the page.');
     }
+  };
+  /** Stores an edited profile. The edit has been validated. It throws, in words, when it is not saved: another tab saved gear since this page last looked, or storage failed. */
+  const applyProfile = (next: Profile) => {
+    refuseIfStale();
     try {
       storeProfile(next);
     } catch (e) {
@@ -1060,12 +1069,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     try {
       const arcs = fields.map((z) => ({ startAz: Number(z.start) % 360, endAz: Number(z.end) % 360, heightDeg: Number(z.height) }));
       const next = withSiteArcs(profile, site.id, arcs);
+      refuseIfStale(); // the same check as a gear edit: this save must not write this page's older gear over another tab's
       storeProfile(next);
       setProfile(next);
       setBases(arcs);
       setJustSaved(true);
     } catch (e) {
-      setNotice(`Not saved: ${(e as Error).message}`);
+      if (e instanceof StaleGearError) return; // already said, with the other tab's gear now shown
+      setNotice(`Not saved: ${e instanceof ProfileError ? profileProblemText(e, profile) : (e as Error).message}`);
     }
   };
 
@@ -1688,17 +1699,17 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       {/* Messages float at the bottom of the window, so showing one never pushes the page down. */}
       <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl flex-col gap-2">
         {notice && (
-          <p role="status" className="pointer-events-none bg-slate-900 border border-sky-300/60 rounded px-3 py-2 text-sky-100 font-normal text-sm">
+          <p role="status" className="pointer-events-none bg-slate-900 border border-sky-300/60 rounded px-3 py-2 break-words text-sky-100 font-normal text-sm">
             {notice}
           </p>
         )}
         {importError && (
-          <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 break-words text-orange-100 font-normal text-sm">
             {importError}
           </p>
         )}
         {planError && (
-          <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 text-orange-100 font-normal text-sm">
+          <p role="alert" className="pointer-events-none bg-slate-900 border border-orange-300/60 rounded px-3 py-2 break-words text-orange-100 font-normal text-sm">
             Could not plan: {planError}
           </p>
         )}

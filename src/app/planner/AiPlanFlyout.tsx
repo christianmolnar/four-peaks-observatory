@@ -360,7 +360,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
               <div key={n.key} className="mt-2 rounded border border-orange-300/50 bg-orange-400/15 p-2 text-sm font-normal text-orange-100" data-testid={`ai-stale-${n.key}`}>
                 <p className="break-words">{n.text}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button type="button" className={btn44} onClick={n.onKeep}>{n.keepLabel}</button>
+                  <button type="button" className={`${btn44} max-w-full min-w-0 break-words text-left`} onClick={n.onKeep}>{n.keepLabel}</button>
                   <button type="button" className={btn44} onClick={onChangeStale}>Change</button>
                 </div>
               </div>

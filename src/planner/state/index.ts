@@ -2,6 +2,7 @@ import sample from '../data/sample-profile.json';
 import { ProfileError, parseProfile, validateProfile } from '../profile';
 import type { BlockedArc, Profile } from '../profile';
 import { zoneOffsetMs } from '../plan';
+import { profileProblemText } from './words';
 
 export const PROFILE_KEY = 'fpo-planner-profile-v1';
 export const CAPTURED_KEY = 'fpo-planner-captured-v1';
@@ -134,10 +135,8 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
     return { profile: parseProfile(text, { lenient: true }), error: null, stored: true };
   } catch (e) {
     if (e instanceof ProfileError) {
-      const why = e.path === '$' && /not valid JSON/.test(e.message)
-        ? 'It is not valid JSON.'
-        : `Problem at ${e.path}: ${e.message.slice(e.path.length + 2)}`;
-      return { profile: sampleProfile(), error: `Your saved profile could not be used, so the sample is shown. ${why}`, stored: false };
+      const why = e.path === '$' && /not valid JSON/.test(e.message) ? 'It is not valid JSON.' : profileProblemText(e, JSON.parse(text));
+      return { profile: sampleProfile(), error: `Your saved profile could not be used, so the sample is shown. ${why} The saved copy stays until you save a change in Gear, which replaces it.`, stored: false };
     }
     throw e;
   }

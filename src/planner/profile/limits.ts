@@ -19,9 +19,9 @@ export interface GearLimit {
 export const MAX_NAME_CHARS = 80;
 
 export const GEAR_LIMITS = {
-  focalLengthMm: { min: 50, max: 10000, unit: 'mm', noun: 'focal length' },
-  apertureMm: { min: 20, max: 1000, unit: 'mm', noun: 'aperture' },
-  pixelSizeUm: { min: 1, max: 20, unit: 'µm', noun: 'pixel size' },
+  focalLengthMm: { min: 10, max: 10000, unit: 'mm', noun: 'focal length' },
+  apertureMm: { min: 5, max: 1000, unit: 'mm', noun: 'aperture' },
+  pixelSizeUm: { min: 1, max: 25, unit: 'µm', noun: 'pixel size' },
   sensorWidthPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor width' },
   sensorHeightPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor height' },
   factor: { min: 0.2, max: 5, unit: '', noun: 'focal length factor' },
@@ -50,7 +50,7 @@ export const limitOf = (key: string): GearLimit | undefined =>
 
 const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 6 });
 
-/** "50 to 10,000 mm". */
+/** "10 to 10,000 mm". */
 export function rangeText(limit: GearLimit): string {
   return `${fmt(limit.min)} to ${fmt(limit.max)}${limit.unit === '' ? '' : ` ${limit.unit}`}`;
 }
@@ -62,14 +62,14 @@ export function inRange(limit: GearLimit, v: unknown): v is number {
 
 export const capitalised = (s: string): string => (s === '' ? s : s[0].toUpperCase() + s.slice(1));
 
-/** The plain sentence that says what to enter: "Enter a focal length between 50 and 10,000 mm." */
+/** The plain sentence that says what to enter: "Enter a focal length between 10 and 10,000 mm." */
 export function enterText(limit: GearLimit): string {
   const unit = limit.unit === '' ? '' : ` ${limit.unit}`;
   const article = /^[aeiou]/i.test(limit.noun) ? 'an' : 'a';
   return `Enter ${limit.whole ? `a whole number for the ${limit.noun}` : `${article} ${limit.noun}`} between ${fmt(limit.min)} and ${fmt(limit.max)}${unit}.`;
 }
 
-/** A value a box holds that is not a number in range, as one plain sentence: "Focal length: Enter a focal length between 50 and 10,000 mm." */
+/** A value a box holds that is not a number in range, as one plain sentence: "Focal length: Enter a focal length between 10 and 10,000 mm." */
 export function rangeProblem(label: string, limit: GearLimit, text: string): string {
   const t = text.trim();
   const shown = t.length > 20 ? `${t.slice(0, 20)}…` : t;
@@ -85,20 +85,28 @@ export interface GearProblem {
   id: string;
   itemName: string;
   key: GearLimitKey;
-  value: number;
+  value: unknown;
 }
 
-/** A stored value as text: "99,999 mm", "1.00e+300 mm". */
-export function valueText(key: GearLimitKey, value: number): string {
+/** A stored value as text: "99,999 mm", "an impossibly large number", "abc" (in quotes), "nothing". */
+export function valueText(key: GearLimitKey, value: unknown): string {
   const limit = GEAR_LIMITS[key];
-  const n = Math.abs(value) >= 1e7 || (value !== 0 && Math.abs(value) < 1e-3) ? value.toExponential(2) : fmt(value);
-  return `${n}${limit.unit === '' ? '' : ` ${limit.unit}`}`;
+  if (value === null) return 'nothing';
+  if (typeof value === 'string') return `"${value.length > 20 ? `${value.slice(0, 20)}…` : value}"`;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return `"${String(value).slice(0, 20)}"`;
+  if (Math.abs(value) >= 1e7) return 'an impossibly large number';
+  if (value !== 0 && Math.abs(value) < 1e-3) return 'an impossibly small number';
+  return `${fmt(value)}${limit.unit === '' ? '' : ` ${limit.unit}`}`;
 }
 
-/** "Focal length 99,999 mm is outside 50 to 10,000 mm, so the planner does not use it." */
-export function problemText(p: Pick<GearProblem, 'key' | 'value'>): string {
+/** "Focal length 99,999 mm is outside 10 to 10,000 mm, so the planner does not use it." A saved value that is not a number says so. */
+export function problemText(p: { key: GearLimitKey; value: unknown }): string {
   const limit = GEAR_LIMITS[p.key];
-  return `${capitalised(limit.noun)} ${valueText(p.key, p.value)} is outside ${rangeText(limit)}, so the planner does not use it.`;
+  const noun = capitalised(limit.noun);
+  const shown = valueText(p.key, p.value);
+  if (typeof p.value !== 'number') return `${noun} is saved as ${shown}, which is not a number, so the planner does not use it. Enter ${(limit as GearLimit).whole ? 'a whole number' : 'a number'} from ${rangeText(limit)}.`;
+  if (shown.startsWith('an ')) return `${noun} is ${shown}, outside ${rangeText(limit)}, so the planner does not use it.`;
+  return `${noun} ${shown} is outside ${rangeText(limit)}, so the planner does not use it.`;
 }
 
 const KEYS = Object.keys(GEAR_LIMITS) as GearLimitKey[];
@@ -106,7 +114,7 @@ const KEYS = Object.keys(GEAR_LIMITS) as GearLimitKey[];
 /** The keys of `item` that hold a number outside the gear range. */
 export function outOfRangeKeys(item: object): GearLimitKey[] {
   const rec = item as Record<string, unknown>;
-  return KEYS.filter((k) => typeof rec[k] === 'number' && !inRange(GEAR_LIMITS[k], rec[k]));
+  return KEYS.filter((k) => rec[k] !== undefined && !inRange(GEAR_LIMITS[k], rec[k]));
 }
 
 /** A copy of an equipment item without its out-of-range numbers (they are unknown to the planner, not guessed). */
@@ -124,7 +132,7 @@ export function gearProblems(profile: Profile): GearProblem[] {
   const lists = ['scopes', 'accessories', 'cameras', 'smartScopes', 'filters'] as const;
   for (const list of lists) {
     for (const item of profile.equipment[list] as { id: string; name: string }[]) {
-      for (const key of outOfRangeKeys(item)) out.push({ list, id: item.id, itemName: item.name, key, value: (item as unknown as Record<string, number>)[key] });
+      for (const key of outOfRangeKeys(item)) out.push({ list, id: item.id, itemName: item.name, key, value: (item as unknown as Record<string, unknown>)[key] });
     }
   }
   return out;

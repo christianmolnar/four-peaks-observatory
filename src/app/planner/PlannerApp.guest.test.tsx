@@ -202,7 +202,7 @@ describe('profile JSON', () => {
     ['malformed JSON', '{"version": 2,', /not a planner profile.*not valid JSON/i],
     ['a wrong version', JSON.stringify({ ...sampleProfile(), version: 9 }), /version 9; this planner reads version 3/],
     ['an array', '[1,2]', /not a planner profile/i],
-    ['an invalid field', JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 123 }] }), /sites\[0\]\.latitude/],
+    ['an invalid field', JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 123 }] }), /Site "Fountain Hills, AZ", latitude: Enter a latitude between -90 and 90 deg\. It is 123/],
   ])('rejects %s with a readable message and changes nothing', async (_n, text, message) => {
     const u = userEvent.setup();
     await app();

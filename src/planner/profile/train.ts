@@ -94,7 +94,8 @@ export function trainGearNote(profile: Profile, train: TrainEntry): string | nul
   const parts = needs.flatMap((n) => {
     const limit = GEAR_LIMITS[n.key];
     if (n.value === undefined) return [`${limit.noun} is not set for ${n.owner}`];
-    if (!inRange(limit, n.value)) return [`${limit.noun} of ${n.owner} (${valueText(n.key, n.value as number)}) is outside ${rangeText(limit)}`];
+    if (typeof n.value !== 'number') return [`${limit.noun} of ${n.owner} is saved as ${valueText(n.key, n.value)}, which is not a number`];
+    if (!inRange(limit, n.value)) return [`${limit.noun} of ${n.owner} (${valueText(n.key, n.value)}) is outside ${rangeText(limit)}`];
     return [];
   });
   if (parts.length === 0) return null;

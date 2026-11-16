@@ -150,7 +150,7 @@ export default function HorizonEditor({
   return (
     <section id="horizon" aria-labelledby="horizon-heading" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 bg-black/70 rounded-lg border border-white/10 p-6">
       <div className="col-start-1 row-start-1 flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
-        <h2 id="horizon-heading" className="basis-full md:basis-auto text-xl font-light text-white tracking-[0.15em]">
+        <h2 id="horizon-heading" className="min-w-0 max-w-full break-words basis-full md:basis-auto text-xl font-light text-white tracking-[0.15em]">
           HORIZON: {siteName.toUpperCase()}
         </h2>
         {fields.length === 0 ? (

@@ -72,15 +72,13 @@ function num(o: Obj, key: string, path: string, min: number, max: number): numbe
 
 /**
  * Optional gear number: absent is allowed ("unknown"). Strict (a typed or imported value) it must be inside its range in GEAR_LIMITS.
- * Lenient (a profile already stored) any positive finite number is kept, so an older value never costs the user the profile;
- * `gearProblems` flags it and `resolveTrain` leaves it out.
+ * Lenient (a profile already stored) whatever is stored is kept, even a negative, zero, null or text value, so an older or damaged value
+ * never costs the user the profile; `gearProblems` flags it and `resolveTrain` leaves it out.
  */
 function optLimited(o: Obj, key: GearLimitKey, path: string, strict: boolean): number | undefined {
   if (o[key] === undefined) return undefined;
   const v = o[key];
-  const limit = GEAR_LIMITS[key];
-  const ok = strict ? inRange(limit, v) : typeof v === 'number' && Number.isFinite(v) && v > 0 && (!('whole' in limit) || Number.isInteger(v));
-  if (!ok) throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${JSON.stringify(v)}.`);
+  if (strict && !inRange(GEAR_LIMITS[key], v)) throw new ProfileError(`${path}.${key}`, `${enterText(GEAR_LIMITS[key])} It is ${v === null ? 'empty' : JSON.stringify(v)}.`);
   return v as number;
 }
 
@@ -95,7 +93,7 @@ function nameOf(o: Obj, path: string, strict: boolean): string {
 function siteNum(o: Obj, key: SiteLimitKey, path: string): number {
   const limit = SITE_LIMITS[key];
   const v = o[key];
-  if (!inRange(limit, v)) throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${JSON.stringify(v)}.`);
+  if (!inRange(limit, v)) throw new ProfileError(`${path}.${key}`, `${enterText(limit)} It is ${v === null ? 'empty' : JSON.stringify(v)}.`);
   return v;
 }
 

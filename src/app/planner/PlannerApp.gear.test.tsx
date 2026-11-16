@@ -380,14 +380,14 @@ describe('a stored profile with values outside their ranges', () => {
     expect(screen.getByText(/saved gear values are outside the allowed range, so the planner does not use them/)).toBeTruthy();
     openPlanTab();
     await waitFor(() => expect(planRowItems()).toHaveLength(1));
-    expect(planRowItems()[0].textContent).toMatch(/Focal length of .* \(1\.00e\+300 mm\) is outside 50 to 10,000 mm.*so no exposure is shown\. Change it in Gear\./);
+    expect(planRowItems()[0].textContent).toMatch(/Focal length of .* \(an impossibly large number\) is outside 10 to 10,000 mm.*so no exposure is shown\. Change it in Gear\./);
     openGear();
     expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values are outside the allowed range and not used.');
     pickClass('Scopes');
     const card = cards().find((c) => c.textContent?.includes(profile.equipment.scopes.find((s) => s.id === t.scopeId)!.name))!;
     expect(within(card).getAllByTestId('gear-flag').map((x) => x.textContent)).toEqual([
-      '! Focal length 1.00e+300 mm is outside 50 to 10,000 mm, so the planner does not use it. Change it and press Save.',
-      '! Aperture 1.00e+300 mm is outside 20 to 1,000 mm, so the planner does not use it. Change it and press Save.',
+      '! Focal length is an impossibly large number, outside 10 to 10,000 mm, so the planner does not use it. Change it and press Save.',
+      '! Aperture is an impossibly large number, outside 5 to 1,000 mm, so the planner does not use it. Change it and press Save.',
     ]);
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes.find((s: { id: string }) => s.id === t.scopeId).focalLengthMm).toBe(1e300); // kept
     // Fixing the value is possible: Save with a value in range stores it.
@@ -558,9 +558,204 @@ describe('the gear forms', () => {
     expect(card.className).toContain('min-w-0');
   });
 
+  it('the parts that once widened the page at 320 px break inside a word: horizon heading, accessory labels, Keep buttons, message strip', async () => {
+    // jsdom has no layout, so this checks the classes; the real widths are measured in a browser (the round 3 report has the numbers).
+    seedPlan([], sampleProfile);
+    const raw = JSON.parse(window.localStorage.getItem(PLANS_KEY) as string);
+    raw.plans[0].trainId = 'gone';
+    raw.plans[0].siteId = 'gone';
+    window.localStorage.setItem(PLANS_KEY, JSON.stringify(raw));
+    await mount();
+    expect(document.getElementById('horizon-heading')!.className).toMatch(/break-words/);
+    expect(document.getElementById('horizon-heading')!.className).toMatch(/min-w-0/);
+    openGear();
+    const form = openGearItem('Trains', 0);
+    const label = within(form).getAllByRole('checkbox')[0].closest('label')!;
+    expect(label.className).toMatch(/min-w-0/);
+    expect(label.querySelector('span')!.className).toMatch(/break-words/);
+    openPlanTab();
+    for (const key of ['train', 'site']) {
+      const keep = within(screen.getByTestId(`plan-stale-${key}`)).getByRole('button', { name: /^Keep / });
+      expect(keep.className).toMatch(/break-words/);
+      expect(keep.className).toMatch(/max-w-full/);
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Plan my night with AI' }));
+    expect(within(screen.getByTestId('ai-stale-train')).getByRole('button', { name: /^Keep / }).className).toMatch(/break-words/);
+  });
+
   it('the Gear section comes first on the tab, above Planner settings and the horizon editor', async () => {
     await mount();
     const panel = document.getElementById('panel-gear')!;
     expect(panel.firstElementChild!.getAttribute('aria-labelledby')).toBe('gear-heading');
+  });
+});
+
+describe('a refused edit never says it was made (round 3)', () => {
+  // The other tab saved gear and no storage event reached this one yet (a frozen or back-forward-cached tab).
+  const otherTabSavedSilently = () => {
+    const other = addItem(JSON.parse(window.localStorage.getItem(PROFILE_KEY) as string), 'cameras');
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(other));
+    return other;
+  };
+  const firstWrite = async () => {
+    await mount();
+    openGear();
+    pickClass('Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' })); // this tab has now written the profile
+  };
+
+  it('a Save in a form says "Saved" only when it was stored: a refused rename shows the refusal and no "Saved"', async () => {
+    await firstWrite();
+    const other = otherTabSavedSilently();
+    const form = openGearItem('Cameras', 0);
+    fireEvent.change(within(form).getByLabelText(/^Name/), { target: { value: 'Renamed here' } });
+    fireEvent.click(button(form, 'Save'));
+    expect(status()).not.toMatch(/Saved/);
+    expect(document.body.textContent).toContain('your last edit was not made');
+    expect(stored().equipment.cameras.map((c: { name: string }) => c.name)).not.toContain('Renamed here');
+    expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length);
+  });
+
+  it('Remove and Add do not say "Removed" or "Added" either, and the refusal stays on the Gear section', async () => {
+    await firstWrite();
+    otherTabSavedSilently();
+    pickClass('Filters');
+    fireEvent.click(button(cards()[0], 'Remove'));
+    expect(status()).not.toMatch(/Removed/);
+    expect(within(screen.getByRole('region', { name: 'GEAR' }) as HTMLElement).getByRole('alert').textContent).toContain('your last edit was not made');
+    otherTabSavedSilently();
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    expect(status()).not.toMatch(/Added/);
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+
+  it('the horizon Save does not write this tab\'s older gear over the other tab\'s camera', async () => {
+    await firstWrite();
+    const other = otherTabSavedSilently();
+    fireEvent.click(screen.getByRole('button', { name: 'Add another zone' }));
+    for (const [id, v] of [['arc-start', '10'], ['arc-end', '40'], ['arc-height', '15']] as const) {
+      fireEvent.change(document.getElementById(`${id}-number`) as HTMLInputElement, { target: { value: v } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
+    expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length); // the other tab's camera is still stored
+    expect(stored().sites[0].blockedArcs).toEqual(sampleProfile().sites[0].blockedArcs); // the horizon was not saved over it
+    expect(screen.getByRole('status').textContent).toContain('Another tab changed your gear since this page last looked, so your last edit was not made.');
+  });
+
+  it('Undo says what came back', async () => {
+    await mount();
+    openGear();
+    pickClass('Cameras');
+    fireEvent.click(screen.getByRole('button', { name: 'Add camera' }));
+    fireEvent.click(button(cards().at(-1)!, 'Save'));
+    const name = stored().equipment.cameras.at(-1).name;
+    fireEvent.click(button(cards().at(-1)!, 'Remove'));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(status()).toBe(`Put back ${name}.`);
+  });
+});
+
+describe('Open My plan is offered only when plans use the item (round 3)', () => {
+  it('removing the last site says the planner needs one, with no Open button; a used-by refusal keeps it', async () => {
+    seedPlan([], sampleProfile);
+    await mount();
+    openGear();
+    pickClass('Sites');
+    fireEvent.click(button(cards()[0], 'Remove'));
+    expect(within(cards()[0]).getByRole('alert').textContent).toBe('! The planner needs at least one site.');
+    expect(within(cards()[0]).queryByRole('button', { name: /^Open / })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add site' }));
+    fireEvent.click(button(cards().at(-1)!, 'Save'));
+    fireEvent.click(button(cards()[0], 'Remove'));
+    expect(within(cards()[0]).getByRole('button', { name: 'Open My plan' })).toBeTruthy();
+  });
+});
+
+describe('card summaries carry their units (round 3)', () => {
+  it('a scope reads "2800 mm", a camera "3.76 µm" and "6248 px"', async () => {
+    await mount();
+    openGear();
+    pickClass('Scopes');
+    expect(cards()[0].textContent).toMatch(/Focal length \d+ mm, Aperture [\d.]+ mm/);
+    pickClass('Cameras');
+    expect(cards()[0].textContent).toMatch(/Pixel size [\d.]+ µm, Sensor width \d+ px, Sensor height \d+ px/);
+  });
+});
+
+describe('a stored value that is negative, zero, empty or text opens plainly and never locks editing (round 3)', () => {
+  const withScopeField = (value: unknown, key: 'focalLengthMm' | 'pixelSizeUm') => {
+    const p = sampleProfile();
+    const t = p.trains.find((x) => x.kind === 'optical');
+    if (!t || t.kind !== 'optical') throw new Error('x');
+    const raw = JSON.parse(JSON.stringify(p));
+    const list = key === 'focalLengthMm' ? raw.equipment.scopes : raw.equipment.cameras;
+    const owner = key === 'focalLengthMm' ? t.scopeId : t.cameraId;
+    list.find((x: { id: string }) => x.id === owner)[key] = value;
+    return raw;
+  };
+  const values: [string, unknown][] = [['-100', -100], ['0', 0], ['null', null], ['"abc"', 'abc']];
+  for (const key of ['focalLengthMm', 'pixelSizeUm'] as const) {
+    for (const [label, value] of values) {
+      it(`${key} ${label}: kept and flagged, no validator text, the profile is not set aside, a gear edit saves`, async () => {
+        window.localStorage.setItem(PROFILE_KEY, JSON.stringify(withScopeField(value, key)));
+        await mount();
+        expect(document.body.textContent).not.toMatch(/\$\.|Problem at|could not be used/);
+        expect(screen.getByText(/One saved gear value is outside the allowed range, so the planner does not use it/)).toBeTruthy();
+        openGear();
+        pickClass(key === 'focalLengthMm' ? 'Scopes' : 'Cameras');
+        expect(document.querySelector('[data-testid="gear-flag"]')!.textContent).toMatch(/^! (Focal length|Pixel size) /);
+        pickClass('Filters');
+        fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+        expect(status()).toMatch(/^Added a filter/);
+        expect(document.body.textContent).not.toContain('another tab');
+        expect(stored().equipment.filters.length).toBe(sampleProfile().equipment.filters.length + 1);
+      });
+    }
+  }
+
+  for (const [label, value] of values) {
+    it(`latitude ${label}: says which site and box in words, shows the sample, and a gear edit still saves`, async () => {
+      const raw = JSON.parse(JSON.stringify(sampleProfile()));
+      if (value === 0) raw.sites[0].latitude = 0; // 0 is a real latitude: the profile opens as it is
+      else raw.sites[0].latitude = value;
+      window.localStorage.setItem(PROFILE_KEY, JSON.stringify(raw));
+      await mount();
+      const name = raw.sites[0].name;
+      if (value === 0) {
+        expect(document.body.textContent).not.toContain('could not be used');
+      } else {
+        const said = screen.getByRole('alert').textContent!;
+        expect(said).toContain(`Site "${name}", latitude: Enter a latitude between -90 and 90 deg.`);
+        expect(said).not.toMatch(/\$\.|Problem at/);
+      }
+      openGear();
+      pickClass('Filters');
+      fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+      expect(status()).toMatch(/^Added a filter/);
+      expect(document.body.textContent).not.toContain('another tab saved gear this page cannot read');
+      expect(stored().equipment.filters.length).toBe(sampleProfile().equipment.filters.length + 1);
+    });
+  }
+});
+
+describe('wide-field lenses and large-pixel CCDs are accepted (round 3)', () => {
+  it('a 14 mm f/2.8 lens (5 mm aperture) and a 24 µm camera save, and the plan row shows numbers or says why not, never NaN', async () => {
+    seedPlan([{ id: 'm42', preset: 'balanced' }], sampleProfile);
+    await mount();
+    openGear();
+    const scope = openGearItem('Scopes', 0);
+    fireEvent.change(within(scope).getByLabelText(/^Focal length \(/), { target: { value: '14' } });
+    fireEvent.change(within(scope).getByLabelText(/^Aperture \(/), { target: { value: '5' } });
+    fireEvent.click(button(scope, 'Save'));
+    expect(within(scope).queryByRole('alert')).toBeNull();
+    const cam = openGearItem('Cameras', 0);
+    fireEvent.change(within(cam).getByLabelText(/^Pixel size \(/), { target: { value: '24' } });
+    fireEvent.click(button(cam, 'Save'));
+    expect(within(cam).queryByRole('alert')).toBeNull();
+    expect(stored().equipment.scopes[0]).toMatchObject({ focalLengthMm: 14, apertureMm: 5 });
+    expect(stored().equipment.cameras[0]).toMatchObject({ pixelSizeUm: 24 });
+    openPlanTab();
+    await waitFor(() => expect(planRowItems()).toHaveLength(1));
+    expect(document.body.textContent).not.toMatch(/NaN|Infinity|undefined|Application error/);
   });
 });

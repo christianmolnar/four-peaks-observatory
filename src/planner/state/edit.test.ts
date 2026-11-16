@@ -210,7 +210,8 @@ describe('import errors in plain language', () => {
   });
   it('names the field for other problems', () => {
     const p = sample();
-    expect(() => profileFromText(stringify({ ...p, sites: [{ ...p.sites[0], latitude: 200 }] }))).toThrow(/sites\[0\]\.latitude/);
+    expect(() => profileFromText(stringify({ ...p, sites: [{ ...p.sites[0], latitude: 200 }] }))).toThrow(/Site "[^"]+", latitude: Enter a latitude between -90 and 90 deg\. It is 200\.$/);
+    expect(() => profileFromText(stringify({ ...p, sites: [{ ...p.sites[0], latitude: 200 }] }))).not.toThrow(/\$\./);
   });
   it('rejects a file that is too big without parsing it', () => {
     expect(() => profileFromText('x'.repeat(2_000_001))).toThrow(/too large/i);

@@ -3,9 +3,10 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText } from '@/planner/profile';
+import { limitOf } from '@/planner/profile/limits';
 import { LIST_SPECS, addItem, addTrain, boxHint, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
-import { GEAR_CLASSES, usedText, usesOf } from '@/planner/state/gear';
+import { GEAR_CLASSES, UsedError, usedText, usesOf } from '@/planner/state/gear';
 import type { Use } from '@/planner/state/gear';
 import type { GearClass, PlanRef } from '@/planner/state/gear';
 import type { SiteFieldKey } from '@/planner/location/client';
@@ -52,7 +53,7 @@ function summaryOf(list: ListKey, item: object): string {
     .filter((f) => f.key !== 'name' && texts[f.key] !== '')
     .map((f) => {
       const t = f.kind === 'tristate' ? (texts[f.key] === 'yes' ? 'yes' : 'no') : texts[f.key];
-      const unit = f.unit !== undefined && f.unit.length <= 4 ? ` ${f.unit}` : '';
+      const unit = f.kind === 'number' && limitOf(f.key)?.unit ? ` ${limitOf(f.key)?.unit}` : '';
       return `${f.label} ${t}${unit}`;
     })
     .join(', ');
@@ -253,14 +254,14 @@ function TrainForm({ profile, train, use, onChange, onClose, focusTo }: { profil
             {eq.accessories.length === 0 && <p className="text-white/70 text-sm">None in the library.</p>}
             <div className="flex flex-wrap gap-x-6">
               {eq.accessories.map((a) => (
-                <label key={a.id} className="flex min-h-11 items-center gap-2 text-white/90 font-normal text-sm">
+                <label key={a.id} className="flex min-h-11 min-w-0 max-w-full items-center gap-2 break-words text-white/90 font-normal text-sm">
                   <input
                     type="checkbox"
-                    className="accent-sky-400"
+                    className="shrink-0 accent-sky-400"
                     checked={accessoryIds.includes(a.id)}
                     onChange={(e) => setAccessoryIds((ids) => (e.target.checked ? [...ids, a.id] : ids.filter((x) => x !== a.id)))}
                   />
-                  {a.name}
+                  <span className="min-w-0 break-words">{a.name}</span>
                 </label>
               ))}
             </div>
@@ -328,7 +329,7 @@ type Entry = { kind: 'item'; list: ListKey; item: { id: string; name: string } &
 function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain, openTrain, onOpenPlan }: ProfileEditorProps) {
   const [status, setStatus] = useState('');
   // The last removal, so the status line can offer one Undo while the profile is still the one that removal made.
-  const [undo, setUndo] = useState<{ before: Profile; after: Profile } | null>(null);
+  const [undo, setUndo] = useState<{ before: Profile; after: Profile; name: string } | null>(null);
   const focusNext = useRef<FocusTo>(null);
   const takeFocus = () => {
     const to = focusNext.current;
@@ -376,16 +377,23 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     box.focus({ preventScroll: true });
     setWantTrain('');
   }, [wantTrain, cls, editing]);
+  /** Stores the profile, then says so. If the store refuses (another tab saved first) nothing is said as done: the refusal stays on the Gear section and is thrown on. */
   const commit = (next: Profile, what: string) => {
+    try {
+      onChange(next);
+    } catch (e) {
+      setStatus(''); // the last "Saved ..." is not the news now
+      setProblem({ card: '', text: (e as Error).message });
+      throw e;
+    }
     setStatus(what);
     setProblem(null);
     setUndo(null);
-    onChange(next);
   };
   /** A form's Save: the form that replaces this one (its card changed) puts the keyboard back on Save. */
   const saveFromForm = (next: Profile, what: string) => {
-    focusNext.current = 'save';
     commit(next, what);
+    focusNext.current = 'save';
   };
   const closeForm = (card: string) => {
     setEditing('');
@@ -409,17 +417,23 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   };
   const lastOf = <T extends { id: string }>(xs: T[]) => xs[xs.length - 1].id;
   const remove = (card: string, name: string, use: Use, fn: () => Profile) => {
+    let next: Profile;
     try {
-      const next = fn();
-      commit(next, `Removed ${name}.`);
-      setUndo({ before: profile, after: next });
-      setEditing((e) => (e === card ? '' : e));
-      listRef.current?.focus();
+      next = fn();
     } catch (e) {
-      // A plan that uses a site or train can be opened from the refusal.
-      const planId = use.trains.length === 0 ? use.planIds[0] : undefined;
+      // Only a refusal because plans use a site or train offers to open one of them.
+      const planId = e instanceof UsedError && use.trains.length === 0 ? use.planIds[0] : undefined;
       setProblem({ card, text: (e as Error).message, ...(planId !== undefined ? { plan: { id: planId, name: use.plans[0] } } : {}) });
+      return;
     }
+    try {
+      commit(next, `Removed ${name}.`);
+    } catch {
+      return; // commit has put the refusal on the Gear section
+    }
+    setUndo({ before: profile, after: next, name });
+    setEditing((e) => (e === card ? '' : e));
+    listRef.current?.focus();
   };
   const flagged = gearProblems(profile);
 
@@ -469,8 +483,11 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
               type="button"
               className="min-h-11 rounded px-1 text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
               onClick={() => {
-                const before = undo.before;
-                commit(before, 'Put it back.');
+                try {
+                  commit(undo.before, `Put back ${undo.name}.`);
+                } catch {
+                  // commit has put the refusal on the Gear section
+                }
               }}
             >
               Undo
@@ -492,7 +509,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           const card = e.kind === 'train' ? `trains:${id}` : `${e.list}:${id}`;
           const name = e.kind === 'train' ? e.train.name : e.item.name;
           const use = usesOf(profile, plans, e.kind === 'train' ? 'trains' : e.list, id);
-          const flags = e.kind === 'item' && e.list !== 'sites' ? outOfRangeKeys(e.item).map((key) => problemText({ key, value: (e.item as unknown as Record<string, number>)[key] })) : [];
+          const flags = e.kind === 'item' && e.list !== 'sites' ? outOfRangeKeys(e.item).map((key) => problemText({ key, value: (e.item as unknown as Record<string, unknown>)[key] })) : [];
           const isOpen = editing === card;
           const here = e.kind === 'train' && id === openTrainId;
           const detail = e.kind === 'train' ? '' : summaryOf(e.list, e.item);
