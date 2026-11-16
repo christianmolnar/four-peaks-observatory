@@ -59,7 +59,7 @@ describe('the sticky control strip', () => {
     fireEvent.click(strip());
     expect(panel().hasAttribute('hidden')).toBe(false);
     expect(strip().textContent).toMatch(/close$/);
-    for (const label of ['Evening of', 'Site', 'Train']) {
+    for (const label of ['Evening of', 'Site', 'Setup']) {
       expect(screen.getAllByLabelText(label)).toHaveLength(1);
       expect(panel().contains(screen.getByLabelText(label))).toBe(true);
     }
@@ -67,15 +67,15 @@ describe('the sticky control strip', () => {
 
   it('follows the controls: a new train and a new date change the strip', async () => {
     await app();
-    fireEvent.change(screen.getByLabelText('Train'), { target: { value: sampleProfile().trains[6].id } });
+    fireEvent.change(screen.getByLabelText('Setup'), { target: { value: sampleProfile().trains[6].id } });
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2026-12-20' } });
     expect(strip().textContent).toContain('Sun 20 Dec · Fountain Hills, AZ · Seestar S50');
   });
 
-  it('keeps the search reachable: "Find a target" moves the focus to the one search box', async () => {
+  it('has one search box, and the strip\'s button says "Change site", not "Search"', async () => {
     await app();
-    fireEvent.click(screen.getByRole('button', { name: 'Find a target' }));
-    expect(document.activeElement).toBe(screen.getByLabelText('Search the catalog by name or number'));
+    expect(within(strip()).queryByRole('button', { name: 'Search' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Change site' })).toBeTruthy();
     expect(document.querySelectorAll('#target-search')).toHaveLength(1);
   });
 

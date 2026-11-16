@@ -138,8 +138,8 @@ describe('every scope and format downloads and copies the text on screen', () =>
 describe('the run sheet carries the numbers the rows show', () => {
   it('sub length, count, total, preset, filter and the custom row\'s own numbers are the rows\' and the timeline\'s', async () => {
     await app();
-    const subBox = (name: string) => (screen.getByLabelText(`Sub length (s) for ${name}`) as HTMLInputElement).value;
-    const countBox = (name: string) => (screen.getByLabelText(`Subs for ${name}`) as HTMLInputElement).value;
+    const subBox = (name: string) => (screen.getByLabelText(`Exposure per shot (seconds) for ${name}`) as HTMLInputElement).value;
+    const countBox = (name: string) => (screen.getByLabelText(`Number of shots for ${name}`) as HTMLInputElement).value;
     const slotTimes = [...document.querySelectorAll('[data-testid^="slot-time-"]')].map((e) => e.textContent ?? '');
     openSheet();
     const t = text();

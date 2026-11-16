@@ -54,6 +54,9 @@ type FocusTo = 'save' | 'name' | null;
 /** The Find box of a site's form. */
 export const findBoxId = (siteId: string) => `site-find-${siteId}`;
 
+/** A gear class in the words the page uses: a "train" is called a setup (the help line says what it is). */
+const classWord = (id: GearClass): string => (id === 'trains' ? 'Setups' : (GEAR_CLASSES.find((c) => c.id === id)?.label ?? ''));
+
 const itemsOf = (profile: Profile, list: ListKey): ({ id: string; name: string } & object)[] => (list === 'sites' ? profile.sites : profile.equipment[list]);
 
 /** The filled boxes of an item as one short line: "Focal length 2800 mm, Aperture 280 mm". */
@@ -239,7 +242,7 @@ function TrainForm({ profile, train, use, onChange, onRefuse, onClose, focusTo }
   );
   return (
     <FormShell
-      legend={`${train.kind === 'smart' ? 'Smart-scope train' : 'Train'}: ${train.name}`}
+      legend={`${train.kind === 'smart' ? 'Smart-scope setup' : 'Setup'}: ${train.name}`}
       error={error}
       onSave={() =>
         run(
@@ -287,7 +290,7 @@ function TrainForm({ profile, train, use, onChange, onRefuse, onClose, focusTo }
 }
 
 const chip = 'min-w-0 break-words rounded border px-2 py-1 text-sm font-normal text-white';
-const chipLabel = 'block text-xs uppercase tracking-wide text-white/70';
+const chipLabel = 'block text-sm uppercase tracking-wide text-white/70';
 
 function Chip({ tone, label, name }: { tone: string; label: string; name: string }) {
   return (
@@ -476,12 +479,12 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           ]
         : itemsOf(profile, cls).map((item): Entry => ({ kind: 'item', list: cls, item }));
   const count = (c: GearClass) => (c === 'trains' ? profile.trains.length : c === 'scopes' ? profile.equipment.scopes.length + profile.equipment.smartScopes.length : itemsOf(profile, c).length);
-  const classLabel = GEAR_CLASSES.find((c) => c.id === cls)?.label ?? '';
+  const classLabel = classWord(cls);
   const addButtons: { label: string; run: () => void }[] =
     cls === 'trains'
       ? [
-          { label: 'Add train', run: () => tryAdd(() => addTrain(profile, 'optical'), 'Added a train. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
-          { label: 'Add smart-scope train', run: () => tryAdd(() => addTrain(profile, 'smart'), 'Added a smart-scope train. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
+          { label: 'Add setup', run: () => tryAdd(() => addTrain(profile, 'optical'), 'Added a train. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
+          { label: 'Add smart-scope setup', run: () => tryAdd(() => addTrain(profile, 'smart'), 'Added a smart-scope train. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
         ]
       : cls === 'scopes'
         ? [
@@ -493,13 +496,13 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   return (
     <section aria-labelledby="gear-heading" className="bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6">
       <h2 id="gear-heading" className="text-xl font-light text-white tracking-[0.15em] mb-2">GEAR</h2>
-      <p className="text-white/80 font-normal text-sm mb-3">
-        Pick a class, then add, change or remove its items. Leave an optional box empty when you do not know it: the planner then says the value is missing instead of guessing.
+      <p data-testid="setup-help" className="text-white/80 font-normal text-sm mb-3">
+        A setup (also called a train) is one scope with its camera, filter and accessories, the combination you image with. Pick a class, then add, change or remove its items. Leave an optional box empty when you do not know it: the planner then says the value is missing instead of guessing.
       </p>
       <div role="group" aria-label="Gear class" className="flex flex-wrap gap-2">
         {GEAR_CLASSES.map((c) => (
           <button key={c.id} type="button" aria-pressed={cls === c.id} className={`${btn} ${cls === c.id ? 'bg-white/15 border-sky-300' : ''}`} onClick={() => pick(c.id)}>
-            {c.label} ({count(c.id)})
+            {classWord(c.id)} ({count(c.id)})
           </button>
         ))}
       </div>
@@ -549,13 +552,13 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
           const isOpen = editing === card;
           const here = e.kind === 'train' && id === openTrainId;
           const detail = e.kind === 'train' ? '' : summaryOf(e.list, e.item);
-          const tag = e.kind === 'item' && e.list === 'smartScopes' ? 'Smart scope' : e.kind === 'train' && e.train.kind === 'smart' ? 'Smart-scope train' : '';
+          const tag = e.kind === 'item' && e.list === 'smartScopes' ? 'Smart scope' : e.kind === 'train' && e.train.kind === 'smart' ? 'Smart-scope setup' : '';
           return (
             <li key={card} data-testid={`gear-card-${card}`} className="min-w-0 rounded border border-white/15 p-3">
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="min-w-0 break-words text-base font-normal text-white">{name}</span>
-                {tag && <span className="text-xs text-white/70">{tag}</span>}
-                {here && <span className="rounded border border-sky-300/60 px-1.5 text-xs text-sky-100">In this plan</span>}
+                {tag && <span className="text-sm text-white/70">{tag}</span>}
+                {here && <span className="rounded border border-sky-300/60 px-1.5 text-sm text-sky-100">In this plan</span>}
               </div>
               {e.kind === 'train' && <div className="mt-2"><TrainChain profile={profile} train={e.train} /></div>}
               {focalNote !== null && <p className="mt-1 break-words text-sm font-normal text-sky-100" data-testid="gear-focal-note">{focalNote}</p>}

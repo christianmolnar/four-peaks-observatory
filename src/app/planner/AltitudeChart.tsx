@@ -111,7 +111,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         )}
       </svg>
       </div>
-      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-white/80 font-normal text-xs mt-1" aria-label="Chart key">
+      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-white/80 font-normal text-sm mt-1" aria-label="Chart key">
         <li><span aria-hidden="true" className="inline-block w-4 h-0.5 bg-sky-300 align-middle mr-1" />Altitude</li>
         <li><span aria-hidden="true" className="inline-block w-4 h-1 bg-emerald-400 align-middle mr-1" />Usable</li>
         <li>

@@ -7,7 +7,7 @@ import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { listRows, pageProps, planRowItems, rowName, seedPlan, showAll, storedPlan } from './testkit';
 
-// Find a target is the first section of the open plan's card: open while the plan has no targets, one line with a count once it has some.
+// Find a target is the section of the open plan's card after the plan's rows: open while the plan has no targets, one line with a count once it has some.
 // Search, Best [type] tonight, the ranked list, paging, Add top 3 and the groups all live inside it and keep their behaviour.
 
 const mount = (targets?: readonly object[]) => {
@@ -27,7 +27,7 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('Find a target in the plan', () => {
-  it('is the first section of the open plan\'s card, open while the plan has no targets, with no separate module or heading', async () => {
+  it('is a section of the open plan\'s card (after its rows), open while the plan has no targets, with no separate module or heading', async () => {
     mount();
     await listReady();
     expect(plan().contains(toggle())).toBe(true);
@@ -37,7 +37,7 @@ describe('Find a target in the plan', () => {
     expect(screen.queryByRole('region', { name: 'FIND A TARGET' })).toBeNull();
     // Search, the Type selector, the ranked list: all inside the plan's card, inside Find a target.
     for (const el of [screen.getByRole('search'), screen.getByRole('combobox', { name: 'Type' }), screen.getByTestId('target-list')]) expect(body().contains(el)).toBe(true);
-    // Find a target comes before the plan's own rows and before its parts.
+    // Find a target comes after the plan's heading and before its parts.
     const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(follows(toggle(), document.getElementById('night-timeline')!)).toBe(true);
     expect(follows(plan().querySelector('h2')!, toggle())).toBe(true);
@@ -48,7 +48,7 @@ describe('Find a target in the plan', () => {
     await listReady();
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
     expect(body().hasAttribute('hidden')).toBe(true);
-    expect(toggle().textContent).toMatch(/^▸Find a target\d+ results? available$/);
+    expect(toggle().textContent).toMatch(/^▸Find a target \(\d+\)$/);
     expect(screen.queryByRole('search')).toBeNull(); // not reachable while closed
     fireEvent.click(toggle());
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
@@ -89,13 +89,14 @@ describe('Find a target in the plan', () => {
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('the sticky strip\'s Search opens a closed Find a target and puts the keyboard in the search box', async () => {
+  it('the sticky strip\'s Change site goes to the site finder in Gear and leaves Find a target as it was', async () => {
     mount([{ id: 'm31', preset: 'balanced' }]);
     await listReady();
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    fireEvent.click(screen.getByRole('button', { name: 'Find a target' })); // the strip's button; the section's own is named with its count
-    await waitFor(() => expect(toggle().getAttribute('aria-expanded')).toBe('true'));
-    expect(document.activeElement).toBe(document.getElementById('target-search'));
+    fireEvent.click(screen.getByRole('button', { name: 'Change site' }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Gear and site' }).getAttribute('aria-selected')).toBe('true'));
+    expect(window.location.hash).toBe('#gear');
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
   });
 
   it('opening another plan starts from its own rule: open when it is empty, one line when it has targets', async () => {

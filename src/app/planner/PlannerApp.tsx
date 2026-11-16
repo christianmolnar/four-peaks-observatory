@@ -209,12 +209,12 @@ function NoFitNote({ counts, hidden, showNoFit, listed, nightWord }: { counts: R
         <>
           {counts.tooLarge > 0 && (
             <p>
-              {sample(hidden.tooLarge, counts.tooLarge)} {counts.tooLarge === 1 ? 'does' : 'do'} not fit this frame: larger than it ({counts.tooLarge}).
+              {sample(hidden.tooLarge, counts.tooLarge)} {counts.tooLarge === 1 ? 'does' : 'do'} not fit your camera view: too big for it ({counts.tooLarge}).
             </p>
           )}
           {counts.tooSmall > 0 && (
             <p>
-              {sample(hidden.tooSmall, counts.tooSmall)} {counts.tooSmall === 1 ? 'does' : 'do'} not fit this frame: too small for it ({counts.tooSmall}).
+              {sample(hidden.tooSmall, counts.tooSmall)} {counts.tooSmall === 1 ? 'does' : 'do'} not fit your camera view: too small for it ({counts.tooSmall}).
             </p>
           )}
           <p>Tick “Show targets that do not fit” to list them.</p>
@@ -1717,9 +1717,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of the plan are sent.` : '',
   ].filter((x) => x !== '').join(' ');
   const field =
-    'bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
+    'min-h-11 bg-black/60 border border-white/30 rounded px-2 py-1 text-white font-normal text-sm focus:outline-none focus:ring-2 focus:ring-sky-400';
   const btn =
-    'px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
+    'min-h-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
   const panel = 'bg-black/70 rounded-lg border border-white/10 p-4 sm:p-6';
   const importControl = (
     <div>
@@ -1732,7 +1732,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           void importProfile(e.target.files?.[0]);
           e.target.value = '';
         }}
-        className="block w-full max-w-full min-w-0 text-white/90 font-normal text-sm"
+        className="block min-h-11 w-full max-w-full min-w-0 py-2 text-white/90 font-normal text-sm"
       />
     </div>
   );
@@ -1852,7 +1852,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return (
       <div className="space-y-2 font-normal text-white/90">
         <p>{e.why}</p>
-        <p className="text-xs text-white/70">{t.parts}</p>
+        <p className="text-sm text-white/70">{t.parts}</p>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
           <dt className="text-white/70">Usable window</dt><dd>{t.windows === '' ? 'none' : t.windows}</dd>
           <dt className="text-white/70">Peak</dt><dd>{peakText(e, formatTime)}</dd>
@@ -1874,24 +1874,21 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     { label: 'Tomorrow', date: addDays(tonightDate, 1) },
     { label: '+1 week', date: addDays(tonightDate, 7) },
   ];
-  const focusSearch = () => {
-    // The search is in the Plan tab; from Gear and site the button goes there first.
+  /** Opens Gear with the Site list's Find box focused: the strip's "Change site" and the open strip's "Change or find a site". */
+  const changeSite = () => {
     flushSync(() => {
-      setTab('plan');
-      setFindOpen(true);
+      setControlsOpen(false);
+      setTab('gear');
     });
-    if (window.location.hash === '#gear') window.history.pushState(null, '', '#plan');
-    const input = document.getElementById('target-search');
-    if (!input) return;
-    input.scrollIntoView({ block: 'center' });
-    input.focus({ preventScroll: true });
+    if (window.location.hash !== '#gear') window.history.pushState(null, '', '#gear');
+    setFindSiteTick((n) => n + 1);
   };
   /** Why a type has no list: nothing up long enough, or everything that is up is the wrong size for this frame. */
   const emptyText = (notFit: RankResult['typeNotFit']): string => {
     const what = group.id === 'all' ? 'targets' : group.noun;
     // Only what is up is said: a type's catalog-wide too-large count would claim objects that never rise.
     const up = groupNotFit(group, notFit);
-    const wrongSize = [up.tooLarge > 0 ? `${up.tooLarge} larger than this frame` : '', up.tooSmall > 0 ? `${up.tooSmall} too small for it` : ''].filter((x) => x !== '');
+    const wrongSize = [up.tooLarge > 0 ? `${up.tooLarge} too big for your camera view` : '', up.tooSmall > 0 ? `${up.tooSmall} too small for your camera view` : ''].filter((x) => x !== '');
     if (wrongSize.length > 0) return `No ${what} that fit this frame are up ${nightWord}: ${wrongSize.join(' and ')}.${showNoFit ? ' They are listed below.' : ''}`;
     return `No ${what} are up long enough ${nightWord}, above your horizon and minimum altitude.`;
   };
@@ -1917,6 +1914,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       </div>
     );
   };
+  /** The empty plan's own "Add top 3": the first three of the list below (the Solar system list when that is the type chosen). */
+  const emptyTopList = isSolar ? planetGroup : mainList;
+  const emptyAction = (
+    <button type="button" className={`${btn} min-h-11`} disabled={emptyTopList.length === 0 || planIds.length >= MAX_PLAN_TARGETS} onClick={() => addTopThree(emptyTopList)}>
+      Add top {TOP_N}
+    </button>
+  );
   const listProps = {
     formatTime,
     describe: describeRow,
@@ -1930,7 +1934,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   return (
     <>
     <div
-      className="space-y-8 text-white print:hidden [&_h2]:scroll-mt-[calc(var(--planner-top,0px)+1rem)] [&_section[id]]:scroll-mt-[calc(var(--planner-top,0px)+1rem)]"
+      className="planner-root space-y-8 text-white print:hidden [&_h2]:scroll-mt-[calc(var(--planner-top,0px)+1rem)] [&_section[id]]:scroll-mt-[calc(var(--planner-top,0px)+1rem)]"
       style={{ '--planner-nav': `${stickyTop.nav}px`, '--planner-top': `${stickyTop.nav + stickyTop.strip}px` } as React.CSSProperties}
     >
       <header className="flex items-center justify-between gap-x-4">
@@ -2019,14 +2023,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             aria-expanded={controlsOpen}
             aria-controls="controls-panel"
             onClick={() => setControlsOpen(!controlsOpen)}
-            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left text-xs font-normal leading-4 text-white focus:outline-none focus:ring-2 focus:ring-sky-400 sm:text-sm"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left text-sm font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
           >
             <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{controlsOpen ? '▾' : '▸'}</span>
             <span className="min-w-0 line-clamp-2">{[date === '' ? '' : nightDateText(date), site.name, train.name].filter((x) => x !== '').join(' · ')}</span>
             <span className="shrink-0 text-sky-300 underline underline-offset-2">{controlsOpen ? 'close' : 'edit'}</span>
           </button>
-          <button type="button" aria-label="Find a target" onClick={focusSearch} className="min-h-11 shrink-0 rounded px-2 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
-            Search
+          <button type="button" onClick={changeSite} className="min-h-11 shrink-0 rounded px-2 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            Change site
           </button>
         </div>
         <div id="controls-panel" hidden={!controlsOpen} className="max-h-[60vh] overflow-y-auto border-t border-white/10 p-4">
@@ -2060,21 +2064,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </WrapSelect>
             <button
               type="button"
-              onClick={() => {
-                flushSync(() => {
-                  setControlsOpen(false);
-                  setTab('gear');
-                });
-                if (window.location.hash !== '#gear') window.history.pushState(null, '', '#gear');
-                setFindSiteTick((n) => n + 1);
-              }}
+              onClick={changeSite}
               className="mt-1 inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
             >
               Change or find a site
             </button>
           </div>
           <div>
-            <label htmlFor="plan-train" className="block text-white/90 font-normal text-sm mb-1">Train</label>
+            <label htmlFor="plan-train" className="block text-white/90 font-normal text-sm mb-1">Setup</label>
             <WrapSelect id="plan-train" className="w-full" value={train.id} onChange={(e) => chooseTrain(e.target.value)}>
               {profile.trains.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}{t.kind === 'smart' ? ' (smart scope)' : ''}</option>
@@ -2088,7 +2085,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               onClick={changeTrain}
               className="inline-flex min-h-11 items-center rounded px-1 text-sm font-normal text-sky-300 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-sky-400"
             >
-              Change this train
+              Change this setup
             </button>
           </div>
           <NumberSlider
@@ -2132,6 +2129,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         onChangeTrain={() => goToControl('train')}
         pastDate={open !== null && tonightDate !== '' && open.date < tonightDate ? nightDateText(open.date) : null}
         onMoveToTonight={moveToTonight}
+        emptyAction={emptyAction}
         find={{
           open: findIsOpen,
           count: ranked === null ? null : mainList.length + planetGroup.length,
@@ -2397,9 +2395,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         <h2 id="planner-settings-heading" className="mb-2 text-base font-medium uppercase tracking-[0.1em] text-white">Planner settings</h2>
         <label className="flex min-h-11 w-fit items-center gap-2 text-sm font-normal text-white/90">
           <input type="checkbox" className="h-5 w-5 shrink-0 accent-sky-400" checked={alwaysRestore} onChange={(e) => chooseAlwaysRestore(e.target.checked)} />
-          <span>Always restore favorites</span>
+          <span>Always use my saved exposure</span>
         </label>
-        <p className="mt-1 text-xs font-normal text-white/70">When a target you saved a favorite exposure for is added to a plan, its saved exposure is applied at once instead of asking.</p>
+        <p className="mt-1 text-sm font-normal text-white/70">When a target you saved a favorite exposure for is added to a plan, its saved exposure is applied at once instead of asking.</p>
         {favs.blocked !== null && <p className="mt-2 text-sm font-normal text-orange-100" data-testid="favorites-blocked">{favs.blocked}</p>}
       </section>
 
@@ -2449,7 +2447,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         <div className="mt-4">
           <ResetAll onConfirm={resetAll} />
         </div>
-        <p className="text-white/60 font-normal text-xs mt-3">
+        <p className="text-white/60 font-normal text-sm mt-3">
           Your profile, plans and captured list stay in this browser. Export your profile to keep a copy of the gear; plans are shared and imported from the plan’s More menu, Share and export (which can also carry the gear). Imports are checked field by field; a rejected file changes nothing and the error names the field.
         </p>
       </section>

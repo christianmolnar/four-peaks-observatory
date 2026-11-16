@@ -68,7 +68,7 @@ afterEach(cleanup);
 describe('warnings on a row', () => {
   it('each act-on code shows as a Warning with its text, the one thing to change, and the real controls', () => {
     const cases: [string, string, string[]][] = [
-      ['filter-rated-slower', 'Pick a filter rated for this speed, or another train.', ['Change the filter', 'Change the train']],
+      ['filter-rated-slower', 'Pick a filter rated for this speed, or another train.', ['Change the filter', 'Change the setup']],
       ['filter-uvir-missing', 'Pick a filter that blocks UV/IR, or add a UV/IR cut filter to the train.', ['Change the filter']],
       ['filter-visual-colour', 'Pick an imaging filter instead.', ['Change the filter']],
       ['moon-near', 'Pick a night when the Moon is farther away or down, or a target farther from it.', ['Change the date']],
@@ -86,7 +86,7 @@ describe('warnings on a row', () => {
       expect(box.textContent).toContain(`What to change: ${change}`);
       expect(within(box).queryAllByRole('button').map((b) => b.textContent)).toEqual(buttons);
       expect(within(box).queryAllByRole('button').every((b) => /min-h-11/.test(b.className))).toBe(true);
-      const wanted = { 'Change the date': 'date', 'Change the filter': 'filter', 'Change the train': 'train' } as const;
+      const wanted = { 'Change the date': 'date', 'Change the filter': 'filter', 'Change the setup': 'train' } as const;
       for (const label of buttons) {
         fireEvent.click(within(box).getByRole('button', { name: label }));
         expect(h.onGoTo).toHaveBeenLastCalledWith(wanted[label as keyof typeof wanted]);

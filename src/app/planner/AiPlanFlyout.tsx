@@ -110,7 +110,7 @@ function Step({ n, title, state, children }: { n: number; title: string; state: 
     <li aria-current={state === 'now' || state === 'failed' ? 'step' : undefined} className={`rounded border p-3 ${state === 'now' ? 'border-sky-300/60' : state === 'failed' ? 'border-orange-300/50' : 'border-white/15'}`} data-testid={`ai-step-${n}`} data-state={state}>
       <h3 className={`flex flex-wrap items-baseline gap-x-2 text-base font-normal ${state === 'waiting' ? 'text-white/60' : 'text-white'}`}>
         <span>{n}. {title}</span>
-        <span className="text-xs text-white/70" data-testid={`ai-step-${n}-state`}>({STEP_WORD[state]})</span>
+        <span className="text-sm text-white/70" data-testid={`ai-step-${n}-state`}>({STEP_WORD[state]})</span>
       </h3>
       {children !== undefined && <div className="mt-2 min-w-0 break-words">{children}</div>}
     </li>
@@ -343,7 +343,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
                 <li>Night: {nightText.trim()}</li>
                 <li>Site: {siteName}, minimum altitude {form.minAltitude}°.</li>
                 <li>{horizonText}</li>
-                <li>Train: {train.name}.</li>
+                <li>Setup: {train.name}.</li>
                 <li>
                   {count} {noun}, in the plan&apos;s order:{' '}
                   {targets.slice(0, MAX_TARGETS).map((t, i) => (
@@ -433,7 +433,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
 
       <div className="border-t border-white/20 bg-slate-950 p-3" data-testid="ai-footer">
         {done !== null && footerNote !== null && (
-          <p id="ai-apply-note" className="mb-2 text-xs font-normal text-white/80" data-testid="ai-apply-note">
+          <p id="ai-apply-note" className="mb-2 text-sm font-normal text-white/80" data-testid="ai-apply-note">
             {footerNote}
           </p>
         )}
@@ -569,19 +569,19 @@ function Result({
           <ul className="space-y-2" data-testid="ai-checker">
             {result.violations.map((v, i) => (
               <li key={`v${i}`} className="text-sm font-normal text-white/90">
-                <span className="mr-2 rounded border border-orange-300/60 px-1.5 py-0.5 text-xs font-medium text-orange-200">Problem</span>
+                <span className="mr-2 rounded border border-orange-300/60 px-1.5 py-0.5 text-sm font-medium text-orange-200">Problem</span>
                 {say(v.message)}
               </li>
             ))}
             {result.flips > 0 && (
               <li className="text-sm font-normal text-white/90">
-                <span className="mr-2 rounded border border-sky-300/50 px-1.5 py-0.5 text-xs font-medium text-sky-200">Note</span>
+                <span className="mr-2 rounded border border-sky-300/50 px-1.5 py-0.5 text-sm font-medium text-sky-200">Note</span>
                 {result.flips} {result.flips === 1 ? 'slot crosses' : 'slots cross'} the meridian, so the mount flips during {result.flips === 1 ? 'it' : 'them'}.
               </li>
             )}
             {result.warnings.map((w, i) => (
               <li key={`w${i}`} className="text-sm font-normal text-white/90">
-                <span className="mr-2 rounded border border-sky-300/50 px-1.5 py-0.5 text-xs font-medium text-sky-200">Note</span>
+                <span className="mr-2 rounded border border-sky-300/50 px-1.5 py-0.5 text-sm font-medium text-sky-200">Note</span>
                 {say(w.message)}
               </li>
             ))}

@@ -30,6 +30,33 @@
     font-weight: 200 !important;
   }
 
+  /*
+   * The imaging planner (page root `.planner-root`) reads better heavier than the site's extra-light 200: body 400, labels 500, headings 300.
+   * The site rules above stay as they are everywhere else. `.planner-root x` outranks the site's bare `x` rule, so !important wins here;
+   * the weight utilities the planner's markup already names (font-medium, ...) are honoured again inside it.
+   */
+  .planner-root {
+    font-weight: 400;
+  }
+  .planner-root :is(p, span, div) {
+    font-weight: inherit !important;
+  }
+  .planner-root :is(label, legend, summary, th, dt) {
+    font-weight: 500 !important;
+  }
+  .planner-root :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: 300 !important;
+  }
+  .planner-root .font-medium { font-weight: 500 !important; }
+  .planner-root .font-semibold { font-weight: 600 !important; }
+
+  /* The planner's print sheet: the site's weight 200 prints pale, so its text prints at normal weight (headings and bold stay as they are). */
+  @media print {
+    .planner-print-sheet :is(p, span) {
+      font-weight: 400 !important;
+    }
+  }
+
   /* Navigation-specific font overrides for better readability - scoped to nav only */
   nav .nav-link {
     font-weight: 400 !important; /* Normal weight for navigation only */

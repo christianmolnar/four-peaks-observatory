@@ -59,7 +59,7 @@ function Row({ label, basis, children }: { label: string; basis: string; childre
   // No reserved height here: the eight panels share one grid cell, so the section is as tall as the tallest of them.
   return (
     <div className="py-1.5 border-b border-white/10 last:border-b-0">
-      <dt className="text-white/70 text-xs">{label}, {basis}</dt>
+      <dt className="text-white/70 text-sm">{label}, {basis}</dt>
       <dd className="text-white text-sm">{children}</dd>
     </div>
   );
@@ -153,11 +153,11 @@ function SolarSystemPanel({
                 const key = `${body}:${item.id}`;
                 return (
                   <li key={item.id}>
-                    <label className="flex items-start gap-2 text-sm font-normal text-white/90">
+                    <label className="flex min-h-11 items-center gap-2 text-sm font-normal text-white/90">
                       <input type="checkbox" className="mt-1 accent-sky-400 shrink-0" checked={checked.has(key)} onChange={() => onToggle(key)} />
                       <span>
                         <span className="text-white">{item.title}.</span> {item.text}{' '}
-                        <span className="ml-1 rounded border border-white/30 px-1.5 py-0.5 text-xs text-white/80 whitespace-nowrap">{BASIS_WORD[item.basis]}</span>
+                        <span className="ml-1 rounded border border-white/30 px-1.5 py-0.5 text-sm text-white/80 whitespace-nowrap">{BASIS_WORD[item.basis]}</span>
                       </span>
                     </label>
                   </li>
@@ -197,7 +197,7 @@ export default function SolarSystemDetail({ body, profile, train, site, night, h
         Computed for {nightWord}, at the middle of the astronomical night, the same night as the target list (so Mercury, Venus and the early Moon, which are twilight objects, may show as not clear when they could be imaged earlier; that is not computed). Usable time counts your saved horizon and the minimum altitude. Jupiter&apos;s Great Red Spot transits are not shown: there is no verified longitude model.
       </p>
       <SolarSystemPanel card={card} info={info} formatTime={formatTime} nightWord={nightWord} checked={checked} onToggle={onToggle} />
-      <p className="text-white/60 font-normal text-xs mt-4">
+      <p className="text-white/60 font-normal text-sm mt-4">
         The checklist ticks are not saved. computed: from the ephemeris or a formula. sourced: a cited figure. assumption: a starting value chosen here, not measured. practice: common amateur practice, no source for this build. not verified: not checked.
       </p>
     </div>

@@ -59,8 +59,8 @@ describe('planner defaults', () => {
 
   it('has one gear selector: Train; the Type filter offers only target types', async () => {
     await app();
-    expect(screen.getAllByLabelText('Train')).toHaveLength(1);
-    expect(screen.queryByLabelText('Setup')).toBeNull();
+    expect(screen.getAllByLabelText('Setup')).toHaveLength(1);
+    expect(screen.queryByLabelText('Train')).toBeNull();
     const type = screen.getByLabelText('Type') as HTMLSelectElement;
     expect([...type.options].map((o) => (o.textContent ?? '').split(' · ')[0])).toEqual(['All', 'Galaxies', 'Nebulae', 'Planetary nebulae', 'Globular clusters', 'Open clusters', 'Supernova remnants', 'Galaxy groups and pairs', 'Solar system']);
     expect(screen.queryByText(/Fits this setup/)).toBeNull();

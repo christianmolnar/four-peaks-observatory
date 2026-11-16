@@ -26,7 +26,7 @@ const heading = () => screen.getByRole('region', { name: /^PLAN:/ }).querySelect
 const switchNames = () => [...planSwitch().options].map((o) => o.textContent);
 const dateBox = () => screen.getByLabelText('Evening of') as HTMLInputElement;
 const siteBox = () => screen.getByLabelText('Site') as HTMLSelectElement;
-const trainBox = () => screen.getByLabelText('Train') as HTMLSelectElement;
+const trainBox = () => screen.getByLabelText('Setup') as HTMLSelectElement;
 const targetIds = () => (storedPlan()?.targets ?? []).map((t) => t.id);
 const addByHand = async (user: ReturnType<typeof userEvent.setup>, query: string, name: string) => {
   await user.clear(screen.getByLabelText('Search the catalog by name or number'));
@@ -256,7 +256,7 @@ describe('the strip edits the open plan', () => {
     await user.selectOptions(siteBox(), 'fountain-hills');
     await user.selectOptions(planSwitch(), storedPlans()!.plans[1].id); // Plan 2: second
     openGear();
-    expect((screen.getByRole('spinbutton', { name: /^Start azimuth/ }) as HTMLInputElement).value).toBe('10');
+    expect((screen.getByRole('spinbutton', { name: /^Blocked from/ }) as HTMLInputElement).value).toBe('10');
   });
 
   it('the wording follows the open plan\'s date: tonight on today, the date on any other', async () => {
@@ -352,7 +352,7 @@ describe('the two tabs', () => {
     expect(within(panel).getByRole('button', { name: 'Reset all' })).toBeTruthy();
     expect(within(panel).getByRole('button', { name: 'Export profile (JSON)' })).toBeTruthy();
     expect(within(panel).getByLabelText('Import profile (JSON)')).toBeTruthy();
-    expect(within(panel).getByText(/^Trains \(\d+\)$/)).toBeTruthy();
+    expect(within(panel).getByText(/^Setups \(\d+\)$/)).toBeTruthy();
     expect(document.getElementById('horizon')!.closest('[role="tabpanel"]')).toBe(panel);
     expect(document.getElementById('gear-heading')!.closest('[role="tabpanel"]')).toBe(panel);
     const plan = document.getElementById('panel-plan')!;
@@ -423,21 +423,22 @@ describe('the two tabs', () => {
     await waitFor(() => expect(document.activeElement?.closest('[role="tabpanel"]')?.id).toBe('panel-gear'));
   });
 
-  it('the strip\'s Search button, pressed on Gear and site, goes to the Plan tab and focuses the search box', async () => {
+  it('the strip\'s Change site button goes to Gear and site, whichever tab is open', async () => {
     const user = userEvent.setup();
     await app();
-    await user.click(tabs()[1]);
-    await user.click(screen.getByRole('button', { name: 'Find a target' }));
-    expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
-    expect(window.location.hash).toBe('#plan');
-    expect(document.activeElement).toBe(document.getElementById('target-search'));
+    await user.click(screen.getByRole('button', { name: 'Change site' }));
+    expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
+    expect(window.location.hash).toBe('#gear');
+    await user.click(tabs()[0]);
+    await user.click(screen.getByRole('button', { name: 'Change site' }));
+    expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
   });
 
   it('"Change train" (the plan mixes a deep-sky train and a planet) focuses the Train select in the strip, on the Plan tab', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter'] }));
     const user = userEvent.setup();
     await app();
-    await user.click(within(screen.getByTestId('plan-train-note')).getByRole('button', { name: 'Change train' }));
+    await user.click(within(screen.getByTestId('plan-train-note')).getByRole('button', { name: 'Change setup' }));
     expect(document.activeElement).toBe(trainBox());
     expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
   });

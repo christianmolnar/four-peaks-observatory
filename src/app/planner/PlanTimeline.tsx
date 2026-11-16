@@ -84,7 +84,7 @@ export function slotSubReason(s: Slot, row: { subSeconds: number; subCount: numb
 
 function Chip({ severity, label }: { severity: 'warning' | 'note'; label: string }) {
   return (
-    <span className={`rounded border px-1.5 py-0.5 text-xs font-medium ${severity === 'warning' ? 'border-orange-300/60 text-orange-200' : 'border-sky-300/50 text-sky-200'}`}>
+    <span className={`rounded border px-1.5 py-0.5 text-sm font-medium ${severity === 'warning' ? 'border-orange-300/60 text-orange-200' : 'border-sky-300/50 text-sky-200'}`}>
       {severity === 'warning' ? 'Warning' : 'Note'}: {label.toLowerCase()}
     </span>
   );
@@ -113,7 +113,7 @@ function Detail({
         {warnings.length === 0 && <li className="text-sm font-normal text-white/70">No warnings for this slot.</li>}
         {warnings.map((w) => (
           <li key={w.text} className="text-sm font-normal text-white/90">
-            <span className={`mr-2 rounded border px-1.5 py-0.5 text-xs font-medium ${w.severity === 'warning' ? 'border-orange-300/60 text-orange-200' : 'border-sky-300/50 text-sky-200'}`}>
+            <span className={`mr-2 rounded border px-1.5 py-0.5 text-sm font-medium ${w.severity === 'warning' ? 'border-orange-300/60 text-orange-200' : 'border-sky-300/50 text-sky-200'}`}>
               {w.severity === 'warning' ? 'Warning' : 'Note'}
             </span>
             {w.text}
@@ -233,7 +233,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
           Use night start
         </button>
       </div>
-      <p id="it-start-hint" className="mt-1 text-white/70 font-normal text-xs" data-testid="itinerary-start-hint">
+      <p id="it-start-hint" className="mt-1 text-white/70 font-normal text-sm" data-testid="itinerary-start-hint">
         24-hour time, such as 2130 or 21:30. Setup (30 min) is done before this time. Default: when the astronomical night starts, {formatTime(night.start as Date)}. Times are in the site&apos;s time zone.
       </p>
       {startError && (
@@ -276,13 +276,13 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                     {k + 1}. {s.name}
                   </h3>
                   <p className="text-white text-sm tabular-nums" data-testid={`slot-time-${k}`}>
-                    {timed ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'} <span className="text-white/70 text-xs">(estimate)</span>
+                    {timed ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'} <span className="text-white/70 text-sm">(estimate)</span>
                   </p>
                 </div>
                 <p className="mt-2 text-white/90 text-sm" data-testid={`slot-preset-${s.id}`}>
                   {presetUsed?.has(s.id) ? (
                     // The Custom numbers do not work on this night: the reason names the number that fails; the slot says nothing more about a preset.
-                    <span className="text-orange-200 text-xs" data-testid={`it-preset-used-${s.id}`}>
+                    <span className="text-orange-200 text-sm" data-testid={`it-preset-used-${s.id}`}>
                       {presetUsed.get(s.id)}
                     </span>
                   ) : it.overrides !== undefined ? (
@@ -324,7 +324,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                 </div>
                 <div className="mt-2 flex flex-wrap items-end gap-3">
                   <div className="grow min-w-[12rem]">
-                    <label htmlFor={`it-note-${s.id}`} className="block text-white/70 text-xs mb-0.5">Note for {s.name}</label>
+                    <label htmlFor={`it-note-${s.id}`} className="block text-white/70 text-sm mb-0.5">Note for {s.name}</label>
                     <WrapText
                       id={`it-note-${s.id}`}
                       maxLength={MAX_NOTE_CHARS}

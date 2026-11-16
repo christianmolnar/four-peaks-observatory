@@ -115,11 +115,11 @@ describe('editing site and gear', () => {
   it('renaming a train is stored and shows in the Train box', async () => {
     const u = userEvent.setup();
     await app();
-    const trainsBox = await open(u, /^Trains \(/);
+    const trainsBox = await open(u, /^Setups \(/);
     fireEvent.change(within(trainsBox).getAllByLabelText(/^Name/)[0], { target: { value: 'My own train' } });
     await u.click(within(trainsBox).getAllByRole('button', { name: 'Save' })[0]);
     expect(stored().trains[0].name).toBe('My own train');
-    expect(within(screen.getByLabelText('Train')).getByRole('option', { name: 'My own train' })).toBeTruthy();
+    expect(within(screen.getByLabelText('Setup')).getByRole('option', { name: 'My own train' })).toBeTruthy();
   });
 
   it('editing a scope is stored', async () => {
@@ -151,7 +151,7 @@ describe('editing site and gear', () => {
   it('a changed horizon is stored and survives a reload', async () => {
     const u = userEvent.setup();
     const first = await app();
-    const h = await screen.findByRole('spinbutton', { name: /^Height/ });
+    const h = await screen.findByRole('spinbutton', { name: /^Blocked up to this height/ });
     await u.clear(h);
     await u.type(h, '55');
     await u.click(screen.getByRole('button', { name: 'Save horizon' }));

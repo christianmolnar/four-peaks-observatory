@@ -24,7 +24,7 @@ const app = async (profile = base(), initialDate = '2026-12-15') => {
   await ready();
   return r;
 };
-const trainSelect = () => screen.getByLabelText('Train') as HTMLSelectElement;
+const trainSelect = () => screen.getByLabelText('Setup') as HTMLSelectElement;
 const siteSelect = () => screen.getByLabelText('Site') as HTMLSelectElement;
 const timeline = () => document.getElementById('night-timeline-body') as HTMLElement;
 const bortleSelects = () => screen.queryAllByLabelText(/^Sky darkness, Bortle class \(1 to 9, 1 is darkest\)$/) as HTMLSelectElement[];

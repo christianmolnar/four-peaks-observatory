@@ -50,7 +50,7 @@ describe('planner page', () => {
     for (const id of ['plan-date', 'plan-site', 'plan-train', 'f-type', 'profile-import', 'arc-start-number', 'arc-end-number', 'arc-height-number']) {
       expect(html).toContain(`for="${id}"`);
     }
-    expect(html).toContain('aria-label="Start azimuth slider"');
+    expect(html).toContain('aria-label="Blocked from slider"');
     expect(html).toContain('<title id="polar-title">');
     expect(html).toContain('Horizon as a table');
     expect(html).toContain('Blocked from 120 deg');
@@ -66,7 +66,7 @@ describe('planner page', () => {
     expect(cleared).toContain('data-testid="horizon-not-set"');
     expect(cleared).toContain('Horizon not set: only the flat minimum altitude applies.');
     expect(cleared).toContain('Add a zone');
-    expect(cleared).not.toContain('aria-label="Start azimuth slider"');
+    expect(cleared).not.toContain('aria-label="Blocked from slider"');
   });
 
   it('with a smart-scope train there is no field-of-view math', () => {

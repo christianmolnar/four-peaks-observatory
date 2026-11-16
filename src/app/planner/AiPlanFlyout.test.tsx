@@ -81,7 +81,7 @@ describe('step 1, checking the night', () => {
     expect(inputs).toContain('Night: Astronomical night 20:00 to 05:00.');
     expect(inputs).toContain('Site: Test site, minimum altitude 20°.');
     expect(inputs).toContain('Horizon not set');
-    expect(inputs).toMatch(/Train: .+\./);
+    expect(inputs).toMatch(/Setup: .+\./);
     expect(inputs).toContain(`2 targets, in the plan's order: ${two[0].name} (Balanced), ${two[1].name} (Deep).`);
     expect(stateOf(1)).toBe('now');
     expect(stateOf(2)).toBe('waiting');

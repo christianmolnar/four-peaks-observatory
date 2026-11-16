@@ -21,7 +21,7 @@ const mount = (props: Partial<React.ComponentProps<typeof PlannerApp>> = {}) => 
   const worker = fakeWorkerRanker(catalog.load, { hold: false });
   return { catalog, ...render(<PlannerApp initialDate="2026-12-15" rank={worker.rank} loadCatalogIndex={catalog.load} {...props} />) };
 };
-const train = () => screen.getByLabelText('Train') as HTMLSelectElement;
+const train = () => screen.getByLabelText('Setup') as HTMLSelectElement;
 const trainName = () => train().selectedOptions[0].textContent;
 
 beforeEach(() => window.localStorage.clear());
@@ -54,7 +54,7 @@ describe('the planetary note', () => {
   it('is one line above the list with a control that changes the existing Train select (no second selector)', async () => {
     await planetary();
     const note = screen.getByTestId('planetary-note');
-    expect(screen.getAllByLabelText('Train')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Setup')).toHaveLength(1);
     const list = screen.getByTestId('target-list');
     expect(Boolean(note.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     const button = within(note).getByRole('button', { name: 'Use C11 f/10 + ASI2600MC Duo' });

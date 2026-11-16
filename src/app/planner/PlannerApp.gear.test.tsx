@@ -36,14 +36,14 @@ describe('the class picker', () => {
     const p = sampleProfile();
     const group = screen.getByRole('group', { name: 'Gear class' });
     expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual([
-      `Trains (${p.trains.length})`,
+      `Setups (${p.trains.length})`,
       `Scopes (${p.equipment.scopes.length + p.equipment.smartScopes.length})`,
       `Cameras (${p.equipment.cameras.length})`,
       `Filters (${p.equipment.filters.length})`,
       `Accessories (${p.equipment.accessories.length})`,
       'Sites (1)',
     ]);
-    expect(within(group).getByRole('button', { name: /^Trains/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(group).getByRole('button', { name: /^Setups/ }).getAttribute('aria-pressed')).toBe('true');
     expect(cards()).toHaveLength(p.trains.length);
     pickClass('Scopes');
     expect(cards()).toHaveLength(p.equipment.scopes.length + p.equipment.smartScopes.length);
@@ -107,7 +107,7 @@ describe('in use', () => {
       pickClass(cls);
       expect(cards().filter((c) => /^Used by \d+ trains?: /.test(within(c).getAllByText(/Used by|Not used/)[0].textContent ?? '')).length).toBeGreaterThan(0);
     }
-    pickClass('Trains');
+    pickClass('Setups');
     expect(within(cards().find((c) => c.textContent?.includes('Orion region') === false)!).getAllByText(/Used by|Not used/).length).toBe(1);
     pickClass('Sites');
     expect(within(cards()[0]).getByText('Used by 1 plan: "My plan".')).toBeTruthy(); // the open plan; the sample's hidden example plan never counts
@@ -172,7 +172,7 @@ describe('trains are chain cards', () => {
     for (const part of ['Scope', 'Accessory', 'Camera', 'Filter']) expect(text).toContain(part);
     expect(text).toContain(p.equipment.scopes.find((s) => s.id === t.scopeId)!.name);
     expect(text).toContain('No filter');
-    const smart = cards().find((c) => c.textContent?.includes('Smart-scope train'))!;
+    const smart = cards().find((c) => c.textContent?.includes('Smart-scope setup'))!;
     expect(smart.textContent).toContain('Smart scope');
     expect(smart.textContent).not.toContain('Camera');
   });
@@ -196,7 +196,7 @@ describe('trains are chain cards', () => {
     await mount();
     openGear();
     const n = cards().length;
-    fireEvent.click(screen.getByRole('button', { name: 'Add train' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add setup' }));
     expect(cards()).toHaveLength(n + 1);
     let card = cards()[n];
     fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'Wide field' } });
@@ -263,7 +263,7 @@ describe('a plan whose site or train is gone', () => {
     await mount();
     openPlanTab();
     const note = screen.getByTestId('plan-stale-train');
-    expect(note.textContent).toBe('This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.Keep C11 f/10 + ASI2600MC DuoChange train');
+    expect(note.textContent).toBe('This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.Keep C11 f/10 + ASI2600MC DuoChange setup');
     expect(storedPlan()!.trainId).toBe('removed-train');
     fireEvent.click(within(note).getByRole('button', { name: /^Keep / }));
     expect(storedPlan()!.trainId).toBe('deep-c11-2600');
@@ -342,7 +342,7 @@ describe('the strip names the train once and has no filter selector', () => {
     expect(document.getElementById('plan-filter')).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Filter' })).toBeNull();
     expect(screen.getByTestId('train-filter').textContent).toBe(`Filter: ${p.equipment.filters[0].name}`);
-    fireEvent.click(screen.getByRole('button', { name: 'Change this train' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change this setup' }));
     expect(screen.getByRole('tab', { name: 'Gear and site' }).getAttribute('aria-selected')).toBe('true');
     const card = cards().find((c) => c.querySelector(`#edit-train-${t.id}-name`) !== null)!;
     expect(card).toBeTruthy();
@@ -523,7 +523,7 @@ describe('the gear forms', () => {
   it('a train a plan uses says so in its form before Save', async () => {
     await mount();
     openGear();
-    const card = openGearItem('Trains', 0);
+    const card = openGearItem('Setups', 0);
     expect(card.querySelector('form')!.textContent).toContain('Used by 1 plan: "My plan". Their exposure follows this change.');
   });
 
@@ -548,7 +548,7 @@ describe('the gear forms', () => {
   it('a name of 81 characters is refused with the cap said; long names wrap instead of widening the page', async () => {
     await mount();
     openGear();
-    const card = openGearItem('Trains', 0);
+    const card = openGearItem('Setups', 0);
     const name = within(card).getByLabelText(/^Name/);
     fireEvent.change(name, { target: { value: 'T'.repeat(81) } });
     fireEvent.click(button(card, 'Save'));
@@ -571,7 +571,7 @@ describe('the gear forms', () => {
     expect(document.getElementById('horizon-heading')!.className).toMatch(/break-words/);
     expect(document.getElementById('horizon-heading')!.className).toMatch(/min-w-0/);
     openGear();
-    const form = openGearItem('Trains', 0);
+    const form = openGearItem('Setups', 0);
     const label = within(form).getAllByRole('checkbox')[0].closest('label')!;
     expect(label.className).toMatch(/min-w-0/);
     expect(label.querySelector('span')!.className).toMatch(/break-words/);

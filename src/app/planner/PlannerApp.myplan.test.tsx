@@ -58,7 +58,7 @@ describe('the open plan is in sight', () => {
     await ready();
     expect(header().textContent).toBe('PLAN: My plan (0 targets)');
     expect(planRowItems()).toHaveLength(0);
-    expect(within(myPlan()).getByText('Nothing in this plan yet. Use Add on a target in Find a target.')).toBeTruthy();
+    expect(within(myPlan()).getByText('No targets yet. Search below or tap Add on a suggestion.')).toBeTruthy();
     fireEvent.click(add('NGC 891'));
     expect(header().textContent).toBe('PLAN: My plan (1 target)');
     fireEvent.click(add('NGC 7331'));

@@ -96,7 +96,7 @@ describe('storage that cannot be read or written', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/browser storage is blocked or unavailable/));
     expect(screen.getByTestId('target-list')).toBeTruthy();
     openGear();
-    expect((screen.getByRole('spinbutton', { name: /^Start azimuth/ }) as HTMLInputElement).value).toBe('120');
+    expect((screen.getByRole('spinbutton', { name: /^Blocked from/ }) as HTMLInputElement).value).toBe('120');
   });
 
   it('importing with storage that cannot be written still loads the profile and says it is not saved', async () => {

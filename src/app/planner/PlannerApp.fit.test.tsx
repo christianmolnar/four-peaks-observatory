@@ -31,7 +31,7 @@ describe('targets that do not fit the chosen train', () => {
     expect(toggle().checked).toBe(false);
     expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
     const note = screen.getByTestId('hidden-note').textContent as string;
-    expect(note).toMatch(/do not fit this frame: larger than it \(\d+\)/);
+    expect(note).toMatch(/do not fit your camera view: too big for it \(\d+\)/);
     expect(note).toContain('Tick “Show targets that do not fit” to list them.');
     expect(note).not.toMatch(/show anyway/i);
     expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
@@ -42,7 +42,7 @@ describe('targets that do not fit the chosen train', () => {
   it('ticking the box adds a closed group below the list, with the count, and the note says where they went', async () => {
     await app();
     const before = screen.getByTestId('hidden-note').textContent as string;
-    const tooLarge = Number(/larger than it \((\d+)\)/.exec(before)![1]);
+    const tooLarge = Number(/too big for it \((\d+)\)/.exec(before)![1]);
     const tooSmall = Number(/too small for it \((\d+)\)/.exec(before)?.[1] ?? 0);
     fireEvent.click(toggle());
     await ready();
@@ -64,9 +64,9 @@ describe('targets that do not fit the chosen train', () => {
     fireEvent.click(group());
     const rows = listRows('nofit-list');
     expect(rows.length).toBeGreaterThan(0);
-    const large = rows.filter((r) => /Larger than this frame/.test(r.textContent as string));
+    const large = rows.filter((r) => /Too big for your camera view/.test(r.textContent as string));
     expect(large.length).toBeGreaterThan(0);
-    for (const r of large) expect(r.textContent).toMatch(/Larger than this frame(: \d[\d.]*′( × \d[\d.]*′)? vs your \d+′ × \d+′|'s short side: \d[\d.]*′ vs \d+′ \(your frame \d+′ × \d+′\))/);
+    for (const r of large) expect(r.textContent).toMatch(/Too big for your camera view(: \d[\d.]*′( × \d[\d.]*′)? vs your \d+′ × \d+′| \(its short side\): \d[\d.]*′ vs \d+′ \(your view \d+′ × \d+′\))/);
     for (const r of rows) expect(mainNames).not.toContain(rowName(r)); // never in both
     expect(screen.getByTestId('target-list').textContent).not.toContain('Too large');
   });

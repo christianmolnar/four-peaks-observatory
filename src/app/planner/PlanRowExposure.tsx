@@ -29,7 +29,7 @@ const TOTAL_LIMIT: Record<ExposureResult['limitedBy']['total'], string> = {
   'count-cap': `the limit of ${MAX_SUBS} subs (more light would need more subs than a plan holds)`,
   user: 'your choice',
 };
-const GO_LABEL = { date: 'Change the date', train: 'Change the train', filter: 'Change the filter' } as const;
+const GO_LABEL = { date: 'Change the date', train: 'Change the setup', filter: 'Change the filter' } as const;
 
 /** A small closed-by-default part of a row: one 44 px button that names it, a body that is hidden while closed. */
 function Fold({ id, title, children, level = 0 }: { id: string; title: string; children: ReactNode; level?: 0 | 1 }) {
@@ -123,7 +123,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
     const err = liveError[field];
     return (
       <div>
-        <label htmlFor={`plan-${field}-${id}`} className="block text-xs font-normal text-white/80">{label}</label>
+        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-white/80">{label}</label>
         <input
           id={`plan-${field}-${id}`}
           type="text"
@@ -166,7 +166,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
 
   return (
     <div className="mt-2 space-y-1" data-testid={`plan-exposure-${id}`}>
-      <div role="group" aria-label={`Exposure preset for ${name}`} className="grid grid-cols-4 gap-1">
+      <div role="group" aria-label={`Exposure preset for ${name}`} className="grid grid-cols-2 gap-1 min-[360px]:grid-cols-4">
         {([...MODE_ORDER, 'custom'] as const).map((p) => (
           <button
             key={p}
@@ -178,7 +178,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               clear();
               onPreset(p);
             }}
-            className={`min-h-11 rounded border px-1 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-sky-400 sm:text-sm ${preset === p ? 'border-sky-300 bg-sky-400/20 text-white' : 'border-white/30 text-white/90 hover:bg-white/10'}`}
+            className={`min-h-11 rounded border px-0 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-sky-400 ${preset === p ? 'border-sky-300 bg-sky-400/20 text-white' : 'border-white/30 text-white/90 hover:bg-white/10'}`}
           >
             {p === 'custom' ? 'Custom' : presetLabel(p)}
           </button>
@@ -190,8 +190,8 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
-            {box('subSeconds', 'Sub length (s)')}
-            {box('subCount', 'Subs')}
+            {box('subSeconds', 'Exposure per shot (seconds)')}
+            {box('subCount', 'Number of shots')}
           </div>
           {(liveError.subSeconds || liveError.subCount) && (
             <p role="alert" className="text-sm font-normal text-orange-200">
@@ -203,7 +203,8 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
             <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
           )}
           <p className="text-sm font-normal text-white/90" data-testid={`plan-numbers-${id}`}>
-            {chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'} · {chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
+            <span data-testid="plan-figure" className="block font-medium text-white">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
+            <span className="sr-only"> · </span>{chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
             {chosen.finish !== null && <> · finish about {formatTime(chosen.finish)} if it starts when the target is up</>}
           </p>
           {preset === 'custom' && base !== null && (
@@ -221,7 +222,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
         const a = ACT_ON[w.code];
         return (
           <div key={w.code} className="rounded border border-orange-300/40 bg-orange-400/10 p-2 text-sm font-normal text-white/90" data-testid={`plan-warning-${id}`}>
-            <p><span className="mr-2 rounded bg-orange-300/30 px-1.5 py-0.5 text-xs text-white">Warning</span>{w.text}</p>
+            <p><span className="mr-2 rounded bg-orange-300/30 px-1.5 py-0.5 text-sm text-white">Warning</span>{w.text}</p>
             <p className="mt-1">What to change: {a.change}</p>
             {a.to.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-2">
@@ -244,7 +245,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               Surface brightness {chosen.knee.surfaceBrightnessMu.toFixed(1)} mag per square arcsecond ({chosen.knee.surfaceBrightnessFrom === 'catalog' ? 'the catalog’s number' : chosen.knee.surfaceBrightnessFrom === 'class' ? 'a stand-in for its class' : 'assumed medium'}).
             </p>
             <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}% to the noise at this sub length. Dither every {chosen.ditherEveryFrames} subs. {chosen.filterNote} {chosen.gain.note}</p>
-            <p className="text-xs text-white/70">Every number is an estimate, computed by the planner from the sky, optics and camera.</p>
+            <p className="text-sm text-white/70">Every number is an estimate, computed by the planner from the sky, optics and camera.</p>
             <Fold id={`plan-notes-${id}`} title={`Notes (${split.notes.length})`} level={1}>
               {split.notes.length === 0 ? (
                 <p>No notes for this target.</p>
@@ -257,7 +258,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               )}
             </Fold>
             <Fold id={`plan-compare-${id}`} title="Compare presets" level={1}>
-              <table className="w-full table-fixed text-left text-xs font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
+              <table className="w-full table-fixed text-left text-sm font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
                 <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
                 <thead>
                   <tr>
@@ -276,7 +277,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
               </table>
             </Fold>
             <Fold id={`plan-buys-${id}`} title="What more time buys and the inputs used" level={1}>
-              <table className="w-full table-fixed text-left text-xs font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
+              <table className="w-full table-fixed text-left text-sm font-normal text-white/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
                 <caption className="sr-only">What more light buys for {name}, sky-limited</caption>
                 <thead>
                   <tr><th scope="col">Light</th><th scope="col">Signal to noise</th><th scope="col">Gain</th><th scope="col">Tonight</th></tr>
@@ -292,7 +293,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
                   ))}
                 </tbody>
               </table>
-              <p className="mt-1 text-xs text-white/70" data-testid={`plan-inputs-${id}`}>Inputs: {ok.inputs}.</p>
+              <p className="mt-1 text-sm text-white/70" data-testid={`plan-inputs-${id}`}>Inputs: {ok.inputs}.</p>
             </Fold>
           </div>
         </Fold>
@@ -339,7 +340,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
           />
           <span>Save as favorite</span>
         </label>
-        {favorite !== null && <span className="rounded border border-white/20 px-1.5 py-0.5 text-xs font-normal text-white/80">Favorite saved</span>}
+        {favorite !== null && <span className="rounded border border-white/20 px-1.5 py-0.5 text-sm font-normal text-white/80">Favorite saved</span>}
         {favorite !== null && differsFromFavorite && favoritesBlocked === null && prompt !== 'ask' && !confirmUpdate && (
           <button type="button" className={btn} onClick={() => { setConfirmRemove(false); if (refuse) setRefusedFavorite(true); else setConfirmUpdate(true); }}>Update favorite to these numbers</button>
         )}

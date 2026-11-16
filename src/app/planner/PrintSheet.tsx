@@ -41,7 +41,7 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
       {p.rows.length === 0 ? (
         <p className="mt-3">No objects in this plan.</p>
       ) : (
-        <table className="mt-3" data-testid="print-plan">
+        <table className="mt-3 print:font-normal print:text-black" data-testid="print-plan">
           <caption className="sr-only">Run sheet for {p.name}, in order</caption>
           <colgroup>
             <col style={{ width: '5%' }} />
@@ -54,21 +54,21 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
           </colgroup>
           <thead>
             <tr>
-              <th scope="col">#</th>
-              <th scope="col">Time</th>
-              <th scope="col">Target</th>
-              <th scope="col">Subs</th>
-              <th scope="col">Gain</th>
-              <th scope="col">Filter</th>
-              <th scope="col">Notes</th>
+              <th scope="col" className="print:text-black">#</th>
+              <th scope="col" className="print:text-black">Time</th>
+              <th scope="col" className="print:text-black">Target</th>
+              <th scope="col" className="print:text-black">Subs</th>
+              <th scope="col" className="print:text-black">Gain</th>
+              <th scope="col" className="print:text-black">Filter</th>
+              <th scope="col" className="print:text-black">Notes</th>
             </tr>
           </thead>
           <tbody>
             {p.rows.map((r) => (
               <tr key={r.order}>
-                <td>{r.order}</td>
-                <td>{r.state === 'unscheduled' || r.start === '' ? timeText(r) : <span className="run-sheet-nowrap">{timeText(r)}</span>}</td>
-                <th scope="row" className="font-normal">
+                <td className="print:font-normal print:text-black">{r.order}</td>
+                <td className="print:font-normal print:text-black">{r.state === 'unscheduled' || r.start === '' ? timeText(r) : <span className="run-sheet-nowrap">{timeText(r)}</span>}</td>
+                <th scope="row" className="font-normal print:font-normal print:text-black">
                   <strong>{r.name}</strong>
                   {r.type !== '' && <> ({r.type})</>}
                   {r.ra !== '' && (
@@ -80,12 +80,12 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
                     </>
                   )}
                 </th>
-                <td>
+                <td className="print:font-normal print:text-black">
                   <Subs r={r} />
                 </td>
-                <td className="run-sheet-gain" />
-                <td>{r.filter}</td>
-                <td>
+                <td className="run-sheet-gain print:font-normal print:text-black" />
+                <td className="print:font-normal print:text-black">{r.filter}</td>
+                <td className="print:font-normal print:text-black">
                   {[r.preset, r.favorite, r.note, r.warning === '' ? '' : `Warning: ${r.warning}`].filter((x) => x !== '').join('. ')}
                 </td>
               </tr>

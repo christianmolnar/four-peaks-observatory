@@ -16,7 +16,7 @@ const C = { startAz: 220, endAz: 300, heightDeg: 20 };
 const IDS = { start: 'arc-start', end: 'arc-end', height: 'arc-height' } as const;
 const idOf = (zone: number, k: keyof typeof IDS) => (zone === 0 ? IDS[k] : `${IDS[k]}-${zone + 1}`);
 const box = (zone: number, k: keyof typeof IDS) => document.getElementById(`${idOf(zone, k)}-number`) as HTMLInputElement;
-const LABEL = { start: 'Start azimuth', end: 'End azimuth', height: 'Height' } as const;
+const LABEL = { start: 'Blocked from', end: 'Blocked to', height: 'Blocked up to this height' } as const;
 const sliderOf = (zone: number, k: keyof typeof IDS) => screen.getAllByRole('slider', { name: `${LABEL[k]} slider` })[zone] as HTMLInputElement;
 const chart = () => (document.getElementById('polar-desc') as HTMLElement).textContent as string;
 const set = (zone: number, k: keyof typeof IDS, text: string) => fireEvent.change(box(zone, k), { target: { value: text } });

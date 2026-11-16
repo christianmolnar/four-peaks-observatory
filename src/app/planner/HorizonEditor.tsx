@@ -82,10 +82,10 @@ export interface HorizonEditorProps {
   onRemove: (zone: number) => void;
 }
 
-const FIELDS: { key: HorizonField; id: string; label: string }[] = [
-  { key: 'start', id: 'arc-start', label: 'Start azimuth' },
-  { key: 'end', id: 'arc-end', label: 'End azimuth' },
-  { key: 'height', id: 'arc-height', label: 'Height' },
+const FIELDS: { key: HorizonField; id: string; label: string; unit: string }[] = [
+  { key: 'start', id: 'arc-start', label: 'Blocked from', unit: 'compass degrees' },
+  { key: 'end', id: 'arc-end', label: 'Blocked to', unit: 'compass degrees' },
+  { key: 'height', id: 'arc-height', label: 'Blocked up to this height', unit: 'degrees' },
 ];
 /** The first zone keeps the ids the page has always had; later zones add their number. */
 const fieldId = (id: string, zone: number): string => (zone === 0 ? id : `${id}-${zone + 1}`);
@@ -205,13 +205,13 @@ export default function HorizonEditor({
                   </button>
                 </div>
                 <div className="grid grid-cols-1 xl:grid-cols-3 xl:gap-x-3">
-                {FIELDS.map(({ key, id, label }) => (
+                {FIELDS.map(({ key, id, label, unit }) => (
                   <div key={key}>
                   <NumberSlider
                     stackedAtXl
                     id={fieldId(id, n)}
                     label={label}
-                    unit="deg"
+                    unit={unit}
                     min={HORIZON_RANGE[key].min}
                     max={HORIZON_RANGE[key].max}
                     text={zone[key]}
@@ -296,8 +296,8 @@ export default function HorizonEditor({
                 </button>
               </div>
               <p className="text-white/80 font-normal text-sm leading-5 mt-3">{summary}</p>
-              <p className="text-white/75 font-normal text-[13px] leading-5 mt-3">
-                Azimuth is degrees clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone runs clockwise from start to end and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
+              <p className="text-white/75 font-normal text-sm leading-5 mt-3">
+                Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone is blocked from its first number clockwise to its second, and may cross north and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
               </p>
             </div>
           </div>
@@ -323,7 +323,7 @@ export default function HorizonEditor({
           <thead>
             <tr>
               <th scope="col" className="text-left pr-6">Direction</th>
-              <th scope="col" className="text-left pr-6">Azimuth (deg)</th>
+              <th scope="col" className="text-left pr-6">Compass degrees</th>
               <th scope="col" className="text-left">Blocked up to (deg)</th>
             </tr>
           </thead>

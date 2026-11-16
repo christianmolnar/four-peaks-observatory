@@ -107,7 +107,7 @@ describe('the Type selector', () => {
     await ready();
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 larger than this frame.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 too big for your camera view.`);
     expect(typeSelect().value).toBe('supernova-remnants');
     fireEvent.click(screen.getByLabelText(/show targets that do not fit/i));
     await screen.findByRole('button', { name: /^Does not fit this frame \(1\)/ });
@@ -181,8 +181,8 @@ describe('the list for a type', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'deep-c11-reducer-533', typeId: 'supernova-remnants' }));
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
-    expect(empty.textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 larger than this frame.`);
-    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Big Remnant does not fit this frame/);
+    expect(empty.textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 too big for your camera view.`);
+    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Big Remnant does not fit your camera view/);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: /^Does not fit this frame \(1\)/ });
     expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\.$/);
@@ -299,7 +299,7 @@ describe('the choice is remembered with the train', () => {
     await ready();
     await choose('open-clusters');
     await listed();
-    fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'wide-c11-hyperstar-2600' } });
+    fireEvent.change(screen.getByLabelText('Setup'), { target: { value: 'wide-c11-hyperstar-2600' } });
     expect(JSON.parse(window.localStorage.getItem(SELECTION_KEY) as string)).toMatchObject({ trainId: 'wide-c11-hyperstar-2600', typeId: 'open-clusters' });
     openGear();
     await resetAll(userEvent.setup());
@@ -391,7 +391,7 @@ describe('over the real catalog', () => {
     expect(direct(targets, ['supernova-remnant'], trainId)).toHaveLength(0);
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: ${snr} larger than this frame.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: ${snr} too big for your camera view.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: new RegExp(`^Does not fit this frame \\(${snr}\\)`) });
     expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\./);

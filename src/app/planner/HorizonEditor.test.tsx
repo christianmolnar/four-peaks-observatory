@@ -18,13 +18,13 @@ const twoSites = () => {
   return { ...p, sites: [p.sites[0], other] };
 };
 
-const START = 'Start azimuth';
-const END = 'End azimuth';
-const HEIGHT = 'Height';
+const START = 'Blocked from';
+const END = 'Blocked to';
+const HEIGHT = 'Blocked up to this height';
 const MINALT = 'Minimum altitude';
 const ID: Record<string, string> = { [START]: 'arc-start', [END]: 'arc-end', [HEIGHT]: 'arc-height', [MINALT]: 'min-alt' };
 
-const box = (name: string) => screen.getByRole('spinbutton', { name: new RegExp(`^${name} \\(deg\\)`) }) as HTMLInputElement;
+const box = (name: string) => screen.getByRole('spinbutton', { name: new RegExp(`^${name} \\([a-z ]+\\)`) }) as HTMLInputElement;
 const slider = (name: string) => screen.getByRole('slider', { name: `${name} slider` }) as HTMLInputElement;
 /** The text of a field's message line, without the decorative "! " that is hidden from screen readers. */
 const msg = (name: string) => ((document.getElementById(`${ID[name]}-msg`) as HTMLElement).textContent as string).replace(/^! /, '');
@@ -226,7 +226,7 @@ describe('draft and commit', () => {
       seen.push(el.getAttribute('aria-label') || el.id || el.textContent || '');
       await u.tab();
     }
-    expect(seen.slice(0, 6)).toEqual(['arc-start-number', 'Start azimuth slider', 'arc-end-number', 'End azimuth slider', 'arc-height-number', 'Height slider']);
+    expect(seen.slice(0, 6)).toEqual(['arc-start-number', 'Blocked from slider', 'arc-end-number', 'Blocked to slider', 'arc-height-number', 'Blocked up to this height slider']);
     // Save and Discard are disabled on a clean form, so the next stops are Add another zone, Use sample horizon, then Clear horizon.
     expect(seen.slice(6, 10)).toEqual(['Add another zone', 'Use sample horizon', 'Clear horizon', 'Horizon as a table']);
   });
@@ -643,7 +643,7 @@ describe('the first click after bad typing works (no key pressed after the last 
     await type(u, START, '500');
     await u.click(button('Clear horizon'));
     expect(screen.getByTestId('horizon-not-set')).toBeTruthy();
-    expect(screen.queryByRole('spinbutton', { name: /^Start azimuth/ })).toBeNull();
+    expect(screen.queryByRole('spinbutton', { name: /^Blocked from/ })).toBeNull();
   });
 });
 
@@ -829,9 +829,9 @@ describe('up to four zones', () => {
     const expected = [['120', '320'], ['320', '350'], ['350', '20'], ['20', '50']];
     expected.forEach(([start, end], n) => {
       expect(zbox(n, 'arc-start').value).toBe(start);
-      expect(zslider(n, 'Start azimuth').value).toBe(start);
+      expect(zslider(n, 'Blocked from').value).toBe(start);
       expect(zbox(n, 'arc-end').value).toBe(end);
-      expect(zslider(n, 'End azimuth').value).toBe(end);
+      expect(zslider(n, 'Blocked to').value).toBe(end);
       expect(zbox(n, 'arc-height').value).toBe('42');
     });
     expect(screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent).toContain('4 blocked zones');
@@ -915,7 +915,7 @@ describe('up to four zones', () => {
     const u = user();
     await u.click(button('Add another zone'));
     const start = Number(zbox(1, 'arc-start').value);
-    fireEvent.change(screen.getAllByRole('slider', { name: 'Height slider' })[1], { target: { value: '66' } });
+    fireEvent.change(screen.getAllByRole('slider', { name: 'Blocked up to this height slider' })[1], { target: { value: '66' } });
     expect(zbox(1, 'arc-height').value).toBe('66');
     expect(zbox(0, 'arc-height').value).toBe('42');
     await u.click(button('Save horizon'));
@@ -1011,7 +1011,7 @@ describe('every azimuth runs 0 to 360, and each slider follows its box', () => {
     };
   };
   const sliders = (name: string) => screen.getAllByRole('slider', { name: `${name} slider` }) as HTMLInputElement[];
-  const boxes = (name: string) => screen.getAllByRole('spinbutton', { name: new RegExp(`^${name} \\(deg\\)`) }) as HTMLInputElement[];
+  const boxes = (name: string) => screen.getAllByRole('spinbutton', { name: new RegExp(`^${name} \\([a-z ]+\\)`) }) as HTMLInputElement[];
   /** Every slider sits where its box says, and every azimuth control runs the full range. */
   const inStep = () => {
     for (const name of [START, END, HEIGHT]) {
@@ -1182,7 +1182,7 @@ describe('layout: zone cards above the chart in at most 2 columns', () => {
     const add = button('Add another zone');
     expect(grid.compareDocumentPosition(compass) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(compass.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(compass.compareDocumentPosition(screen.getByText(/^Azimuth is degrees clockwise/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(compass.compareDocumentPosition(screen.getByText(/^Compass degrees run clockwise/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('the message slot takes no room at xl while there is no message, and two lines while there is one', async () => {

@@ -117,7 +117,7 @@ describe('tonight\'s list over the whole catalog', () => {
     mount({ trainId: 'deep-c11-2600' });
     await ready();
     const note = screen.getByTestId('hidden-note');
-    expect(note.textContent).toMatch(/do not fit this frame: larger than it \(\d+\)/);
+    expect(note.textContent).toMatch(/do not fit your camera view: too big for it \(\d+\)/);
     expect(note.textContent).toMatch(/Andromeda Galaxy/);
     expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
     expect(listNames()).not.toContain('Andromeda Galaxy');
@@ -242,7 +242,7 @@ describe('the open plan', () => {
     await ready();
     const u = userEvent.setup();
     expect(within(myPlan()).getByRole('heading', { name: 'PLAN: My plan (0 targets)' })).toBeTruthy();
-    expect(within(myPlan()).getByText(/Nothing in this plan yet/)).toBeTruthy();
+    expect(within(myPlan()).getByText(/No targets yet\. Search below/)).toBeTruthy();
     await addFromList(u, 'NGC 891');
     expect(planNames()).toEqual(['NGC 891']);
     expect(within(myPlan()).getByRole('heading', { name: 'PLAN: My plan (1 target)' })).toBeTruthy();

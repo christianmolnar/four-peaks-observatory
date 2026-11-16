@@ -89,14 +89,14 @@ describe('Reset all', () => {
     const u = userEvent.setup();
     await waitFor(() => expect(siteSelect().textContent).toContain('Backyard'));
     expect(timelineSlots()).toHaveLength(2);
-    expect((screen.getByLabelText('Train') as HTMLSelectElement).value).toBe('smart-seestar-s50');
+    expect((screen.getByLabelText('Setup') as HTMLSelectElement).value).toBe('smart-seestar-s50');
     await u.click(resetButton());
     await u.click(within(confirmBox()!).getByRole('button', { name: 'Yes, reset everything' }));
     for (const k of KEYS) expect(window.localStorage.getItem(k)).toBeNull();
     expect(confirmBox()).toBeNull();
     expect(siteSelect().textContent).toContain('Fountain Hills');
     expect(siteSelect().textContent).not.toContain('Backyard');
-    expect((screen.getByLabelText('Train') as HTMLSelectElement).value).toBe(sampleProfile().trains[0].id);
+    expect((screen.getByLabelText('Setup') as HTMLSelectElement).value).toBe(sampleProfile().trains[0].id);
     expect(timelineSlots()).toHaveLength(0);
     openPlanTab();
     expect(myPlanNames()).toHaveLength(0);

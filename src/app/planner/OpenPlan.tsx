@@ -43,6 +43,8 @@ export interface OpenPlanProps {
   find: FindSection;
   /** Beside the plan's heading: the plan's main button ("Plan my night with AI"). */
   action?: ReactNode;
+  /** Under the empty-state line of a plan with no targets: the "Add top 3" button. */
+  emptyAction?: ReactNode;
   /** Beside the plan's heading (the More menu). */
   menu?: ReactNode;
   /** The plan's closed-by-default parts ("Night and horizon", "Night timeline"). */
@@ -53,11 +55,11 @@ const btn =
   'min-h-11 min-w-11 px-3 py-1.5 rounded border border-white/30 text-white font-normal text-sm hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-40';
 
 /**
- * The open plan: Find a target at the top, then its targets in the plan's order (the user's picks; the AI plan orders them), each with what it
- * does on the night and its exposure, and the plan's own collapsible parts below. Find a target is open while the plan has no targets and one
- * line once it has some.
+ * The open plan: its targets in the plan's order (the user's picks; the AI plan orders them), each with what it does on the night and its
+ * exposure, then Find a target, then the plan's own collapsible parts. Find a target is open while the plan has no targets and one line
+ * ("Find a target (105)") once it has some, so the plan is the first thing on the screen.
  */
-export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, onChangeTrain, pastDate, onMoveToTonight, find, action, menu, children }: OpenPlanProps) {
+export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, onChangeTrain, pastDate, onMoveToTonight, find, action, menu, emptyAction, children }: OpenPlanProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   // After a removal the pressed button is gone: the keyboard goes to the Remove of the row that took its place, else the one before, else the heading.
   const removedAt = useRef<number | null>(null);
@@ -98,35 +100,20 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
         <p key={n.key} role="status" className="mb-3 flex flex-wrap items-center gap-x-3 text-orange-100 font-normal text-sm" data-testid={`plan-stale-${n.key}`}>
           <span className="min-w-0 break-words">{n.text}</span>
           <button type="button" className={`${btn} max-w-full min-w-0 break-words text-left`} onClick={n.onKeep}>{n.keepLabel}</button>
-          {n.key === 'train' && <button type="button" className={btn} onClick={onChangeTrain}>Change train</button>}
+          {n.key === 'train' && <button type="button" className={btn} onClick={onChangeTrain}>Change setup</button>}
         </p>
       ))}
       {trainNote !== null && (
         <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-train-note">
           <span className="min-w-0 max-w-full break-words">{trainNote}</span>
-          <button type="button" className={btn} onClick={onChangeTrain}>Change train</button>
+          <button type="button" className={btn} onClick={onChangeTrain}>Change setup</button>
         </p>
       )}
-      <div id="find-a-target" role="region" aria-label="Find a target" className="border-t border-white/10">
-        <h3 className="text-base font-normal text-white">
-          <button
-            type="button"
-            aria-expanded={find.open}
-            aria-controls="find-a-target-body"
-            onClick={find.onToggle}
-            className="flex min-h-11 w-full flex-wrap items-center gap-x-2 rounded text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
-          >
-            <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{find.open ? '▾' : '▸'}</span>
-            <span>Find a target</span>
-            {find.count !== null && <span className="text-sm text-white/70" data-testid="find-count">{find.count} {find.count === 1 ? 'result' : 'results'} available</span>}
-          </button>
-        </h3>
-        <div id="find-a-target-body" hidden={!find.open} className="pb-3">
-          {find.children}
-        </div>
-      </div>
       {rows.length === 0 ? (
-        <p className="pb-3 text-white/90 font-normal text-sm">Nothing in this plan yet. Use Add on a target in Find a target.</p>
+        <div data-testid="plan-empty" className="flex flex-wrap items-center gap-x-4 pb-3 text-sm text-white/90">
+          <p className="min-w-0">No targets yet. Search below or tap Add on a suggestion.</p>
+          {emptyAction}
+        </div>
       ) : (
         <ol className="space-y-2 pb-3" aria-label="Targets in this plan, in order">
           {rows.map((r, i) => (
@@ -164,6 +151,23 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
           ))}
         </ol>
       )}
+      <div id="find-a-target" role="region" aria-label="Find a target" className="border-t border-white/10">
+        <h3 className="text-base font-normal text-white">
+          <button
+            type="button"
+            aria-expanded={find.open}
+            aria-controls="find-a-target-body"
+            onClick={find.onToggle}
+            className="flex min-h-11 w-full flex-wrap items-center gap-x-2 rounded text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
+          >
+            <span aria-hidden="true" className="w-4 shrink-0 text-white/70">{find.open ? '▾' : '▸'}</span>
+            <span>Find a target{find.count !== null && <span data-testid="find-count"> ({find.count})</span>}</span>
+          </button>
+        </h3>
+        <div id="find-a-target-body" hidden={!find.open} className="pb-3">
+          {find.children}
+        </div>
+      </div>
       {children}
     </section>
   );

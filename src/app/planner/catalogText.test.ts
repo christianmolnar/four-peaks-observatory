@@ -86,7 +86,7 @@ describe('dates and small texts', () => {
 
   it('a round object that fits the long side but not the short one says it is the short side', () => {
     const frame = { long: 29, short: 19 };
-    expect(fitReason({ fit: 'too-large', percentOfFrame: 120 }, { major: 23, minor: 23 }, frame)).toBe("Larger than this frame's short side: 23′ vs 19′ (your frame 29′ × 19′)");
-    expect(fitReason({ fit: 'too-large', percentOfFrame: 500 }, { major: 160, minor: 40 }, frame)).toBe('Larger than this frame: 160′ × 40′ vs your 29′ × 19′');
+    expect(fitReason({ fit: 'too-large', percentOfFrame: 120 }, { major: 23, minor: 23 }, frame)).toBe("Too big for your camera view (its short side): 23′ vs 19′ (your view 29′ × 19′)");
+    expect(fitReason({ fit: 'too-large', percentOfFrame: 500 }, { major: 160, minor: 40 }, frame)).toBe('Too big for your camera view: 160′ × 40′ vs your 29′ × 19′');
   });
 });

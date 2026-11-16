@@ -24,8 +24,8 @@ const group = (name: string) => screen.getByRole('group', { name: `Exposure pres
 const press = (name: string, preset: string) => fireEvent.click(within(group(name)).getByRole('button', { name: preset }));
 const pressed = (name: string) => within(group(name)).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent);
 const numbers = (id: string) => screen.getByTestId(`plan-numbers-${id}`).textContent ?? '';
-const subBox = (name: string) => screen.getByLabelText(`Sub length (s) for ${name}`) as HTMLInputElement;
-const countBox = (name: string) => screen.getByLabelText(`Subs for ${name}`) as HTMLInputElement;
+const subBox = (name: string) => screen.getByLabelText(`Exposure per shot (seconds) for ${name}`) as HTMLInputElement;
+const countBox = (name: string) => screen.getByLabelText(`Number of shots for ${name}`) as HTMLInputElement;
 const open = (id: string) => {
   const b = document.getElementById(id)!;
   if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b);

@@ -42,8 +42,8 @@ const withoutPixelSize = (profile: ReturnType<typeof sampleProfile>) => {
   for (const c of profile.equipment.cameras) delete (c as { pixelSizeUm?: number }).pixelSizeUm;
 };
 const dateBox = () => screen.getByLabelText('Evening of') as HTMLInputElement;
-const subBox = (id: string) => screen.getByLabelText(`Sub length (s) for ${NAMES[id]}`) as HTMLInputElement;
-const countBox = (id: string) => screen.getByLabelText(`Subs for ${NAMES[id]}`) as HTMLInputElement;
+const subBox = (id: string) => screen.getByLabelText(`Exposure per shot (seconds) for ${NAMES[id]}`) as HTMLInputElement;
+const countBox = (id: string) => screen.getByLabelText(`Number of shots for ${NAMES[id]}`) as HTMLInputElement;
 const numbers = (id: string) => screen.getByTestId(`plan-numbers-${id}`).textContent ?? '';
 const parse = (text: string) => {
   const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? ·/.exec(text);

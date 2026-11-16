@@ -180,9 +180,9 @@ describe('the train line in the plan', () => {
     await u.click(within(row).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
     expect(note()!.textContent).toContain('The plan mixes a deep-sky train and solar-system bodies.');
-    expect((screen.getByLabelText('Train') as HTMLSelectElement).value).not.toMatch(/^planet-/); // not auto-switched
-    await u.click(within(myPlan()).getByRole('button', { name: 'Change train' }));
-    expect(document.activeElement).toBe(screen.getByLabelText('Train'));
+    expect((screen.getByLabelText('Setup') as HTMLSelectElement).value).not.toMatch(/^planet-/); // not auto-switched
+    await u.click(within(myPlan()).getByRole('button', { name: 'Change setup' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('Setup'));
     // Removing the body clears the line.
     await u.click(within(myPlan()).getByRole('button', { name: 'Remove Jupiter from the plan' }));
     expect(note()).toBeNull();
@@ -199,7 +199,7 @@ describe('the train line in the plan', () => {
     mount('planet-c11-676');
     await ready();
     expect(note()!.textContent).toContain('The plan mixes a solar-system train and deep-sky targets.');
-    expect(within(myPlan()).getByRole('button', { name: 'Change train' })).toBeTruthy();
+    expect(within(myPlan()).getByRole('button', { name: 'Change setup' })).toBeTruthy();
   });
 
   it('a deep-sky train with only deep-sky targets says nothing', async () => {

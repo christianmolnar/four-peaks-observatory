@@ -158,7 +158,7 @@ describe('the request', () => {
     expect(inputs).toMatch(/Night: Astronomical night \d\d:\d\d to \d\d:\d\d \(\d+\.\d h\), Moon \d+% lit at mid-night\./);
     expect(inputs).toContain('Site: Fountain Hills, AZ, minimum altitude 20°.');
     expect(inputs).toMatch(/Horizon: blocked \d+° \(\w+\) to \d+° \(\w+\), \d+° high/);
-    expect(inputs).toContain('Train: C11 f/10 + ASI2600MC Duo.');
+    expect(inputs).toContain('Setup: C11 f/10 + ASI2600MC Duo.');
     expect(inputs).toContain("2 targets, in the plan's order: Flaming Star Nebula (Balanced), Andromeda Galaxy (Balanced).");
   });
 
@@ -166,7 +166,7 @@ describe('the request', () => {
     const f = fakeFetch((s) => engine(okInput(s)));
     mount(f.fn);
     await readyOpen();
-    fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'deep-c11-reducer-533' } });
+    fireEvent.change(screen.getByLabelText('Setup'), { target: { value: 'deep-c11-reducer-533' } });
     fireEvent.change(screen.getByLabelText(/^Minimum altitude \(deg\)/), { target: { value: '35' } });
     await planned();
     const input = okInput(f.sent[0]);
@@ -502,7 +502,7 @@ describe('a stale plan', () => {
     mount(f.fn);
     await readyOpen();
     await planned();
-    fireEvent.change(screen.getByLabelText('Train'), { target: { value: 'deep-c11-reducer-533' } });
+    fireEvent.change(screen.getByLabelText('Setup'), { target: { value: 'deep-c11-reducer-533' } });
     expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the train after/);
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2026-12-16' } });
     expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the night and the train after/);

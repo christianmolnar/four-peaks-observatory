@@ -137,7 +137,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
   return (
     <div className="sm:col-span-2 xl:col-span-3 rounded border border-white/15 p-3">
       <label htmlFor={queryId} className="block text-white/90 font-normal text-sm mb-1">Find my site: city and state, or postal code</label>
-      <p id={hintId} className="text-white/60 font-normal text-xs mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
+      <p id={hintId} className="text-white/60 font-normal text-sm mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-56">
           <WrapText
@@ -230,8 +230,8 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
           })}
         </ul>
       )}
-      {credits.length > 0 && <p className="mt-2 text-white/60 font-normal text-xs">{credits.join(' ')}</p>}
-      <p className="mt-2 text-white/60 font-normal text-xs">Sky darkness (Bortle class) is not looked up. Set it in the box below.</p>
+      {credits.length > 0 && <p className="mt-2 text-white/60 font-normal text-sm">{credits.join(' ')}</p>}
+      <p className="mt-2 text-white/60 font-normal text-sm">Sky darkness (Bortle class) is not looked up. Set it in the box below.</p>
     </div>
   );
 }

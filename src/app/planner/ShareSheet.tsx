@@ -152,7 +152,7 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
                 <input type="radio" name="share-what" value={c.id} checked={what === c.id} disabled={blocked[c.id] !== undefined} onChange={() => onWhat(c.id)} className="mt-0.5 h-5 w-5 shrink-0 accent-sky-400" />
                 <span className="min-w-0 break-words [overflow-wrap:anywhere]">{c.label}</span>
               </label>
-              {blocked[c.id] !== undefined && <p className="ml-7 break-words text-xs font-normal text-orange-100">{blocked[c.id]}</p>}
+              {blocked[c.id] !== undefined && <p className="ml-7 break-words text-sm font-normal text-orange-100">{blocked[c.id]}</p>}
             </div>
           ))}
         </fieldset>
@@ -174,8 +174,8 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
           <button type="button" className={btn} onClick={() => void copy(out.text, fmt.label.toLowerCase())}>Copy text</button>
         </div>
         <label htmlFor="share-text" className="sr-only">Text to share</label>
-        <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-white/30 bg-black/60 p-2 font-mono text-xs font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        <p className="mb-4 text-xs font-normal text-white/70">Plain text and Markdown are run sheets: order, time, name, position, subs, filter. JSON keeps everything and can be imported again below.</p>
+        <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-white/30 bg-black/60 p-2 font-mono text-sm font-normal text-white focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        <p className="mb-4 text-sm font-normal text-white/70">Plain text and Markdown are run sheets: order, time, name, position, subs, filter. JSON keeps everything and can be imported again below.</p>
 
         <section aria-labelledby="share-print" className="mb-4 border-t border-white/10 pt-3">
           <h3 id="share-print" className="mb-1 text-base font-normal text-white">Print</h3>
@@ -204,7 +204,7 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => save(asi.file, asi.text, 'text/csv;charset=utf-8', false)}>Download file</button>
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => void copy(asi.text, 'the ASIAir CSV')}>Copy text</button>
           </div>
-          <p className="mt-2 text-xs font-normal text-white/70">
+          <p className="mt-2 text-sm font-normal text-white/70">
             Not yet tested on a real ASIAir. The format is copied from a real Telescopius export, and the ASIAir may not take unrelated targets as panes. The one test to run: in the ASIAir app open Plan, Add, Import, load the downloaded file (download works better than paste), and check that each pane arrives at the right RA and Dec. If it refuses the file, tick the box above and try again.
           </p>
         </section>

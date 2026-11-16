@@ -254,7 +254,7 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
         </svg>
       </div>
 
-      <ul className="mt-2 space-y-1 text-white/90 font-normal text-xs" aria-label="Chart key">
+      <ul className="mt-2 space-y-1 text-white/90 font-normal text-sm" aria-label="Chart key">
         <li>Numbers and thick lines: your slots. Faint line: the rest of that target&apos;s night.</li>
         <li>Dotted white line: changeover or wait between slots. Dashed orange line: minimum altitude {minAltitude}°.</li>
         <li>Dotted orange on a curve: under your horizon or minimum there. Dashed white line: your start.</li>
@@ -277,7 +277,7 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
 
       <details className="group mt-2" data-testid="timeline-numbers">
         <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-white/90 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
-        <table className="mt-1 w-full table-fixed text-left text-xs font-normal text-white/90">
+        <table className="mt-1 w-full table-fixed text-left text-sm font-normal text-white/90">
           <caption className="sr-only">Altitude and compass direction at the start, middle and end of each slot</caption>
           <thead>
             <tr>

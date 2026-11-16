@@ -1,4 +1,4 @@
-import { compass } from '@/planner/plan';
+import { compass, fitLabel } from '@/planner/plan';
 import type { PlanEntry, ScoreParts } from '@/planner/plan';
 import { DEFAULT_MIN_FRAME_PERCENT } from '@/planner/plan/rank';
 
@@ -41,10 +41,15 @@ export function sizeText(size: { major: number; minor: number } | undefined): st
   return size.major === size.minor ? arc(size.major) : `${arc(size.major)} × ${arc(size.minor)}`;
 }
 
+/** The fit in the words the page uses; the files keep `fitLabel`'s. */
+export function fitWords(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
+  return e.fit === 'fits' ? 'Fits your camera view' : e.fit === 'too-large' ? 'Too big for your camera view' : fitLabel(e);
+}
+
 /** What one target does on the chosen night, in words, from its entry in the one scoring: up and when best, or not up. */
 export function nightStatus(entry: PlanEntry, nightWord: string, formatTime: (d: Date) => string): string {
   if (entry.usableMinutes > 0) {
-    const fit = entry.fit === 'too-large' ? ' Larger than this frame.' : '';
+    const fit = entry.fit === 'too-large' ? ' Too big for your camera view.' : '';
     return `Up ${nightWord}: clear ${(entry.usableMinutes / 60).toFixed(1)} h, peak ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)} at ${formatTime(entry.peakTime)}. Score ${Math.round(entry.score.total)}.${fit}`;
   }
   return `Not up ${nightWord}: it peaks at ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)}, never clear of your horizon and minimum altitude.`;
@@ -87,10 +92,10 @@ export function fitReason(e: Pick<PlanEntry, 'fit' | 'percentOfFrame'>, size: { 
   const own = sizeText(size);
   // Round or squat objects can fit the long side and still miss the short one: say which side.
   if (e.fit === 'too-large' && size !== undefined && size.major <= field.long) {
-    return `Larger than this frame's short side: ${arc(size.minor)} vs ${arc(field.short)} (your frame ${frame})`;
+    return `Too big for your camera view (its short side): ${arc(size.minor)} vs ${arc(field.short)} (your view ${frame})`;
   }
-  if (e.fit === 'too-large') return `Larger than this frame: ${own} vs your ${frame}`;
-  return `Smaller than this frame can use: ${own} is under ${DEFAULT_MIN_FRAME_PERCENT}% of your ${frame}`;
+  if (e.fit === 'too-large') return `Too big for your camera view: ${own} vs your ${frame}`;
+  return `Too small for your camera view: ${own} is under ${DEFAULT_MIN_FRAME_PERCENT}% of your ${frame}`;
 }
 
 const PART_LABELS: readonly [keyof Omit<ScoreParts, 'total'>, string, boolean][] = [

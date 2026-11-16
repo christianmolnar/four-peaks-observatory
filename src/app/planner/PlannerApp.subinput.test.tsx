@@ -26,8 +26,8 @@ const app = async (targets: readonly object[]) => {
   return r;
 };
 const NAME = 'Andromeda Galaxy';
-const subBox = () => screen.getByLabelText(`Sub length (s) for ${NAME}`) as HTMLInputElement;
-const countBox = () => screen.getByLabelText(`Subs for ${NAME}`) as HTMLInputElement;
+const subBox = () => screen.getByLabelText(`Exposure per shot (seconds) for ${NAME}`) as HTMLInputElement;
+const countBox = () => screen.getByLabelText(`Number of shots for ${NAME}`) as HTMLInputElement;
 const numbers = () => screen.getByTestId('plan-numbers-m31').textContent ?? '';
 const parse = (text: string) => {
   const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) of light/.exec(text);

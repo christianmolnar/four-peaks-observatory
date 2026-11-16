@@ -138,7 +138,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
           Search
         </button>
       </form>
-      <p id={hintId} className="mt-1 text-white/60 font-normal text-xs">
+      <p id={hintId} className="mt-1 text-white/60 font-normal text-sm">
         Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}, the solar system (Moon and planets) on this device, as you type. Nothing is sent anywhere.
       </p>
 
@@ -153,7 +153,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
       )}
 
       {/* Always on the page, so a screen reader hears the count or the miss when the text in it changes. */}
-      <p aria-live="polite" className={`mt-3 min-h-4 font-normal ${notFound ? 'text-sm text-white/90' : 'text-xs text-white/70'}`}>{summary}</p>
+      <p aria-live="polite" className={`mt-3 min-h-4 font-normal ${notFound ? 'text-sm text-white/90' : 'text-sm text-white/70'}`}>{summary}</p>
       {(result !== null || bodies.length > 0) && (
         <div className="mt-1" data-testid="search-results">
           {notFound && renderNotFound !== undefined && (
@@ -206,7 +206,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                       >
                         {inPlan ? 'In plan' : 'Add to plan'}
                       </button>
-                      {added?.id === r.id && <span aria-hidden="true" className="mt-0.5 text-xs text-emerald-300">{added.text}</span>}
+                      {added?.id === r.id && <span aria-hidden="true" className="mt-0.5 text-sm text-emerald-300">{added.text}</span>}
                     </div>
                     {bodyOpen && (
                       <div id={`${uid}-body-${r.id}`} className="basis-full rounded border border-white/15 bg-black/40 p-3">
