@@ -165,8 +165,8 @@ describe('a stored profile this page cannot load is never written over (round 4)
     pickClass('Filters');
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
     expect(status()).not.toMatch(/Added/);
-    expect(within(screen.getByRole('region', { name: 'GEAR' })).getAllByRole('alert')).toHaveLength(1);
-    expect(within(screen.getByRole('region', { name: 'GEAR' })).getByRole('alert').textContent).toMatch(/Not saved\. Your saved gear could not be loaded/);
+    expect(status()).toMatch(/^Not saved\. Your saved gear is kept as it is/);
+    expect(within(screen.getByRole('region', { name: 'GEAR' })).queryAllByRole('alert')).toHaveLength(0); // the page's notice is the one alert
     expect(window.localStorage.getItem(PROFILE_KEY)).toBe(before);
     expect(ownCameraStored()).toBe(true);
   });
@@ -324,5 +324,138 @@ describe('smaller round 4 fixes', () => {
     expect(open.className).toMatch(/max-w-full/);
     expect(open.className).toMatch(/min-w-0/);
     expect(open.className).toMatch(/break-words/);
+  });
+});
+
+const RAW = /\bexpected\b|\bgot\b|allowed:|\$\./;
+
+describe('round 5: plain words for a held profile, no false Saved, one message', () => {
+  const heldWith = (edit: (raw: Record<string, any>) => unknown) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const raw = mine();
+    const out = edit(raw);
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(out === undefined ? raw : out));
+  };
+
+  it.each([
+    ['a version from a newer planner', (r: Record<string, unknown>) => { r.version = 99; }, 'It is version 99; this planner reads version 3 (and upgrades versions 1 and 2).'],
+    ['a read-noise class that is not one', (r: any) => { r.equipment.cameras[0].readNoiseClass = 'zzz'; }, 'read noise is saved as "zzz"; use low, medium or high.'], // eslint-disable-line @typescript-eslint/no-explicit-any
+    ['a field nobody knows', (r: Record<string, unknown>) => { r.extra = 1; }, 'has a field the planner does not know: "extra"'],
+    ['a profile that is a list', () => [1, 2, 3], 'not in the planner\u2019s format'],
+    ['a repeated id', (r: any) => { r.equipment.cameras.push({ ...r.equipment.cameras[0] }); }, 'which another camera already uses'], // eslint-disable-line @typescript-eslint/no-explicit-any
+  ])('%s: the notice, and the toast of a refused horizon Save, are plain', async (_n, edit, said) => {
+    heldWith(edit as (raw: Record<string, unknown>) => unknown);
+    await mount();
+    const box = screen.getByTestId('profile-held').textContent!;
+    expect(box).toContain(said);
+    expect(box).not.toMatch(RAW);
+    openGear();
+    fireEvent.click(screen.getByRole('button', { name: 'Add another zone' }));
+    for (const [id, v] of [['arc-start', '10'], ['arc-end', '40'], ['arc-height', '15']] as const) {
+      fireEvent.change(document.getElementById(`${id}-number`) as HTMLInputElement, { target: { value: v } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
+    expect(document.body.textContent).not.toMatch(RAW);
+  });
+
+  it('a held profile says why once: the Gear refusal is a short pointer, not a second copy of the notice', async () => {
+    heldWith((r) => { r.version = 99; });
+    await mount();
+    openGear();
+    pickClass('Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    const gear = status()!;
+    expect(within(screen.getByRole('region', { name: 'GEAR' })).queryAllByRole('alert')).toHaveLength(0);
+    expect(screen.getAllByRole('alert').filter((a) => a.getAttribute('data-testid') === 'profile-held')).toHaveLength(1);
+    expect(gear).toMatch(/^Not saved\./);
+    expect(gear.length).toBeLessThan(120);
+    expect(gear).not.toMatch(/Export profile|Reset all|could not be loaded/);
+    expect(screen.getByTestId('profile-held').textContent).toMatch(/Export profile/);
+  });
+
+  describe.each([
+    ['the disk is full', () => Object.assign(new Error('The quota has been exceeded.'), { name: 'QuotaExceededError' })],
+    ['storage is blocked', () => Object.assign(new Error('The operation is insecure.'), { name: 'SecurityError' })],
+  ])('%s', (_label, makeError) => {
+    it('a gear edit is not "Saved", and the section says it was not saved', async () => {
+      keep(mine());
+      await mount();
+      openGear();
+      const before = window.localStorage.getItem(PROFILE_KEY);
+      const set = Storage.prototype.setItem;
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+        if (k === PROFILE_KEY) throw makeError();
+        return set.call(this, k, v);
+      });
+      const form = openGearItem('Cameras', 0);
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      expect(status()).not.toMatch(/Saved/);
+      expect(within(screen.getByRole('region', { name: 'GEAR' })).getByRole('alert').textContent).toMatch(/^! Not saved, so this change is lost on reload: /);
+      pickClass('Filters');
+      fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+      expect(status()).not.toMatch(/Added|Saved/);
+      expect(window.localStorage.getItem(PROFILE_KEY)).toBe(before);
+    });
+  });
+
+  it('the no-usable-site page says a plan uses the site, not "Not used."', async () => {
+    const raw = mine();
+    raw.sites[0].latitude = -100;
+    keep(raw);
+    window.localStorage.setItem(
+      PLANS_KEY,
+      JSON.stringify({
+        version: 1,
+        openId: 'p1',
+        plans: [{ id: 'p1', name: 'Winter run', createdAt: '2026-12-01T00:00:00.000Z', updatedAt: '2026-12-01T00:00:00.000Z', date: '2026-12-15', siteId: raw.sites[0].id, trainId: raw.trains[0].id, startTime: null, targets: [], notes: '' }],
+      }),
+    );
+    await mount({ noSite: true });
+    pickClass('Sites');
+    const card = document.querySelector('[data-testid^="gear-card-sites:"]') as HTMLElement;
+    expect(card.textContent).toMatch(/Used by 1 plan: "Winter run"/);
+    expect(card.textContent).not.toMatch(/Not used\./);
+  });
+
+  it('a refused horizon Save says the other tab changed the gear once', async () => {
+    keep(mine());
+    await mount();
+    openGear();
+    pickClass('Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(addItem(stored(), 'cameras')));
+    const form = openGearItem('Cameras', 0);
+    fireEvent.change(within(form).getByLabelText(/^Name/), { target: { value: 'Renamed here' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' })); // refused: Gear says so
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(addItem(stored(), 'cameras'))); // the other tab saves again
+    fireEvent.click(screen.getByRole('button', { name: 'Add another zone' }));
+    for (const [id, v] of [['arc-start', '10'], ['arc-end', '40'], ['arc-height', '15']] as const) {
+      fireEvent.change(document.getElementById(`${id}-number`) as HTMLInputElement, { target: { value: v } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
+    const said = document.body.textContent!.split('Another tab changed your gear since this page last looked').length - 1;
+    expect(said).toBe(1);
+  });
+
+  it('the plan train note wraps a long name (320 px)', async () => {
+    const raw = mine();
+    raw.equipment.scopes.push({ id: 'wide', name: 'L'.repeat(80), focalLengthMm: 14, apertureMm: 5 });
+    raw.equipment.accessories.push({ id: 'red', name: 'R'.repeat(80), factor: 0.7 });
+    raw.trains.push({ kind: 'optical', id: 'wide-train', name: 'W'.repeat(80), scopeId: 'wide', accessoryIds: ['red'], cameraId: 'own-cam' });
+    keep(raw);
+    window.localStorage.setItem(
+      PLANS_KEY,
+      JSON.stringify({
+        version: 1,
+        openId: 'p1',
+        plans: [{ id: 'p1', name: 'Wide', createdAt: '2026-12-01T00:00:00.000Z', updatedAt: '2026-12-01T00:00:00.000Z', date: '2026-12-15', siteId: raw.sites[0].id, trainId: 'wide-train', startTime: null, targets: [], notes: '' }],
+      }),
+    );
+    await mount();
+    const note = screen.getByTestId('plan-train-note');
+    expect(note.textContent).toMatch(/under the 10 mm/);
+    const span = note.querySelector('span') as HTMLElement;
+    expect(span.className).toMatch(/min-w-0/);
+    expect(span.className).toMatch(/max-w-full/);
+    expect(span.className).toMatch(/break-words/);
   });
 });

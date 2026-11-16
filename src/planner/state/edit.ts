@@ -268,7 +268,7 @@ function checkTrains(profile: Profile, trains: TrainEntry[]): Profile {
   try {
     next = validateProfile({ ...profile, trains }, LENIENT);
   } catch (e) {
-    if (e instanceof ProfileError) throw new Error(e.message.slice(e.path.length + 2));
+    if (e instanceof ProfileError) throw new Error(profileProblemText(e, { ...profile, trains }));
     throw e;
   }
   for (const t of next.trains) resolveTrain(next, t); // throws, in words, for two HyperStar-type parts
@@ -331,7 +331,6 @@ export function assertImportSize(size: number): void {
 export function describeImportError(e: unknown, raw?: unknown): string {
   if (e instanceof ProfileError) {
     if (e.path === '$' && /not valid JSON/.test(e.message)) return `${NOT_A_PROFILE} It is not valid JSON.`;
-    if (e.path === '$.version') return `${NOT_A_PROFILE} ${e.message.slice(e.path.length + 2)}.`;
     return `${NOT_A_PROFILE} ${profileProblemText(e, raw)}`;
   }
   return `The file could not be read: ${(e as Error).message}`;

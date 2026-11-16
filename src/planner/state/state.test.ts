@@ -53,7 +53,7 @@ describe('profile storage', () => {
     const s = memory({ [PROFILE_KEY]: bad });
     const r = loadProfile(s);
     expect(r.error).toContain('Train "');
-    expect(r.error).toContain('unknown scope "gone". Your saved copy is kept as it is');
+    expect(r.error).toContain('no scope has the id "gone" in this profile. Your saved copy is kept as it is');
     expect(r.error).not.toContain('$.');
     expect(r.profile).toEqual(sampleProfile());
     expect(r.held).toBe(bad);

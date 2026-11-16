@@ -103,7 +103,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
       ))}
       {trainNote !== null && (
         <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="plan-train-note">
-          <span>{trainNote}</span>
+          <span className="min-w-0 max-w-full break-words">{trainNote}</span>
           <button type="button" className={btn} onClick={onChangeTrain}>Change train</button>
         </p>
       )}

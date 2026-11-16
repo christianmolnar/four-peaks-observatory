@@ -34,6 +34,8 @@ export interface ProfileEditorProps {
   onUseTrain: (id: string) => void;
   /** Each change of `tick` opens the Trains class on that train's form, with its Name focused (the page's "Change" next to the train). */
   openTrain?: { trainId: string; tick: number };
+  /** Each change of this number drops the refusal shown on the section: another part of the page has said it (a horizon Save), so it is not said twice. */
+  quiet?: number;
   /** Opens a saved plan (a refusal to remove its site or train offers it). */
   onOpenPlan: (id: string) => void;
   /** The class the section opens on; Trains when not given. */
@@ -42,6 +44,9 @@ export interface ProfileEditorProps {
 
 /** A refusal the Gear section has already put on screen (commit says it); a form that sees this one does not say it again. */
 class ShownError extends Error {}
+
+/** An edit refused because the saved gear could not be loaded. The page's notice says why; the Gear section only says "Not saved" on its status line, so the page has one alert, not two. */
+export class HeldGearError extends Error {}
 
 /** Which box a form takes the keyboard to when it appears: its Save (after saving) or its Name (a new item). */
 type FocusTo = 'save' | 'name' | null;
@@ -335,7 +340,7 @@ type Entry = { kind: 'item'; list: ListKey; item: { id: string; name: string } &
  * its items. Every Save goes through the profile validator; a refused edit leaves the profile as it was and shows the reason on the card.
  * Removing something a train or plan still uses is refused, in words, naming what uses it. The horizon has its own editor.
  */
-function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain, openTrain, onOpenPlan, startOn = 'trains' }: ProfileEditorProps) {
+function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseTrain, openTrain, onOpenPlan, quiet = 0, startOn = 'trains' }: ProfileEditorProps) {
   const [status, setStatus] = useState('');
   // The last removal, so the status line can offer one Undo while the profile is still the one that removal made.
   const [undo, setUndo] = useState<{ before: Profile; after: Profile; name: string } | null>(null);
@@ -350,6 +355,12 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   const [editing, setEditing] = useState<string>('');
   const [problem, setProblem] = useState<{ card: string; text: string; plan?: { id: string; name: string } } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const seenQuiet = useRef(quiet);
+  useEffect(() => {
+    if (quiet === seenQuiet.current) return;
+    seenQuiet.current = quiet;
+    setProblem((p) => (p !== null && p.card === '' ? null : p));
+  }, [quiet]);
   const [wantFind, setWantFind] = useState(0);
   const lastTick = useRef(findSite?.tick ?? 0);
   // A new request opens the Sites class on that site's form; once built, its Find box takes focus and the editor scrolls into view.
@@ -391,6 +402,11 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
     try {
       onChange(next);
     } catch (e) {
+      if (e instanceof HeldGearError) {
+        setStatus(e.message);
+        setProblem(null);
+        throw new ShownError(e.message);
+      }
       setStatus(''); // the last "Saved ..." is not the news now
       setProblem({ card: '', text: (e as Error).message });
       throw new ShownError((e as Error).message);

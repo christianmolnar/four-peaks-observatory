@@ -96,8 +96,9 @@ import type { PlanTimelineReport } from './PlanTimeline';
 import { ITINERARY_KEY, MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
-import ProfileEditor from './ProfileEditor';
+import ProfileEditor, { HeldGearError } from './ProfileEditor';
 import { missingOf } from '@/planner/state/gear';
+import type { PlanRef } from '@/planner/state/gear';
 import { problemText, reducedFocalNote, siteProblems, usableSites } from '@/planner/profile';
 import ResetAll from './ResetAll';
 import OpenPlan from './OpenPlan';
@@ -157,7 +158,7 @@ function readPlansText(): string | null {
 class StaleGearError extends Error {}
 
 /** Why a gear edit is refused while the saved gear could not be loaded. */
-const HELD_REFUSAL = 'Not saved. Your saved gear could not be loaded, so the page shows the sample and keeps your saved copy as it is. Use Export profile to keep the copy, then Reset all or import a corrected file to replace it.';
+const HELD_REFUSAL = 'Not saved. Your saved gear is kept as it is (the notice at the top of the page says why and what to do).';
 
 /** What the page says when another tab has reset the saved data. */
 const RESET_ELSEWHERE = 'The plans were reset in another tab, so this page starts fresh too.';
@@ -253,6 +254,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [importError, setImportError] = useState<string | null>(null);
   /** Saved gear this page could not load (the sample is shown instead): its text and what is wrong with it. Never written over by an edit; only Reset all or an import replaces it. */
   const [profileHeld, setProfileHeld] = useState<{ text: string; why: string } | null>(null);
+  /** The saved plans' sites and trains, read while the page has no site it can use (the plans are not opened then), so Gear still knows what they use. */
+  const [savedRefs, setSavedRefs] = useState<PlanRef[]>([]);
+  /** Bumped when a horizon Save refuses and says so itself: the Gear section drops an older refusal, so the sentence shows once. */
+  const [gearQuiet, setGearQuiet] = useState(0);
   // The saved plans and which one is open. The open plan owns the night's date, site and train (and its targets); null until the saved ones are read.
   const [plans, setPlans] = useState<PlansState | null>(null);
   const plansRef = useRef<PlansState | null>(null);
@@ -528,6 +533,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const open = state.plans.find((p) => p.id === state.openId)!;
       const openSite = loadedUsable.find((x) => x.id === open.siteId) ?? loadedUsable[0];
       if (openSite && openSite.id !== home.id) loadForm(openSite.blockedArcs, true);
+      setSavedRefs([]);
+    } else {
+      // No site to plan for: the plans are not opened, but what they use is read so a site card never says "Not used." for a site a plan uses.
+      try {
+        const r = loadPlans(window.localStorage, startDate, nightDateText);
+        setSavedRefs(r.state?.plans.map((p) => ({ id: p.id, name: p.name, siteId: p.siteId, trainId: p.trainId })) ?? []);
+      } catch (e) {
+        setSavedRefs([]);
+        setNotice((e as Error).message);
+      }
     }
   }, [initialDate, initialProfile, cutNames]);
   useEffect(() => loadAll(), [loadAll]);
@@ -589,7 +604,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   /** Throws, in words, when another tab saved gear since this page last looked: this page then shows that gear and the edit is not made. */
   const refuseIfStale = () => {
-    if (profileHeld !== null) throw new StaleGearError(HELD_REFUSAL);
+    if (profileHeld !== null) throw new HeldGearError(HELD_REFUSAL);
     const stored = readProfileText();
     if (stored !== null && stored !== profileText.current) {
       if (adoptProfile(stored)) {
@@ -605,9 +620,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     try {
       storeProfile(next);
     } catch (e) {
-      setProfile(next);
-      setNotice(`Edit not saved, so it is lost on reload: ${(e as Error).message}`);
-      return;
+      setProfile(next); // the edit stays on screen for this visit, said as not saved; the editor clears its "Saved" line and shows this
+      throw new Error(`Not saved, so this change is lost on reload: ${(e as Error).message}`);
     }
     setProfile(next);
     // The page had no site it could use and this edit gave it one: read the page's state again from what is now stored, as a reload would.
@@ -1052,7 +1066,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
 
   /** What each saved plan points at, for the Gear section's "used by" check. */
-  const planRefs = useMemo(() => plans?.plans.map((p) => ({ id: p.id, name: p.name, siteId: p.siteId, trainId: p.trainId })) ?? [], [plans]);
+  const planRefs = useMemo(() => plans?.plans.map((p) => ({ id: p.id, name: p.name, siteId: p.siteId, trainId: p.trainId })) ?? savedRefs, [plans, savedRefs]);
   /** The open plan's site or train that is no longer in the gear: said in the plan, with what is shown instead; nothing is changed until the user keeps or picks one. */
   const staleNotes = useMemo(() => {
     const m = missingOf(profile, open);
@@ -1095,8 +1109,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       setBases(arcs);
       setJustSaved(true);
     } catch (e) {
-      if (e instanceof StaleGearError) {
-        setNotice(e.message); // the gear editor shows it on its own refusals; this save is in the horizon editor
+      if (e instanceof StaleGearError || e instanceof HeldGearError) {
+        setNotice(e.message); // the gear editor shows it on its own refusals; this save is in the horizon editor, so an older copy there goes
+        setGearQuiet((n) => n + 1);
         return;
       }
       setNotice(`Not saved: ${e instanceof ProfileError ? profileProblemText(e, profile) : (e as Error).message}`);
@@ -2158,6 +2173,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       <ProfileEditor
         profile={profile}
         onChange={applyProfile}
+        quiet={gearQuiet}
         findSite={{ siteId: site.id, tick: findSiteTick }}
         plans={planRefs}
         openTrainId={train.id}

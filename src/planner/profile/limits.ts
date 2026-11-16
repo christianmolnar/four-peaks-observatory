@@ -18,14 +18,17 @@ export interface GearLimit {
 /** Longest name a gear item, train or site may have; the cards and the print sheet are made for names of this size. */
 export const MAX_NAME_CHARS = 80;
 
+/** The focal length of a scope and of a whole train (reducers and extenders included): one range, so the two cannot drift apart. */
+const FOCAL_LENGTH_MM = { min: 10, max: 10000 } as const;
+
 export const GEAR_LIMITS = {
-  focalLengthMm: { min: 10, max: 10000, unit: 'mm', noun: 'focal length' },
+  focalLengthMm: { ...FOCAL_LENGTH_MM, unit: 'mm', noun: 'focal length' },
   apertureMm: { min: 5, max: 1000, unit: 'mm', noun: 'aperture' },
   pixelSizeUm: { min: 1, max: 25, unit: 'µm', noun: 'pixel size' },
   sensorWidthPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor width' },
   sensorHeightPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor height' },
   factor: { min: 0.2, max: 5, unit: '', noun: 'focal length factor' },
-  effectiveFocalLengthMm: { min: 10, max: 10000, unit: 'mm', noun: 'whole-scope focal length' },
+  effectiveFocalLengthMm: { ...FOCAL_LENGTH_MM, unit: 'mm', noun: 'whole-scope focal length' },
   sizeMm: { min: 10, max: 100, unit: 'mm', noun: 'filter size' },
   passbandWidthNm: { min: 0.1, max: 1000, unit: 'nm', noun: 'total passband width' },
   narrowestBandNm: { min: 0.1, max: 1000, unit: 'nm', noun: 'narrowest band' },
