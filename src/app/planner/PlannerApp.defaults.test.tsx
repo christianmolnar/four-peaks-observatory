@@ -69,10 +69,10 @@ describe('planner defaults', () => {
 
   it('shows only targets that fit the Train, and the toggle adds the ones that do not fit in a group of their own', async () => {
     await app();
-    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Does not fit this camera view/ })).toBeNull();
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
     await ready();
-    expect(screen.getByRole('button', { name: /^Does not fit this frame \(\d+\)/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Does not fit this camera view \(\d+\)/ })).toBeTruthy();
     expect(screen.getByTestId('target-list').textContent).not.toContain('Too large');
   });
 });

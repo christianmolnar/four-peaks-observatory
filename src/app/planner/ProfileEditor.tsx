@@ -483,8 +483,8 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   const addButtons: { label: string; run: () => void }[] =
     cls === 'trains'
       ? [
-          { label: 'Add setup', run: () => tryAdd(() => addTrain(profile, 'optical'), 'Added a train. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
-          { label: 'Add smart-scope setup', run: () => tryAdd(() => addTrain(profile, 'smart'), 'Added a smart-scope train. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
+          { label: 'Add setup', run: () => tryAdd(() => addTrain(profile, 'optical'), 'Added a setup. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
+          { label: 'Add smart-scope setup', run: () => tryAdd(() => addTrain(profile, 'smart'), 'Added a smart-scope setup. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
         ]
       : cls === 'scopes'
         ? [

@@ -21,7 +21,7 @@ const app = async (profile = narrow()) => {
 };
 
 const toggle = () => screen.getByRole('checkbox', { name: 'Show targets that do not fit' }) as HTMLInputElement;
-const group = () => screen.getByRole('button', { name: /^Does not fit this frame \(\d+\)/ });
+const group = () => screen.getByRole('button', { name: /^Does not fit this camera view \(\d+\)/ });
 
 afterEach(cleanup);
 
@@ -29,7 +29,7 @@ describe('targets that do not fit the chosen train', () => {
   it('are left out by default, and the note says how many and which, without a second control', async () => {
     await app();
     expect(toggle().checked).toBe(false);
-    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Does not fit this camera view/ })).toBeNull();
     const note = screen.getByTestId('hidden-note').textContent as string;
     expect(note).toMatch(/do not fit your camera view: too big for it \(\d+\)/);
     expect(note).toContain('Tick “Show targets that do not fit” to list them.');
@@ -51,7 +51,7 @@ describe('targets that do not fit the chosen train', () => {
     const count = Number(/\((\d+)\)/.exec(header.textContent as string)![1]);
     expect(count).toBeGreaterThan(0);
     expect(count).toBeLessThanOrEqual(tooLarge + tooSmall);
-    expect(screen.getByTestId('hidden-note').textContent).toMatch(new RegExp(`Showing ${count} targets that do not fit this frame in the group below the list`));
+    expect(screen.getByTestId('hidden-note').textContent).toMatch(new RegExp(`Showing ${count} targets that do not fit this camera view in the group below the list`));
     // The group follows the list in the page, and the list itself did not change.
     expect(screen.getByTestId('target-list').compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -90,7 +90,7 @@ describe('targets that do not fit the chosen train', () => {
     expect(screen.queryByTestId('hidden-note')).toBeNull();
     fireEvent.click(toggle());
     await ready();
-    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Does not fit this camera view/ })).toBeNull();
   });
 
   it('under Type = Solar system the note and the group are not shown (nothing deep-sky listed there)', async () => {
@@ -99,6 +99,6 @@ describe('targets that do not fit the chosen train', () => {
     await ready();
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'solar-system' } });
     expect(screen.queryByTestId('hidden-note')).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Does not fit this frame/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Does not fit this camera view/ })).toBeNull();
   });
 });

@@ -74,7 +74,7 @@ describe('Night timeline', () => {
     const li = slots()[0];
     expect(li.textContent).toMatch(/\d\d:\d\d to \d\d:\d\d \(estimate\)/);
     expect(li.textContent).toMatch(/Light: \d+ s x \d+ subs = [\d.]+ min \(estimate\)\./);
-    expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light \d+ min, changeover 0 min, waiting 0 min; 0 filter changes, 0 train changes; ends \d\d:\d\d\. All estimates\.$/);
+    expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light \d+ min, changeover 0 min, waiting 0 min; 0 filter changes, 0 setup changes; ends \d\d:\d\d\. All estimates\.$/);
     expect(screen.getByTestId('itinerary-why').textContent).toMatch(/Why this order: One slot to place\./);
   });
 

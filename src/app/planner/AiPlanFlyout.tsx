@@ -83,7 +83,7 @@ interface Done {
 
 const UNREADABLE = Symbol('unreadable');
 
-const PART_LABELS: Record<string, string> = { night: 'the night', site: 'the site', train: 'the train', plan: 'the plan', sky: 'the horizon or minimum altitude' };
+const PART_LABELS: Record<string, string> = { night: 'the night', site: 'the site', train: 'the setup', plan: 'the plan', sky: 'the horizon or minimum altitude' };
 
 /** The request as the page would send it now, split by what the user chose: the stale marker names what moved. */
 function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
@@ -305,7 +305,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
       : done.result.status !== 'verified'
         ? 'This plan was not fully checked, so it cannot be used as your plan.'
         : train.kind !== 'optical'
-          ? 'Pick an optical train at the top of the page: a smart scope plans its own exposures.'
+          ? 'Pick an optical setup at the top of the page: a smart scope plans its own exposures.'
           : done.result.plan.plan.length === 0
             ? 'This plan has no slots.'
             : done.result.plan.plan.length > MAX_SLOTS
@@ -327,7 +327,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
       aria-modal="true"
       aria-labelledby="ai-plan-heading"
       data-testid="ai-flyout"
-      className="fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
+      className="planner-root fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
     >
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
         <h2 id="ai-plan-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-white focus:outline-none">

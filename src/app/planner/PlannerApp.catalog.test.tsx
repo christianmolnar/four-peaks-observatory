@@ -124,9 +124,9 @@ describe('tonight\'s list over the whole catalog', () => {
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
     await ready();
     expect(listNames()).not.toContain('Andromeda Galaxy'); // below the list, not in it
-    fireEvent.click(screen.getByRole('button', { name: /^Does not fit this frame/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Does not fit this camera view/ }));
     expect(listRows('nofit-list').map(rowName)).toContain('Andromeda Galaxy');
-    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing \d+ targets that do not fit this frame in the group below the list/);
+    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing \d+ targets that do not fit this camera view in the group below the list/);
   });
 
   it('a catalog object shows no season column and no "Not listed"; its row opens in place with the chart', async () => {

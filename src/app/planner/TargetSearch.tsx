@@ -29,7 +29,7 @@ interface Row {
 function outsideTheList(type: string, entry: PlanEntry): string {
   if (NON_IMAGING_TYPES.includes(type)) return 'Double stars are not ranked, so it is not in the list.';
   if (entry.fit === 'too-large') return 'Tick “Show targets that do not fit” to list it.';
-  if (entry.percentOfFrame !== null && entry.percentOfFrame < DEFAULT_MIN_FRAME_PERCENT) return `Under ${DEFAULT_MIN_FRAME_PERCENT}% of this frame, so it is not in the list unless you tick “Show targets that do not fit”.`;
+  if (entry.percentOfFrame !== null && entry.percentOfFrame < DEFAULT_MIN_FRAME_PERCENT) return `Under ${DEFAULT_MIN_FRAME_PERCENT}% of the camera view, so it is not in the list unless you tick “Show targets that do not fit”.`;
   return 'Below the best 100, so it is not in the list.';
 }
 

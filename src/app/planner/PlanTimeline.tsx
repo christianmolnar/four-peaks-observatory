@@ -253,7 +253,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
       <p className="text-white/80 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
         {shown.length === 0
           ? 'No slots yet.'
-          : `Light ${lightMinutes(plan)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} train ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
+          : `Light ${lightMinutes(plan)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} setup ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
       </p>
 
       <div className="mt-4">
@@ -369,7 +369,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
               heading={`Slot 8 details: ${longestName}`}
               changeover={[
                 { label: 'slew and centre', minutes: 88 },
-                { label: 'train change', minutes: 88 },
+                { label: 'setup change', minutes: 88 },
                 { label: 'filter change', minutes: 88 },
                 { label: 'refocus', minutes: 88 },
               ]}

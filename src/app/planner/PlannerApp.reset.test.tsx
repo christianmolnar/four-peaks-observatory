@@ -56,10 +56,10 @@ describe('Reset all', () => {
     expect(box).toBeTruthy();
     for (const line of RESET_LOSES) expect(within(box).getByText(line)).toBeTruthy();
     expect(box.textContent).toMatch(/sites.*horizon.*Minimum altitude/);
-    expect(box.textContent).toMatch(/scopes, cameras, filters, accessories and trains/);
+    expect(box.textContent).toMatch(/scopes, cameras, filters, accessories and setups/);
     expect(box.textContent).toMatch(/Your plans: every saved plan/);
     expect(box.textContent).not.toMatch(/itinerary/i);
-    expect(box.textContent).toMatch(/remembered site and train choice/);
+    expect(box.textContent).toMatch(/remembered site and setup choice/);
     expect(document.activeElement).toBe(within(box).getByRole('button', { name: 'Cancel' }));
     expect(confirm).not.toHaveBeenCalled();
     expect(SEEDED.every((k) => window.localStorage.getItem(k) !== null)).toBe(true); // opening changes nothing

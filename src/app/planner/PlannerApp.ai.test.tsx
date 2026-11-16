@@ -503,9 +503,9 @@ describe('a stale plan', () => {
     await readyOpen();
     await planned();
     fireEvent.change(screen.getByLabelText('Setup'), { target: { value: 'deep-c11-reducer-533' } });
-    expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the train after/);
+    expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the setup after/);
     fireEvent.change(screen.getByLabelText('Evening of'), { target: { value: '2026-12-16' } });
-    expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the night and the train after/);
+    expect(screen.getByTestId('ai-stale').textContent).toMatch(/you changed the night and the setup after/);
   });
 
   it('is marked when the site changes', async () => {
@@ -711,7 +711,7 @@ describe('Use this plan', () => {
     await readyOpen();
     await planned();
     expect(apply().disabled).toBe(true);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/optical train/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/optical setup/);
   });
 });
 

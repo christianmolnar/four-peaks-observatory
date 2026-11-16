@@ -32,11 +32,11 @@
 
   /*
    * The imaging planner (page root `.planner-root`) reads better heavier than the site's extra-light 200: body 400, labels 500, headings 300.
-   * The site rules above stay as they are everywhere else. `.planner-root x` outranks the site's bare `x` rule, so !important wins here;
+   * The site rules above stay as they are everywhere else. `.planner-root` (a class) outranks the site's bare `div` rule, both !important, so the root itself computes to 400; the Share sheet and AI flyout carry the class too;
    * the weight utilities the planner's markup already names (font-medium, ...) are honoured again inside it.
    */
   .planner-root {
-    font-weight: 400;
+    font-weight: 400 !important;
   }
   .planner-root :is(p, span, div) {
     font-weight: inherit !important;

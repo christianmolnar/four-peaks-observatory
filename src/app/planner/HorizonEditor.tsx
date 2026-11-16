@@ -297,7 +297,7 @@ export default function HorizonEditor({
               </div>
               <p className="text-white/80 font-normal text-sm leading-5 mt-3">{summary}</p>
               <p className="text-white/75 font-normal text-sm leading-5 mt-3">
-                Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone is blocked from its first number clockwise to its second, and may cross north and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
+                Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone is blocked from its first number clockwise to its second, and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
               </p>
             </div>
           </div>

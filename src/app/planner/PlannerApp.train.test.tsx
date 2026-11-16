@@ -40,7 +40,7 @@ describe('default train', () => {
     mount({ initialProfile: sampleProfile() });
     await ready();
     expect(train().value).toBe('planet-c11-676');
-    expect(screen.getByTestId('planetary-note').textContent).toMatch(/^This train is set up for the solar system/);
+    expect(screen.getByTestId('planetary-note').textContent).toMatch(/^This setup is for the solar system/);
   });
 });
 

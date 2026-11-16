@@ -91,7 +91,7 @@ describe('the Type selector', () => {
     expect(optionCount('planetary-nebulae')).toBe(1);
     expect(optionText('open-clusters')).toBe(`Open clusters · 5 fit ${WORD}`);
     // Up but larger than this frame: said so, and still pickable (the list below explains it).
-    expect(optionText('supernova-remnants')).toBe('Supernova remnants · 1 up, none fit this frame');
+    expect(optionText('supernova-remnants')).toBe('Supernova remnants · 1 up, none fit this camera view');
     expect((screen.getByRole('option', { name: /^Supernova remnants/ }) as HTMLOptionElement).disabled).toBe(false);
     // Nothing up at all: said so, not pickable, and the reason is in the option's title.
     expect(optionText('galaxy-groups')).toBe(`Galaxy groups and pairs · none up ${WORD}`);
@@ -107,10 +107,10 @@ describe('the Type selector', () => {
     await ready();
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 too big for your camera view.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this camera view are up ${WORD}: 1 too big for your camera view.`);
     expect(typeSelect().value).toBe('supernova-remnants');
     fireEvent.click(screen.getByLabelText(/show targets that do not fit/i));
-    await screen.findByRole('button', { name: /^Does not fit this frame \(1\)/ });
+    await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
     expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\.$/);
   });
 
@@ -181,10 +181,10 @@ describe('the list for a type', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'deep-c11-reducer-533', typeId: 'supernova-remnants' }));
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
-    expect(empty.textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: 1 too big for your camera view.`);
+    expect(empty.textContent).toBe(`No supernova remnants that fit this camera view are up ${WORD}: 1 too big for your camera view.`);
     expect(screen.getByTestId('hidden-note').textContent).toMatch(/Big Remnant does not fit your camera view/);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
-    await screen.findByRole('button', { name: /^Does not fit this frame \(1\)/ });
+    await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
     expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\.$/);
     expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing 1 targets that do not fit/);
   });
@@ -382,7 +382,7 @@ describe('over the real catalog', () => {
       const up = direct(targets, g.types as string[], trainId, false).length;
       const opt = screen.getByRole('option', { name: new RegExp(`^${g.label}`) }) as HTMLOptionElement;
       if (fit > 0) expect(opt.textContent).toBe(`${g.label} · ${fit} fit ${WORD}`);
-      else if (up > 0) expect(opt.textContent).toBe(`${g.label} · ${up} up, none fit this frame`);
+      else if (up > 0) expect(opt.textContent).toBe(`${g.label} · ${up} up, none fit this camera view`);
       else expect(opt.textContent).toBe(`${g.label} · none up ${WORD}`);
       expect(opt.disabled).toBe(up === 0);
     }
@@ -391,9 +391,9 @@ describe('over the real catalog', () => {
     expect(direct(targets, ['supernova-remnant'], trainId)).toHaveLength(0);
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this frame are up ${WORD}: ${snr} too big for your camera view.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this camera view are up ${WORD}: ${snr} too big for your camera view.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
-    await screen.findByRole('button', { name: new RegExp(`^Does not fit this frame \\(${snr}\\)`) });
+    await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) });
     expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\./);
   }, 120000);
 

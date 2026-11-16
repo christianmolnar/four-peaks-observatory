@@ -434,7 +434,7 @@ describe('the two tabs', () => {
     expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
   });
 
-  it('"Change train" (the plan mixes a deep-sky train and a planet) focuses the Train select in the strip, on the Plan tab', async () => {
+  it('"Change train" (the plan mixes a deep-sky setup and a planet) focuses the Train select in the strip, on the Plan tab', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter'] }));
     const user = userEvent.setup();
     await app();

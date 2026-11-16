@@ -166,7 +166,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
 
   return (
     <div className="mt-2 space-y-1" data-testid={`plan-exposure-${id}`}>
-      <div role="group" aria-label={`Exposure preset for ${name}`} className="grid grid-cols-2 gap-1 min-[360px]:grid-cols-4">
+      <div role="group" aria-label={`Exposure preset for ${name}`} className="grid grid-cols-2 gap-1 min-[420px]:grid-cols-4">
         {([...MODE_ORDER, 'custom'] as const).map((p) => (
           <button
             key={p}
@@ -203,7 +203,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
             <p role="alert" className="text-sm font-normal text-orange-200" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
           )}
           <p className="text-sm font-normal text-white/90" data-testid={`plan-numbers-${id}`}>
-            <span data-testid="plan-figure" className="block font-medium text-white">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
+            <span data-testid="plan-figure" className="block font-medium text-white/90">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
             <span className="sr-only"> · </span>{chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
             {chosen.finish !== null && <> · finish about {formatTime(chosen.finish)} if it starts when the target is up</>}
           </p>

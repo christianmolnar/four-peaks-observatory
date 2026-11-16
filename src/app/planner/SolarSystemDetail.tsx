@@ -143,7 +143,7 @@ function SolarSystemPanel({
       </h4>
       <div id={listId} hidden={!listOpen}>
       {listOpen && (guide === null ? (
-        <p className="text-white/90 font-normal text-sm">{info.missing ?? 'The guide needs an optical train with a telescope aperture.'}</p>
+        <p className="text-white/90 font-normal text-sm">{info.missing ?? 'The guide needs an optical setup with a telescope aperture.'}</p>
       ) : (
         guide.map((section) => (
           <fieldset key={section.id} className="mb-3">

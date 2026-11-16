@@ -64,6 +64,10 @@ describe('plan first', () => {
     await u.click(within(empty).getByRole('button', { name: 'Add top 3' }));
     expect(planRowItems()).toHaveLength(3);
     expect(screen.queryByTestId('plan-empty')).toBeNull();
+    // The pressed button is gone: the keyboard is on the first added row's Remove, not the page body.
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.id).toMatch(/^plan-remove-/);
+    expect(planRowItems()[0].contains(document.activeElement)).toBe(true);
   });
 
   it('the plan\'s own rows come before every ranked row, so Add never scrolls the plan away', async () => {
@@ -83,14 +87,11 @@ describe('readable type', () => {
     expect(container.querySelector('.planner-root')!.contains(screen.getByTestId('plans-bar'))).toBe(true);
   });
 
-  it('globals.css gives .planner-root body 400, labels 500, headings 300 and leaves the site rule alone', () => {
-    const css = readFileSync('src/app/globals.css', 'utf8');
-    expect(css).toMatch(/h1, h2, h3, h4, h5, h6, p, span, div \{\s*font-weight: 200 !important;/);
-    const planner = css.slice(css.indexOf('.planner-root'));
-    expect(planner).toMatch(/\.planner-root \{\s*font-weight: 400;/);
-    expect(planner).toMatch(/\.planner-root :is\(p, span, div\) \{\s*font-weight: inherit !important;/);
-    expect(planner).toMatch(/\.planner-root :is\(label, legend, summary, th, dt\) \{\s*font-weight: 500 !important;/);
-    expect(planner).toMatch(/\.planner-root :is\(h1, h2, h3, h4, h5, h6\) \{\s*font-weight: 300 !important;/);
+  // The weight cascade itself is proved in a real browser (computed weights per tab), not by matching CSS text; jsdom does not resolve it.
+  it('the Share sheet and the AI flyout, which render outside the page root, carry the planner root class', () => {
+    for (const f of ['ShareSheet.tsx', 'AiPlanFlyout.tsx']) {
+      expect(readFileSync(`src/app/planner/${f}`, 'utf8')).toMatch(/data-testid="(share-sheet|ai-flyout)"\s+className="planner-root /);
+    }
   });
 
   it('the print sheet cells print normal weight and black', async () => {
@@ -203,12 +204,12 @@ describe('plain labels', () => {
 });
 
 describe('mode chips and the row figure', () => {
-  it('the four chips are a 2 x 2 grid below 360 px and one row from 360 px', async () => {
+  it('the four chips are a 2 x 2 grid below 420 px and one row from 420 px', async () => {
     mount(TARGETS);
     await listReady();
     const group = screen.getAllByRole('group', { name: /^Exposure preset for / })[0];
     expect(group.className).toContain('grid-cols-2');
-    expect(group.className).toContain('min-[360px]:grid-cols-4');
+    expect(group.className).toContain('min-[420px]:grid-cols-4');
   });
 
   it('"N s × M subs" is its own line before the long sentence, and the sentence keeps every number', async () => {

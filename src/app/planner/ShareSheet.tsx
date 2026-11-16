@@ -136,7 +136,7 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
       aria-modal="true"
       aria-labelledby="share-heading"
       data-testid="share-sheet"
-      className="fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
+      className="planner-root fixed inset-0 z-[60] flex flex-col bg-slate-950 text-white shadow-2xl print:hidden md:inset-y-0 md:left-auto md:right-0 md:w-[32rem] md:max-w-[90vw] md:border-l md:border-white/20"
     >
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
         <h2 id="share-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-white focus:outline-none">

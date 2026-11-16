@@ -202,7 +202,7 @@ function NoFitNote({ counts, hidden, showNoFit, listed, nightWord }: { counts: R
     <div className="mb-3 space-y-1 text-white/80 font-normal text-sm" data-testid="hidden-note">
       {showNoFit ? (
         <p>
-          Showing {listed} targets that do not fit this frame in the group below the list
+          Showing {listed} targets that do not fit this camera view in the group below the list
           {listed < total ? ` (${listed} of ${total}: only targets that are up ${nightWord} are listed)` : ''}.
         </p>
       ) : (
@@ -323,6 +323,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [added, setAdded] = useState<{ id: string; text: string; say: string } | null>(null);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
+  // The empty plan's "Add top 3" button unmounts once rows appear: the keyboard goes to the first added row's Remove (else the plan heading), never the page body.
+  const focusAfterTopThree = useRef<string | null>(null);
+  useEffect(() => {
+    if (focusAfterTopThree.current === null) return;
+    const el = document.getElementById(`plan-remove-${focusAfterTopThree.current}`) ?? document.getElementById('open-plan-heading');
+    if (el === null) return;
+    focusAfterTopThree.current = null;
+    el.focus();
+  });
   const [zone, setZone] = useState<string>('');
   // The sticky strip: closed it is one line (date, site, train); open it holds the controls. The page's fixed header and the strip
   // are measured so the column titles and anchors stop below them.
@@ -994,7 +1003,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (place >= 0) return `#${place + 1} in the list below.`;
     if (planetGroup.some((e) => e.id === id)) return 'Listed under Solar system below.';
     if (notUpGroup.some((e) => e.id === id)) return 'Listed under Solar system, Not up, below.';
-    if (noFitList.some((e) => e.id === id)) return 'Listed under “Does not fit this frame” below.';
+    if (noFitList.some((e) => e.id === id)) return 'Listed under “Does not fit this camera view” below.';
     return undefined;
   };
 
@@ -1252,6 +1261,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (picks.length === 0) return;
     if (!editOpen({ targets: [...planTargets, ...picks.map((e): PlanTargetRef => newRef(e.id))] })) return;
     if (findIsOpen) setFindOpen(true);
+    if (planIds.length === 0) focusAfterTopThree.current = picks[0].id;
     const first = planIds.length + 1;
     const last = planIds.length + picks.length;
     const places = picks.length === 1 ? `#${first}` : `#${first} to #${last}`;
@@ -1530,7 +1540,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   const favoriteText = (id: string): string => {
     const fav = favoriteOf(favs.state, id);
-    return fav === null ? '' : `Favorite saved: ${fav.subCount} x ${fav.subSeconds} s (${fav.trainName === '' ? 'no train named' : fav.trainName}, ${fav.filterName})`;
+    return fav === null ? '' : `Favorite saved: ${fav.subCount} x ${fav.subSeconds} s (${fav.trainName === '' ? 'no setup named' : fav.trainName}, ${fav.filterName})`;
   };
   /**
    * The open plan's sheet. Times, sub length, sub count and light of a row are the timeline's own slot (so a sheet, a file and the night timeline agree);
@@ -1699,7 +1709,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const unresolved = planItems.length - planets - aiTargets.length;
   const aiBlocked =
     staleNotes.length > 0
-      ? 'This plan was made with a train or site that is no longer in your gear. Keep the one shown or change it first.'
+      ? 'This plan was made with a setup or site that is no longer in your gear. Keep the one shown or change it first.'
       : planIds.length === 0
       ? 'Add at least one target to the plan first.'
       : !hasNight
@@ -1808,9 +1818,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The plan mixes kinds when the train is for one and the open plan holds the other (adding is never blocked, the train never switches by itself).
   const trainNote =
     planetary && planItems.some((p) => p.body === undefined)
-      ? 'The plan mixes a solar-system train and deep-sky targets.'
+      ? 'The plan mixes a solar-system setup and deep-sky targets.'
       : !planetary && planets > 0
-        ? 'The plan mixes a deep-sky train and solar-system bodies.'
+        ? 'The plan mixes a deep-sky setup and solar-system bodies.'
         : reducedFocalNote(profile, train);
   // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
   const deepTrain = planetary ? (profile.trains.find((t) => t.kind === 'optical' && t.tag !== 'planetary') ?? profile.trains.find((t) => t.kind === 'smart')) : undefined;
@@ -1883,13 +1893,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (window.location.hash !== '#gear') window.history.pushState(null, '', '#gear');
     setFindSiteTick((n) => n + 1);
   };
-  /** Why a type has no list: nothing up long enough, or everything that is up is the wrong size for this frame. */
+  /** Why a type has no list: nothing up long enough, or everything that is up is the wrong size for camera view. */
   const emptyText = (notFit: RankResult['typeNotFit']): string => {
     const what = group.id === 'all' ? 'targets' : group.noun;
     // Only what is up is said: a type's catalog-wide too-large count would claim objects that never rise.
     const up = groupNotFit(group, notFit);
     const wrongSize = [up.tooLarge > 0 ? `${up.tooLarge} too big for your camera view` : '', up.tooSmall > 0 ? `${up.tooSmall} too small for your camera view` : ''].filter((x) => x !== '');
-    if (wrongSize.length > 0) return `No ${what} that fit this frame are up ${nightWord}: ${wrongSize.join(' and ')}.${showNoFit ? ' They are listed below.' : ''}`;
+    if (wrongSize.length > 0) return `No ${what} that fit this camera view are up ${nightWord}: ${wrongSize.join(' and ')}.${showNoFit ? ' They are listed below.' : ''}`;
     return `No ${what} are up long enough ${nightWord}, above your horizon and minimum altitude.`;
   };
   /** The Add top 3 row above a ranked list: the button, and in words what it did or why it cannot. */
@@ -2162,7 +2172,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
                   const noneFit = n === 0 && wrong !== null && wrong.tooLarge + wrong.tooSmall > 0;
                   // Up but nothing fits is said so and stays pickable (the list explains it); a choice with nothing up at all is shown, said so
                   // and not pickable, unless it is the one chosen (the night or train moved under it). Deep-sky types count what fits; All and Solar system what is up.
-                  const countText = n === null ? '' : noneFit ? `${wrong!.tooLarge + wrong!.tooSmall} up, none fit this frame` : n === 0 ? `none up ${nightWord}` : g.types === undefined ? `${n} up ${nightWord}` : `${n} fit ${nightWord}`;
+                  const countText = n === null ? '' : noneFit ? `${wrong!.tooLarge + wrong!.tooSmall} up, none fit this camera view` : n === 0 ? `none up ${nightWord}` : g.types === undefined ? `${n} up ${nightWord}` : `${n} fit ${nightWord}`;
                   const empty = n === 0 && !noneFit;
                   return (
                     <option
@@ -2195,7 +2205,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
         {planetary && (
           <p className="mb-3 flex flex-wrap items-center gap-x-3 text-white/90 font-normal text-sm" data-testid="planetary-note">
-            <span>This train is set up for the solar system, so most deep-sky targets are too large or too small for its frame.</span>
+            <span>This setup is for the solar system, so most deep-sky targets are too large or too small for its frame.</span>
             {deepTrain && (
               <button type="button" className={`${btn} min-h-11`} onClick={() => chooseTrain(deepTrain.id)}>
                 Use {deepTrain.name}
@@ -2242,8 +2252,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               </>
             )}
             {noFitList.length > 0 && (
-              <Group id="nofit-group" title={`Does not fit this frame (${noFitList.length})`} open={noFitOpen} onToggle={() => setNoFitOpen(!noFitOpen)}>
-                <TargetList {...listProps} entries={noFitList} label="Targets that do not fit this frame" idPrefix="nofit" fitText={noFitFit} />
+              <Group id="nofit-group" title={`Does not fit this camera view (${noFitList.length})`} open={noFitOpen} onToggle={() => setNoFitOpen(!noFitOpen)}>
+                <TargetList {...listProps} entries={noFitList} label="Targets that do not fit this camera view" idPrefix="nofit" fitText={noFitFit} />
               </Group>
             )}
           </>
