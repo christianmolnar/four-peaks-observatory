@@ -82,7 +82,7 @@ export function readPlansFile(text: string, today: string, dateText: (iso: strin
   if (json.format === undefined && !Array.isArray(json.plans)) throw new PlansFileError(`${NOT_PLANS} It has no list of plans.`);
   if (json.version === undefined) throw new PlansFileError(`${NOT_PLANS} It has no version number.`);
   if (typeof json.version !== 'number') throw new PlansFileError(`${NOT_PLANS} The version is not a number.`);
-  if (json.version > FILE_VERSION) throw new PlansFileError(`This file was made by a newer version of the planner (version ${json.version}); this one reads version ${FILE_VERSION}. Nothing was imported.`);
+  if (json.version > FILE_VERSION) throw new PlansFileError(`This file was made by a newer version of the planner (version ${json.version}); this one reads version ${FILE_VERSION}.`);
   if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PLANS} It is version ${json.version}; this planner reads version ${FILE_VERSION}.`);
   if (!Array.isArray(json.plans)) throw new PlansFileError(`${NOT_PLANS} It has no list of plans.`);
   if (json.plans.length === 0) throw new PlansFileError('The file holds no plans.');

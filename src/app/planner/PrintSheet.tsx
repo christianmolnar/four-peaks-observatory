@@ -27,6 +27,15 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
       ) : (
         <table className="mt-3" data-testid="print-plan">
           <caption className="sr-only">Run sheet for {p.name}, in order</caption>
+          <colgroup>
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '20%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th scope="col">#</th>
@@ -42,7 +51,7 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
             {p.rows.map((r) => (
               <tr key={r.order}>
                 <td>{r.order}</td>
-                <td>{timeText(r)}</td>
+                <td className="run-sheet-time">{timeText(r)}</td>
                 <th scope="row" className="font-normal">
                   <strong>{r.name}</strong>
                   {r.type !== '' && <> ({r.type})</>}
@@ -57,7 +66,7 @@ function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
                 </th>
                 <td>
                   {r.subSeconds === null || r.subCount === null ? (
-                    'not worked out'
+                    r.type === 'Solar system' ? 'clips, not subs' : 'not worked out'
                   ) : (
                     <>
                       <strong>{r.subCount} &times; {r.subSeconds} s</strong>
@@ -93,8 +102,9 @@ export default function PrintSheet({ doc }: PrintSheetProps) {
   nav { display: none !important; }
   nav ~ div { padding-top: 0 !important; }
   body { background: #fff !important; }
-  .planner-print-sheet { width: 100%; overflow-wrap: anywhere; }
-  .planner-print-sheet table { border-collapse: collapse; width: 100%; table-layout: auto; }
+  .planner-print-sheet { width: 100%; overflow-wrap: break-word; }
+  .planner-print-sheet table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .planner-print-sheet .run-sheet-time { white-space: nowrap; }
   .planner-print-sheet tr { break-inside: avoid; }
   .planner-print-sheet th, .planner-print-sheet td { border: 1px solid #555; padding: 3pt 4pt; text-align: left; vertical-align: top; }
   .planner-print-sheet .run-sheet-gain { min-width: 14mm; }

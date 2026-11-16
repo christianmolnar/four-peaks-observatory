@@ -200,6 +200,7 @@ export function gearSheet(profile: Profile): GearSheet {
 const L = (s: string, label: string): string[] => (s === '' ? [] : [`${label}${s}`]);
 const timeSpan = (r: SheetRow): string => (r.start === '' ? 'no time' : r.end === '' ? r.start : `${r.start}-${r.end}`);
 const subsText = (r: SheetRow): string => (r.subSeconds === null || r.subCount === null ? '' : `${r.subCount} x ${r.subSeconds} s`);
+const noSubsText = (r: SheetRow): string => (r.type === 'Solar system' ? 'clips, not subs' : 'subs: not worked out');
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
 function planText(p: PlanSheet): string[] {
@@ -214,7 +215,7 @@ function planText(p: PlanSheet): string[] {
     out.push(`${r.order}. ${timeSpan(r)}  ${r.name}${r.type === '' ? '' : ` (${r.type})`}`);
     if (r.ra !== '') out.push(`   RA ${r.ra}  Dec ${r.dec}`);
     const sub = subsText(r);
-    out.push(`   ${sub === '' ? 'subs: not worked out' : `${sub} = ${r.lightMin} min`}  gain ____  filter: ${r.filter}${r.preset === '' ? '' : `  (${r.preset})`}`);
+    out.push(`   ${sub === '' ? noSubsText(r) : `${sub} = ${r.lightMin} min`}  gain ____  filter: ${r.filter}${r.preset === '' ? '' : `  (${r.preset})`}`);
     if (r.favorite !== '') out.push(`   ${r.favorite}`);
     if (r.note !== '') out.push(`   Note: ${oneLine(r.note)}`);
     if (r.warning !== '') out.push(`   Warning: ${oneLine(r.warning)}`);

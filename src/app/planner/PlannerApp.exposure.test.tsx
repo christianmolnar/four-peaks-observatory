@@ -249,7 +249,7 @@ describe('print and the plan CSV carry the rows with their exposure', () => {
     expect(rows[0][3]).toMatch(new RegExp(`^${n.subs} × ${n.sub} s\\d+ min$`));
     expect(rows[0][6]).toMatch(/^Deep/);
     expect(rows[1][2]).toMatch(/^Jupiter/);
-    expect(rows[1][3]).toBe('not worked out');
+    expect(rows[1][3]).toBe('clips, not subs');
     act(() => {
       window.dispatchEvent(new Event('afterprint'));
     });

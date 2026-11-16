@@ -150,7 +150,7 @@ describe('the run sheet carries the numbers the rows show', () => {
     expect(t).toMatch(/RA \d\d h \d\d m \d\d s|RA \d\dh \d\dm \d\ds/);
     expect(t).toContain('Note: check focus');
     expect(t).toContain('Jupiter');
-    expect(t).toContain('subs: not worked out');
+    expect(t).toContain('clips, not subs');
     expect(t).toContain('Gain is set at the camera');
     const first = /(\d\d:\d\d) to (\d\d:\d\d)/.exec(slotTimes[0]);
     expect(first).not.toBeNull();
