@@ -13,11 +13,45 @@ const css = readFileSync('src/app/globals.css', 'utf8');
 // Allowlist (each entry says why):
 // - PrintSheet.tsx: the print sheet is black on white on every theme; it only renders under `print:`.
 // - any class with a `print:` modifier: print rules win over tokens.
-// - SVG chart fills and strokes (AltitudeChart, NightTimeline, HorizonEditor) are hex attributes, not utilities: they are data colours of the drawings and are themed with the charts in R6c.
+// No SVG exception any more: chart fills and strokes read `var(--p-c-*)` or the page tokens (R6c), so the red theme reaches them.
 const ALLOWED_FILES = new Set(['PrintSheet.tsx']);
 const RAW = /(?<![A-Za-z0-9_-])((?:[a-z0-9[\]&>_-]+:)*)(?:text|bg|border|ring|outline|divide|accent|fill|stroke|from|via|to|placeholder|caret|decoration|shadow)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})(?:\/\d+)?(?![A-Za-z0-9-])/g;
 
+// Arbitrary-value colours (`bg-[#0b1020]`, `text-[rgb(...)]`), literal colour attributes on SVG (`fill="#fff"`) and literal colours in inline `style` objects.
+const ARBITRARY = /(?<![A-Za-z0-9_-])((?:[a-z0-9[\]&>_-]+:)*)(?:text|bg|border|ring|outline|divide|accent|fill|stroke|from|via|to|placeholder|caret|decoration|shadow)-\[(?:#|rgb|hsl|hwb|lab|lch|oklch|oklab|color\()[^\]]*\]/g;
+const TOKEN_VALUE = /^(?:var\(--p-[a-z0-9-]+\)|currentColor|none|inherit|transparent)$/;
+const SVG_ATTR = /\b(?:fill|stroke|stopColor|floodColor|lightingColor)=(?:"([^"]*)"|\{\s*(?:'([^']*)'|`([^`]*)`)\s*\})/g;
+const STYLE_PROP = /\b(?:color|backgroundColor|background|borderColor|borderTopColor|borderBottomColor|outlineColor|fill|stroke|boxShadow|textShadow|caretColor|accentColor)\s*:\s*(?:'([^']*)'|"([^"]*)"|`([^`]*)`)/g;
+const first = (m: RegExpMatchArray): string => m.slice(1).find((x) => x !== undefined) ?? '';
+
 describe('planner colour tokens', () => {
+  it('no arbitrary-value colour class outside the allowlist', () => {
+    const found: string[] = [];
+    for (const { file, text } of sources) {
+      if (ALLOWED_FILES.has(file)) continue;
+      for (const m of text.matchAll(ARBITRARY)) if (!m[1].includes('print:')) found.push(`${file}: ${m[0]}`);
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('every literal SVG colour attribute and inline style colour is a token (var(--p-*), currentColor, none)', () => {
+    const found: string[] = [];
+    for (const { file, text } of sources) {
+      if (ALLOWED_FILES.has(file)) continue;
+      for (const m of text.matchAll(SVG_ATTR)) if (!TOKEN_VALUE.test(first(m))) found.push(`${file}: ${m[0]}`);
+      for (const m of text.matchAll(STYLE_PROP)) if (!TOKEN_VALUE.test(first(m))) found.push(`${file}: ${m[0]}`);
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('the timeline series colours are the --p-c-s0..7 tokens, defined in Day and in red', () => {
+    const t = sources.find((s) => s.file === 'NightTimeline.tsx')!.text;
+    expect(t).toContain('`var(--p-c-s${i})`');
+    for (let i = 0; i < 8; i++) {
+      expect(css.match(new RegExp(`--p-c-s${i}:`, 'g'))).toHaveLength(2);
+    }
+  });
+
   it('no planner file holds a raw colour utility outside the allowlist', () => {
     const found: string[] = [];
     for (const { file, text } of sources) {
@@ -37,10 +71,9 @@ describe('planner colour tokens', () => {
     expect(missing).toEqual([]);
   });
 
-  it('defines the eight core tokens and the one focus rule; no theme block yet', () => {
+  it('defines the eight core tokens and the one focus rule, which also covers the footer credits', () => {
     for (const n of ['bg', 'surface', 'raised', 't1', 't2', 'line', 'focus', 'accent']) expect(css).toContain(`--p-${n}:`);
-    expect(css).toMatch(/\.planner-root :focus-visible\s*\{\s*outline: 2px solid var\(--p-focus\);\s*outline-offset: 2px;/);
-    expect(css).not.toContain('data-theme');
+    expect(css).toMatch(/\.planner-root :focus-visible,\s*\.planner-ground :focus-visible\s*\{\s*outline: 2px solid var\(--p-focus\);\s*outline-offset: 2px;/);
   });
 
   it('the Share sheet and the AI flyout use the page ground, not slate-950', () => {

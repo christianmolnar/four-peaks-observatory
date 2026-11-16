@@ -10,7 +10,9 @@ import type { ItineraryPlan, SlotInput } from '@/planner/itinerary';
 import DisclosureChevron from './DisclosureChevron';
 
 /** One colour per slot number; the slot is also named by its number on the line and in the key, so colour is never the only cue. */
-const COLOURS = ['#7dd3fc', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#a3e635', '#22d3ee', '#e879f9'];
+const SERIES = 8;
+/** Day: the colours are the --p-c-s0..7 tokens (globals.css). Red: every series is the same red, so each one also has its own dash pattern (class p-series-N) next to its number. */
+const COLOURS = Array.from({ length: SERIES }, (_, i) => `var(--p-c-s${i})`);
 const FONT = 12; // px, and the drawing is 1:1 with the screen, so this is the size on screen
 const MARGIN = { left: 34, right: 12, top: 28, bottom: 46 };
 const MIN_WIDTH = 220;
@@ -153,11 +155,11 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
         >
           <title id={`${idPrefix}-title`}>Altitude of every slot through the night</title>
           <desc id={`${idPrefix}-desc`}>{summary}</desc>
-          <rect x={x(t0)} y={MARGIN.top} width={x(t1) - x(t0)} height={plotBottom - MARGIN.top} fill="#6366f1" fillOpacity="0.18" />
+          <rect x={x(t0)} y={MARGIN.top} width={x(t1) - x(t0)} height={plotBottom - MARGIN.top} fill="var(--p-c-night)" fillOpacity="0.18" />
           {[0, 30, 60, 90].map((a) => (
             <g key={a}>
-              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={y(a)} y2={y(a)} stroke="#475569" strokeWidth="0.75" />
-              <text x={MARGIN.left - 5} y={y(a)} fill="#cbd5e1" fontSize={FONT} textAnchor="end" dominantBaseline="middle">
+              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={y(a)} y2={y(a)} stroke="var(--p-c-grid)" strokeWidth="0.75" />
+              <text x={MARGIN.left - 5} y={y(a)} fill="var(--p-c-label)" fontSize={FONT} textAnchor="end" dominantBaseline="middle">
                 {a}°
               </text>
             </g>
@@ -165,22 +167,22 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
           {hours.map((t, i) =>
             i % labelEvery === 0 ? (
               <g key={t}>
-                <line x1={x(t)} x2={x(t)} y1={plotBottom} y2={plotBottom + 4} stroke="#94a3b8" />
-                <text x={x(t)} y={plotBottom + 4 + FONT + 1} fill="#cbd5e1" fontSize={FONT} textAnchor="middle">
+                <line x1={x(t)} x2={x(t)} y1={plotBottom} y2={plotBottom + 4} stroke="var(--p-c-tick)" />
+                <text x={x(t)} y={plotBottom + 4 + FONT + 1} fill="var(--p-c-label)" fontSize={FONT} textAnchor="middle">
                   {formatTime(new Date(t))}
                 </text>
               </g>
             ) : null,
           )}
-          <text x={MARGIN.left} y={height - 4} fill="#e2e8f0" fontSize={FONT} textAnchor="start">
+          <text x={MARGIN.left} y={height - 4} fill="var(--p-c-hi)" fontSize={FONT} textAnchor="start">
             {`Night starts ${formatTime(night.start as Date)}`}
           </text>
-          <text x={width - MARGIN.right} y={height - 4} fill="#e2e8f0" fontSize={FONT} textAnchor="end">
+          <text x={width - MARGIN.right} y={height - 4} fill="var(--p-c-hi)" fontSize={FONT} textAnchor="end">
             {`ends ${formatTime(night.end as Date)}`}
           </text>
 
           {/* The minimum altitude. */}
-          <line x1={MARGIN.left} x2={width - MARGIN.right} y1={y(minAltitude)} y2={y(minAltitude)} stroke="#fb923c" strokeWidth="1.5" strokeDasharray="5 3" />
+          <line x1={MARGIN.left} x2={width - MARGIN.right} y1={y(minAltitude)} y2={y(minAltitude)} stroke="var(--p-c-limit-line)" strokeWidth="1.5" strokeDasharray="5 3" />
 
           {/* The rest of each target's night, faint; the part under its limit (horizon or minimum) dotted orange. */}
           {tracks.map((track, i) => {
@@ -199,23 +201,23 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
             return (
               <g key={plan.slots[i].id}>
                 <polyline points={pts(track.map((p) => ({ x: x(p.time.getTime()), y: y(p.altitude) })))} fill="none" stroke={colour(i)} strokeOpacity="0.35" strokeWidth="1.5" />
-                {runs.map((r, k) => (r.length > 1 ? <polyline key={k} points={pts(r)} fill="none" stroke="#fb923c" strokeWidth="3" strokeDasharray="1 4" strokeLinecap="round" /> : null))}
+                {runs.map((r, k) => (r.length > 1 ? <polyline key={k} points={pts(r)} fill="none" stroke="var(--p-c-limit-line)" strokeWidth="3" strokeDasharray="1 4" strokeLinecap="round" /> : null))}
               </g>
             );
           })}
 
           {/* The changeover or the wait between one slot and the next. */}
           {geometry.connectors.map((c) => (
-            <line key={`${c.fromId}-${c.toId}`} x1={c.from.x} y1={c.from.y} x2={c.to.x} y2={c.to.y} stroke="#e2e8f0" strokeWidth="2" strokeDasharray="1 5" strokeLinecap="round" />
+            <line key={`${c.fromId}-${c.toId}`} x1={c.from.x} y1={c.from.y} x2={c.to.x} y2={c.to.y} stroke="var(--p-c-hi)" strokeWidth="2" strokeDasharray="1 5" strokeLinecap="round" />
           ))}
 
           {/* The slots: thick, from start to end, numbered. */}
           {geometry.segments.map((s, i) =>
             s.timed ? (
               <g key={s.id}>
-                <polyline points={pts(s.points)} fill="none" stroke={colour(i)} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx={s.x0} cy={s.y0} r="3.5" fill="#0b1020" stroke={colour(i)} strokeWidth="2" />
-                <circle cx={s.x1} cy={s.y1} r="3.5" fill="#0b1020" stroke={colour(i)} strokeWidth="2" />
+                <polyline className={`p-series-${i % SERIES}`} points={pts(s.points)} fill="none" stroke={colour(i)} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={s.x0} cy={s.y0} r="3.5" fill="var(--p-c-ink)" stroke={colour(i)} strokeWidth="2" />
+                <circle cx={s.x1} cy={s.y1} r="3.5" fill="var(--p-c-ink)" stroke={colour(i)} strokeWidth="2" />
               </g>
             ) : null,
           )}
@@ -225,8 +227,8 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
             const cy = Math.max(MARGIN.top + 10, mid.y - 15);
             return (
               <g key={`n-${s.id}`}>
-                <circle cx={mid.x} cy={cy} r="10" fill="#0b1020" stroke={colour(i)} strokeWidth="2" />
-                <text x={mid.x} y={cy} fill="#fff" fontSize={FONT} fontWeight="600" textAnchor="middle" dominantBaseline="central">
+                <circle cx={mid.x} cy={cy} r="10" fill="var(--p-c-ink)" stroke={colour(i)} strokeWidth="2" />
+                <text x={mid.x} y={cy} fill="var(--p-t1)" fontSize={FONT} fontWeight="600" textAnchor="middle" dominantBaseline="central">
                   {s.number}
                 </text>
               </g>
@@ -236,14 +238,14 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
           {/* When imaging starts (not drawn when it is after the night: the words below say so). */}
           {!afterNight && (
             <>
-              <line x1={startX} x2={startX} y1={MARGIN.top - 4} y2={plotBottom} stroke="#fff" strokeWidth="1.5" strokeDasharray="2 3" />
-              <text x={startX} y={FONT + 4} fill="#fff" fontSize={FONT} textAnchor={startAnchor}>
+              <line x1={startX} x2={startX} y1={MARGIN.top - 4} y2={plotBottom} stroke="var(--p-t1)" strokeWidth="1.5" strokeDasharray="2 3" />
+              <text x={startX} y={FONT + 4} fill="var(--p-t1)" fontSize={FONT} textAnchor={startAnchor}>
                 {`Start ${formatTime(plan.startsAt)}`}
               </text>
             </>
           )}
           {emptyLines.length > 0 && (
-            <text x={(MARGIN.left + width - MARGIN.right) / 2} y={(MARGIN.top + plotBottom) / 2 - ((emptyLines.length - 1) * (FONT + 4)) / 2} fill="#fff" fontSize={FONT} textAnchor="middle" data-testid="timeline-empty">
+            <text x={(MARGIN.left + width - MARGIN.right) / 2} y={(MARGIN.top + plotBottom) / 2 - ((emptyLines.length - 1) * (FONT + 4)) / 2} fill="var(--p-t1)" fontSize={FONT} textAnchor="middle" data-testid="timeline-empty">
               {emptyLines.map((l, k) => (
                 <tspan key={k} x={(MARGIN.left + width - MARGIN.right) / 2} dy={k === 0 ? 0 : FONT + 4}>
                   {k < emptyLines.length - 1 ? `${l} ` : l}

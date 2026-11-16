@@ -86,6 +86,7 @@ import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state
 import AiPlanFlyout from './AiPlanFlyout';
 import AltitudeChart from './AltitudeChart';
 import AuthControl from './AuthControl';
+import ThemeToggle from './ThemeToggle';
 import { loadAuthState } from './authState';
 import type { AuthState } from './authState';
 import Collapsible from './Collapsible';
@@ -1949,7 +1950,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     >
       <header className="flex items-center justify-between gap-x-4">
         <h1 className="shrink-0 text-xl font-light tracking-[0.15em] text-p-t1 sm:text-3xl sm:tracking-[0.2em] md:text-4xl">IMAGING PLANNER</h1>
-        <AuthControl state={auth} />
+        <div className="flex min-w-0 items-center justify-end gap-2 print:hidden">
+          <ThemeToggle />
+          <AuthControl state={auth} />
+        </div>
       </header>
 
       <p aria-live="polite" className="sr-only">{added?.say ?? ''}</p>

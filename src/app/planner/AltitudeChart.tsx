@@ -81,11 +81,11 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-labelledby={`${idPrefix}-title ${idPrefix}-desc`} className="block w-full" style={{ height: 'auto', aspectRatio: `${W} / ${H}` }}>
         <title id={`${idPrefix}-title`}>{`Altitude of ${entry.name} through the night`}</title>
         <desc id={`${idPrefix}-desc`}>{summary}</desc>
-        <rect x={nightX0} y={M.top} width={Math.max(0, nightX1 - nightX0)} height={H - M.top - M.bottom} fill="#6366f1" fillOpacity="0.22" />
+        <rect x={nightX0} y={M.top} width={Math.max(0, nightX1 - nightX0)} height={H - M.top - M.bottom} fill="var(--p-c-night)" fillOpacity="0.22" />
         {[0, 30, 60, 90].map((a) => (
           <g key={a}>
-            <line x1={M.left} x2={W - M.right} y1={y(a)} y2={y(a)} stroke="#475569" strokeWidth="0.75" />
-            <text x={M.left - 6} y={y(a)} fill="#cbd5e1" fontSize={FONT} textAnchor="end" dominantBaseline="middle">
+            <line x1={M.left} x2={W - M.right} y1={y(a)} y2={y(a)} stroke="var(--p-c-grid)" strokeWidth="0.75" />
+            <text x={M.left - 6} y={y(a)} fill="var(--p-c-label)" fontSize={FONT} textAnchor="end" dominantBaseline="middle">
               {a}°
             </text>
           </g>
@@ -93,21 +93,21 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         {ticks.map((t, i) =>
           i % labelEvery === 0 ? (
             <g key={t}>
-              <line x1={x(t)} x2={x(t)} y1={H - M.bottom} y2={H - M.bottom + 4} stroke="#94a3b8" />
-              <text x={x(t)} y={H - M.bottom + 4 + FONT + 1} fill="#cbd5e1" fontSize={FONT} textAnchor="middle">
+              <line x1={x(t)} x2={x(t)} y1={H - M.bottom} y2={H - M.bottom + 4} stroke="var(--p-c-tick)" />
+              <text x={x(t)} y={H - M.bottom + 4 + FONT + 1} fill="var(--p-c-label)" fontSize={FONT} textAnchor="middle">
                 {formatTime(new Date(t))}
               </text>
             </g>
           ) : null,
         )}
-        <polygon points={limitArea} fill="#f97316" fillOpacity="0.28" />
-        <polyline points={limitTop.join(' ')} fill="none" stroke="#fb923c" strokeWidth="1.5" strokeDasharray="5 3" />
-        <polyline points={line} fill="none" stroke="#7dd3fc" strokeWidth="2" />
+        <polygon className="p-hatch" points={limitArea} fill="var(--p-c-limit)" fillOpacity="0.28" />
+        <polyline points={limitTop.join(' ')} fill="none" stroke="var(--p-c-limit-line)" strokeWidth="1.5" strokeDasharray="5 3" />
+        <polyline points={line} fill="none" stroke="var(--p-c-alt)" strokeWidth="2" />
         {usableSegments.map((pts, i) => (
-          <polyline key={i} points={pts} fill="none" stroke="#34d399" strokeWidth="4" strokeLinecap="round" />
+          <polyline key={i} points={pts} fill="none" stroke="var(--p-c-use)" strokeWidth="4" strokeLinecap="round" />
         ))}
         {entry.usableMinutes > 0 && (
-          <circle cx={x(entry.peakTime.getTime())} cy={y(entry.peakAltitude)} r="5" fill="#fff" stroke="#0b1020" strokeWidth="2" />
+          <circle cx={x(entry.peakTime.getTime())} cy={y(entry.peakAltitude)} r="5" fill="var(--p-t1)" stroke="var(--p-c-ink)" strokeWidth="2" />
         )}
       </svg>
       </div>

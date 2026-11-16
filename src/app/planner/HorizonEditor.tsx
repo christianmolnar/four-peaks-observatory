@@ -154,11 +154,11 @@ export default function HorizonEditor({
           HORIZON: {siteName.toUpperCase()}
         </h2>
         {fields.length === 0 ? (
-          <span className="inline-block rounded bg-p-warn-fill/20 text-p-warn-strong font-normal text-sm px-2 py-0.5" data-testid="horizon-not-set">
+          <span className="p-chip-plain inline-block rounded bg-p-warn-fill/20 text-p-warn-strong font-normal text-sm px-2 py-0.5" data-testid="horizon-not-set">
             Horizon not set
           </span>
         ) : (
-          <span className="inline-block rounded bg-p-ok-fill/20 text-p-ok-text font-normal text-sm px-2 py-0.5">Horizon set</span>
+          <span className="p-chip-plain inline-block rounded bg-p-ok-fill/20 text-p-ok-text font-normal text-sm px-2 py-0.5">Horizon set</span>
         )}
         <p
           id="horizon-status"
@@ -236,26 +236,26 @@ export default function HorizonEditor({
           >
             <title id="polar-title">Horizon, seen from above</title>
             <desc id="polar-desc">{summary}</desc>
-            <circle cx={C} cy={C} r={R} fill="#0b1020" stroke="#94a3b8" strokeWidth="1" />
+            <circle cx={C} cy={C} r={R} fill="var(--p-c-ink)" stroke="var(--p-c-tick)" strokeWidth="1" />
             {[30, 60].map((alt) => (
-              <circle key={alt} cx={C} cy={C} r={radius(alt)} fill="none" stroke="#475569" strokeWidth="0.75" strokeDasharray="3 3" />
+              <circle key={alt} cx={C} cy={C} r={radius(alt)} fill="none" stroke="var(--p-c-grid)" strokeWidth="0.75" strokeDasharray="3 3" />
             ))}
-            <line x1={C} y1={C - R} x2={C} y2={C + R} stroke="#475569" strokeWidth="0.75" />
-            <line x1={C - R} y1={C} x2={C + R} y2={C} stroke="#475569" strokeWidth="0.75" />
+            <line x1={C} y1={C - R} x2={C} y2={C + R} stroke="var(--p-c-grid)" strokeWidth="0.75" />
+            <line x1={C - R} y1={C} x2={C + R} y2={C} stroke="var(--p-c-grid)" strokeWidth="0.75" />
             {drawn.map((a, i) => (
               // Translucent, so where zones overlap the fills add up and the highest one reaches furthest in.
-              <path key={i} d={arcPath(a)} fill="#f97316" fillOpacity="0.35" stroke="#fb923c" strokeWidth="1.5" />
+              <path key={i} className={`p-zone-${i % 4}`} d={arcPath(a)} fill="var(--p-c-limit)" fillOpacity="0.35" stroke="var(--p-c-limit-line)" strokeWidth="1.5" />
             ))}
             {drawn.map((a, i) => {
               const span = (a.endAz - a.startAz + 360) % 360;
               const [x, y] = point(a.startAz + span / 2, (R + radius(a.heightDeg)) / 2).split(',');
               return (
-                <text key={`n${i}`} x={x} y={y} fill="#fff" fontSize={font} fontWeight="600" textAnchor="middle" dominantBaseline="middle" stroke="#0b1020" strokeWidth="3" paintOrder="stroke">
+                <text key={`n${i}`} x={x} y={y} fill="var(--p-t1)" fontSize={font} fontWeight="600" textAnchor="middle" dominantBaseline="middle" stroke="var(--p-c-ink)" strokeWidth="3" paintOrder="stroke">
                   {i + 1}
                 </text>
               );
             })}
-            <circle cx={C} cy={C} r="2.5" fill="#e2e8f0" />
+            <circle cx={C} cy={C} r="2.5" fill="var(--p-c-hi)" />
             {(
               [
                 ['N', 0],
@@ -266,15 +266,15 @@ export default function HorizonEditor({
             ).map(([t, az]) => {
               const [x, y] = point(az, R + 12).split(',');
               return (
-                <text key={t} x={x} y={y} fill="#e2e8f0" fontSize={font} textAnchor="middle" dominantBaseline="middle">
+                <text key={t} x={x} y={y} fill="var(--p-c-hi)" fontSize={font} textAnchor="middle" dominantBaseline="middle">
                   {t}
                 </text>
               );
             })}
-            <text x={C + 4} y={C - radius(30) - 2} fill="#94a3b8" fontSize={font}>
+            <text x={C + 4} y={C - radius(30) - 2} fill="var(--p-c-tick)" fontSize={font}>
               30°
             </text>
-            <text x={C + 4} y={C - radius(60) - 2} fill="#94a3b8" fontSize={font}>
+            <text x={C + 4} y={C - radius(60) - 2} fill="var(--p-c-tick)" fontSize={font}>
               60°
             </text>
           </svg>

@@ -90,10 +90,38 @@
     --p-chip-camera-fill: oklch(76.5% 0.177 163.223) /* emerald-400 */;
     --p-chip-filter: oklch(83.3% 0.145 321.434) /* fuchsia-300 */;
     --p-chip-filter-fill: oklch(74% 0.238 322.16) /* fuchsia-400 */;
+    /* Chart colours (SVG attributes, so exact hex: the charts have always drawn these). */
+    --p-c-night: #6366f1;
+    --p-c-grid: #475569;
+    --p-c-label: #cbd5e1;
+    --p-c-tick: #94a3b8;
+    --p-c-limit: #f97316;
+    --p-c-limit-line: #fb923c;
+    --p-c-alt: #7dd3fc;
+    --p-c-use: #34d399;
+    --p-c-ink: #0b1020;
+    --p-c-hi: #e2e8f0;
+    --p-c-s0: #7dd3fc;
+    --p-c-s1: #34d399;
+    --p-c-s2: #fbbf24;
+    --p-c-s3: #f472b6;
+    --p-c-s4: #a78bfa;
+    --p-c-s5: #a3e635;
+    --p-c-s6: #22d3ee;
+    --p-c-s7: #e879f9;
   }
 
-  /* One focus style for everything in the planner: buttons, links, summaries, native selects, checkboxes, sliders. */
-  .planner-root :focus-visible {
+  /* Red theme (base layer): a native checkbox or radio without a size class is 13 px; the themed box (appearance none) keeps that size. Base layer, so h-5 w-5 and the like still win. */
+  @media screen {
+    html[data-theme="red"] :is(.planner-root, .planner-ground) input:is([type="checkbox"], [type="radio"]) {
+      width: 13px;
+      height: 13px;
+    }
+  }
+
+  /* One focus style for everything in the planner and its footer credits (outside the root): buttons, links, summaries, native selects, checkboxes, sliders. */
+  .planner-root :focus-visible,
+  .planner-ground :focus-visible {
     outline: 2px solid var(--p-focus);
     outline-offset: 2px;
   }
@@ -321,4 +349,255 @@
   link[rel="icon"] {
     filter: brightness(1.1) contrast(1.05);
   }
+}
+
+/*
+ * Night mode (red), R6c. Only colour changes: no size, spacing or text. `data-theme="red"` is set on <html> by the head script before first paint, only on /planner.
+ * Red channel only, green and blue 40 or less (the design's #ff2a2a, #ff4040 and #ff6060 are 42, 64 and 96 and would break that limit, so they are all #ff2828 here), so no rods bleach. Text is #ff2828 or #e02020 at weight 400+ and 14 px+ (red cannot pass 5.6:1: weight and size make up the rest).
+ * #5a0a0a and #a01010 are for borders, grid lines and disabled only, never for text. Meaning never rides on colour: every chip, warning and state keeps its words;
+ * the charts tell zones and series apart by hatch and dash, not hue. The print sheet is always black on white: every red rule sits inside `@media screen`, so print and PDF never read the theme (and `print:` rules in the markup win as before).
+ * Unlayered on purpose: it must beat the Tailwind utilities.
+ * Alpha bases: `--p-raised` and `--p-line` are only ever used with alpha (10/15/20/30), so they are bright reds that mix down to the right dark surface and border on black:
+ * raised #ff1010 gives #190202 at 10 and #260202 at 15; line #ff2828 gives #190404 at 10 and #4c0c0c at 30.
+ */
+@media screen {
+html[data-theme="red"] :is(.planner-root,.planner-ground) {
+  --p-bg: #000000;
+  --p-surface: #120000;
+  --p-raised: #ff1010;
+  --p-t1: #ff2828;
+  --p-t2: #e02020;
+  --p-line: #ff2828;
+  --p-focus: #ff2828;
+  --p-accent: #ff2828;
+  --p-warn-text: #ff2828;
+  --p-warn-strong: #ff2828;
+  --p-warn: #ff2828;
+  --p-warn-fill: #ff2828;
+  --p-info-text: #ff2828;
+  --p-info-strong: #ff2828;
+  --p-info-fill: #ff2828;
+  --p-ok-text: #ff2828;
+  --p-ok: #ff2828;
+  --p-ok-fill: #ff2828;
+  --p-pending: #ff2828;
+  --p-would: #ff2828;
+  --p-night: #ff2828;
+  --p-chip-scope: #ff2828;
+  --p-chip-scope-fill: #ff2828;
+  --p-chip-smart: #ff2828;
+  --p-chip-smart-fill: #ff2828;
+  --p-chip-accessory: #ff2828;
+  --p-chip-accessory-fill: #ff2828;
+  --p-chip-camera: #ff2828;
+  --p-chip-camera-fill: #ff2828;
+  --p-chip-filter: #ff2828;
+  --p-chip-filter-fill: #ff2828;
+  /* Charts: one red; zones and series differ by hatch and dash (rules below). */
+  --p-c-night: #ff2828;
+  --p-c-grid: #5a0a0a;
+  --p-c-label: #ff2828;
+  --p-c-tick: #a01010;
+  --p-c-limit: #ff2828;
+  --p-c-limit-line: #ff2828;
+  --p-c-alt: #ff2828;
+  --p-c-use: #ff2828;
+  --p-c-ink: #000000;
+  --p-c-hi: #ff2828;
+  --p-c-s0: #ff2828;
+  --p-c-s1: #ff2828;
+  --p-c-s2: #ff2828;
+  --p-c-s3: #ff2828;
+  --p-c-s4: #ff2828;
+  --p-c-s5: #ff2828;
+  --p-c-s6: #ff2828;
+  --p-c-s7: #ff2828;
+}
+
+html[data-theme="red"] {
+  color-scheme: dark;
+  background-color: #000;
+  scrollbar-color: #5a0a0a #000;
+}
+html[data-theme="red"] body {
+  background-color: #000;
+  color: #ff2828;
+}
+html[data-theme="red"] ::selection {
+  background-color: #5a0a0a;
+  color: #ff2828;
+}
+
+/* Dimmed text steps: red cannot be dimmed by alpha (it would fall under AA), so every text-p-t1/NN reads as full red. Hierarchy comes from size, weight and position. */
+html[data-theme="red"] :is(.planner-root,.planner-ground) [class*="text-p-t1/"],
+html[data-theme="red"] :is(.planner-root,.planner-ground) .hover\:text-p-t1:hover {
+  color: var(--p-t1);
+}
+/* Weights and sizes are not changed in red (a heavier heading or footer weight moves boxes, and the theme must not move anything): headings stay 300 and the footer credits 200. The credits read full red, not the secondary red, at 12 px. */
+html[data-theme="red"] .planner-ground footer,
+html[data-theme="red"] .planner-ground footer * {
+  color: var(--p-t1);
+}
+/* Disabled controls: #a01010 text and border instead of 40% opacity (opacity would drop red text under AA). */
+html[data-theme="red"] :is(.planner-root,.planner-ground) :is(button, input, select, textarea):disabled,
+html[data-theme="red"] :is(.planner-root,.planner-ground) [aria-disabled="true"] {
+  opacity: 1;
+  color: #a01010;
+  border-color: #a01010;
+}
+
+/* Native controls: the select popup, date picker, number spinners and file input draw dark; their glyphs go red. */
+html[data-theme="red"] :is(.planner-root,.planner-ground) :is(select, option, input, textarea) {
+  color-scheme: dark;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) :is(select, option) {
+  background-color: #000;
+  color: #ff2828;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) ::file-selector-button {
+  background-color: #120000;
+  color: #ff2828;
+  border-color: #5a0a0a;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input::-webkit-calendar-picker-indicator,
+html[data-theme="red"] :is(.planner-root,.planner-ground) input::-webkit-inner-spin-button,
+html[data-theme="red"] :is(.planner-root,.planner-ground) input::-webkit-outer-spin-button {
+  filter: grayscale(1) sepia(1) hue-rotate(-50deg) saturate(8) brightness(0.6);
+  filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='r' color-interpolation-filters='sRGB'%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3C/svg%3E#r");
+}
+
+/* Images and the logo: half bright, and drawn in red only (red channel from luminance, green and blue 0). */
+html[data-theme="red"] :is(.planner-root,.planner-ground,nav) :is(img, video, canvas) {
+  opacity: 0.5;
+  filter: grayscale(1) sepia(1) hue-rotate(-50deg) saturate(8) brightness(0.8);
+  filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='r' color-interpolation-filters='sRGB'%3E%3CfeColorMatrix type='matrix' values='0.3 0.59 0.11 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3C/svg%3E#r");
+}
+
+/* The site header on this page: colour only. */
+html[data-theme="red"] nav {
+  background-color: rgba(0, 0, 0, 0.95);
+  color: #ff2828;
+}
+html[data-theme="red"] nav :is(a, .text-white) {
+  color: #ff2828;
+}
+html[data-theme="red"] nav a.nav-link:hover {
+  color: #ff2828;
+}
+html[data-theme="red"] nav .bg-white {
+  background-color: #ff2828;
+}
+html[data-theme="red"] nav .h-px.bg-white {
+  background-color: #a01010;
+}
+html[data-theme="red"] nav :is(.bg-black\/80, .bg-black\/95) {
+  background-color: rgba(0, 0, 0, 0.95);
+}
+html[data-theme="red"] nav .border-white\/10 {
+  border-color: #5a0a0a;
+}
+html[data-theme="red"] nav .hover\:bg-white\/5:hover {
+  background-color: #190404;
+}
+html[data-theme="red"] nav :focus-visible {
+  outline-color: #ff2828;
+}
+
+/* Chips without a border of their own get one (an inset line, so no box moves). */
+html[data-theme="red"] .p-chip-plain {
+  background-color: #1f0404;
+  box-shadow: inset 0 0 0 1px #a01010;
+}
+/* A pressed chip is filled (its own bg-p-*-fill or raised class) and ticked; the tick is drawn in the button's left padding (out of the text flow, so no box moves) and is read as nothing. */
+html[data-theme="red"] :is(.planner-root,.planner-ground) button[aria-pressed="true"]:not([aria-label]) {
+  position: relative;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) button[aria-pressed="true"]:not([aria-label])::before {
+  content: "\2713" / "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Charts: zone fills become hatches, series lines get dash patterns. Day keeps its solid colours. */
+html[data-theme="red"] .p-hatch,
+html[data-theme="red"] .p-zone-0 {
+  fill: url(#fp-hatch-0);
+  fill-opacity: 1;
+}
+html[data-theme="red"] .p-zone-1 { fill: url(#fp-hatch-1); fill-opacity: 1; }
+html[data-theme="red"] .p-zone-2 { fill: url(#fp-hatch-2); fill-opacity: 1; }
+html[data-theme="red"] .p-zone-3 { fill: url(#fp-hatch-3); fill-opacity: 1; }
+html[data-theme="red"] [class*="p-series-"] { stroke-linecap: butt; stroke-linejoin: miter; }
+html[data-theme="red"] .p-series-1 { stroke-dasharray: 16 6; }
+html[data-theme="red"] .p-series-2 { stroke-dasharray: 6 6; }
+html[data-theme="red"] .p-series-3 { stroke-dasharray: 2 6; }
+html[data-theme="red"] .p-series-4 { stroke-dasharray: 16 5 3 5; }
+html[data-theme="red"] .p-series-5 { stroke-dasharray: 26 5; }
+html[data-theme="red"] .p-series-6 { stroke-dasharray: 10 4 2 4 2 4; }
+html[data-theme="red"] .p-series-7 { stroke-dasharray: 4 3; }
+
+/* Checkboxes and radios: the native box draws grey, so in red it is drawn here at the same size (h-5 w-5 stays): dark box, #a01010 border, filled with a tick or dot when on. */
+html[data-theme="red"] :is(.planner-root,.planner-ground) input:is([type="checkbox"], [type="radio"]) {
+  appearance: none;
+  background-color: #000;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  border: 2px solid #a01010;
+  border-radius: 3px;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="radio"] {
+  border-radius: 9999px;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="checkbox"]:checked {
+  background-color: #ff2828;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E");
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="radio"]:checked {
+  background-image: radial-gradient(circle, #ff2828 0 42%, #000 46%);
+}
+
+/* Range sliders: the native unfilled track draws light grey, so in red the track and thumb are drawn here (the input keeps its h-11 box). */
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="range"] {
+  appearance: none;
+  background: transparent;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #5a0a0a;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  margin-top: -8px;
+  border-radius: 9999px;
+  border: 2px solid #000;
+  background: #ff2828;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #5a0a0a;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  border: 2px solid #000;
+  background: #ff2828;
+}
+/* Scrollbars of the sheets and lists too (scrollbar-color is set on <html> above; this makes sure no inner scroller keeps the dark-scheme grey). */
+html[data-theme="red"] * {
+  scrollbar-color: #5a0a0a #000;
+}
+/* The resize grip of a text box draws grey: red lines instead (same corner, same size). */
+html[data-theme="red"] :is(.planner-root,.planner-ground) textarea::-webkit-resizer {
+  background: linear-gradient(135deg, transparent 0 55%, #a01010 55% 65%, transparent 65% 78%, #a01010 78% 88%, transparent 88%);
+}
 }

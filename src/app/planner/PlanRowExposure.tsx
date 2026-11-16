@@ -222,7 +222,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
         const a = ACT_ON[w.code];
         return (
           <div key={w.code} className="rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-sm font-normal text-p-t1/90" data-testid={`plan-warning-${id}`}>
-            <p><span className="mr-2 rounded bg-p-warn/30 px-1.5 py-0.5 text-sm text-p-t1">Warning</span>{w.text}</p>
+            <p><span className="p-chip-plain mr-2 rounded bg-p-warn/30 px-1.5 py-0.5 text-sm text-p-t1">Warning</span>{w.text}</p>
             <p className="mt-1">What to change: {a.change}</p>
             {a.to.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-2">

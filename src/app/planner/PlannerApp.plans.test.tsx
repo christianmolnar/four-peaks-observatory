@@ -453,6 +453,9 @@ describe('the top of the page', () => {
     expect(within(auth).getByRole('button', { name: 'Sign in with Google' })).toBeTruthy();
     expect(document.querySelectorAll('[data-testid="auth-control"]')).toHaveLength(1);
     expect(auth.className).toContain('h-[44px]');
+    // The night-mode (red) switch sits in the same header row, before Sign in.
+    const toggle = within(header).getByTestId('theme-toggle');
+    expect(toggle.compareDocumentPosition(auth) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows who is signed in, from the one read of the session', async () => {
@@ -465,7 +468,7 @@ describe('the top of the page', () => {
   it('no developer messages in the header, and none of the removed intro', async () => {
     await app();
     const header = document.querySelector('header')!;
-    expect(header.textContent).toBe('IMAGING PLANNERSign in with Google');
+    expect(header.textContent).toBe('IMAGING PLANNERNight mode (red)Sign in with Google');
     expect(document.body.textContent).not.toMatch(/free guest tool|Signing in is optional|never sent anywhere/);
     expect(header.querySelector('details, summary')).toBeNull();
   });

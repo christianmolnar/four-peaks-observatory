@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import SiteLayout from '@/components/SiteLayout';
 import PlannerApp from './PlannerApp';
 import CatalogCredits from './CatalogCredits';
@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   // Preview only: reachable by URL, not linked, not indexed.
   robots: { index: false, follow: false },
 };
+
+// The browser chrome is black on this page, so a reload at night shows no light bar above the planner.
+export const viewport: Viewport = { themeColor: '#000000' };
 
 export default function PlannerPage() {
   return (

@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { THEME_SCRIPT } from "./planner/themeScript";
 
 // Load Poppins with emphasis on light weights
 const poppins = Poppins({
@@ -136,8 +137,10 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Night mode (red) of the planner: sets data-theme before first paint so a reload never flashes Day. Does nothing outside /planner. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* Raw Open Graph meta tags for better Facebook compatibility */}
         <meta property="fb:app_id" content="1396805241625567" />
         <meta property="og:type" content="website" />
