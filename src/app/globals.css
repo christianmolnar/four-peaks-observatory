@@ -95,6 +95,7 @@
     --p-c-grid: #475569;
     --p-c-label: #cbd5e1;
     --p-c-tick: #94a3b8;
+    --p-c-tick-text: #94a3b8;
     --p-c-limit: #f97316;
     --p-c-limit-line: #fb923c;
     --p-c-alt: #7dd3fc;
@@ -398,6 +399,7 @@ html[data-theme="red"] :is(.planner-root,.planner-ground) {
   --p-c-grid: #5a0a0a;
   --p-c-label: #ff2828;
   --p-c-tick: #a01010;
+  --p-c-tick-text: #ff2828;
   --p-c-limit: #ff2828;
   --p-c-limit-line: #ff2828;
   --p-c-alt: #ff2828;
@@ -508,17 +510,29 @@ html[data-theme="red"] .p-chip-plain {
   background-color: #1f0404;
   box-shadow: inset 0 0 0 1px #a01010;
 }
-/* A pressed chip is filled (its own bg-p-*-fill or raised class) and ticked; the tick is drawn in the button's left padding (out of the text flow, so no box moves) and is read as nothing. */
+/* Chip fills: the selected mode chip is #240505 (5.1:1 for red text) and the gear chips #1f0404 (5.18:1); the alpha fills of Day would mix to 4.74 and 5.03. */
+html[data-theme="red"] :is(.planner-root,.planner-ground) .bg-p-info-fill\/20 {
+  background-color: #240505;
+}
+html[data-theme="red"] :is(.planner-root,.planner-ground) :is([class*="bg-p-chip-"][class*="-fill/15"]) {
+  background-color: #1f0404;
+}
+/* Overflow menu items: the tint alone is 1.08:1, so the focused item gets the same outline as every other control (inset, so the menu does not clip it). */
+html[data-theme="red"] :is(.planner-root,.planner-ground) [role="menuitem"]:focus {
+  outline: 2px solid #ff2828;
+  outline-offset: -2px;
+}
+/* A pressed chip is filled (its own bg-p-*-fill or raised class) and ticked; the tick is drawn in the button's left padding (out of the text flow, so no box moves), 10 px at 1 px from the edge so it stays clear of the label (the 12 px class-tab padding) and of the toggle's moon, and its empty alt text makes it read as nothing (a pseudo-element cannot take aria-hidden). */
 html[data-theme="red"] :is(.planner-root,.planner-ground) button[aria-pressed="true"]:not([aria-label]) {
   position: relative;
 }
 html[data-theme="red"] :is(.planner-root,.planner-ground) button[aria-pressed="true"]:not([aria-label])::before {
   content: "\2713" / "";
   position: absolute;
-  left: 4px;
+  left: 1px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
 }
 
@@ -531,6 +545,9 @@ html[data-theme="red"] .p-zone-0 {
 html[data-theme="red"] .p-zone-1 { fill: url(#fp-hatch-1); fill-opacity: 1; }
 html[data-theme="red"] .p-zone-2 { fill: url(#fp-hatch-2); fill-opacity: 1; }
 html[data-theme="red"] .p-zone-3 { fill: url(#fp-hatch-3); fill-opacity: 1; }
+/* Usable on the altitude chart: a long dash in red (Altitude stays solid), with a matching dashed legend swatch. */
+html[data-theme="red"] .p-usable { stroke-dasharray: 10 5; stroke-linecap: butt; }
+html[data-theme="red"] .p-usable-key { background: repeating-linear-gradient(90deg, #ff2828 0 5px, transparent 5px 8px); }
 html[data-theme="red"] [class*="p-series-"] { stroke-linecap: butt; stroke-linejoin: miter; }
 html[data-theme="red"] .p-series-1 { stroke-dasharray: 16 6; }
 html[data-theme="red"] .p-series-2 { stroke-dasharray: 6 6; }

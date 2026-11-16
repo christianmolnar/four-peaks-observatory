@@ -104,7 +104,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         <polyline points={limitTop.join(' ')} fill="none" stroke="var(--p-c-limit-line)" strokeWidth="1.5" strokeDasharray="5 3" />
         <polyline points={line} fill="none" stroke="var(--p-c-alt)" strokeWidth="2" />
         {usableSegments.map((pts, i) => (
-          <polyline key={i} points={pts} fill="none" stroke="var(--p-c-use)" strokeWidth="4" strokeLinecap="round" />
+          <polyline key={i} className="p-usable" points={pts} fill="none" stroke="var(--p-c-use)" strokeWidth="4" strokeLinecap="round" />
         ))}
         {entry.usableMinutes > 0 && (
           <circle cx={x(entry.peakTime.getTime())} cy={y(entry.peakAltitude)} r="5" fill="var(--p-t1)" stroke="var(--p-c-ink)" strokeWidth="2" />
@@ -113,7 +113,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
       </div>
       <ul className="flex flex-wrap gap-x-5 gap-y-1 text-p-t1/80 font-normal text-sm mt-1" aria-label="Chart key">
         <li><span aria-hidden="true" className="inline-block w-4 h-0.5 bg-p-accent align-middle mr-1" />Altitude</li>
-        <li><span aria-hidden="true" className="inline-block w-4 h-1 bg-p-ok-fill align-middle mr-1" />Usable</li>
+        <li><span aria-hidden="true" className="p-usable-key inline-block w-4 h-1 bg-p-ok-fill align-middle mr-1" />Usable</li>
         <li>
           <span aria-hidden="true" className="inline-block w-4 border-t-2 border-dashed border-p-warn-fill align-middle mr-1" />
           {horizonSet ? 'Horizon limit' : `Flat limit ${minAltitude}° (horizon not set)`}

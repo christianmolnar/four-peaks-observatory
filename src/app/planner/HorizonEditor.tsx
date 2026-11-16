@@ -271,10 +271,10 @@ export default function HorizonEditor({
                 </text>
               );
             })}
-            <text x={C + 4} y={C - radius(30) - 2} fill="var(--p-c-tick)" fontSize={font}>
+            <text x={C + 4} y={C - radius(30) - 2} fill="var(--p-c-tick-text)" fontSize={font}>
               30°
             </text>
-            <text x={C + 4} y={C - radius(60) - 2} fill="var(--p-c-tick)" fontSize={font}>
+            <text x={C + 4} y={C - radius(60) - 2} fill="var(--p-c-tick-text)" fontSize={font}>
               60°
             </text>
           </svg>

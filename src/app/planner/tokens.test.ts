@@ -18,10 +18,13 @@ const ALLOWED_FILES = new Set(['PrintSheet.tsx']);
 const RAW = /(?<![A-Za-z0-9_-])((?:[a-z0-9[\]&>_-]+:)*)(?:text|bg|border|ring|outline|divide|accent|fill|stroke|from|via|to|placeholder|caret|decoration|shadow)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})(?:\/\d+)?(?![A-Za-z0-9-])/g;
 
 // Arbitrary-value colours (`bg-[#0b1020]`, `text-[rgb(...)]`), literal colour attributes on SVG (`fill="#fff"`) and literal colours in inline `style` objects.
-const ARBITRARY = /(?<![A-Za-z0-9_-])((?:[a-z0-9[\]&>_-]+:)*)(?:text|bg|border|ring|outline|divide|accent|fill|stroke|from|via|to|placeholder|caret|decoration|shadow)-\[(?:#|rgb|hsl|hwb|lab|lch|oklch|oklab|color\()[^\]]*\]/g;
+const ARBITRARY = /(?<![A-Za-z0-9_-])((?:[a-z0-9[\]&>_-]+:)*)(?:text|bg|border|ring|outline|divide|accent|fill|stroke|from|via|to|placeholder|caret|decoration|shadow)-\[(?:color:|#|rgb|hsl|hwb|lab|lch|oklch|oklab|color\()[^\]]*\]/g;
 const TOKEN_VALUE = /^(?:var\(--p-[a-z0-9-]+\)|currentColor|none|inherit|transparent)$/;
 const SVG_ATTR = /\b(?:fill|stroke|stopColor|floodColor|lightingColor)=(?:"([^"]*)"|\{\s*(?:'([^']*)'|`([^`]*)`)\s*\})/g;
 const STYLE_PROP = /\b(?:color|backgroundColor|background|borderColor|borderTopColor|borderBottomColor|outlineColor|fill|stroke|boxShadow|textShadow|caretColor|accentColor)\s*:\s*(?:'([^']*)'|"([^"]*)"|`([^`]*)`)/g;
+// A hex colour held in a string (a JS constant, a prop, a template). Allowlist: the viewport themeColor in page.tsx is browser chrome, not planner UI.
+const HEX_LITERAL = /['"`]#[0-9a-fA-F]{3,8}['"`]/g;
+const HEX_ALLOWED = new Set(['page.tsx']);
 const first = (m: RegExpMatchArray): string => m.slice(1).find((x) => x !== undefined) ?? '';
 
 describe('planner colour tokens', () => {
@@ -42,6 +45,20 @@ describe('planner colour tokens', () => {
       for (const m of text.matchAll(STYLE_PROP)) if (!TOKEN_VALUE.test(first(m))) found.push(`${file}: ${m[0]}`);
     }
     expect(found).toEqual([]);
+  });
+
+  it('no hex colour held in a string in any planner file (JS constants too), except the page viewport themeColor', () => {
+    const found: string[] = [];
+    for (const { file, text } of sources) {
+      if (ALLOWED_FILES.has(file) || HEX_ALLOWED.has(file)) continue;
+      for (const m of text.matchAll(HEX_LITERAL)) found.push(`${file}: ${m[0]}`);
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('the guard sees text-[color:#...] and a hex constant (self-check)', () => {
+    expect('text-[color:#fff]'.match(ARBITRARY)).not.toBeNull();
+    expect('const HEXC = "#ff0000";'.match(HEX_LITERAL)).not.toBeNull();
   });
 
   it('the timeline series colours are the --p-c-s0..7 tokens, defined in Day and in red', () => {

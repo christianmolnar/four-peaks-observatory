@@ -1,7 +1,7 @@
 /**
  * The red night theme (globals.css): one block gives every token its red value, red channel only, with the contrast the design computed; print ignores it.
  */
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 
 const css = readFileSync('src/app/globals.css', 'utf8');
 
@@ -64,6 +64,30 @@ describe('red night theme tokens', () => {
     for (const n of ['t1', 't2', 'warn-text', 'warn-strong', 'info-text', 'info-strong', 'ok-text', 'pending', 'would', 'accent']) {
       expect(['#5a0a0a', '#a01010']).not.toContain(red.get(`--p-${n}`));
     }
+  });
+
+  it('no --p-c-* token that any planner SVG text draws with is a border-only red, and every chart text fill reaches 5.4:1 on the chart ground', () => {
+    const files = readdirSync('src/app/planner').filter((f) => /\.tsx$/.test(f) && !/\.test\./.test(f));
+    const used = new Set<string>();
+    for (const f of files) {
+      const src = readFileSync(`src/app/planner/${f}`, 'utf8');
+      for (const m of src.matchAll(/<text\b[^>]*?\bfill="var\((--p-c-[a-z0-9-]+)\)"/g)) used.add(m[1]);
+    }
+    expect(used.size).toBeGreaterThan(0);
+    for (const t of used) {
+      expect(['#5a0a0a', '#a01010']).not.toContain(red.get(t));
+      expect(ratio(red.get(t)!, red.get('--p-c-ink')!)).toBeGreaterThanOrEqual(5.4);
+    }
+    expect(red.get('--p-c-tick-text')).toBe('#ff2828');
+    expect(day.get('--p-c-tick-text')).toBe('#94a3b8');
+    expect(day.get('--p-c-tick')).toBe('#94a3b8');
+  });
+
+  it('chip fills in red: selected mode chip and gear chips carry red text at the design ratios', () => {
+    expect(css).toMatch(/\.bg-p-info-fill\\\/20 \{\s*background-color: #240505;/);
+    expect(css).toMatch(/\[class\*="bg-p-chip-"\]\[class\*="-fill\/15"\]\) \{\s*background-color: #1f0404;/);
+    expect(ratio('#ff2828', '#240505')).toBeGreaterThanOrEqual(4.98);
+    expect(ratio('#ff2828', '#1f0404')).toBeGreaterThanOrEqual(5.15);
   });
 
   it('the alpha bases mix to a visible surface and border on black', () => {
