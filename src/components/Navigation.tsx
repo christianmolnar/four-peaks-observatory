@@ -45,7 +45,7 @@ export default function Navigation({ slim = false }: { slim?: boolean }) {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-sm">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+      <div className={`${slim ? 'max-w-6xl' : 'max-w-5xl'} mx-auto px-4 sm:px-6`}>
         {/* Logo Section */}
         <div className={slim ? 'flex h-12 items-center gap-2' : 'flex items-center justify-between md:justify-center py-0'}>
           <Link href="/" className={`${slim ? 'shrink-0 ' : ''}hover:opacity-80 transition-opacity`}>
