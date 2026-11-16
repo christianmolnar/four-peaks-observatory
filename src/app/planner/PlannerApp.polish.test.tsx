@@ -192,7 +192,7 @@ describe('Print and Export CSV in one menu', () => {
     expect(screen.queryByRole('button', { name: 'Export CSV' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Print or save as PDF' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^More/ }));
-    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Export CSV', 'Export plan CSV', 'Print or save as PDF']);
+    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Share and export…', 'Export CSV', 'Print or save as PDF']);
   });
 
   it('Print from the menu calls the browser print', async () => {
@@ -209,7 +209,7 @@ describe('Print and Export CSV in one menu', () => {
     await app();
     const u = userEvent.setup();
     screen.getByRole('button', { name: /^More/ }).focus();
-    await u.keyboard('{Enter}{ArrowDown}{Enter}');
+    await u.keyboard('{Enter}{ArrowDown}{ArrowDown}{Enter}');
     expect(print).toHaveBeenCalledTimes(1);
   });
 });

@@ -694,7 +694,6 @@ describe('Use this plan', () => {
       window.dispatchEvent(new Event('beforeprint'));
     });
     const sheet = screen.getByTestId('print-sheet');
-    expect(within(sheet).getByText('Night timeline')).toBeTruthy();
     expect(sheet.textContent).toMatch(/Andromeda Galaxy/);
     expect(sheet.textContent).toMatch(/Flaming Star Nebula/);
     act(() => {

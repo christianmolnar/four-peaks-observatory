@@ -237,7 +237,7 @@ describe('the timeline schedules what was chosen', () => {
 });
 
 describe('print and the plan CSV carry the rows with their exposure', () => {
-  it('the print sheet has a Plan table with preset, sub length, subs and total light for each row', async () => {
+  it('the print sheet has a run table with subs, total light and preset for each row', async () => {
     await app([{ id: 'm31', preset: 'deep' }, jupiter]);
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));
@@ -245,9 +245,11 @@ describe('print and the plan CSV carry the rows with their exposure', () => {
     const table = screen.getByTestId('print-plan');
     const rows = within(table).getAllByRole('row').slice(1).map((r) => [...r.children].map((c) => c.textContent));
     const n = parse(numbers('m31'));
-    expect(rows[0].slice(1, 5)).toEqual(['Andromeda Galaxy', 'Deep', `${n.sub} s`, String(n.subs)]);
-    expect(rows[0][5]).toMatch(/^\d+ min$/);
-    expect(rows[1].slice(1)).toEqual(['Jupiter', '', '', '', '']);
+    expect(rows[0][2]).toMatch(/^Andromeda Galaxy/);
+    expect(rows[0][3]).toMatch(new RegExp(`^${n.subs} × ${n.sub} s\\d+ min$`));
+    expect(rows[0][6]).toMatch(/^Deep/);
+    expect(rows[1][2]).toMatch(/^Jupiter/);
+    expect(rows[1][3]).toBe('not worked out');
     act(() => {
       window.dispatchEvent(new Event('afterprint'));
     });

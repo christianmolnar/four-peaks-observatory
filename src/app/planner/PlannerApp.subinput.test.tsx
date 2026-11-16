@@ -278,13 +278,13 @@ describe('a held favorites store says the next step', () => {
 });
 
 describe('preset labels are the row buttons\' words in the CSV and print', () => {
-  it('the print sheet says Quick, Balanced and Deep, as the row buttons do', async () => {
+  it('the print sheet notes say Quick, Balanced and Deep, as the row buttons do', async () => {
     await app([{ id: 'm31', preset: 'deep' }, { id: 'planet-jupiter', preset: 'balanced' }]);
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));
     });
     const rows = within(screen.getByTestId('print-plan')).getAllByRole('row').slice(1).map((r) => [...r.children].map((c) => c.textContent));
-    expect(rows[0][2]).toBe('Deep');
+    expect(rows[0][6]).toMatch(/^Deep(\.|$)/);
     act(() => {
       window.dispatchEvent(new Event('afterprint'));
     });

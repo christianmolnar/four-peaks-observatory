@@ -1,158 +1,129 @@
-import { fitLabel } from '@/planner/plan';
-import type { PlanEntry } from '@/planner/plan';
-import type { PlanExposureRow } from '@/planner/export';
-import { TREND_TEXT } from '@/planner/itinerary';
-import type { PlanTimelineReport } from './PlanTimeline';
-import { peakText } from './catalogText';
+import { GAIN_NOTE } from '@/planner/export';
+import type { PlanSheet, ShareDoc } from '@/planner/export';
 
 export interface PrintSheetProps {
-  date: string;
-  siteLine: string;
-  trainLine: string;
-  nightLine: string;
-  horizonLine: string;
-  entries: readonly PlanEntry[];
-  /** The open plan's targets with their exposure; absent or empty: no plan table. */
-  planRows?: readonly PlanExposureRow[];
-  captured: ReadonlySet<string>;
-  formatTime: (d: Date) => string;
-  /** The night itinerary as it stands, or null when there is none to show. */
-  itinerary?: PlanTimelineReport | null;
+  doc: ShareDoc;
 }
 
-/**
- * The plan as a plain black-on-white page. It is in the page but hidden on screen; "Print or save as PDF"
- * opens the browser's print dialog, whose print stylesheet (the rules below) hides everything else.
- * Same rows as the Targets table and the CSV: the filtered list, in rank order.
- */
-export default function PrintSheet({ date, siteLine, trainLine, nightLine, horizonLine, entries, planRows, captured, formatTime, itinerary }: PrintSheetProps) {
+const timeText = (r: { start: string; end: string }): string => (r.start === '' ? 'no time' : r.end === '' ? r.start : `${r.start}–${r.end}`);
+
+function Plan({ p, first }: { p: PlanSheet; first: boolean }) {
   return (
-    <div className="planner-print-sheet hidden print:block bg-white text-black text-[11pt]" data-testid="print-sheet">
-      <style>{`@media print {
-  nav { display: none !important; }
-  nav ~ div { padding-top: 0 !important; }
-  body { background: #fff !important; }
-  .planner-print-sheet table { border-collapse: collapse; width: 100%; }
-  .planner-print-sheet tr { break-inside: avoid; }
-  .planner-print-sheet th, .planner-print-sheet td { border-bottom: 1px solid #999; padding: 3pt 4pt; text-align: left; vertical-align: top; }
-  .planner-print-sheet thead { display: table-header-group; }
-  @page { margin: 14mm; }
-}`}</style>
-      <h1 className="text-2xl font-semibold">Imaging plan for the evening of {date}</h1>
-      <p className="mt-1">{siteLine}</p>
-      <p>{trainLine}</p>
-      <p>{nightLine}</p>
-      <p>{horizonLine}</p>
-      <p className="mt-1 text-sm">
-        Planner estimates, not measurements. Times are local to the site&apos;s time zone when one is set, otherwise to the browser. Made with the Four Peaks Observatory imaging planner (free guest tool).
-      </p>
-      {planRows !== undefined && planRows.length > 0 && (
-        <>
-          <h2 className="mt-4 text-xl font-semibold">Plan</h2>
-          <table className="mt-2 text-sm" data-testid="print-plan">
-            <caption className="sr-only">The plan&apos;s targets with their exposure</caption>
-            <thead>
-              <tr>
-                <th scope="col">#</th>
-                <th scope="col">Target</th>
-                <th scope="col">Preset</th>
-                <th scope="col">Sub length</th>
-                <th scope="col">Subs</th>
-                <th scope="col">Total light</th>
-              </tr>
-            </thead>
-            <tbody>
-              {planRows.map((r, i) => (
-                <tr key={`${i}-${r.name}`}>
-                  <td>{i + 1}</td>
-                  <th scope="row" className="font-normal">{r.name}</th>
-                  <td>{r.preset}</td>
-                  {r.exposureNote ? (
-                    <td colSpan={3}>{r.exposureNote}</td>
-                  ) : (
-                    <>
-                      <td>{r.subSeconds === null ? '' : `${r.subSeconds} s`}</td>
-                      <td>{r.subCount ?? ''}</td>
-                      <td>{r.lightMin === null ? '' : `${Math.round(r.lightMin)} min`}</td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-      {entries.length === 0 ? (
-        <p className="mt-4">No targets match the filters on screen.</p>
+    <section className={first ? '' : 'run-sheet-break'} aria-label={`Run sheet: ${p.name}`}>
+      <h1 className="break-words text-2xl font-semibold">{p.name}</h1>
+      <p>Evening of {p.date}. Times are local at the site.</p>
+      <p>Site: {p.site}</p>
+      <p>Train: {p.train}</p>
+      {p.night !== '' && <p>{p.night}</p>}
+      {p.startsAt !== '' && <p>Imaging starts {p.startsAt}.</p>}
+      <p>{GAIN_NOTE} Write it in the Gain column.</p>
+      {p.notes.trim() !== '' && <p className="whitespace-pre-line break-words">Notes: {p.notes}</p>}
+      {p.warnings.map((w) => (
+        <p key={w} className="font-semibold">Warning: {w}</p>
+      ))}
+      {p.caveat !== '' && <p>Note: {p.caveat}</p>}
+      {p.rows.length === 0 ? (
+        <p className="mt-3">No objects in this plan.</p>
       ) : (
-        <table className="mt-4 text-sm">
-          <caption className="sr-only">Targets ranked for the evening of {date}</caption>
+        <table className="mt-3" data-testid="print-plan">
+          <caption className="sr-only">Run sheet for {p.name}, in order</caption>
           <thead>
             <tr>
               <th scope="col">#</th>
+              <th scope="col">Time</th>
               <th scope="col">Target</th>
-              <th scope="col">Fit</th>
-              <th scope="col">Peak</th>
-              <th scope="col">Usable window</th>
-              <th scope="col">Moon</th>
-              <th scope="col">Score</th>
-              <th scope="col">Captured</th>
+              <th scope="col">Subs</th>
+              <th scope="col">Gain</th>
+              <th scope="col">Filter</th>
+              <th scope="col">Notes</th>
             </tr>
           </thead>
           <tbody>
-            {entries.map((e, i) => (
-              <tr key={e.id}>
-                <td>{i + 1}</td>
+            {p.rows.map((r) => (
+              <tr key={r.order}>
+                <td>{r.order}</td>
+                <td>{timeText(r)}</td>
                 <th scope="row" className="font-normal">
-                  <strong>{e.name}</strong>
-                  {e.isPlanet ? ' (solar system)' : ''}
-                  <br />
-                  <span>{e.why}</span>
+                  <strong>{r.name}</strong>
+                  {r.type !== '' && <> ({r.type})</>}
+                  {r.ra !== '' && (
+                    <>
+                      <br />
+                      RA {r.ra}
+                      <br />
+                      Dec {r.dec}
+                    </>
+                  )}
                 </th>
-                <td>{fitLabel(e)}</td>
-                <td>{peakText(e, formatTime)}</td>
-                <td>{e.windows.length === 0 ? 'none' : e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', ')}</td>
-                <td>{(e.moonIllumination * 100).toFixed(0)}% lit, {e.moonSeparation.toFixed(0)}° away</td>
-                <td>{e.score.total}</td>
-                <td>{captured.has(e.id) ? 'Yes' : 'No'}</td>
+                <td>
+                  {r.subSeconds === null || r.subCount === null ? (
+                    'not worked out'
+                  ) : (
+                    <>
+                      <strong>{r.subCount} &times; {r.subSeconds} s</strong>
+                      <br />
+                      {r.lightMin} min
+                    </>
+                  )}
+                </td>
+                <td className="run-sheet-gain" />
+                <td>{r.filter}</td>
+                <td>
+                  {[r.preset, r.favorite, r.note, r.warning === '' ? '' : `Warning: ${r.warning}`].filter((x) => x !== '').join('. ')}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-      {itinerary && itinerary.plan.slots.length > 0 && (
-        <>
-          <h2 className="mt-6 text-xl font-semibold">Night timeline</h2>
-          <p className="mt-1 text-sm">Imaging can start at {formatTime(itinerary.plan.startsAt)}.{itinerary.plan.startNote ? ` ${itinerary.plan.startNote}` : ''}</p>
-          <table className="mt-2 text-sm">
-            <caption className="sr-only">Night timeline, in order</caption>
-            <thead>
-              <tr>
-                <th scope="col">#</th>
-                <th scope="col">Target</th>
-                <th scope="col">Start to end</th>
-                <th scope="col">Altitude at start</th>
-                <th scope="col">In the middle</th>
-                <th scope="col">At end</th>
-                <th scope="col">Trend</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itinerary.plan.slots.map((s, i) => (
-                <tr key={s.id}>
-                  <td>{i + 1}</td>
-                  <th scope="row" className="font-normal">{s.name}</th>
-                  <td>{s.altitudes ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'}</td>
-                  <td>{s.altitudes ? `${s.altitudes.start.altitude.toFixed(0)}° ${s.altitudes.start.direction}` : ''}</td>
-                  <td>{s.altitudes ? `${s.altitudes.middle.altitude.toFixed(0)}° ${s.altitudes.middle.direction}` : ''}</td>
-                  <td>{s.altitudes ? `${s.altitudes.end.altitude.toFixed(0)}° ${s.altitudes.end.direction}` : ''}</td>
-                  <td>{s.altitudes ? TREND_TEXT[s.altitudes.trend] : ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
+      {p.totalLightMin !== null && <p className="mt-2 font-semibold">Total light: {p.totalLightMin} min</p>}
+    </section>
+  );
+}
+
+/**
+ * The run sheet as a plain black-on-white page: one table per plan (order, time, target and position, subs, gain to write in, filter, notes),
+ * and the gear as lists. It is in the page but hidden on screen; the print stylesheet below hides everything else. It reads the same
+ * `ShareDoc` as the text, Markdown and CSV files, so the numbers are the rows' own, and nothing on it is told by colour.
+ */
+export default function PrintSheet({ doc }: PrintSheetProps) {
+  return (
+    <div className="planner-print-sheet hidden print:block bg-white text-black text-[12pt]" data-testid="print-sheet">
+      <style>{`@media print {
+  nav { display: none !important; }
+  nav ~ div { padding-top: 0 !important; }
+  body { background: #fff !important; }
+  .planner-print-sheet { width: 100%; overflow-wrap: anywhere; }
+  .planner-print-sheet table { border-collapse: collapse; width: 100%; table-layout: auto; }
+  .planner-print-sheet tr { break-inside: avoid; }
+  .planner-print-sheet th, .planner-print-sheet td { border: 1px solid #555; padding: 3pt 4pt; text-align: left; vertical-align: top; }
+  .planner-print-sheet .run-sheet-gain { min-width: 14mm; }
+  .planner-print-sheet .run-sheet-break { break-before: page; }
+  .planner-print-sheet thead { display: table-header-group; }
+  @page { margin: 12mm; }
+}`}</style>
+      {doc.notes.map((n) => (
+        <p key={n} className="font-semibold">{n}</p>
+      ))}
+      {doc.plans.map((p, i) => (
+        <Plan key={i} p={p} first={i === 0 && doc.notes.length === 0} />
+      ))}
+      {doc.gear !== null && (
+        <section className={doc.plans.length > 0 ? 'run-sheet-break' : ''} aria-label="Gear">
+          <h1 className="text-2xl font-semibold">Gear</h1>
+          {doc.gear.sections.map((s) => (
+            <div key={s.title}>
+              <h2 className="mt-3 text-lg font-semibold">{s.title}</h2>
+              <ul className="list-disc pl-5">
+                {s.lines.map((l, i) => (
+                  <li key={i} className="break-words">{l}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
       )}
+      <p className="mt-4 text-sm">Planner estimates, not measurements. Made with the Four Peaks Observatory imaging planner.</p>
     </div>
   );
 }

@@ -374,15 +374,15 @@ describe('Delete, Import and Reset say what they do', () => {
     expect(storedPlan()!.siteId).toBe('sydney');
   });
 
-  it('M5: Reset all says plans are not part of the profile export and cannot be recovered, and no longer promises a copy of them', async () => {
+  it('M5: Reset all says plans are not part of the profile export and cannot be recovered unless shared first, and no longer promises a copy of them', async () => {
     const u = userEvent.setup();
     await app();
     openGear();
     await u.click(screen.getByRole('button', { name: 'Reset all' }));
     const text = screen.getByTestId('reset-confirm').textContent!;
-    expect(text).toMatch(/Plans are not part of the profile export and cannot be recovered\./);
+    expect(text).toMatch(/Plans are not part of the profile export: share them first .*or they cannot be recovered\./);
     expect(text).not.toMatch(/Export your profile first to keep a copy\./);
-    expect(document.getElementById('profile-heading')!.closest('section')!.textContent).toMatch(/plans are not part of that export/);
+    expect(document.getElementById('profile-heading')!.closest('section')!.textContent).toMatch(/plans are shared and imported from the plan.s More menu, Share and export/);
   });
 });
 

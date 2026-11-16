@@ -12,7 +12,7 @@ export interface OverflowItem {
  * A "More" button with a short menu under it (Export CSV, Print). Keyboard: Enter, Space or Down opens it on the first item,
  * Up and Down move, Home and End jump, Escape closes and returns to the button, Tab closes. A press outside closes it.
  */
-export default function OverflowMenu({ label, items }: { label: string; items: readonly OverflowItem[] }) {
+export default function OverflowMenu({ label, items, triggerId }: { label: string; items: readonly OverflowItem[]; triggerId?: string }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -48,6 +48,7 @@ export default function OverflowMenu({ label, items }: { label: string; items: r
     <div ref={root} className="relative">
       <button
         ref={trigger}
+        id={triggerId}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}

@@ -11,9 +11,10 @@ import type { PlanTarget } from '@/planner/ai/body';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { makeCsvTime, planRowsToCsv, planToCsv } from '@/planner/export';
-import type { PlanExposureRow } from '@/planner/export';
-import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError } from '@/planner/profile';
+import { MAX_PLANS_FILE_CHARS, PlansFileError, asiairCsv, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText, sheetTotal } from '@/planner/export';
+import type { AsiairTarget, PlanExposureRow, PlanSheet, SheetRow, ShareDoc, TargetFacts } from '@/planner/export';
+import { opticalTrain } from '@/planner/optics';
+import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, PRESETS } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
@@ -54,6 +55,7 @@ import { profileProblemText } from '@/planner/state/words';
 import { FAVORITES_KEY, favoriteOf, favoriteProblem, listFavoritesBackups, withFavorite, withoutFavorite } from '@/planner/state/favorites';
 import type { Favorite } from '@/planner/state/favorites';
 import {
+  MAX_PLANS,
   MAX_PLAN_TARGETS,
   PLANS_KEY,
   EXPOSURE_NOTICE_KEY,
@@ -64,6 +66,7 @@ import {
   cutMessage,
   deletePlan,
   duplicatePlan,
+  importPlans,
   inspectStored,
   keepCopy,
   listBackups,
@@ -77,7 +80,7 @@ import {
   updatePlan,
   withMigratedPlan,
 } from '@/planner/state/plans';
-import type { PlanDefaults, PlanTargetRef, PlansState } from '@/planner/state/plans';
+import type { ImportResult, Plan, PlanDefaults, PlanTargetRef, PlansState } from '@/planner/state/plans';
 import type { HorizonErrors, HorizonField, HorizonFields } from '@/planner/state';
 import AiPlanFlyout from './AiPlanFlyout';
 import AltitudeChart from './AltitudeChart';
@@ -91,6 +94,9 @@ import NumberSlider from './NumberSlider';
 import OverflowMenu from './OverflowMenu';
 import SolarSystemDetail from './SolarSystemDetail';
 import PrintSheet from './PrintSheet';
+import ShareSheet from './ShareSheet';
+import type { ImportPanel, ShareFormat, ShareWhat } from './ShareSheet';
+import { FORMATS } from './ShareSheet';
 import { download } from './download';
 import type { PlanTimelineReport } from './PlanTimeline';
 import { ITINERARY_KEY, MAX_SLOTS } from '@/planner/itinerary';
@@ -327,6 +333,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [openTrainTick, setOpenTrainTick] = useState(0);
   // The print sheet is built only while the browser is printing (Print button or Ctrl+P), so it costs the page nothing otherwise.
   const [printing, setPrinting] = useState(false);
+  // The Share sheet: open or closed, what it shares (also what Print prints), when it was opened (the time written in a JSON file), and the import flow.
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareWhat, setShareWhat] = useState<ShareWhat>('plan');
+  const [sharedAt, setSharedAt] = useState('');
+  const [importPanel, setImportPanel] = useState<ImportPanel>({ kind: 'none' });
+  const pendingImport = useRef<{ plans: Plan[]; notices: string[] } | null>(null);
   // The night timeline leaves its current plan here; the print sheet reads it when printing starts (no re-render on every change).
   const itineraryReport = useRef<PlanTimelineReport | null>(null);
   // Who is signed in: the sign-in control at the top shows it, and the owner sees the AI plan's review switch; a failed read leaves the page as a guest's.
@@ -1399,7 +1411,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     let next: Profile;
     try {
       assertImportSize(file.size);
-      next = profileFromText(await file.text());
+      const text = await file.text();
+      next = profileFromText(gearInEverything(text) ?? text); // an "everything" file from Share and export carries the gear
     } catch (e) {
       setImportError(`Import rejected, nothing was changed. ${(e as Error).message}`);
       return;
@@ -1438,7 +1451,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     );
   };
 
-  const exportPlanCsv = () => download(`planner-plan-${date}.csv`, planRowsToCsv(exposureRows, staleNotes.map((n) => n.text).join(' ')), 'text/csv;charset=utf-8', true);
 
   const planRows: PlanRow[] = planItems.map(({ id, ref, target, body, entry }) => {
     const name = body ?? target?.displayName ?? target?.name ?? id;
@@ -1505,6 +1517,162 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       ...(view?.kind === 'missing' ? { exposureNote: view.reason } : {}),
     };
   });
+
+  // ---- Share and export: what the sheet, the files and the print all read.
+  /** The year with the night's date: a file stands alone. */
+  const dateWithYear = (iso: string): string => `${nightDateText(iso)} ${iso.slice(0, 4)}`;
+  const factsOf = (id: string): TargetFacts | null => {
+    const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
+    if (body !== undefined) return { name: body, type: 'Solar system', raHours: null, decDeg: null };
+    const t = catalogById?.get(id);
+    return t === undefined ? null : { name: t.displayName ?? t.name, type: typeLabel(t.type), raHours: t.raHours, decDeg: t.decDeg };
+  };
+  const favoriteText = (id: string): string => {
+    const fav = favoriteOf(favs.state, id);
+    return fav === null ? '' : `Favorite saved: ${fav.subCount} x ${fav.subSeconds} s (${fav.trainName === '' ? 'no train named' : fav.trainName}, ${fav.filterName})`;
+  };
+  /** The open plan's sheet: the rows' own numbers (the same objects the screen and the plan CSV use) and the timeline's own times. */
+  const openSheet = (): PlanSheet => {
+    const report = itineraryReport.current;
+    const slots = new Map(report?.plan.slots.map((s) => [s.id, s] as const) ?? []);
+    const filter = train ? filterNameOf(profile, train.id) || 'No filter' : '';
+    const rows = planItems.map(({ id, target }, i): SheetRow => {
+      const e = exposureRows[i];
+      const slot = slots.get(id);
+      const timed = slot !== undefined && slot.altitudes !== null;
+      return {
+        order: i + 1,
+        name: e.name,
+        type: e.type,
+        ra: target !== undefined ? raText(target.raHours) : '',
+        dec: target !== undefined ? decText(target.decDeg) : '',
+        start: timed ? formatTime(slot.start) : '',
+        end: timed ? formatTime(slot.end) : '',
+        preset: e.preset,
+        subSeconds: e.subSeconds,
+        subCount: e.subCount,
+        lightMin: e.lightMin === null ? null : Math.round(e.lightMin),
+        filter,
+        favorite: favoriteText(id),
+        note: e.note,
+        warning: [e.exposureNote ?? '', ...(slot?.warnings.map((w) => w.text) ?? [])].filter((x) => x !== '').join(' '),
+      };
+    });
+    return {
+      name: open?.name ?? '',
+      date: dateWithYear(date),
+      site: site ? siteText(profile, site.id) : '',
+      train: train ? trainText(profile, train.id) : '',
+      night: nightText.trim(),
+      startsAt: report && report.plan.slots.length > 0 ? formatTime(report.plan.startsAt) : (open?.startTime ?? ''),
+      notes: open?.notes ?? '',
+      warnings: staleNotes.map((n) => n.text),
+      caveat: planTargets.length > 0 && report === null ? 'The times were not worked out (the night or the catalog has not loaded).' : '',
+      rows,
+      totalLightMin: sheetTotal(rows),
+    };
+  };
+  /** Another plan's sheet: what it stores, said so. */
+  const otherSheet = (p: Plan): PlanSheet => {
+    const m = missingOf(profile, p);
+    const sheet = storedSheet(p, profile, factsOf, dateWithYear, favoriteText);
+    return { ...sheet, warnings: [...(m.train ? ['This plan was made with a train that is no longer in your gear.'] : []), ...(m.site ? ['This plan was made for a site that is no longer in your gear or whose saved numbers cannot be used.'] : [])] };
+  };
+  const sheetsFor = (what: ShareWhat): PlanSheet[] => (what === 'plan' ? [openSheet()] : what === 'all' || what === 'everything' ? (plans?.plans ?? []).map((p) => (p.id === plans?.openId ? openSheet() : otherSheet(p))) : []);
+  /** Why a choice is off: saved gear that could not be loaded is never shared as if it were the sample on screen. */
+  const shareBlocked: Partial<Record<ShareWhat, string>> =
+    profileHeld !== null ? { gear: 'Your saved gear could not be loaded, so it cannot be shared from here. Export profile (JSON) under Gear and site keeps the saved text as it is.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {};
+  const shareNow: ShareWhat = shareBlocked[shareWhat] !== undefined ? 'plan' : shareWhat;
+  const heldNote = heldPlans !== null ? 'Your saved plans are held back (see the notice at the top of the page), so this is the plans on this page.' : null;
+  const docFor = (what: ShareWhat): ShareDoc => ({ plans: sheetsFor(what), gear: what === 'gear' || what === 'everything' ? gearSheet(profile) : null, notes: heldNote === null ? [] : [heldNote] });
+  const slug = (s: string): string => s.normalize('NFD').replace(/[^\x20-\x7e]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'plan';
+  const makeShare = (what: ShareWhat, format: ShareFormat): { text: string; file: string } => {
+    const ext = FORMATS.find((f) => f.id === format)!.ext;
+    const stem = what === 'plan' ? `fpo-plan-${slug(open?.name ?? '')}-${date}` : what === 'all' ? `fpo-plans-${date}` : what === 'gear' ? 'fpo-gear' : `fpo-everything-${date}`;
+    const file = `${stem}.${ext}`;
+    if (format === 'json') {
+      if (what === 'gear') return { text: gearFileText(profile), file };
+      const stored = what === 'plan' ? (open ? [open] : []) : (plans?.plans ?? []);
+      return { text: plansFileText({ exportedAt: sharedAt, plans: stored, sheets: sheetsFor(what), profile: what === 'everything' ? profile : null }), file };
+    }
+    const doc = docFor(what);
+    return { text: format === 'text' ? docToText(doc) : format === 'markdown' ? docToMarkdown(doc) : docToCsv(doc), file };
+  };
+  /** The ASIAir file: the open plan's fixed objects with a position, in the plan's order. */
+  const asiairTargets = planItems.flatMap(({ id, target }): AsiairTarget[] => (target === undefined ? [] : [{ name: designationOf(id) || (target.displayName ?? target.name), raHours: target.raHours, decDeg: target.decDeg }]));
+  const asiairFov = (() => {
+    if (!train) return null;
+    try {
+      const r = resolveTrain(profile, train);
+      const o = opticalTrain(r.scope, r.camera, r.accessory);
+      return o.fovWidthArcmin !== undefined && o.fovHeightArcmin !== undefined ? { widthArcmin: o.fovWidthArcmin, heightArcmin: o.fovHeightArcmin } : null;
+    } catch {
+      return null;
+    }
+  })();
+  const solarInPlan = planItems.filter((p) => p.body !== undefined).length;
+  const asiairLeft = [
+    solarInPlan > 0 ? `${solarInPlan} solar-system ${solarInPlan === 1 ? 'body is' : 'bodies are'} left out: they move, so they have no fixed position.` : '',
+    planItems.length - solarInPlan - asiairTargets.length > 0 ? `${planItems.length - solarInPlan - asiairTargets.length} not in the bundled catalog, so left out.` : '',
+  ].filter((x) => x !== '').join(' ');
+  const asiairMake = (letter: boolean) => ({ text: asiairCsv(asiairTargets, asiairFov, letter), file: `fpo-asiair-positions-${slug(open?.name ?? '')}-${date}.csv` });
+
+  /** Reads a plans file the user chose and, if it is one, asks what to do about plans that are already here. Nothing is stored yet. */
+  const pickPlansFile = async (file: File | undefined) => {
+    if (!file) return;
+    pendingImport.current = null;
+    const refuse = (text: string) => setImportPanel({ kind: 'error', text });
+    if (heldPlans !== null) return refuse('Your saved plans are held back (see the notice at the top of the page), so nothing can be added to them until you decide there.');
+    const have = plansRef.current;
+    if (have === null) return refuse('The plans have not loaded yet.');
+    try {
+      if (file.size > MAX_PLANS_FILE_CHARS) throw new PlansFileError('This file is not a planner plans file. The file is too large.');
+      const read = readPlansFile(await file.text(), tonightDate || date, nightDateText);
+      pendingImport.current = { plans: read.plans, notices: read.notices };
+      const names = read.plans.slice(0, 5).map((p) => `"${p.name}"`);
+      if (read.plans.length > 5) names.push(`and ${read.plans.length - 5} more`);
+      setImportPanel({ kind: 'ask', file: file.name.length > 40 ? `${file.name.slice(0, 40)}…` : file.name, names, total: read.plans.length, repeats: read.plans.filter((p) => have.plans.some((x) => x.id === p.id)).length, notices: read.notices, hasGear: read.hasGear });
+    } catch (e) {
+      refuse(e instanceof PlansFileError ? e.message : `The file could not be read: ${(e as Error).message}`);
+    }
+  };
+  /** The user's choice about the plans read: adds them after the saved ones (a copy of the saved plans is kept first), never replacing one. */
+  const finishImport = (choice: 'copy' | 'skip' | 'cancel') => {
+    const pending = pendingImport.current;
+    pendingImport.current = null;
+    if (choice === 'cancel' || pending === null) {
+      setImportPanel({ kind: 'none' });
+      return;
+    }
+    try {
+      const stored = readPlansText();
+      if (stored !== null) keepCopy(window.localStorage, stored);
+    } catch (e) {
+      setImportPanel({ kind: 'error', text: `A copy of your saved plans could not be kept first (${(e as Error).message}), so they were left as they are.` });
+      return;
+    }
+    let result: ImportResult | null = null;
+    let before = 0;
+    const ok = commitPlans((st) => {
+      before = st.plans.length;
+      result = importPlans(st, pending.plans, choice);
+      return result.state;
+    });
+    const r = result as ImportResult | null;
+    if (!ok || r === null) {
+      setImportPanel({ kind: 'error', text: 'The plans could not be added (the notice at the top of the page says why).' });
+      return;
+    }
+    const noGear = r.state.plans.slice(before).filter((p) => missingOf(profile, p).train || missingOf(profile, p).site).length;
+    const parts = [
+      r.added > 0 ? `Imported ${r.added} ${r.added === 1 ? 'plan' : 'plans'}${r.copies > 0 ? `, ${r.copies} as ${r.copies === 1 ? 'a copy' : 'copies'} (the name ends "(imported)")` : ''}.` : 'No plan was added.',
+      r.skipped > 0 ? `${r.skipped} ${r.skipped === 1 ? 'was' : 'were'} already here and ${r.skipped === 1 ? 'was' : 'were'} skipped.` : '',
+      r.leftOut > 0 ? `Plans hold at most ${MAX_PLANS} plans, so ${r.leftOut} ${r.leftOut === 1 ? 'was' : 'were'} left out. Delete a plan to make room.` : '',
+      noGear > 0 ? `${noGear} ${noGear === 1 ? 'uses' : 'use'} a site or train that is not in your gear; ${noGear === 1 ? 'it shows' : 'they show'} the first one until you keep or change it.` : '',
+      ...pending.notices,
+    ];
+    setImportPanel({ kind: 'done', text: parts.filter((x) => x !== '').join(' ') });
+  };
 
   // The AI plan takes the open plan's fixed objects in the plan's order; planets move, so they stay out, and so does anything not yet resolved.
   const aiTargets = useMemo(
@@ -2091,10 +2259,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         menu={
           <OverflowMenu
             label="More"
+            triggerId="plan-more"
             items={[
+              {
+                label: 'Share and export…',
+                onSelect: () => {
+                  setSharedAt(new Date().toISOString());
+                  setImportPanel({ kind: 'none' });
+                  setShareOpen(true);
+                },
+              },
               { label: 'Export CSV', onSelect: exportCsv, disabled: ranked === null || filtered.length === 0 },
-              { label: 'Export plan CSV', onSelect: exportPlanCsv, disabled: planRows.length === 0 },
-              { label: 'Print or save as PDF', onSelect: () => window.print(), disabled: ranked === null || (filtered.length === 0 && planRows.length === 0) },
+              { label: 'Print or save as PDF', onSelect: () => window.print() },
             ]}
           />
         }
@@ -2165,6 +2341,27 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           fetchPlan={aiFetch}
           onApply={applyAiPlan}
           onClose={closeAi}
+        />
+      )}
+      {shareOpen && (
+        <ShareSheet
+          planName={open?.name ?? ''}
+          planCount={plans?.plans.length ?? 1}
+          what={shareNow}
+          onWhat={setShareWhat}
+          blocked={shareBlocked}
+          note={heldNote}
+          make={makeShare}
+          asiair={{ count: asiairTargets.length, left: asiairLeft, fovNote: asiairFov === null && train ? 'The size of the train\u2019s field is not known (a pixel size, sensor size or focal length is not set), so each position is written with a 60 arcminute pane.' : null, make: asiairMake }}
+          onPrint={() => window.print()}
+          onPickFile={(f) => void pickPlansFile(f)}
+          importPanel={importPanel}
+          onImport={finishImport}
+          onClose={() => {
+            pendingImport.current = null;
+            setShareOpen(false);
+            window.setTimeout(() => document.getElementById('plan-more')?.focus(), 0);
+          }}
         />
       )}
       </div>
@@ -2241,24 +2438,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <ResetAll onConfirm={resetAll} />
         </div>
         <p className="text-white/60 font-normal text-xs mt-3">
-          Your profile, plans and captured list stay in this browser. Export your profile to keep a copy of the profile; plans are not part of that export. Imports are checked field by field; a rejected file changes nothing and the error names the field.
+          Your profile, plans and captured list stay in this browser. Export your profile to keep a copy of the gear; plans are shared and imported from the plan’s More menu, Share and export (which can also carry the gear). Imports are checked field by field; a rejected file changes nothing and the error names the field.
         </p>
       </section>
       </div>
     </div>
     {printing && (
-    <PrintSheet
-      date={date}
-      siteLine={`Site: ${site.name} (${site.latitude.toFixed(4)}°, ${site.longitude.toFixed(4)}°${site.elevationM !== undefined ? `, ${site.elevationM} m` : ''}). ${zoneText}`}
-      trainLine={`Train: ${train.name}${train.kind === 'optical' && train.filterId ? `, filter ${profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? train.filterId}` : ''}. Minimum altitude ${minAltitude}°.${staleNotes.length > 0 ? ` ${staleNotes.map((n) => n.text).join(' ')}` : ''}`}
-      nightLine={nightText}
-      horizonLine={horizonText}
-      entries={filtered}
-      planRows={exposureRows}
-      captured={captured}
-      formatTime={formatTime}
-      itinerary={itineraryReport.current}
-    />
+    <PrintSheet doc={docFor(shareNow)} />
     )}
     </>
   );

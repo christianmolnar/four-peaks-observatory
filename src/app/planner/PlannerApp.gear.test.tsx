@@ -472,7 +472,7 @@ describe('a plan whose train is gone is never used silently', () => {
     expect(within(screen.getByTestId('ai-flyout')).getByRole('button', { name: /^Ask the AI/ }).hasAttribute('disabled')).toBe(false);
   });
 
-  it('the print header and the plan CSV carry the note', async () => {
+  it('the print header and the shared plan CSV carry the note', async () => {
     seedStale();
     await mount();
     openPlanTab();
@@ -484,7 +484,9 @@ describe('a plan whose train is gone is never used silently', () => {
     (URL as unknown as { createObjectURL: (b: Blob) => string }).createObjectURL = (b) => (blobs.push(b), 'blob:test');
     (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {};
     jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    chooseMore('Export plan CSV');
+    chooseMore('Share and export…');
+    fireEvent.click(screen.getByRole('radio', { name: 'CSV' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download file' })[0]);
     const csv = await new Promise<string>((res, rej) => {
       const r = new FileReader();
       r.onload = () => res(String(r.result));

@@ -1,6 +1,7 @@
 import { PROFILE_VERSION, SITE_LIMITS, enterText } from '../profile';
 import type { ProfileError } from '../profile';
 import { LIST_SPECS } from './edit';
+import type { PlansError } from './plans';
 import type { ListKey } from './edit';
 
 const KIND: Record<string, string> = {
@@ -159,4 +160,67 @@ export function profileProblemText(e: ProfileError, raw: unknown): string {
   if ((hit = m(/^unknown (scope|camera|filter|accessory|smart scope|site|train) "([\s\S]*)"$/))) return `${where}: no ${hit[1]} has the id "${shownValue(hit[2])}" in this profile.`;
   if (/\b(expected|got)\b|allowed:|\$\./.test(detail)) return `${where} is not valid.`;
   return `${where}: ${detail}`;
+}
+
+const FIELD_WORDS: Record<string, string> = {
+  id: 'id',
+  name: 'name',
+  createdAt: 'created time',
+  updatedAt: 'updated time',
+  date: 'date',
+  siteId: 'site',
+  trainId: 'train',
+  startTime: 'start time',
+  targets: 'targets',
+  notes: 'notes',
+  preset: 'preset',
+  custom: 'custom values',
+  base: 'preset the custom values start from',
+  favorite: 'favorite state',
+  start: 'start time',
+  end: 'end time',
+  note: 'note',
+  subSeconds: 'sub-exposure seconds',
+  subCount: 'sub-exposure count',
+  totalMin: 'total minutes',
+};
+
+/** Where in a plan a problem is, in words: "$.plans[1].targets[2].note" is "target 3, note". */
+export function describePath(path: string): string {
+  const parts: string[] = [];
+  for (const seg of path.replace(/^\$\.plans\[\d+\]\.?/, '').split('.')) {
+    if (seg === '') continue;
+    const m = /^(\w+)\[(\d+)\]$/.exec(seg);
+    if (m && m[1] === 'targets') parts.push(`target ${Number(m[2]) + 1}`);
+    else if (m) parts.push(`${FIELD_WORDS[m[1]] ?? m[1]} ${Number(m[2]) + 1}`);
+    else parts.push(FIELD_WORDS[seg] ?? seg);
+  }
+  return parts.join(', ');
+}
+
+/** The plain reason for a plan problem, from the plans validator's own detail. A detail it has no sentence for is "not valid", never the validator's words. */
+function planReason(detail: string): string {
+  let hit: RegExpExecArray | null;
+  if (detail === 'must be an object') return 'it is not in the planner\u2019s format';
+  if (detail === 'must be a non-empty string') return 'it is empty or is not text';
+  if (detail === 'must be a date and time') return 'it is not a date and time';
+  if (detail === 'must be a date, YYYY-MM-DD') return 'it is not a real date written YYYY-MM-DD';
+  if (detail.startsWith('must be a 24 h time')) return 'it is not a 24-hour time such as "21:30"';
+  if (detail === 'must be a name that is not empty') return 'it needs a name';
+  if ((hit = /^a name has at most (\d+) characters$/.exec(detail))) return `a name holds at most ${hit[1]} characters`;
+  if (detail === 'must be text') return 'it is not text';
+  if ((hit = /^at most (\d+) characters$/.exec(detail))) return `it holds at most ${hit[1]} characters`;
+  if (detail === 'must be a list') return 'it is not a list';
+  if ((hit = /^at most (\d+) targets, found (\d+)$/.exec(detail))) return `a plan holds at most ${hit[1]} targets; this one has ${hit[2]}`;
+  if (detail.startsWith('duplicate target')) return 'the same target is listed twice';
+  if (detail.startsWith('must be one of')) return 'it is not a preset this planner knows';
+  if (detail === 'must be a number above 0') return 'it must be a number above 0';
+  if (detail === 'must be ask or restored') return 'it is not a favorite state this planner knows';
+  return 'it is not valid';
+}
+
+/** A plan that cannot be read, as one plain sentence: which plan, where in it, and why. This is the one place a PlansError becomes text for a person on import. */
+export function planProblemText(e: PlansError, label: string): string {
+  const where = describePath(e.path);
+  return `The plan ${label} could not be read and is left out (${where === '' ? '' : `${where}: `}${planReason(e.detail)}).`;
 }

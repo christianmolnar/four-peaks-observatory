@@ -55,7 +55,7 @@ export default function ResetAll({ onConfirm }: { onConfirm: () => void }) {
               <li key={t}>{t}</li>
             ))}
           </ul>
-          <p className="mt-2 text-white/70 font-normal text-xs">The planner then shows the sample profile, as on a first visit. Export your profile first to keep a copy of it. Plans are not part of the profile export and cannot be recovered.</p>
+          <p className="mt-2 text-white/70 font-normal text-xs">The planner then shows the sample profile, as on a first visit. Export your profile first to keep a copy of it. Plans are not part of the profile export: share them first (the plan’s More menu, Share and export), or they cannot be recovered.</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <button type="button" className={btn} onClick={() => { setOpen(false); onConfirm(); }}>
               Yes, reset everything

@@ -3,6 +3,7 @@ import { CLOCK_RE } from '../itinerary/timeline';
 import { MODE_ORDER } from '../exposure';
 import type { ExposureMode, ExposureOverrides } from '../exposure';
 import { MAX_MY_PLAN, MY_PLAN_KEY, loadMyPlan } from './index';
+import { describePath } from './words';
 
 /** Where the saved plans live in this browser: all of them, and which one is open. */
 export const PLANS_KEY = 'fpo-planner-plans-v1';
@@ -201,50 +202,20 @@ export const NEWER_NOTICE = 'Your saved plans were made by a newer version of th
 /** The copy made for damaged text is named by the page, which knows whether it could be made. */
 export const DAMAGED_NOTICE = 'Your saved plans could not be read, so they start over with one empty plan.';
 
-const FIELD_WORDS: Record<string, string> = {
-  id: 'id',
-  name: 'name',
-  createdAt: 'created time',
-  updatedAt: 'updated time',
-  date: 'date',
-  siteId: 'site',
-  trainId: 'train',
-  startTime: 'start time',
-  targets: 'targets',
-  notes: 'notes',
-  preset: 'preset',
-  custom: 'custom values',
-  base: 'preset the custom values start from',
-  favorite: 'favorite state',
-  start: 'start time',
-  end: 'end time',
-  note: 'note',
-  subSeconds: 'sub-exposure seconds',
-  subCount: 'sub-exposure count',
-  totalMin: 'total minutes',
-};
-
-/** Where in a plan a problem is, in words: "$.plans[1].targets[2].note" is "target 3, note". */
-export function describePath(path: string): string {
-  const parts: string[] = [];
-  for (const seg of path.replace(/^\$\.plans\[\d+\]\.?/, '').split('.')) {
-    if (seg === '') continue;
-    const m = /^(\w+)\[(\d+)\]$/.exec(seg);
-    if (m && m[1] === 'targets') parts.push(`target ${Number(m[2]) + 1}`);
-    else if (m) parts.push(`${FIELD_WORDS[m[1]] ?? m[1]} ${Number(m[2]) + 1}`);
-    else parts.push(FIELD_WORDS[seg] ?? seg);
-  }
-  return parts.join(', ');
+/** The sentence for a plan that cannot be read, as the saved plans say it. */
+function explainLeftOut(first: PlansError, label: string): string {
+  const where = describePath(first.path);
+  return `The plan ${label} could not be read and is left out${where === '' ? '' : ` (${where}: ${first.detail})`}.`;
 }
 
 /** A plan checked on its own: as it is, else with the two fields a newer or older version can leave unknown repaired (preset to Balanced, date to `today`). Null when it cannot be read. */
-function readPlan(raw: unknown, i: number, today: string, notices: string[], dateText: (iso: string) => string): Plan | null {
+export function readPlan(raw: unknown, i: number, today: string, notices: string[], dateText: (iso: string) => string, explain: (first: PlansError, label: string) => string = explainLeftOut): Plan | null {
   const path = `$.plans[${i}]`;
   try {
     return checkPlan(raw, path);
   } catch (first) {
     if (!(first instanceof PlansError)) throw first;
-    const label = isRecord(raw) && typeof raw.name === 'string' && raw.name.trim() !== '' ? `"${raw.name.trim()}"` : `number ${i + 1}`;
+    const label = isRecord(raw) && typeof raw.name === 'string' && raw.name.trim() !== '' ? `"${raw.name.trim().length > 40 ? `${raw.name.trim().slice(0, 40)}…` : raw.name.trim()}"` : `number ${i + 1}`;
     if (isRecord(raw)) {
       const fixes: string[] = [];
       const copy: Record<string, unknown> = { ...raw };
@@ -272,8 +243,7 @@ function readPlan(raw: unknown, i: number, today: string, notices: string[], dat
         if (!(second instanceof PlansError)) throw second;
       }
     }
-    const where = describePath(first.path);
-    notices.push(`The plan ${label} could not be read and is left out${where === '' ? '' : ` (${where}: ${first.detail})`}.`);
+    notices.push(explain(first, label));
     return null;
   }
 }
@@ -494,6 +464,59 @@ export function deletePlan(s: PlansState, id: string, fresh: PlanDefaults): Plan
   if (plans.length === 0) return startPlans(fresh);
   const openId = s.openId === id ? plans[Math.min(at, plans.length - 1)].id : s.openId;
   return { ...s, openId, plans };
+}
+
+/** What `importPlans` did: the new state and how many plans were added, added as copies, already here, or left out for lack of room. */
+export interface ImportResult {
+  state: PlansState;
+  added: number;
+  copies: number;
+  /** Plans whose id is already here and that were not added: identical ones always, the rest when the user chose to skip repeats. */
+  skipped: number;
+  leftOut: number;
+}
+
+/**
+ * Adds plans read from a file after the plans here; nothing here is changed, replaced or reordered, and the open plan stays open.
+ * A plan whose id is already here is never written over: an identical one is skipped, any other is skipped (`skip`) or added as a copy under a new id
+ * and a name ending "(imported)" (`copy`). Plans past the 50-plan limit are left out and counted.
+ */
+export function importPlans(s: PlansState, incoming: readonly Plan[], repeats: 'copy' | 'skip'): ImportResult {
+  const plans = [...s.plans];
+  const have = new Map(plans.map((p) => [p.id, p]));
+  let added = 0;
+  let copies = 0;
+  let skipped = 0;
+  let leftOut = 0;
+  for (const p of incoming) {
+    const same = have.get(p.id);
+    if (same !== undefined && (repeats === 'skip' || JSON.stringify(same) === JSON.stringify(p))) {
+      skipped++;
+      continue;
+    }
+    if (plans.length >= MAX_PLANS) {
+      leftOut++;
+      continue;
+    }
+    if (same === undefined) {
+      plans.push(p);
+      have.set(p.id, p);
+      added++;
+      continue;
+    }
+    const names = new Set(plans.map((x) => x.name));
+    const base = `${p.name.slice(0, MAX_PLAN_NAME - ' (imported)'.length)} (imported)`;
+    let name = base;
+    for (let n = 2; names.has(name); n++) name = `${base.slice(0, MAX_PLAN_NAME - ` ${n}`.length)} ${n}`;
+    const copy: Plan = { ...p, id: nextId(plans), name, targets: p.targets.map((t) => ({ ...t, ...(t.custom ? { custom: { ...t.custom } } : {}) })) };
+    plans.push(copy);
+    have.set(copy.id, copy);
+    added++;
+    copies++;
+  }
+  const state = { ...s, plans };
+  validatePlans(state);
+  return { state, added, copies, skipped, leftOut };
 }
 
 // ------------------------------------------------------------------ migration
