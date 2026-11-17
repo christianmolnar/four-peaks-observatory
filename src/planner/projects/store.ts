@@ -40,8 +40,8 @@ export function loadProjects(storage: Reader): LoadedProjects {
   let text: string | null;
   try {
     text = storage.getItem(PROJECTS_KEY);
-  } catch (e) {
-    throw new Error(`Your projects could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+  } catch {
+    throw new Error(`Your projects could not be read (browser storage is blocked or unavailable).`);
   }
   if (text === null) return { state: null, notices: [], unusable: null };
   const damaged: LoadedProjects = { state: null, notices: [DAMAGED_NOTICE], unusable: { kind: 'damaged', text } };
@@ -170,14 +170,15 @@ export function openProjects(storage: Backer, now: number = Date.now()): OpenedP
     const key = keepProjectsCopy(storage, r.unusable.text, now);
     const n = listProjectsBackups(storage).length;
     return { handle, notes: [...r.notices, `A copy of your saved projects as they were is kept under the backup name "${key}"; ${n} ${n === 1 ? 'copy is' : 'copies are'} kept in this browser (the newest ${MAX_BACKUPS} stay).`] };
-  } catch (e) {
-    return { handle: { ...handle, held: 'nocopy' }, notes: [...r.notices, `The copy of your saved projects failed: ${(e as Error).message}.`] };
+  } catch {
+    return { handle: { ...handle, held: 'nocopy' }, notes: [...r.notices, 'The copy of your saved projects failed, so they are left as they are.'] };
   }
 }
 
 export type ChangeResult = { ok: true; handle: ProjectsHandle } | { ok: false; handle: ProjectsHandle; message: string };
 
 const FULL = 'Not saved: browser storage is full. Your change is on this page only until storage has room (remove old backups or export the project, then change something again).';
+const BLOCKED_READ = 'Not saved: browser storage is blocked or unavailable, so nothing was changed. Allow storage for this site, then try again.';
 const BLOCKED = 'Not saved: browser storage is blocked or unavailable. Your change is on this page only; export the project so nothing is lost.';
 
 function writeProblem(e: unknown): string {
@@ -204,7 +205,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
   try {
     stored = storage.getItem(PROJECTS_KEY);
   } catch {
-    return refuse(BLOCKED);
+    return refuse(BLOCKED_READ);
   }
   let base = handle.state;
   try {
@@ -221,7 +222,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
   } catch (e) {
     // The two copies together pass a limit: refuse, and keep this page's state (and its unsaved mark) so nothing is lost.
     if (!(e instanceof ProjectsError)) throw e;
-    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). Your change is on this page only; export the project, then remove some sessions or projects and change something again.`);
+    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). This change was not made. Your earlier changes are kept on this page. Export the project, or remove sessions or projects in your other tab, then try again.`);
   }
   let next: ProjectsState;
   try {
@@ -233,8 +234,8 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
   try {
     // Stored text that is not what this version would write (older shape, fields it does not know) is copied first; if that fails, nothing is written over it.
     if (stored !== null && stored !== text && !isCanonical(stored)) keepProjectsCopy(storage, stored, now);
-  } catch (e) {
-    return refuse(`Not saved: a copy of the stored projects could not be kept first (${(e as Error).message}), so they are left as they are.`);
+  } catch {
+    return refuse(`Not saved: a copy of the stored projects could not be kept first, so they are left as they are.`);
   }
   try {
     storage.setItem(PROJECTS_KEY, text);

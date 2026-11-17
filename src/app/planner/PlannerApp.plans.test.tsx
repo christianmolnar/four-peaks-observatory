@@ -326,15 +326,15 @@ describe('what was there before plans moves into the first plan', () => {
   });
 });
 
-describe('the two tabs', () => {
+describe('the tabs', () => {
   const tabs = () => screen.getAllByRole('tab');
 
-  it('is a tablist of Plan and Gear and site, Plan selected, each tab controlling its own labelled panel', async () => {
+  it('is a tablist of Plan, Gear and site and Projects, Plan selected, each tab controlling its own labelled panel', async () => {
     await app();
     expect(screen.getByRole('tablist', { name: 'Planner' })).toBeTruthy();
-    expect(tabs().map((t) => t.textContent)).toEqual(['Plan', 'Gear and site']);
-    expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false']);
-    expect(tabs().map((t) => t.tabIndex)).toEqual([0, -1]);
+    expect(tabs().map((t) => t.textContent)).toEqual(['Plan', 'Gear and site', 'Projects']);
+    expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
+    expect(tabs().map((t) => t.tabIndex)).toEqual([0, -1, -1]);
     const panel = screen.getByRole('tabpanel', { name: 'Plan' });
     expect(panel.id).toBe(tabs()[0].getAttribute('aria-controls'));
     expect(document.getElementById('panel-gear')!.hasAttribute('hidden')).toBe(true);
@@ -367,16 +367,21 @@ describe('the two tabs', () => {
     await user.keyboard('{ArrowRight}');
     expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(tabs()[1]);
-    expect(tabs().map((t) => t.tabIndex)).toEqual([-1, 0]);
+    expect(tabs().map((t) => t.tabIndex)).toEqual([-1, 0, -1]);
+    await user.keyboard('{ArrowRight}');
+    expect(document.activeElement).toBe(tabs()[2]);
     await user.keyboard('{ArrowRight}'); // wraps
     expect(document.activeElement).toBe(tabs()[0]);
     expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
+    await user.keyboard('{ArrowLeft}');
+    expect(document.activeElement).toBe(tabs()[2]);
     await user.keyboard('{ArrowLeft}');
     expect(document.activeElement).toBe(tabs()[1]);
     await user.keyboard('{Home}');
     expect(document.activeElement).toBe(tabs()[0]);
     await user.keyboard('{End}');
-    expect(document.activeElement).toBe(tabs()[1]);
+    expect(document.activeElement).toBe(tabs()[2]);
+    await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('tabpanel', { name: 'Gear and site' })).toBeTruthy();
     await user.tab(); // Tab leaves the tablist, into the panel's content
     expect(tabs().some((t) => t === document.activeElement)).toBe(false);

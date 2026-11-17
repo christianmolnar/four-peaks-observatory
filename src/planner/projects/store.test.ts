@@ -1,4 +1,5 @@
-import { addProject, addSession, removeSession, updateProject } from './edit';
+import { addProject, addSession, addSessionsWithIds, removeSession, updateProject } from './edit';
+import { seedHeldBy, seedSessions } from './seed';
 import { PROJECTS_BACKUP_PREFIX, PROJECTS_KEY, HELD_TEXT, changeProjects, inspectProjects, listProjectsBackups, loadProjects, mergeProjects, openProjects, projectsText } from './store';
 import type { ProjectsHandle } from './store';
 import { L, NOW, memory, project, session } from './testkit';
@@ -93,7 +94,8 @@ describe('reading the store', () => {
 
   it('a storage that cannot be read throws in words; opening it says so and is not held', () => {
     const s = { ...memory(), getItem: () => { throw new Error('denied'); } };
-    expect(() => loadProjects(s)).toThrow(/blocked or unavailable\): denied/);
+    expect(() => loadProjects(s)).toThrow(/blocked or unavailable\)\.$/);
+    expect(() => loadProjects(s)).not.toThrow(/denied/);
     expect(openProjects(s).notes[0]).toMatch(/blocked or unavailable/);
   });
 
@@ -209,6 +211,25 @@ describe('two tabs', () => {
     expect(JSON.parse(s.getItem(PROJECTS_KEY)!).projects[0].sessions).toHaveLength(3);
   });
 
+  it('both offer the seed: the second refuses in words, one project holds the hours once', () => {
+    const s = memory();
+    const a = openProjects(s).handle;
+    const b = openProjects(s).handle; // both opened with nothing stored
+    const seed = (st: ProjectsState) => {
+      const held = seedHeldBy(st);
+      if (held !== null) throw new Error(`already logged in “${held}”`);
+      const made = addProject(st, { name: 'Marathon', setup: project().setup, targets: project().targets }, NOW);
+      return addSessionsWithIds(made.state, made.id, seedSessions(), NOW);
+    };
+    const ra = changeProjects(s, a, seed);
+    const rb = changeProjects(s, b, seed);
+    expect(ra.ok).toBe(true);
+    expect(!rb.ok && rb.message).toBe('Not saved: already logged in “Marathon”');
+    const stored = JSON.parse(s.getItem(PROJECTS_KEY)!).projects;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].sessions).toHaveLength(3);
+  });
+
   it('another tab deleted a session: this tab does not bring it back', () => {
     const s = memory();
     put(s, stateOf(project({ sessions: [session('keep', 'm31', L, 5), session('gone', 'm31', L, 5)] })));
@@ -289,6 +310,10 @@ describe('changeProjects refuses in words, never throws, when the two copies tog
     if (r === undefined || r.ok) throw new Error('expected a refusal');
     expect(r.message).toMatch(/^Not saved: .*sessions: holds 0 to 5,000, found 6,000/);
     noPath(r.message);
+    // The remedy is true: this change was not made; the earlier unsaved ones are kept; removing in this page cannot help.
+    expect(r.message).toContain('This change was not made');
+    expect(r.message).toContain('Your earlier changes are kept on this page');
+    expect(r.message).not.toContain('remove some sessions or projects and change something again');
     expect(r.handle).toBe(mine);
     expect(r.handle.unsaved).toBe(true);
     expect(s.getItem(PROJECTS_KEY)).toBe(before);
