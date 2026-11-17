@@ -56,6 +56,10 @@ export interface PlanSheet {
   caveat: string;
   rows: SheetRow[];
   totalLightMin: number | null;
+  /**
+   * The plan's filter mix, one line per target (the row's own numbers). Set only for the plain-text file; every other format and the print sheet leave it out.
+   */
+  mix?: string[];
 }
 
 export interface GearSheet {
@@ -275,6 +279,7 @@ function planText(p: PlanSheet): string[] {
     if (r.warning !== '') out.push(`   Warning: ${oneLine(r.warning)}`);
   }
   if (p.totalLightMin !== null) out.push('', `Total light: ${p.totalLightMin} min`);
+  if (p.mix !== undefined && p.mix.length > 0) out.push('', 'Filter mix (each target’s planned light split between the selected filters):', ...p.mix.map((l) => `- ${oneLine(l)}`));
   return out;
 }
 

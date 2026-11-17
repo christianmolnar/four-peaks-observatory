@@ -16,6 +16,8 @@ export interface PlanRow {
   preset: string;
   /** The row's exposure controls (deep-sky rows); a solar-system row has none. */
   extra?: ReactNode;
+  /** The row's filter mix part (a folded section, a plain message for a body); under the exposure controls. */
+  mix?: ReactNode;
 }
 
 /** The "Find a target" section at the top of the open plan. */
@@ -147,6 +149,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
               </button>
               </div>
               {r.extra}
+              {r.mix}
             </li>
           ))}
         </ol>

@@ -32,7 +32,7 @@ const TOTAL_LIMIT: Record<ExposureResult['limitedBy']['total'], string> = {
 const GO_LABEL = { date: 'Change the date', train: 'Change the setup', filter: 'Change the filter' } as const;
 
 /** A small closed-by-default part of a row: one 44 px button that names it, a body that is hidden while closed. */
-function Fold({ id, title, children, level = 0 }: { id: string; title: string; children: ReactNode; level?: 0 | 1 }) {
+export function Fold({ id, title, children, level = 0 }: { id: string; title: string; children: ReactNode; level?: 0 | 1 }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={level === 1 ? 'ml-3 border-l border-p-line/15 pl-3' : ''}>

@@ -114,7 +114,12 @@ import PlanRail, { RAIL_MIN_WIDTH, useMinWidth } from './PlanRail';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
 import PlanRowExposure from './PlanRowExposure';
-import { baseOf, notUsedNoPresetText, presetLabel, rowExposure, splitWarnings, storedProblem, withNumber, withPreset } from './rowExposure';
+import PlanRowMix from './PlanRowMix';
+import type { MixFilter } from '@/planner/filtermix';
+import { mixSummary } from '@/planner/filtermix';
+import { rowMix } from '@/planner/filtermix/row';
+import type { RowMix } from '@/planner/filtermix/row';
+import { baseOf, minutesText, notUsedNoPresetText, presetLabel, rowExposure, splitWarnings, storedProblem, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -365,6 +370,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const owner = auth.kind === 'signedIn' && auth.owner;
   // Reset all: the count asks for focus on the button once the page has settled.
   const [resetFocus, setResetFocus] = useState(0);
+  // Filters the user added to the filter mix beside the setup's own filter (ids). Not stored: the setup's filter is the default, never "all".
+  const [mixPicks, setMixPicks] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
     if (resetFocus > 0) document.getElementById('reset-all')?.focus();
   }, [resetFocus]);
@@ -1090,6 +1097,37 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   );
   const rowViews = useMemo(() => new Map(planItems.filter((p) => p.body === undefined).map((p) => [p.id, viewOf(p.ref, p.entry)] as const)), [planItems, viewOf]);
 
+  // The filter mix: the filters of the setup (its own filter, then any the user added beside it), each with the passbands the gear holds.
+  const mixFilters = useMemo((): MixFilter[] => {
+    if (!train || train.kind !== 'optical') return [];
+    const ids = [...(train.filterId === undefined ? [] : [train.filterId]), ...[...mixPicks].filter((id) => id !== train.filterId)];
+    return ids.flatMap((id) => {
+      const f = profile.equipment.filters.find((x) => x.id === id);
+      return f === undefined ? [] : [{ id: f.id, name: f.name, bands: f.passbands }];
+    });
+  }, [train, mixPicks, profile]);
+  const noMixFilters = !train ? 'No setup is chosen, so there is no filter mix to work out.' : train.kind !== 'optical' ? 'A smart scope has its filter built in, so there is no filter mix to work out.' : 'No filter is selected in the setup, so there is no filter mix to work out. Pick one under Setup.';
+  const mixViews = useMemo(
+    () =>
+      new Map(
+        planItems.map(({ id, body, target }): [string, RowMix] => {
+          const view = rowViews.get(id);
+          if (body === undefined && target === undefined && catalog.status === 'loading') return [id, { kind: 'message', text: 'The catalog is still loading, so the filter mix is not worked out yet.' }];
+          return [
+            id,
+            rowMix({
+              body: body !== undefined,
+              target: target === undefined ? null : { id: target.id, type: target.type },
+              light: view?.kind === 'ok' ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes } : { kind: 'none', reason: view?.reason ?? '' },
+              filters: mixFilters,
+              noFilters: noMixFilters,
+            }),
+          ];
+        }),
+      ),
+    [planItems, rowViews, mixFilters, noMixFilters, catalog.status],
+  );
+
   // The altitude chart is drawn in the open row only.
   const track = useMemo(() => {
     if (!stableNight || stableNight.kind !== 'normal' || !openEntry || !site) return null;
@@ -1552,6 +1590,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             onGoTo={goToControl}
           />
         ),
+      mix: <PlanRowMix id={id} mix={mixViews.get(id) as RowMix} />,
     };
   });
   /** The plan's rows with their numbers, for the plan CSV and the print sheet. */
@@ -1587,7 +1626,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
    * The open plan's sheet. Times, sub length, sub count and light of a row are the timeline's own slot (so a sheet, a file and the night timeline agree);
    * a row the timeline leaves out tonight says so, carries no numbers and adds no light; the total is the timeline's "Light".
    */
-  const openSheet = (): PlanSheet => {
+  const openSheet = (withMix = false): PlanSheet => {
     const report = itineraryReport.current;
     const slots = new Map(report?.plan.slots.map((s) => [s.id, s] as const) ?? []);
     const filter = train ? filterNameOf(profile, train.id) || 'No filter' : '';
@@ -1630,6 +1669,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       caveat: planTargets.length > 0 && report === null ? 'The times were not worked out (the night or the catalog has not loaded).' : '',
       rows,
       totalLightMin: report !== null && rows.some((r) => r.state === 'scheduled') ? lightMinutes(report.plan) : null,
+      // The plain-text file carries each scheduled target's filter mix: the row's own numbers (the same mix the row shows).
+      ...(withMix
+        ? {
+            mix: planItems.flatMap(({ id }, i) => {
+              const m = mixViews.get(id);
+              return m?.kind === 'mix' && rows[i].state !== 'unscheduled' ? [mixSummary(rows[i].name, m, minutesText)] : [];
+            }),
+          }
+        : {}),
     };
   };
   /** Another plan's sheet: what it stores, said so. */
@@ -1638,13 +1686,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const sheet = storedSheet(p, profile, factsOf, dateWithYear, favoriteText);
     return { ...sheet, warnings: [...(m.train ? ['This plan was made with a train that is no longer in your gear.'] : []), ...(m.site ? ['This plan was made for a site that is no longer in your gear or whose saved numbers cannot be used.'] : [])] };
   };
-  const sheetsFor = (what: ShareWhat): PlanSheet[] => (what === 'plan' ? [openSheet()] : what === 'all' || what === 'everything' ? (plans?.plans ?? []).map((p) => (p.id === plans?.openId ? openSheet() : otherSheet(p))) : []);
+  const sheetsFor = (what: ShareWhat, withMix = false): PlanSheet[] => (what === 'plan' ? [openSheet(withMix)] : what === 'all' || what === 'everything' ? (plans?.plans ?? []).map((p) => (p.id === plans?.openId ? openSheet(withMix) : otherSheet(p))) : []);
   /** Why a choice is off: saved gear that could not be loaded is never shared as if it were the sample on screen. */
   const shareBlocked: Partial<Record<ShareWhat, string>> =
     profileHeld !== null ? { gear: 'Your saved gear could not be loaded, so it cannot be shared from here. Export profile (JSON) under Gear and site keeps the saved text as it is.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {};
   const shareNow: ShareWhat = shareBlocked[shareWhat] !== undefined ? 'plan' : shareWhat;
   const heldNote = heldPlans !== null ? 'Your saved plans are held back (see the notice at the top of the page), so this is the plans on this page.' : null;
-  const docFor = (what: ShareWhat): ShareDoc => ({ plans: sheetsFor(what), gear: what === 'gear' || what === 'everything' ? gearSheet(profile) : null, notes: heldNote === null ? [] : [heldNote] });
+  const docFor = (what: ShareWhat, withMix = false): ShareDoc => ({ plans: sheetsFor(what, withMix), gear: what === 'gear' || what === 'everything' ? gearSheet(profile) : null, notes: heldNote === null ? [] : [heldNote] });
   const slug = (s: string): string => s.normalize('NFD').replace(/[^\x20-\x7e]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'plan';
   const makeShare = (what: ShareWhat, format: ShareFormat): { text: string; file: string } => {
     const ext = FORMATS.find((f) => f.id === format)!.ext;
@@ -1655,7 +1703,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const stored = what === 'plan' ? (open ? [open] : []) : (plans?.plans ?? []);
       return { text: plansFileText({ exportedAt: sharedAt, plans: stored, sheets: sheetsFor(what), profile: what === 'everything' ? profile : null }), file };
     }
-    const doc = docFor(what);
+    const doc = docFor(what, format === 'text');
     return { text: format === 'text' ? docToText(doc) : format === 'markdown' ? docToMarkdown(doc) : docToCsv(doc), file };
   };
   /** The ASIAir file: the open plan's fixed objects with a position, in the plan's order. */
@@ -2167,6 +2215,24 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             <p className="mt-1 break-words text-sm font-normal text-p-t1/80" data-testid="train-filter">
               Filter: {train.kind !== 'optical' ? 'built in (smart scope)' : train.filterId === undefined ? 'none' : (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? 'none')}
             </p>
+            {train.kind === 'optical' && profile.equipment.filters.some((f) => f.id !== train.filterId) && (
+              <fieldset className="min-w-0" data-testid="mix-filters">
+                <legend className="text-sm font-normal text-p-t1/80">Filter mix: more filters to compare</legend>
+                {profile.equipment.filters
+                  .filter((f) => f.id !== train.filterId)
+                  .map((f) => (
+                    <label key={f.id} className="flex min-h-11 max-w-full items-center gap-2 break-words pr-2 text-sm font-normal text-p-t1/90">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 shrink-0 accent-p-focus"
+                        checked={mixPicks.has(f.id)}
+                        onChange={(e) => setMixPicks((prev) => (e.target.checked ? new Set([...prev, f.id]) : new Set([...prev].filter((x) => x !== f.id))))}
+                      />
+                      <span className="min-w-0">Use {f.name}</span>
+                    </label>
+                  ))}
+              </fieldset>
+            )}
             <button
               type="button"
               onClick={changeTrain}
