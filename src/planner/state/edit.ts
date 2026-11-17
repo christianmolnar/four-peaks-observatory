@@ -156,7 +156,7 @@ export function checkName(raw: string, noun: string, others: readonly string[]):
 }
 
 /** Builds the item from the boxes. Throws an Error with a plain sentence for the box that is wrong. */
-function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>, others: readonly string[]): Item {
+function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>, others: readonly string[], aiFilled: boolean): Item {
   const out: Record<string, unknown> = { id: base.id };
   if (list === 'sites') out.blockedArcs = (base as Record<string, unknown>).blockedArcs ?? [];
   for (const f of LIST_SPECS[list].fields) {
@@ -192,18 +192,19 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>,
       out[f.key] = t;
     }
   }
+  if (aiFilled && (list === 'scopes' || list === 'cameras' || list === 'filters')) out.aiFilled = true;
   return out as Item;
 }
 
 /** The edits check the boxes they were given strictly (itemFromTexts); the rest of the profile is only kept, so one stored value outside its range never blocks an edit elsewhere. */
 const LENIENT = { lenient: true } as const;
 
-/** A copy of the profile with one item rebuilt from its boxes, validated. The input is unchanged. */
-export function replaceItem(profile: Profile, list: ListKey, id: string, texts: Record<string, string>): Profile {
+/** A copy of the profile with one item rebuilt from its boxes, validated. The input is unchanged. `aiFilled` keeps the "Filled by AI, check it" mark on a scope, camera or filter. */
+export function replaceItem(profile: Profile, list: ListKey, id: string, texts: Record<string, string>, aiFilled = false): Profile {
   const items = itemsOf(profile, list);
   const base = items.find((x) => x.id === id);
   if (!base) throw new Error(`Unknown ${LIST_SPECS[list].noun} "${id}".`);
-  const item = itemFromTexts(list, base, texts, items.filter((x) => x.id !== id).map((x) => x.name));
+  const item = itemFromTexts(list, base, texts, items.filter((x) => x.id !== id).map((x) => x.name), aiFilled);
   try {
     return validateProfile(withItems(profile, list, items.map((x) => (x.id === id ? item : x))), LENIENT);
   } catch (e) {

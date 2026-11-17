@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { fakeKv } from '../ai/kv-fake'
 import { BACKUP_VERSION, exportBackup, importBackup, parseBackup } from './backup'
 import { SEED_ENTRIES } from './seed'
+import { WIDE_PAIR } from './wide-pair.fixture'
 import { applyCorrection } from './service'
 import { KvRestLibraryStore, MemoryLibraryStore } from './store'
 import type { LibraryStore } from './store'
@@ -59,10 +60,17 @@ describe('parseBackup refuses a file it cannot trust, and imports nothing', () =
     ['no version', JSON.stringify({ entries: [] })],
     ['entries not a list', file({ entries: {} })],
     ['an out-of-range value', file({ entries: [{ ...entry, specs: { apertureMm: 99999 } }] })],
+    ['the Wide Pair (total width 1,200 nm)', file({ entries: [{ ...entry, cls: 'filter', nameKey: 'wide pair', name: 'Wide Pair', specs: WIDE_PAIR }] })],
     ['a duplicate entry', file({ entries: [entry, entry] })],
     ['an array at the top', '[]'],
   ])('%s', (_n, text) => {
     expect(() => parseBackup(text)).toThrow()
+  })
+  it('a backup holding the Wide Pair writes nothing, not even the good entry before it', async () => {
+    const store = new MemoryLibraryStore()
+    const wide = { ...entry, cls: 'filter', nameKey: 'wide pair', name: 'Wide Pair', specs: WIDE_PAIR }
+    await expect(importBackup(store, file({ entries: [entry, wide] }))).rejects.toThrow(/Total passband width/)
+    expect(await store.list()).toEqual([])
   })
   it('a bad entry stops the whole import before any write', async () => {
     const store = new MemoryLibraryStore()

@@ -77,7 +77,7 @@ export async function fillFromModel(o: { store: LibraryStore; callModel: CallMod
 
 /**
  * A person's edit or confirmation. With `specs`: the entry becomes those values. Without: the entry's own values are confirmed.
- * Either way source `user`, confirmed true; the old value moves into `previous` (one step). Last write wins.
+ * Either way source `user`, confirmed true (an entry that is already confirmed is returned as it is); the old value moves into `previous` (one step). Last write wins.
  */
 export async function applyCorrection(o: { store: LibraryStore; cls: unknown; name: unknown; specs?: unknown; now: Date }): Promise<LibraryEntry> {
   const t = target(o.cls, o.name)
@@ -85,6 +85,8 @@ export async function applyCorrection(o: { store: LibraryStore; cls: unknown; na
   let specs: Specs
   if (o.specs === undefined) {
     if (!old) throw new LibraryDataError('This item is not in the library yet, so there is nothing to confirm.')
+    // Already confirmed: nothing to confirm, and writing again would replace the real previous value with this one.
+    if (old.confirmed) return old
     specs = old.specs
   } else {
     const r = validateSpecs(t.cls, o.specs)

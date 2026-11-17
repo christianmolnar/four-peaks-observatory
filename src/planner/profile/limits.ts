@@ -43,6 +43,9 @@ export const GEAR_LIMITS = {
 
 export type GearLimitKey = keyof typeof GEAR_LIMITS;
 
+/** The wavelengths a passband's two edges (centre minus and plus half its width) may reach: ultraviolet to near infrared, what a filter for an imaging sensor covers. */
+export const BAND_EDGE_NM = { min: 200, max: 1200, whole: false, unit: 'nm', noun: 'passband edge' } as const satisfies GearLimit;
+
 /** The numbers of a site. Latitude, longitude and the Bortle class are structure, not gear: a value outside is always refused. */
 export const SITE_LIMITS = {
   latitude: { min: -90, max: 90, unit: 'deg', noun: 'latitude' },

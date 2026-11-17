@@ -25,6 +25,16 @@ const copy = (e: LibraryEntry): LibraryEntry => structuredClone(e)
 const slot = (cls: LibraryClass, nameKey: string) => `planner:lib:v1:${cls}:${nameKey}`
 const INDEX = 'planner:lib:v1:index'
 
+/** An entry read back from memory is judged again, as one read from KV is. */
+function judged(e: LibraryEntry): LibraryEntry {
+  try {
+    return parseEntry(e)
+  } catch (err) {
+    if (err instanceof LibraryDataError) throw new LibraryStoreError(UNREADABLE)
+    throw err
+  }
+}
+
 export class MemoryLibraryStore implements LibraryStore {
   private readonly entries = new Map<string, LibraryEntry>()
   constructor(initial: readonly LibraryEntry[] = []) {
@@ -32,7 +42,7 @@ export class MemoryLibraryStore implements LibraryStore {
   }
   async get(cls: LibraryClass, nameKey: string): Promise<LibraryEntry | null> {
     const e = this.entries.get(slot(cls, nameKey))
-    return e ? copy(e) : null
+    return e ? judged(e) : null
   }
   async put(entry: LibraryEntry): Promise<void> {
     this.entries.set(slot(entry.cls, entry.nameKey), copy(entry))
@@ -43,18 +53,20 @@ export class MemoryLibraryStore implements LibraryStore {
     return true
   }
   async list(): Promise<LibraryEntry[]> {
-    return [...this.entries.values()].map(copy)
+    return [...this.entries.values()].map(judged)
   }
 }
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>
 
+const UNREADABLE = 'The spec library holds an entry that cannot be read'
+
 function readEntry(text: unknown): LibraryEntry {
-  if (typeof text !== 'string') throw new LibraryStoreError('The spec library holds an entry that cannot be read')
+  if (typeof text !== 'string') throw new LibraryStoreError(UNREADABLE)
   try {
     return parseEntry(JSON.parse(text))
   } catch (e) {
-    if (e instanceof LibraryDataError || e instanceof SyntaxError) throw new LibraryStoreError('The spec library holds an entry that cannot be read')
+    if (e instanceof LibraryDataError || e instanceof SyntaxError) throw new LibraryStoreError(UNREADABLE)
     throw e
   }
 }

@@ -1,3 +1,4 @@
+import { WIDE_PAIR } from './wide-pair.fixture'
 import { correctableKeys, isEdited, libraryClassOf, specsToTexts, textsToSpecs } from './form'
 
 describe('libraryClassOf', () => {
@@ -65,5 +66,23 @@ describe('textsToSpecs', () => {
   })
   it('all boxes empty is a problem', () => {
     expect('problem' in textsToSpecs('scopes', { apertureMm: '', focalLengthMm: '' }, {})).toBe(true)
+  })
+})
+
+describe('the form path judges the same derived values', () => {
+  it('a correction built on the Wide Pair is refused in plain words, and no box is ever filled from it', () => {
+    const r = textsToSpecs('filters', { kind: 'narrowband' }, WIDE_PAIR as never)
+    expect('problem' in r && r.problem).toMatch(/Total passband width: 1200 is outside the allowed range/)
+  })
+  it('a fraction in a whole-number box says "not a whole number" before any range message', () => {
+    const r = textsToSpecs('cameras', { sensorWidthPx: '4144.5' }, {})
+    expect('problem' in r && r.problem).toBe('Sensor width: 4144.5 is not a whole number. Enter a whole number for the sensor width between 100 and 20,000 px.')
+    const big = textsToSpecs('cameras', { sensorWidthPx: '99999.5' }, {})
+    expect('problem' in big && big.problem).toMatch(/not a whole number/)
+  })
+  it('the biggest allowed filter (1,000 nm in total) fills boxes inside their ranges', () => {
+    const t = specsToTexts('filters', { passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500 }] })
+    expect(Number(t.passbandWidthNm)).toBeLessThanOrEqual(1000)
+    expect(Number(t.narrowestBandNm)).toBeGreaterThanOrEqual(0.1)
   })
 })

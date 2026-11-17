@@ -16,6 +16,7 @@ import type { CounterStore } from '@/planner/ai/counter-store'
 import { GUEST_PER_DAY } from '@/planner/ai/guest-limits'
 import { LIBRARY_WRITES_PER_HOUR } from '@/planner/library/http'
 import { SEED_ENTRIES } from '@/planner/library/seed'
+import { WIDE_PAIR } from '@/planner/library/wide-pair.fixture'
 import { LibraryStoreError, MemoryLibraryStore } from '@/planner/library/store'
 import type { LibraryStore } from '@/planner/library/store'
 import { GET } from './route'
@@ -87,6 +88,13 @@ describe('the spec library routes', () => {
       expect(await res.json()).toMatchObject({ from: 'model', entry: { source: 'model', confirmed: false, specs: { apertureMm: 80, focalLengthMm: 480 } } })
       expect(model).toHaveBeenCalledTimes(1)
       expect((await mockLibrary.get('scope', 'edge'))?.source).toBe('model')
+    })
+    it('a model reply with the Wide Pair is refused: plain error, nothing stored', async () => {
+      model.mockResolvedValue(modelReply(WIDE_PAIR))
+      const res = await post(FILL, { cls: 'filter', name: 'Wide Pair' })
+      expect(res.status).toBeGreaterThanOrEqual(400)
+      expect((await res.json()).error).toMatch(/Total passband width: 1200 is outside the allowed range/)
+      expect(await mockLibrary.get('filter', 'wide pair')).toBeNull()
     })
     it('the owner: a library hit makes no model call and no count', async () => {
       const res = await post(FILL, { cls: 'filter', name: 'IDAS NBZ-II' })
@@ -191,6 +199,13 @@ describe('the spec library routes', () => {
       expect(res.status).toBe(400)
       expect((await res.json()).error).toMatch(/./)
       expect(await mockLibrary.get('scope', 'edge')).toBeNull()
+    })
+    it('a guest cannot store the Wide Pair (total width 1,200 nm): a plain 400 and nothing is stored', async () => {
+      mockSession.mockResolvedValue(null)
+      const res = await post(CORRECT, { cls: 'filter', name: 'Wide Pair', specs: WIDE_PAIR })
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/Total passband width: 1200 is outside the allowed range.*Nothing was saved/)
+      expect(await mockLibrary.get('filter', 'wide pair')).toBeNull()
     })
     it('is limited per visitor: the next one over the cap gets 429, another visitor is not affected', async () => {
       for (let i = 0; i < LIBRARY_WRITES_PER_HOUR; i++) expect((await post(CORRECT, { cls: 'scope', name: 'Edge', specs: { apertureMm: 80 + i } }, '203.0.113.50')).status).toBe(200)

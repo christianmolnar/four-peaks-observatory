@@ -4,6 +4,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { LibraryEntry } from '@/planner/library/specs';
 import { nameKey } from '@/planner/library/specs';
+import { WIDE_PAIR } from '@/planner/library/wide-pair.fixture';
+import { GEAR_LIMITS } from '@/planner/profile/limits';
 import { PROFILE_KEY } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import { openGear, pageProps, ready } from './testkit';
@@ -260,5 +262,110 @@ describe('Look up specs', () => {
     });
     expect(within(again).getByText(/Filled by AI, check it/)).toBeTruthy();
     expect(JSON.stringify(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!))).toContain('"apertureMm":80');
+  });
+  // The Gear form's number boxes hold only what the Gear ranges allow, whatever the library says.
+  const openFilter = () => {
+    fireEvent.click(screen.getByRole('button', { name: /^Filters \(\d+\)$/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    return gearForm();
+  };
+  const filterEntry = (name: string, specs: unknown, over: Partial<LibraryEntry> = {}) => entryOf(name, { cls: 'filter', specs: specs as LibraryEntry['specs'], ...over });
+
+  it.each([
+    ['the shared library (GET)', (e: LibraryEntry) => ({ get: () => json({ entry: e }) })],
+    ['the AI fill (POST)', (e: LibraryEntry) => ({ get: () => json({ entry: null }), fill: () => json({ entry: e, from: 'model' }) })],
+  ])('the Wide Pair (two 600 nm bands, 1,200 nm in total) from %s fills no box and shows no number out of range', async (_n, make) => {
+    route(make(filterEntry('Wide Pair', WIDE_PAIR, { source: 'user', confirmed: true })));
+    await mount();
+    const form = openFilter();
+    await lookup(form, 'Wide Pair');
+    expect(within(form).getByText(/cannot be used/)).toBeTruthy();
+    for (const label of [/^Total passband width/, /^Narrowest band/, /^Size/, /^Bandpass notes/]) expect(value(form, label)).toBe('');
+    expect(form.textContent).not.toContain('1200');
+  });
+
+  it('a lookup never puts a number outside its box range into any box: the largest allowed filter fills 1,000 nm total, inside both ranges', async () => {
+    const big = filterEntry('Big Pair', { type: 'narrowband', passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500 }] });
+    route({ get: () => json({ entry: big }) });
+    await mount();
+    const form = openFilter();
+    await lookup(form, 'Big Pair');
+    const total = Number(value(form, /^Total passband width/));
+    const narrow = Number(value(form, /^Narrowest band/));
+    expect(total).toBe(1000);
+    expect(total).toBeGreaterThanOrEqual(GEAR_LIMITS.passbandWidthNm.min);
+    expect(total).toBeLessThanOrEqual(GEAR_LIMITS.passbandWidthNm.max);
+    expect(narrow).toBeGreaterThanOrEqual(GEAR_LIMITS.narrowestBandNm.min);
+    expect(narrow).toBeLessThanOrEqual(GEAR_LIMITS.narrowestBandNm.max);
+  });
+
+  describe('the "Filled by AI, check it" mark is saved with the gear item', () => {
+    const card = (name: string) => {
+      const found = [...document.querySelectorAll<HTMLElement>('[data-testid^="gear-card-"]')].find((li) => li.querySelector('span')?.textContent === name);
+      if (!found) throw new Error(`no card named ${name}`);
+      return found;
+    };
+    const reopen = async (name: string) => {
+      cleanup();
+      await mount();
+      fireEvent.click(screen.getByRole('button', { name: /^Scopes \(\d+\)$/ }));
+      fireEvent.click(within(card(name)).getByRole('button', { name: 'Change' }));
+      return gearForm();
+    };
+    const fillAndSave = async () => {
+      route({ get: () => json({ entry: entryOf('Mini Refractor') }) });
+      await mount();
+      const form = openScope();
+      await lookup(form, 'Mini Refractor');
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes.some((x: { aiFilled?: boolean }) => x.aiFilled === true)).toBe(true));
+    };
+
+    it('survives a reload: the card and the form say it, and nothing else about the saved item changed', async () => {
+      await fillAndSave();
+      const saved = JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes.find((x: { name: string }) => x.name === 'Mini Refractor');
+      expect(saved).toMatchObject({ focalLengthMm: 480, apertureMm: 80, aiFilled: true });
+      route({});
+      const form = await reopen('Mini Refractor');
+      expect(within(card('Mini Refractor')).getByTestId('gear-ai-mark').textContent).toMatch(/Filled by AI, check it/);
+      expect(within(form).getByText(/Filled by AI, check it/)).toBeTruthy();
+      expect(value(form, /^Aperture/)).toBe('80');
+    });
+
+    it('is cleared by editing a spec box, and stays cleared after the next reload', async () => {
+      await fillAndSave();
+      route({});
+      const form = await reopen('Mini Refractor');
+      typeIn(form, /^Aperture/, '82');
+      expect(within(form).queryByText(/Filled by AI/)).toBeNull();
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes.find((x: { name: string }) => x.name === 'Mini Refractor').apertureMm).toBe(82));
+      expect(JSON.stringify(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes)).not.toContain('aiFilled');
+      route({});
+      await reopen('Mini Refractor');
+      expect(within(card('Mini Refractor')).queryByTestId('gear-ai-mark')).toBeNull();
+    });
+
+    it('is cleared when the library entry is confirmed', async () => {
+      await fillAndSave();
+      route({ get: () => json({ entry: entryOf('Mini Refractor') }), correct: () => json({ entry: entryOf('Mini Refractor', { source: 'user', confirmed: true }) }) });
+      const form = await reopen('Mini Refractor');
+      fireEvent.click(within(form).getByRole('button', { name: 'Look up specs' }));
+      await waitFor(() => within(form).getByRole('button', { name: 'These values are right' }));
+      fireEvent.click(within(form).getByRole('button', { name: 'These values are right' }));
+      await waitFor(() => expect(within(form).queryByText(/Filled by AI/)).toBeNull());
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(JSON.stringify(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes)).not.toContain('aiFilled'));
+    });
+
+    it('a lookup that fills nothing from the AI leaves gear without the mark (own values kept, library entry confirmed)', async () => {
+      route({ get: () => json({ entry: entryOf('Known', { source: 'user', confirmed: true }) }) });
+      await mount();
+      const form = openScope();
+      await lookup(form, 'Known');
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(window.localStorage.getItem(PROFILE_KEY) ?? '').toContain('"apertureMm":80'));
+      expect(window.localStorage.getItem(PROFILE_KEY)).not.toContain('aiFilled');
+    });
   });
 });

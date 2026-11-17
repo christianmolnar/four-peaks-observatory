@@ -3,7 +3,8 @@ import { KV_TIMEOUT_MS } from '../ai/counter-store'
 import { KvRestLibraryStore, LibraryStoreError, MemoryLibraryStore, getLibraryStore, resetLibraryStore, seeded } from './store'
 import type { LibraryStore } from './store'
 import { SEED_ENTRIES } from './seed'
-import { nameKey } from './specs'
+import { nameKey, parseEntry } from './specs'
+import { WIDE_PAIR } from './wide-pair.fixture'
 import type { LibraryEntry } from './specs'
 
 const entry = (name: string, over: Partial<LibraryEntry> = {}): LibraryEntry => ({
@@ -84,6 +85,14 @@ describe('KvRestLibraryStore wire', () => {
     kv.strings.set('planner:lib:v1:scope:edge', { v: 'not json', exp: Infinity })
     await expect(store.get('scope', 'edge')).rejects.toThrow(LibraryStoreError)
   })
+  it('a stored Wide Pair (total width 1,200 nm) read back is a LibraryStoreError, never a number shown', async () => {
+    const { kv, store } = setup()
+    const wide = entry('Wide Pair', { cls: 'filter', specs: WIDE_PAIR })
+    kv.strings.set('planner:lib:v1:filter:wide pair', { v: JSON.stringify(wide), exp: Infinity })
+    await expect(store.get('filter', 'wide pair')).rejects.toThrow(LibraryStoreError)
+    kv.sets.set('planner:lib:v1:index', new Set(['planner:lib:v1:filter:wide pair']))
+    await expect(store.list()).rejects.toThrow(LibraryStoreError)
+  })
   it('a rejected token, a network error and a hung request all throw LibraryStoreError without echoing the url or token', async () => {
     await expect(new KvRestLibraryStore('https://secret-host.example', 'wrong', fakeKv({ t: 0 }).fetchImpl).get('scope', 'a')).rejects.toThrow(LibraryStoreError)
     const down = new KvRestLibraryStore('https://secret-host.example', 'secret-token', async () => { throw new Error('connect ECONNREFUSED secret-host.example') })
@@ -96,7 +105,28 @@ describe('KvRestLibraryStore wire', () => {
   })
 })
 
+describe('MemoryLibraryStore judges entries on read, like the KV store', () => {
+  const wide = entry('Wide Pair', { cls: 'filter', specs: WIDE_PAIR })
+  it('get and list refuse an entry that holds an out-of-range value', async () => {
+    const store = new MemoryLibraryStore([wide, entry('Edge')])
+    await expect(store.get('filter', 'wide pair')).rejects.toThrow(LibraryStoreError)
+    await expect(store.list()).rejects.toThrow(LibraryStoreError)
+    expect((await store.get('scope', 'edge'))?.name).toBe('Edge')
+  })
+  it('a value changed after it was put is caught on the next read', async () => {
+    const store = new MemoryLibraryStore()
+    await store.put(entry('Edge'))
+    const m = (store as unknown as { entries: Map<string, LibraryEntry> }).entries
+    m.get('planner:lib:v1:scope:edge')!.specs = { apertureMm: 99999 }
+    await expect(store.get('scope', 'edge')).rejects.toThrow(LibraryStoreError)
+  })
+})
+
 describe('seed', () => {
+  it('every seed entry is judged: a Wide Pair seed could not be built, and the shipped seeds hold in-range derived values', () => {
+    expect(() => parseEntry({ ...entry('Wide Pair', { cls: 'filter', specs: WIDE_PAIR }), source: 'seed' })).toThrow(/Total passband width/)
+    for (const e of SEED_ENTRIES) expect(() => parseEntry(e)).not.toThrow()
+  })
   it('ships NBZ-II and NB3-PM, unverified, source seed', () => {
     const byKey = Object.fromEntries(SEED_ENTRIES.map((e) => [e.nameKey, e]))
     const nbz = byKey[nameKey('IDAS NBZ-II')]

@@ -27,8 +27,10 @@ export interface GearLookupProps {
   getTexts: () => Record<string, string>;
   /** Boxes holding a value a lookup wrote that the user has not edited since. Any other non-empty box is the user's own and is protected. */
   overwritable: ReadonlySet<string>;
-  /** Puts new box texts in place; `changed` lists the boxes a lookup wrote. */
-  onApply: (texts: Record<string, string>, changed: string[]) => void;
+  /** Puts new box texts in place; `changed` lists the boxes a lookup wrote and `entry` is the library entry they came from. */
+  onApply: (texts: Record<string, string>, changed: string[], entry: LibraryEntry) => void;
+  /** The saved gear item carries the "Filled by AI, check it" mark (set by an earlier lookup, kept across a reload). */
+  aiMarked: boolean;
   state: LookupState | null;
   onState: (s: LookupState | null) => void;
   /** For tests. */
@@ -42,7 +44,7 @@ const sentenceList = (items: string[]) => (items.length < 2 ? items.join('') : `
  * The boxes it can fill are filled, every one stays editable, and a value the user already had is kept until they press "Apply library values".
  * An AI-filled entry says "Filled by AI, check it" until it is confirmed or the user edits a box; a changed box offers "Save correction for everyone".
  */
-export default function GearLookup({ list, texts, getTexts, overwritable, onApply, state, onState, fetchImpl }: GearLookupProps) {
+export default function GearLookup({ list, texts, getTexts, overwritable, onApply, aiMarked, state, onState, fetchImpl }: GearLookupProps) {
   const uid = useId();
   const statusId = `${uid}-lookup-status`;
   const [busy, setBusy] = useState(false);
@@ -96,7 +98,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
         kept[key] = now[key] ?? '';
       }
     }
-    if (changed.length > 0) onApply(next, changed);
+    if (changed.length > 0) onApply(next, changed, result.entry);
     onState({ entry: result.entry, kept });
     setMessage(result.from === 'model' ? 'The AI looked this up.' : '');
   };
@@ -107,7 +109,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
     const next = { ...getTexts() };
     const keys = Object.keys(state.kept);
     for (const key of keys) if (fill[key] !== undefined) next[key] = fill[key];
-    onApply(next, keys);
+    onApply(next, keys, current);
     onState({ entry: current, kept: {} });
   };
 
@@ -137,7 +139,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
 
   const keptLabels = keptNow.map((k) => (k === 'bandpassNotes' ? labelOf(k) : `${labelOf(k)} ${texts[k] ?? ''}`.trim()));
   const status = (() => {
-    if (!current) return null;
+    if (!current) return aiMarked && !state ? { warn: true, text: 'Filled by AI, check it.' } : null;
     if (edited) return { warn: false, text: 'You changed these values. They are not saved for others yet.' };
     if (current.source === 'model' && !current.confirmed) return { warn: true, text: 'Filled by AI, check it.' };
     if (current.source === 'seed' && !current.confirmed) return { warn: true, text: 'From the library, not yet checked against the maker.' };
@@ -167,7 +169,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
             {status.warn && <span aria-hidden="true">! </span>}
             {status.text}
           </p>
-          {keptLabels.length > 0 && !edited && (
+          {current && keptLabels.length > 0 && !edited && (
             <p className="mt-2 break-words text-sm font-normal text-p-t1/80">
               Kept your {sentenceList(keptLabels)}.{' '}
               <button type="button" className={btn} onClick={apply}>Apply library values</button>
@@ -177,7 +179,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
             {edited ? (
               <button type="button" className={btn} disabled={busy} onClick={saveCorrectionClick}>Save correction for everyone</button>
             ) : (
-              !current!.confirmed && <button type="button" className={btn} disabled={busy} onClick={() => void save(undefined)}>These values are right</button>
+              current && !current.confirmed && <button type="button" className={btn} disabled={busy} onClick={() => void save(undefined)}>These values are right</button>
             )}
           </div>
         </div>

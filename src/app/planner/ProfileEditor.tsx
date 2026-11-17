@@ -9,6 +9,9 @@ import type { FieldSpec, ListKey } from '@/planner/state/edit';
 import { GEAR_CLASSES, UsedError, usedText, usesOf } from '@/planner/state/gear';
 import type { Use } from '@/planner/state/gear';
 import type { GearClass, PlanRef } from '@/planner/state/gear';
+import { libraryClassOf, lookupBoxKeys } from '@/planner/library/form';
+import type { LibraryList } from '@/planner/library/form';
+import type { LibraryEntry } from '@/planner/library/specs';
 import GearLookup from './GearLookup';
 import type { LookupState } from './GearLookup';
 import SiteFinder from './SiteFinder';
@@ -168,6 +171,8 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
   const [error, setError] = useState<string | null>(null);
   // Boxes whose value a lookup wrote and the user has not edited since. A lookup may overwrite only these (and empty boxes); every other value is saved or typed by the user.
   const filled = useRef(new Set<string>());
+  // "Filled by AI, check it": kept with the saved item, so it survives a reload. Set when a lookup of an unconfirmed AI entry fills a box, cleared when the entry is confirmed or a spec box is edited.
+  const [ai, setAi] = useState(() => (item as { aiFilled?: boolean }).aiFilled === true);
   const run = (fn: () => Profile, what: string) => {
     try {
       const next = fn();
@@ -179,15 +184,17 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
       setError((e as Error).message);
     }
   };
-  const apply = (next: Record<string, string>, changed: string[]) => {
+  const apply = (next: Record<string, string>, changed: string[], entry?: LibraryEntry) => {
     changed.forEach((k) => filled.current.add(k));
+    if (entry) setAi(entry.source === 'model' && !entry.confirmed);
     commit(next);
   };
+  const lookupKeys = list === 'sites' || libraryClassOf(list) === null ? [] : lookupBoxKeys(list as LibraryList);
   return (
     <FormShell
       legend={`${spec.title === 'Site' ? 'Site' : spec.noun[0].toUpperCase() + spec.noun.slice(1)}: ${item.name}`}
       error={error}
-      onSave={() => run(() => replaceItem(profile, list, item.id, texts), `Saved ${texts.name || item.name}.`)}
+      onSave={() => run(() => replaceItem(profile, list, item.id, texts, ai), `Saved ${texts.name || item.name}.`)}
       onClose={onClose}
       focusTo={focusTo}
       nameId={`edit-${list}-${item.id}-name`}
@@ -201,10 +208,11 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
             value={texts[f.key] ?? ''}
             onChange={(v) => {
               filled.current.delete(f.key);
+              if (lookupKeys.includes(f.key)) setAi(false);
               commit({ ...textsRef.current, [f.key]: v });
             }}
           />
-          {i === 0 && <GearLookup list={list} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} state={lookup} onState={onLookup} />}
+          {i === 0 && <GearLookup list={list} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} aiMarked={ai} state={lookup} onState={(s) => { onLookup(s); if (s?.entry.confirmed) setAi(false); }} />}
         </Fragment>
       ))}
     </FormShell>
@@ -568,6 +576,12 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
               {e.kind === 'train' && <div className="mt-2"><TrainChain profile={profile} train={e.train} /></div>}
               {focalNote !== null && <p className="mt-1 break-words text-sm font-normal text-p-info-text" data-testid="gear-focal-note">{focalNote}</p>}
               {detail && <p className="mt-1 break-words text-sm font-normal text-p-t1/80">{detail}</p>}
+              {e.kind === 'item' && (e.item as { aiFilled?: boolean }).aiFilled === true && (
+                <p className="mt-1 break-words text-sm font-normal text-p-warn-text" data-testid="gear-ai-mark">
+                  <span aria-hidden="true">! </span>
+                  Filled by AI, check it.
+                </p>
+              )}
               <p className="mt-1 break-words text-sm font-normal text-p-t1/80">{usedText(use)}</p>
               {flags.map((t) => (
                 <p key={t} className="mt-1 break-words text-sm font-normal text-p-warn-text" data-testid="gear-flag">

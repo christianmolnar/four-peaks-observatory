@@ -1,6 +1,6 @@
 import type { ListKey } from '../state/edit'
-import { GEAR_LIMITS, inRange, rangeProblem } from '../profile/limits'
-import type { GearLimitKey } from '../profile/limits'
+import { GEAR_LIMITS, enterText, inRange, rangeProblem } from '../profile/limits'
+import type { GearLimit, GearLimitKey } from '../profile/limits'
 import { validateSpecs } from './specs'
 import type { LibraryClass, Specs } from './specs'
 
@@ -28,6 +28,9 @@ const BOXES: Record<LibraryList, Box[]> = {
 }
 const LABELS: Record<string, string> = { kind: 'Kind', sizeMm: 'Size', pixelSizeUm: 'Pixel size', sensorWidthPx: 'Sensor width', sensorHeightPx: 'Sensor height', hasUvIrCut: 'Has its own UV/IR cut', readNoiseClass: 'Read noise', focalLengthMm: 'Focal length', apertureMm: 'Aperture', passbandWidthNm: 'Total passband width', narrowestBandNm: 'Narrowest band', bandpassNotes: 'Bandpass notes' }
 export const labelOf = (key: string): string => LABELS[key] ?? key
+
+/** Every box a lookup can fill, derived ones included: editing one of them makes the values the user's own, not the AI's. */
+export const lookupBoxKeys = (list: LibraryList): string[] => [...BOXES[list].map((b) => b.key), ...(list === 'filters' ? ['passbandWidthNm', 'narrowestBandNm', 'bandpassNotes'] : [])]
 
 export const correctableKeys = (list: LibraryList): string[] => BOXES[list].map((b) => b.key)
 
@@ -81,8 +84,9 @@ export function textsToSpecs(list: LibraryList, texts: Record<string, string>, b
     if (t === '') { delete out[b.spec]; continue }
     if (b.kind === 'tristate') { out[b.spec] = t === 'yes'; continue }
     if (b.kind === 'choice') { out[b.spec] = t; continue }
-    const limit = GEAR_LIMITS[b.spec as GearLimitKey]
+    const limit: GearLimit = GEAR_LIMITS[b.spec as GearLimitKey]
     const n = Number(t)
+    if (Number.isFinite(n) && limit.whole === true && !Number.isInteger(n)) return { problem: `${labelOf(b.key)}: ${t} is not a whole number. ${enterText(limit)}` }
     if (!Number.isFinite(n) || !inRange(limit, n)) return { problem: rangeProblem(labelOf(b.key), limit, t) }
     out[b.spec] = n
   }

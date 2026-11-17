@@ -1,4 +1,6 @@
 import { LIST_SPECS } from '../state/edit'
+import { WIDE_PAIR } from './wide-pair.fixture'
+import type { FilterSpecs } from './specs'
 import { cleanName, FILTER_KINDS, nameKey, parseEntry, validateSpecs } from './specs'
 
 const ok = (cls: Parameters<typeof validateSpecs>[0], raw: unknown) => {
@@ -72,6 +74,43 @@ describe('validateSpecs refuses, with plain words and nothing kept', () => {
   })
   it('one bad value refuses the whole set', () => {
     expect(bad('scope', { apertureMm: 80, focalLengthMm: 1e308 })).toMatch(/focal length/i)
+  })
+})
+
+const bandsOf = (raw: unknown) => (ok('filter', raw) as FilterSpecs).passbands
+
+describe('validateSpecs judges the values a filter derives from its passbands', () => {
+  it('refuses the Wide Pair (two bands of 600 nm, 1,200 nm in total) with a plain total-width sentence', () => {
+    expect(bad('filter', WIDE_PAIR)).toMatch(/^Total passband width: 1200 is outside the allowed range\. Enter a total passband width between 0\.1 and 1,000 nm\./)
+    expect(bad('filter', WIDE_PAIR)).toMatch(/edges reach 100 to 700 nm/)
+  })
+  it('accepts a total of exactly 1,000 nm and refuses 1,000.5', () => {
+    expect(bandsOf({ passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500 }] })).toHaveLength(2)
+    expect(bad('filter', { passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500.5 }] })).toMatch(/Total passband width/)
+  })
+  it('refuses a band whose edges leave the wavelength range, in plain words with the edges', () => {
+    expect(bad('filter', { passbands: [{ centreNm: 300, widthNm: 900 }] })).toMatch(/^Passband 300 nm, 900 nm wide: its edges reach -150 to 750 nm, outside 200 to 1,200 nm\./)
+    expect(bad('filter', { passbands: [{ centreNm: 1100, widthNm: 300 }] })).toMatch(/edges reach 950 to 1,250 nm/)
+    expect(bandsOf({ passbands: [{ centreNm: 400, widthNm: 400 }] })).toEqual([{ centreNm: 400, widthNm: 400 }])
+  })
+  it('the edges are judged at the boundary: 200 and 1,200 nm are fine', () => {
+    expect(bandsOf({ passbands: [{ centreNm: 300, widthNm: 200 }] })).toHaveLength(1)
+    expect(bad('filter', { passbands: [{ centreNm: 300, widthNm: 200.2 }] })).toMatch(/edges/)
+    expect(bandsOf({ passbands: [{ centreNm: 1100, widthNm: 200 }] })).toHaveLength(1)
+  })
+  it('a fraction in a whole-number field says so before the range message', () => {
+    expect(bad('camera', { sensorWidthPx: 4144.5 })).toBe('Sensor width: 4144.5 is not a whole number. Enter a whole number for the sensor width between 100 and 20,000 px.')
+    expect(bad('camera', { sensorWidthPx: 99999.5 })).toMatch(/is not a whole number/)
+    expect(bad('camera', { sensorWidthPx: 99999 })).toMatch(/is outside the allowed range/)
+  })
+  it('parseEntry refuses a stored or imported Wide Pair', () => {
+    const e = { cls: 'filter', nameKey: 'wide pair', name: 'Wide Pair', specs: WIDE_PAIR, source: 'user', confirmed: true, updatedAt: '2026-11-17T10:00:00.000Z', previous: null }
+    expect(() => parseEntry(e)).toThrow(/Total passband width/)
+    expect(() => parseEntry({ ...e, specs: { type: 'narrowband', passbands: [{ centreNm: 656, widthNm: 10 }] }, previous: { specs: WIDE_PAIR, source: 'user', confirmed: true, updatedAt: e.updatedAt } })).toThrow(/Total passband width/)
+  })
+  it('six wide bands refuse as one total, not as six messages', () => {
+    const six = Array.from({ length: 6 }, () => ({ centreNm: 650, widthNm: 900 }))
+    expect(bad('filter', { passbands: six })).toMatch(/Total passband width: 5400 is outside/)
   })
 })
 

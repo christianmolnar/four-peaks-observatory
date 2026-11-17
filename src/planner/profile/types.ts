@@ -39,6 +39,8 @@ export interface ProfileScope {
   name: string;
   focalLengthMm?: number;
   apertureMm?: number;
+  /** Set when the boxes came from an AI lookup nobody has confirmed; cleared when the user confirms the library entry or edits a spec box. Absent: not AI-filled. */
+  aiFilled?: boolean;
 }
 
 /**
@@ -68,6 +70,8 @@ export interface ProfileCamera {
   /** The camera's own window cuts UV and IR. false: it does not (a filter must). Absent: unknown. */
   hasUvIrCut?: boolean;
   readNoiseClass?: ReadNoiseClass;
+  /** Set when the boxes came from an AI lookup nobody has confirmed; cleared when the user confirms the library entry or edits a spec box. Absent: not AI-filled. */
+  aiFilled?: boolean;
 }
 
 export type FilterKind =
@@ -100,6 +104,8 @@ export interface ProfileFilter {
   ratedMinFRatio?: number;
   /** Published largest incident angle (degrees from the axis). */
   maxIncidentAngleDeg?: number;
+  /** Set when the boxes came from an AI lookup nobody has confirmed; cleared when the user confirms the library entry or edits a spec box. Absent: not AI-filled. */
+  aiFilled?: boolean;
 }
 
 /** Fixed optics and sensor in one body. */

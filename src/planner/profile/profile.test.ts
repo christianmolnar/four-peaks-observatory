@@ -313,3 +313,25 @@ describe('site bortle', () => {
     failsAt((p) => { p.sites[0].bortle = bad; }, '$.sites[0].bortle');
   });
 });
+
+describe('aiFilled mark on scopes, cameras and filters', () => {
+  it('an old profile without the field loads unchanged, and a true mark round-trips', () => {
+    const p = full();
+    expect(validateProfile(p)).toEqual(p);
+    p.equipment.scopes[0].aiFilled = true;
+    p.equipment.cameras[0].aiFilled = true;
+    p.equipment.filters[0].aiFilled = true;
+    expect(validateProfile(JSON.parse(JSON.stringify(p)))).toEqual(p);
+  });
+  it('a mark that is not true or false is refused with the field path', () => {
+    const p = JSON.parse(JSON.stringify(full()));
+    p.equipment.scopes[0].aiFilled = 'yes';
+    expect(() => validateProfile(p)).toThrow(/scopes\[0\]\.aiFilled: expected true or false/);
+  });
+  it('is judged like any other value: the item numbers beside the mark are still range-checked', () => {
+    const p = JSON.parse(JSON.stringify(full()));
+    p.equipment.scopes[0].aiFilled = true;
+    p.equipment.scopes[0].focalLengthMm = 99999;
+    expect(() => validateProfile(p)).toThrow(/focalLengthMm/);
+  });
+});

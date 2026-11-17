@@ -191,12 +191,13 @@ function site(v: unknown, path: string, strict: boolean): ProfileSite {
 
 function scope(v: unknown, path: string, strict: boolean): ProfileScope {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'focalLengthMm', 'apertureMm']);
+  onlyKeys(o, path, ['id', 'name', 'focalLengthMm', 'apertureMm', 'aiFilled']);
   return withoutUndefined({
     id: str(o, 'id', path),
     name: nameOf(o, path, strict),
     focalLengthMm: optLimited(o, 'focalLengthMm', path, strict),
     apertureMm: optLimited(o, 'apertureMm', path, strict),
+    aiFilled: optBool(o, 'aiFilled', path),
   });
 }
 
@@ -222,7 +223,7 @@ const FILTER_KINDS: readonly FilterKind[] = ['broadband-LP', 'dual-band', 'tri-b
 
 function camera(v: unknown, path: string, strict: boolean): ProfileCamera {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx', 'colour', 'hasUvIrCut', 'readNoiseClass']);
+  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx', 'colour', 'hasUvIrCut', 'readNoiseClass', 'aiFilled']);
   if (o.readNoiseClass !== undefined && !READ_NOISE_CLASSES.includes(o.readNoiseClass as ReadNoiseClass)) {
     throw new ProfileError(`${path}.readNoiseClass`, `expected one of ${READ_NOISE_CLASSES.join(', ')}, got ${JSON.stringify(o.readNoiseClass)}`);
   }
@@ -235,12 +236,13 @@ function camera(v: unknown, path: string, strict: boolean): ProfileCamera {
     colour: optBool(o, 'colour', path),
     hasUvIrCut: optBool(o, 'hasUvIrCut', path),
     readNoiseClass: o.readNoiseClass as ReadNoiseClass | undefined,
+    aiFilled: optBool(o, 'aiFilled', path),
   });
 }
 
 function filter(v: unknown, path: string, strict: boolean): ProfileFilter {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg']);
+  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg', 'aiFilled']);
   if (o.kind !== undefined && !FILTER_KINDS.includes(o.kind as FilterKind)) {
     throw new ProfileError(`${path}.kind`, `expected one of ${FILTER_KINDS.join(', ')}, got ${JSON.stringify(o.kind)}`);
   }
@@ -255,6 +257,7 @@ function filter(v: unknown, path: string, strict: boolean): ProfileFilter {
     blocksUvIr: optBool(o, 'blocksUvIr', path),
     ratedMinFRatio: optLimited(o, 'ratedMinFRatio', path, strict),
     maxIncidentAngleDeg: optLimited(o, 'maxIncidentAngleDeg', path, strict),
+    aiFilled: optBool(o, 'aiFilled', path),
   });
 }
 
