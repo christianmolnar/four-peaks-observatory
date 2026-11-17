@@ -271,3 +271,65 @@ describe('5000 sessions', () => {
     expect(JSON.parse(s.getItem(PROJECTS_KEY)!).projects[0].sessions).toHaveLength(5000);
   });
 });
+
+describe('changeProjects refuses in words, never throws, when the two copies together pass a limit', () => {
+  const noPath = (m: string) => expect(m).not.toMatch(/\$|\[\d+\]|projects\[/);
+  const many = (from: number, n: number) => Array.from({ length: n }, (_, i) => session(`s${from + i}`, 'm31', L, 1));
+
+  it('past 5,000 sessions: refused, the stored text and this page\'s state stay as they were, still unsaved', () => {
+    const s = memory();
+    put(s, stateOf(project({ sessions: many(0, 3000) })));
+    const a = openProjects(s).handle;
+    // this page holds 3,000 sessions of its own that never reached storage; another tab saved 3,000 others
+    const mine: ProjectsHandle = { ...a, state: stateOf(project({ sessions: many(10000, 3000) })), unsaved: true };
+    const before = s.getItem(PROJECTS_KEY);
+    let r: ReturnType<typeof changeProjects> | undefined;
+    expect(() => (r = changeProjects(s, mine, add('x', 5)))).not.toThrow();
+    expect(r?.ok).toBe(false);
+    if (r === undefined || r.ok) throw new Error('expected a refusal');
+    expect(r.message).toMatch(/^Not saved: .*sessions: holds 0 to 5,000, found 6,000/);
+    noPath(r.message);
+    expect(r.handle).toBe(mine);
+    expect(r.handle.unsaved).toBe(true);
+    expect(s.getItem(PROJECTS_KEY)).toBe(before);
+  });
+
+  it('past 20 projects: each tab added a 20th while one write failed', () => {
+    const s = memory();
+    const mk = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => project({ id: `${prefix}${i}`, name: `${prefix}${i}` }));
+    put(s, stateOf(...mk('a', 11)));
+    const a = openProjects(s).handle;
+    const mine: ProjectsHandle = { ...a, state: stateOf(...mk('b', 10)), unsaved: true };
+    const before = s.getItem(PROJECTS_KEY);
+    let r: ReturnType<typeof changeProjects> | undefined;
+    expect(() => (r = changeProjects(s, mine, (st) => st))).not.toThrow();
+    if (r === undefined || r.ok) throw new Error('expected a refusal');
+    expect(r.message).toMatch(/^Not saved: .*at most 20 projects, found 21/);
+    noPath(r.message);
+    expect(r.handle).toBe(mine);
+    expect(s.getItem(PROJECTS_KEY)).toBe(before);
+  });
+
+  it('a stored copy cleared in another tab, merged back with this page\'s unsaved projects past a limit: refused too', () => {
+    const s = memory();
+    put(s, stateOf(project()));
+    const a = openProjects(s).handle;
+    s.removeItem(PROJECTS_KEY);
+    const mine: ProjectsHandle = { ...a, state: stateOf(project({ sessions: many(0, 5001) })), unsaved: true };
+    const r = changeProjects(s, mine, (st) => st);
+    expect(r.ok).toBe(false);
+    expect(r.handle).toBe(mine);
+  });
+
+  it('an edit that breaks a limit is refused in words (the refusal message holds no path)', () => {
+    const s = memory();
+    put(s, stateOf(project()));
+    const h = openProjects(s).handle;
+    const r = changeProjects(s, h, (st) => updateProject(st, 'p-1', { targets: [{ id: 'm31', lines: [{ filterId: L, minutes: -5, optional: false }] }] }, NOW));
+    if (r.ok) throw new Error('expected a refusal');
+    expect(r.message).toBe('Not saved: target 1, filter line 1, minutes: -5 is outside the allowed range; use a whole number, 0 to 100,000 min');
+    const raw = changeProjects(s, h, (st) => ({ ...st, projects: [{ ...st.projects[0], name: 'x'.repeat(80) }] }));
+    if (raw.ok) throw new Error('expected a refusal');
+    expect(raw.message).toBe('Not saved: name: a name has at most 60 characters');
+  });
+});

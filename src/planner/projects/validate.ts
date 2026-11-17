@@ -7,13 +7,17 @@ import type { PlannedLine, Project, ProjectSetup, ProjectStatus, ProjectTarget, 
 
 export const PROJECTS_VERSION = 1;
 
-/** A project problem: where it is (a path such as `$.projects[0].sessions[3].date`) and what is wrong, in plain words. The detail never holds a stored value. */
+/**
+ * A project problem: where it is (a path such as `$.projects[0].sessions[3].date`, kept for code) and what is wrong, in plain words. The detail never holds
+ * a stored value. The `message` is the plain sentence ("session 4, date: must be a real date ..."), never the path: whatever catches this error and shows
+ * its message shows words, so no caller can print a validator path.
+ */
 export class ProjectsError extends Error {
   constructor(
     public readonly path: string,
     public readonly detail: string,
   ) {
-    super(`${path}: ${detail}`);
+    super(problemSentence(path, detail));
     this.name = 'ProjectsError';
   }
 }
@@ -167,6 +171,12 @@ export function nameForMessage(raw: unknown, fallback: string): string {
   const t = raw.replace(/[\u0000-\u001f\u007f\s]+/g, ' ').trim();
   if (t === '') return fallback;
   return `"${t.length > 40 ? `${t.slice(0, 40)}…` : t}"`;
+}
+
+/** A path and its detail as one sentence: "session 4, date: must be a real date ...", or the detail alone when the path names nothing. */
+export function problemSentence(path: string, detail: string): string {
+  const where = pathInWords(path);
+  return where === '' ? detail : `${where}: ${detail}`;
 }
 
 /** "$.projects[0].sessions[3].date" as "session 4, date". */

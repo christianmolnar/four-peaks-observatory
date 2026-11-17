@@ -145,8 +145,8 @@ export function readProjectsFile(text: string): ReadProjects {
   if (!isRecord(json)) throw new PlansFileError(`${NOT_PROJECTS} It should be an object.`);
   if (json.format !== FILE_FORMAT) throw new PlansFileError(`${NOT_PROJECTS} It was not made by this planner.`);
   if (typeof json.version !== 'number') throw new PlansFileError(`${NOT_PROJECTS} It has no version number.`);
-  if (json.version > FILE_VERSION) throw new PlansFileError(`This file was made by a newer version of the planner (version ${json.version}); this one reads version ${FILE_VERSION}.`);
-  if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PROJECTS} It is version ${json.version}; this planner reads version ${FILE_VERSION}.`);
+  if (json.version > FILE_VERSION) throw new PlansFileError(`This file was made by a newer version of the planner${Number.isSafeInteger(json.version) ? ` (version ${json.version})` : ''}; this one reads version ${FILE_VERSION}.`);
+  if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PROJECTS} ${Number.isSafeInteger(json.version) ? `It is version ${json.version}` : 'Its version is not a whole number'}; this planner reads version ${FILE_VERSION}.`);
   if (json.projects === undefined) throw new PlansFileError('The file holds no projects.');
   if (!Array.isArray(json.projects)) throw new PlansFileError(`${NOT_PROJECTS} Its projects are not a list.`);
   if (json.projects.length === 0) throw new PlansFileError('The file holds no projects.');

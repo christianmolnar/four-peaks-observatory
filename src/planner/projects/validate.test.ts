@@ -11,9 +11,12 @@ const refuses = (raw: unknown, re: RegExp) => {
     err = e;
   }
   expect(err).toBeInstanceOf(ProjectsError);
-  expect((err as Error).message).toMatch(re);
+  // The path and detail (for code) name the field; the message (for people) is words with no path.
+  const e = err as ProjectsError;
+  expect(`${e.path}: ${e.detail}`).toMatch(re);
+  expect(e.message).not.toMatch(/\$|\[\d+\]/);
   // The message says what is wrong in words and never the stored value.
-  expect((err as Error).message).not.toMatch(/NaN|Infinity|e\+|\[object|undefined|HOSTILE|__proto__/);
+  expect(e.message).not.toMatch(/NaN|Infinity|e\+|\[object|undefined|HOSTILE|__proto__/);
 };
 const withSession = (s: Record<string, unknown>) => ({ ...project(), sessions: [{ ...session('a', 'm31', L, 10), ...s }] });
 

@@ -228,3 +228,25 @@ describe('the file: lossless import, a repeat adds nothing, old files still impo
     expect(r.notices.join(' ')).toMatch(/reads at most 20 projects, so 2 more/);
   });
 });
+
+describe('the version in a refusal is worded, never raw number formatting', () => {
+  const refusal = (version: number) => {
+    try {
+      readProjectsFile(JSON.stringify({ format: 'four-peaks-planner', kind: 'projects', version, projects: [project()] }));
+    } catch (e) {
+      return (e as Error).message;
+    }
+    throw new Error('expected a refusal');
+  };
+  it('a newer whole version is named; a huge one is not printed as 1e+308', () => {
+    expect(refusal(7)).toMatch(/newer version of the planner \(version 7\); this one reads version 1\./);
+    const huge = refusal(1e308);
+    expect(huge).toMatch(/newer version of the planner; this one reads version 1\./);
+    expect(huge).not.toMatch(/e\+/);
+  });
+  it('an odd older version is worded without its raw digits', () => {
+    expect(refusal(0)).toMatch(/It is version 0;/);
+    expect(refusal(0.5)).toMatch(/Its version is not a whole number;/);
+    expect(refusal(1e-7)).not.toMatch(/e-/);
+  });
+});

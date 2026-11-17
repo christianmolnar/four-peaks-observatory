@@ -135,3 +135,61 @@ describe('import: repeat adds nothing, ids are never written over', () => {
     expect(r).toMatchObject({ added: 0, leftOut: 1 });
   });
 });
+
+describe('every refusal that reaches a caller is in plain words, never a validator path', () => {
+  const messageOf = (fn: () => unknown): string => {
+    try {
+      fn();
+    } catch (e) {
+      return (e as Error).message;
+    }
+    throw new Error('expected a refusal');
+  };
+  const noPath = (m: string) => {
+    expect(m).not.toMatch(/\$|\[\d+\]|the session\.|the project\.|projects\[|\.[a-z]+\[/);
+  };
+  const badLine = project({ targets: [{ id: 'm31', lines: [line(L, -5)] }] }).targets;
+
+  it('addProject: a bad minutes value, too many filters, a long name', () => {
+    const m = messageOf(() => addProject(EMPTY_PROJECTS, { name: 'x', setup: project().setup, targets: badLine }, NOW));
+    noPath(m);
+    expect(m).toBe('target 1, filter line 1, minutes: -5 is outside the allowed range; use a whole number, 0 to 100,000 min');
+    const many = Array.from({ length: 13 }, (_, i) => `f${i}`);
+    noPath(messageOf(() => addProject(EMPTY_PROJECTS, { name: 'x', setup: { ...project().setup, filterIds: many }, targets: [] }, NOW)));
+    expect(messageOf(() => addProject(EMPTY_PROJECTS, { name: 'x'.repeat(61), setup: project().setup, targets: project().targets }, NOW))).toMatch(/^name: a name has at most 60 characters/);
+  });
+
+  it('updateProject: a bad minutes value, a long name', () => {
+    const m = messageOf(() => updateProject(one(project()), 'p-1', { targets: badLine }, NOW));
+    noPath(m);
+    expect(m).toMatch(/^target 1, filter line 1, minutes: -5 is outside/);
+    expect(messageOf(() => updateProject(one(project()), 'p-1', { name: 'x'.repeat(100) }, NOW))).toMatch(/^name: a name has at most 60/);
+  });
+
+  it('addSession and updateSession: a bad number, a bad date, minutes and exposures together', () => {
+    for (const bad of [{ ...draft, minutes: Number.NaN }, { ...draft, minutes: -1 }, { ...draft, date: '2026-02-30' }, { ...draft, exposures: 5, subSeconds: 60 }]) {
+      const a = messageOf(() => addSession(one(project()), 'p-1', bad, NOW));
+      noPath(a);
+      expect(a).toMatch(/^(minutes|date|a session holds)/);
+      const base = addSession(one(project()), 'p-1', draft, NOW);
+      const u = messageOf(() => updateSession(base.state, 'p-1', base.id, bad, NOW));
+      noPath(u);
+      expect(u).toBe(a);
+    }
+  });
+
+  it('addSessionsWithIds: a bad session says which one, a repeated id in the batch is worded', () => {
+    const m = messageOf(() => addSessionsWithIds(one(project()), 'p-1', [session('a', 'm31', L, 5), session('b', 'm31', L, -2)], NOW));
+    noPath(m);
+    expect(m).toMatch(/^session 2, minutes: -2 is outside/);
+    const dup = messageOf(() => addSessionsWithIds(one(project()), 'p-1', [session('a', 'm31', L, 5), session('a', 'm31', L, 5)], NOW));
+    noPath(dup);
+    expect(dup).toMatch(/^session 2, id: two sessions have the same id|same id/);
+  });
+
+  it('importProjects: a project that cannot be held, two with one id', () => {
+    const m = messageOf(() => importProjects(EMPTY_PROJECTS, [project({ targets: badLine })], 'copy', NOW));
+    noPath(m);
+    expect(m).toMatch(/target 1, filter line 1, minutes: -5/);
+  });
+});

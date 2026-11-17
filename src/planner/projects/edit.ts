@@ -3,7 +3,7 @@ import { PROJECTS_VERSION, checkProject, checkSession, validateProjects } from '
 import type { ProjectsState } from './validate';
 import type { Project, ProjectSetup, ProjectStatus, ProjectTarget, Session } from './types';
 
-/** Changes to the projects, each returning a new state and checking every limit, so a bad value is refused here as well as on reading. Each throws an Error in plain words. */
+/** Changes to the projects, each returning a new state and checking every limit, so a bad value is refused here as well as on reading. Each throws an Error in plain words (a ProjectsError's message is words, never a path). */
 
 /** An id that is not taken, made from the clock (so two tabs adding at once do not pick the same one) and a counter. */
 function freshId(prefix: string, taken: Iterable<string>, now: string): string {
@@ -22,7 +22,7 @@ export interface NewProject {
 export function addProject(s: ProjectsState, draft: NewProject, now: string): { state: ProjectsState; id: string } {
   if (s.projects.length >= MAX_PROJECTS) throw new Error(`Projects hold at most ${MAX_PROJECTS} projects. Delete one to make another.`);
   const id = freshId('project', s.projects.map((p) => p.id), now);
-  const project = checkProject({ id, name: draft.name, status: draft.status ?? 'active', setup: draft.setup, targets: draft.targets, sessions: [], createdAt: now, updatedAt: now }, 'the project');
+  const project = checkProject({ id, name: draft.name, status: draft.status ?? 'active', setup: draft.setup, targets: draft.targets, sessions: [], createdAt: now, updatedAt: now }, '$');
   return { state: validateProjects({ ...s, projects: [...s.projects, project] }), id };
 }
 
@@ -47,7 +47,7 @@ export function addSession(s: ProjectsState, projectId: string, draft: NewSessio
   let made = '';
   const state = change(s, projectId, (p) => {
     made = freshId('s', p.sessions.map((x) => x.id), now);
-    return { ...p, sessions: [...p.sessions, checkSession({ ...draft, id: made }, 'the session')], updatedAt: now };
+    return { ...p, sessions: [...p.sessions, checkSession({ ...draft, id: made }, '$')], updatedAt: now };
   });
   return { state, id: made };
 }
@@ -56,7 +56,7 @@ export function addSession(s: ProjectsState, projectId: string, draft: NewSessio
 export function updateSession(s: ProjectsState, projectId: string, sessionId: string, draft: NewSession, now: string): ProjectsState {
   return change(s, projectId, (p) => {
     if (!p.sessions.some((x) => x.id === sessionId)) throw new Error('There is no such session.');
-    return { ...p, sessions: p.sessions.map((x) => (x.id === sessionId ? checkSession({ ...draft, id: sessionId }, 'the session') : x)), updatedAt: now };
+    return { ...p, sessions: p.sessions.map((x) => (x.id === sessionId ? checkSession({ ...draft, id: sessionId }, '$') : x)), updatedAt: now };
   });
 }
 
@@ -153,7 +153,7 @@ export function importProjects(s: ProjectsState, incoming: readonly Project[], r
 export function addSessionsWithIds(s: ProjectsState, projectId: string, sessions: readonly Session[], now: string): ProjectsState {
   return change(s, projectId, (p) => {
     const have = new Set(p.sessions.map((x) => x.id));
-    const fresh = sessions.filter((x) => !have.has(x.id)).map((x, i) => checkSession(x, `session ${i + 1}`));
+    const fresh = sessions.filter((x) => !have.has(x.id)).map((x, i) => checkSession(x, `$.sessions[${i}]`));
     return fresh.length === 0 ? p : { ...p, sessions: [...p.sessions, ...fresh], updatedAt: now };
   });
 }

@@ -207,21 +207,27 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
     return refuse(BLOCKED);
   }
   let base = handle.state;
-  if (stored === null) {
-    if (handle.text !== null) base = handle.unsaved ? mergeProjects(EMPTY_PROJECTS, handle.state) : EMPTY_PROJECTS; // cleared in another tab
-  } else if (stored !== handle.text || handle.unsaved) {
-    const found = inspectProjects(stored);
-    if (found.kind !== 'projects') {
-      const held: HeldWhy = found.kind === 'newer' ? 'newer' : 'othertab';
-      return refuse(HELD_TEXT[held], { ...handle, held });
+  try {
+    if (stored === null) {
+      if (handle.text !== null) base = handle.unsaved ? mergeProjects(EMPTY_PROJECTS, handle.state) : EMPTY_PROJECTS; // cleared in another tab
+    } else if (stored !== handle.text || handle.unsaved) {
+      const found = inspectProjects(stored);
+      if (found.kind !== 'projects') {
+        const held: HeldWhy = found.kind === 'newer' ? 'newer' : 'othertab';
+        return refuse(HELD_TEXT[held], { ...handle, held });
+      }
+      base = handle.unsaved ? mergeProjects(found.state, handle.state) : found.state;
     }
-    base = handle.unsaved ? mergeProjects(found.state, handle.state) : found.state;
+  } catch (e) {
+    // The two copies together pass a limit: refuse, and keep this page's state (and its unsaved mark) so nothing is lost.
+    if (!(e instanceof ProjectsError)) throw e;
+    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). Your change is on this page only; export the project, then remove some sessions or projects and change something again.`);
   }
   let next: ProjectsState;
   try {
     next = validateProjects(edit(base));
   } catch (e) {
-    return refuse(`Not saved: ${(e as Error).message}`);
+    return refuse(`Not saved: ${(e as Error).message}`); // a ProjectsError's message is words, never a path
   }
   const text = projectsText(next);
   try {
