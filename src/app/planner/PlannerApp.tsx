@@ -101,7 +101,7 @@ import type { ImportPanel, ShareFormat, ShareWhat } from './ShareSheet';
 import { FORMATS } from './ShareSheet';
 import { download } from './download';
 import type { PlanTimelineReport } from './PlanTimeline';
-import { ITINERARY_KEY, MAX_SLOTS, lightMinutes } from '@/planner/itinerary';
+import { ITINERARY_KEY, MAX_SLOTS, buildItinerary, clockToInstant, lightMinutes, makeWindowLookup } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor, { HeldGearError } from './ProfileEditor';
@@ -1109,35 +1109,31 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const noMixFilters = !train ? 'No setup is chosen, so there is no filter mix to work out.' : train.kind !== 'optical' ? 'A smart scope has its filter built in, so there is no filter mix to work out.' : 'No filter is selected in the setup, so there is no filter mix to work out. Pick one under Setup.';
   // The timeline's plan, once it is worked out for this night and site (the rail reads it the same way); null before then, and the row's own light stands in.
   const mixTimeline = stableNight && astroSite && catalog.status !== 'loading' ? timelinePlan : null;
-  const mixViews = useMemo(
-    () =>
-      new Map(
-        planItems.map(({ id, body, target }): [string, RowMix] => {
-          const view = rowViews.get(id);
-          if (body === undefined && target === undefined && catalog.status === 'loading') return [id, { kind: 'message', text: 'The catalog is still loading, so the filter mix is not worked out yet.' }];
-          // The light to split is the timeline's slot for this target (the same light the sheet and the timeline show); a target the timeline leaves out has none.
-          const slot = mixTimeline?.slots.find((s) => s.id === id);
-          const scheduled = slot !== undefined && slot.altitudes !== null && slot.end.getTime() > slot.start.getTime();
-          const light: RowMixInput['light'] =
-            view?.kind !== 'ok'
-              ? { kind: 'none', reason: view?.reason ?? '' }
-              : mixTimeline === null
-                ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes }
-                : { kind: 'ok', minutes: scheduled ? slot.integrationMin : 0, usableMinutes: scheduled ? view.usableMinutes : 0 };
-          return [
-            id,
-            rowMix({
-              body: body !== undefined,
-              target: target === undefined ? null : { id: target.id, type: target.type },
-              light,
-              filters: mixFilters,
-              noFilters: noMixFilters,
-            }),
-          ];
-        }),
-      ),
-    [planItems, rowViews, mixFilters, noMixFilters, catalog.status, mixTimeline],
+  /** One plan target's filter mix on a timeline: the plan row's, the text export's and the AI result's all come from here. */
+  const mixOf = useCallback(
+    ({ id, body, target }: { id: string; body: unknown; target: { id: string; type: string } | undefined }, timeline: ItineraryPlan | null): RowMix => {
+      const view = rowViews.get(id);
+      if (body === undefined && target === undefined && catalog.status === 'loading') return { kind: 'message', text: 'The catalog is still loading, so the filter mix is not worked out yet.' };
+      // The light to split is the timeline's slot for this target (the same light the sheet and the timeline show); a target the timeline leaves out has none.
+      const slot = timeline?.slots.find((s) => s.id === id);
+      const scheduled = slot !== undefined && slot.altitudes !== null && slot.end.getTime() > slot.start.getTime();
+      const light: RowMixInput['light'] =
+        view?.kind !== 'ok'
+          ? { kind: 'none', reason: view?.reason ?? '' }
+          : timeline === null
+            ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes }
+            : { kind: 'ok', minutes: scheduled ? slot.integrationMin : 0, usableMinutes: scheduled ? view.usableMinutes : 0 };
+      return rowMix({
+        body: body !== undefined,
+        target: target === undefined ? null : { id: target.id, type: target.type },
+        light,
+        filters: mixFilters,
+        noFilters: noMixFilters,
+      });
+    },
+    [rowViews, mixFilters, noMixFilters, catalog.status],
   );
+  const mixViews = useMemo(() => new Map(planItems.map((p): [string, RowMix] => [p.id, mixOf(p, mixTimeline)])), [planItems, mixOf, mixTimeline]);
 
   // The altitude chart is drawn in the open row only.
   const track = useMemo(() => {
@@ -1446,20 +1442,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     return used;
   }, [planTargets, rowViews]);
   /** The timeline's slots, from the plan's targets: the plan's own train and its filter for all; a Custom target is scheduled with its own numbers over the preset it differs from. */
-  const timelineItems = useMemo(
-    (): ItineraryItem[] =>
-      planTargets.slice(0, MAX_SLOTS).map((t) => ({
-        id: t.id,
-        targetId: t.id,
-        trainId: train?.id ?? '',
-        filterId: train?.kind === 'optical' ? (train.filterId ?? null) : null,
-        mode: baseOf(t),
-        // A Custom value that does not work on this night is not scheduled: the slot uses the preset's own numbers (the row says so); the value stays stored.
-        ...(t.preset === 'custom' && t.custom && !presetUsed.has(t.id) ? { overrides: t.custom } : {}),
-        note: t.note ?? '',
-      })),
-    [planTargets, train, presetUsed],
+  const slotOf = useCallback(
+    (t: PlanTargetRef): ItineraryItem => ({
+      id: t.id,
+      targetId: t.id,
+      trainId: train?.id ?? '',
+      filterId: train?.kind === 'optical' ? (train.filterId ?? null) : null,
+      mode: baseOf(t),
+      // A Custom value that does not work on this night is not scheduled: the slot uses the preset's own numbers (the row says so); the value stays stored.
+      ...(t.preset === 'custom' && t.custom && !presetUsed.has(t.id) ? { overrides: t.custom } : {}),
+      note: t.note ?? '',
+    }),
+    [train, presetUsed],
   );
+  const timelineItems = useMemo((): ItineraryItem[] => planTargets.slice(0, MAX_SLOTS).map(slotOf), [planTargets, slotOf]);
   /** A slot's changed note goes onto its target, and the start time onto the plan; the slots' order is the plan's order; targets past the timeline's slots stay after them. */
   const applyTimeline = (items: ItineraryItem[], startTime: string | null) => {
     const byId = new Map(planTargets.map((t) => [t.id, t]));
@@ -1476,17 +1472,45 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     editOpen({ targets: [...kept, ...planTargets.slice(MAX_SLOTS)], startTime });
   };
   /** "Use this plan": the AI's order and first start time go into the open plan, and every target keeps its own exposure (preset or Custom numbers); targets it left out follow, in their order. */
-  const applyAiPlan = (items: ItineraryItem[], startTime: string | null): Promise<boolean> => {
-    const byId = new Map(planTargets.map((t) => [t.id, t]));
-    const used = new Set<string>();
-    const ordered = items.flatMap((i): PlanTargetRef[] => {
-      const old = byId.get(i.targetId);
-      if (old === undefined || used.has(i.targetId)) return [];
-      used.add(i.targetId);
-      return [{ ...old }];
-    });
-    return Promise.resolve(editOpen({ targets: [...ordered, ...planTargets.filter((t) => !used.has(t.id))], startTime }));
-  };
+  const aiOrder = useCallback(
+    (ids: readonly string[]): PlanTargetRef[] => {
+      const byId = new Map(planTargets.map((t) => [t.id, t]));
+      const used = new Set<string>();
+      const ordered = ids.flatMap((id): PlanTargetRef[] => {
+        const old = byId.get(id);
+        if (old === undefined || used.has(id)) return [];
+        used.add(id);
+        return [{ ...old }];
+      });
+      return [...ordered, ...planTargets.filter((t) => !used.has(t.id))];
+    },
+    [planTargets],
+  );
+  const applyAiPlan = (items: ItineraryItem[], startTime: string | null): Promise<boolean> => Promise.resolve(editOpen({ targets: aiOrder(items.map((i) => i.targetId)), startTime }));
+  /**
+   * What each target of the AI plan's filter mix will be once the plan is used: the plan as `applyAiPlan` writes it (the AI's order, the first start, each target's own
+   * exposure), timed by the same timeline code, then the same mix as the row. So the row after Use this plan shows what the flyout showed. Null when there is no night yet.
+   */
+  const aiMixFor = useCallback(
+    (ids: readonly string[], startTime: string | null): ReadonlyMap<string, RowMix> | null => {
+      if (!stableNight || stableNight.kind !== 'normal' || !astroSite || catalog.status === 'loading') return null;
+      const items = aiOrder(ids).slice(0, MAX_SLOTS).map(slotOf);
+      const startAt = startTime && stableNight.start ? clockToInstant(startTime, stableNight.start, siteZone || zone || undefined) : null;
+      const plan = buildItinerary({
+        site: astroSite,
+        night: stableNight,
+        horizon,
+        minAltitude,
+        bortle: bortleOfSite,
+        slots: items.map((i) => slotInputFor(i, profile, catalog.status === 'ready' ? catalog.index.targets : [])),
+        startAt,
+        formatTime,
+        windows: makeWindowLookup({ site: astroSite, night: stableNight, horizon, minAltitude }),
+      });
+      return new Map(planItems.filter((p) => ids.includes(p.id)).map((p): [string, RowMix] => [p.id, mixOf(p, plan)]));
+    },
+    [stableNight, astroSite, catalog, aiOrder, slotOf, siteZone, zone, horizon, minAltitude, bortleOfSite, profile, formatTime, planItems, mixOf],
+  );
 
   // The AI flyout: open or closed. Closing puts the keyboard back on the button that opened it.
   const [aiOpen, setAiOpen] = useState(false);
@@ -2507,6 +2531,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           horizonText={horizonText}
           presetLabels={aiPresetLabels}
           catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
+          mixFor={aiMixFor}
           formatTime={formatTime}
           owner={owner}
           fetchPlan={aiFetch}

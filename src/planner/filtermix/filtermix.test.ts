@@ -1,6 +1,6 @@
 import { emissionProfileFor } from '../catalog/emission';
 import type { EmissionProfile } from '../catalog/emission';
-import { BROADBAND_KEEP, filterMix, mixSummary } from './index';
+import { BROADBAND_KEEP, filterMix, lineNote, mixSummary } from './index';
 import type { MixFilter, MixLine, MixResult } from './index';
 
 const NBZ: MixFilter = { id: 'nbz', name: 'NBZ II', bands: [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }] };
@@ -288,5 +288,27 @@ describe('every selected filter appears once, broadband ones included', () => {
     const r = mix(profile('ngc1952', 'supernova-remnant'), [LUM, NBZ]);
     expect(names(r)).toEqual(['lum', 'nbz']);
     expect(sum(r)).toBe(HOURS);
+  });
+});
+
+describe('lineNote: the few words beside a filter, one wording for the plan text and the AI result', () => {
+  it('says "covered by X" for a redundant filter, "better contrast" for a contrast-only one, what a filter adds, and why a line earns nothing', () => {
+    const duo = of(mix(M57, [DUO, NB3]), 'Duo-Band');
+    expect(duo.verdict).toBe('covered');
+    expect(lineNote(duo)).toBe('covered by NB3-PM');
+    const haTight: MixFilter = { id: 'a', name: 'Ha tight', bands: [{ centreNm: 656.3, widthNm: 8 }, { centreNm: 500.7, widthNm: 35 }] };
+    const oTight: MixFilter = { id: 'b', name: 'OIII tight', bands: [{ centreNm: 656.3, widthNm: 15 }, { centreNm: 500.7, widthNm: 8 }] };
+    const r = mix(M42, [haTight, oTight]);
+    expect(lineNote(of(r, 'Ha tight'))).toBe('better contrast');
+    expect(lineNote(of(r, 'OIII tight'))).toMatch(/^adds /);
+    expect(lineNote(of(mix(M31, [NBZ]), 'NBZ II'))).toBe('adds nothing');
+    const none = filterMix({ profile: M42, filters: [NOBANDS], minutes: HOURS });
+    expect(none.kind).toBe('none');
+    if (none.kind === 'none') expect(lineNote(none.skipped[0])).toBe('unknown passband, not used');
+  });
+
+  it('is the wording mixSummary prints, so the export reads as before', () => {
+    const r = mix(M57, [DUO, NB3]);
+    expect(mixSummary('M57', r, (m) => `${m} min`)).toContain(`Duo-Band 0 min (${lineNote(of(r, 'Duo-Band'))})`);
   });
 });

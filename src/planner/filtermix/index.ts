@@ -292,8 +292,20 @@ export function filterMix(input: MixInput): MixResult {
 /** Whole minutes as "1 h 20 min" or "45 min": the row's own wording, passed in so the row and the export agree. */
 export type MinutesText = (minutes: number) => string;
 
+/** What a line says beside its filter, in a few words: "adds OIII", "better contrast", "covered by NB3-PM". Null when there is nothing to add. One wording for the plan text and the AI result. */
+export function lineNote(l: MixLine): string | null {
+  if (l.verdict === 'skipped') return 'unknown passband, not used';
+  if (l.verdict === 'broadband') return l.minutes === 0 ? 'earns no hours here' : null;
+  if (l.verdict === 'adds') return `adds ${list(l.adds)}`;
+  if (l.verdict === 'contrast') return 'better contrast';
+  return l.verdict === 'covered' && l.coveredBy.length > 0 ? `covered by ${list(l.coveredBy)}` : 'adds nothing';
+}
+
 /** One line for the plan text: "M42: NB3-PM 2 h (adds OIII); NBZ II 0 min (covered by NB3-PM). Typical for this type, not measured." */
 export function mixSummary(name: string, r: Extract<MixResult, { kind: 'mix' }>, fmt: MinutesText): string {
-  const parts = r.lines.map((l) => `${l.name} ${fmt(l.minutes)}${l.verdict === 'skipped' ? ' (unknown passband, not used)' : l.verdict === 'broadband' && l.minutes === 0 ? ' (earns no hours here)' : l.verdict === 'adds' ? ` (adds ${list(l.adds)})` : l.verdict === 'contrast' ? ' (better contrast)' : l.verdict === 'covered' || l.verdict === 'no-need' || l.verdict === 'gate' ? ` (${l.verdict === 'covered' && l.coveredBy.length > 0 ? `covered by ${list(l.coveredBy)}` : 'adds nothing'})` : ''}`);
+  const parts = r.lines.map((l) => {
+    const note = lineNote(l);
+    return `${l.name} ${fmt(l.minutes)}${note === null ? '' : ` (${note})`}`;
+  });
   return `${name} (${fmt(r.availableMin)} of light): ${parts.join('; ')}. ${r.confidence}.`;
 }

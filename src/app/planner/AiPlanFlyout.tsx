@@ -26,6 +26,8 @@ import {
   timelinePlanOf,
 } from '@/planner/ai/view';
 import type { AiProblem } from '@/planner/ai/view';
+import type { RowMix } from '@/planner/filtermix/row';
+import AiSlotMix from './AiSlotMix';
 import NightTimeline from './NightTimeline';
 
 export const AI_PLAN_URL = '/api/planner/ai-plan';
@@ -59,6 +61,11 @@ export interface AiPlanFlyoutProps {
   /** Each target's exposure preset as a label ("Balanced", "Custom"), by target id. */
   presetLabels: ReadonlyMap<string, string>;
   catalogTargets: readonly SlotTarget[];
+  /**
+   * The filter mix each target of the AI plan will have once the plan is used, by target id: the page's own mix (the plan row's and the text export's)
+   * on the timeline the plan gets, given the targets in the AI's order and its first start. Null when the page cannot work it out (no night, no catalog yet).
+   */
+  mixFor?: (ids: readonly string[], startTime: string | null) => ReadonlyMap<string, RowMix> | null;
   formatTime: (d: Date) => string;
   /** Shown only to the owner. */
   owner: boolean;
@@ -122,7 +129,7 @@ function Step({ n, title, state, children }: { n: number; title: string; state: 
  * the AI is given it, the AI ordering and timing the targets, the code checking every slot against the sky. It ends in a result; the open
  * plan changes only when "Use this plan" is pressed. Closing it stops any request in flight.
  */
-export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, staleNotes = [], onChangeStale = () => undefined, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
+export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, staleNotes = [], onChangeStale = () => undefined, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, mixFor, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
   const [run, setRun] = useState<Run>('idle');
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -419,6 +426,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
             base={base}
             night={night}
             catalogTargets={catalogTargets}
+            mixFor={mixFor}
             formatTime={formatTime}
             nightWord={nightWord}
             presetLabels={presetLabels}
@@ -471,6 +479,7 @@ function Result({
   base,
   night,
   catalogTargets,
+  mixFor,
   formatTime,
   nightWord,
   presetLabels,
@@ -481,6 +490,7 @@ function Result({
   base: AiPlanFlyoutProps['base'];
   night: AstronomicalNight | null;
   catalogTargets: readonly SlotTarget[];
+  mixFor: AiPlanFlyoutProps['mixFor'];
   formatTime: (d: Date) => string;
   nightWord: string;
   presetLabels: ReadonlyMap<string, string>;
@@ -494,6 +504,11 @@ function Result({
   const timeline = useMemo(
     () => (base !== null && night !== null ? timelinePlanOf({ items, inputs, result, site: base.site, horizon: base.horizon, minAltitude: base.minAltitude, night }) : null),
     [items, inputs, result, base, night],
+  );
+  // The filter mix of each planned slot, only for a checked plan that still matches the page: from the light the plan gets once it is used, not the AI's own minutes.
+  const mixes = useMemo(
+    () => (mixFor !== undefined && result.status === 'verified' && stale.length === 0 ? mixFor(items.map((i) => i.targetId), done.startTime) : null),
+    [mixFor, result.status, stale.length, items, done.startTime],
   );
   const cutWhy = (id: string): string =>
     result.warnings.some((w) => w.kind === 'cut-fits-free-time' && w.id === id)
@@ -532,6 +547,7 @@ function Result({
                       {last.reason}
                     </p>
                   )}
+                  {mixes?.get(s.id) !== undefined && <AiSlotMix index={i} mix={mixes.get(s.id) as RowMix} />}
                 </li>
               );
             })}
