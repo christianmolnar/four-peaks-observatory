@@ -3,7 +3,10 @@ import type { Profile } from '../profile';
 import { LIST_SPECS, textsOf } from '../state/edit';
 import type { ListKey } from '../state/edit';
 import type { Plan, PlanTargetRef } from '../state/plans';
+import type { ProjectSheet } from '../projects/sheet';
 import { csvField } from './csv';
+import { PROJECT_CSV_HEADER, projectCsvRows, projectMarkdown, trackerLines } from './projects';
+import { md, oneLine } from './text';
 
 /**
  * What a person reads in a shared plan: plain words and units, no ids. One row is one object of the plan, with its times and exposure.
@@ -72,6 +75,8 @@ export interface ShareDoc {
   gear: GearSheet | null;
   /** Sentences for the whole file (the saved plans are held back, so this is what is on the page). */
   notes: string[];
+  /** The projects (marathons) shared with it; absent or empty: none. */
+  projects?: ProjectSheet[];
 }
 
 /** Said once on every run sheet: the planner has no gain to give. */
@@ -259,7 +264,6 @@ export const noSubsText = (r: SheetRow): string => {
   const light = r.lightMin !== null && r.lightMin > 0 ? `, about ${r.lightMin} min` : '';
   return r.type === 'Solar system' ? `clips, not subs${light}` : `subs: not worked out${light}`;
 };
-const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
 function planText(p: PlanSheet): string[] {
   const out = [`PLAN: ${p.name}`, `Evening of ${p.date}`, `Site: ${p.site}`, `Train: ${p.train}`];
@@ -287,14 +291,14 @@ export function docToText(doc: ShareDoc): string {
   const blocks: string[][] = [];
   if (doc.notes.length > 0) blocks.push(doc.notes);
   for (const p of doc.plans) blocks.push(planText(p));
+  for (const p of doc.projects ?? []) blocks.push(trackerLines(p));
   if (doc.gear !== null) blocks.push(['GEAR', ...doc.gear.sections.flatMap((s) => ['', `${s.title}:`, ...s.lines.map((l) => `- ${l}`)])]);
   return `${blocks.map((b) => b.join('\n')).join('\n\n\n')}\n`;
 }
 
 // ------------------------------------------------------------------ Markdown
 
-/** Text that is safe inside a Markdown line or table cell: no markup, no line breaks. */
-export const md = (s: string): string => oneLine(s).replace(/[\\`*_{}[\]<>|#]/g, (c) => `\\${c}`);
+export { md };
 
 function planMarkdown(p: PlanSheet): string[] {
   const out = [`## ${md(p.name)}`, '', `- **Evening:** ${md(p.date)}`, `- **Site:** ${md(p.site)}`, `- **Train:** ${md(p.train)}`];
@@ -318,9 +322,10 @@ function planMarkdown(p: PlanSheet): string[] {
 
 export function docToMarkdown(doc: ShareDoc): string {
   const blocks: string[][] = [];
-  const title = doc.plans.length === 1 && doc.gear === null ? `# Imaging plan: ${md(doc.plans[0].name)}` : '# Four Peaks planner export';
+  const title = doc.plans.length === 1 && doc.gear === null && (doc.projects ?? []).length === 0 ? `# Imaging plan: ${md(doc.plans[0].name)}` : '# Four Peaks planner export';
   blocks.push([title, ...(doc.notes.length > 0 ? ['', ...doc.notes.map(md)] : [])]);
   for (const p of doc.plans) blocks.push(planMarkdown(p));
+  for (const p of doc.projects ?? []) blocks.push(projectMarkdown(p));
   if (doc.gear !== null) blocks.push(['## Gear', ...doc.gear.sections.flatMap((s) => ['', `### ${md(s.title)}`, '', ...s.lines.map((l) => `- ${md(l)}`)])]);
   return `${blocks.map((b) => b.join('\n')).join('\n\n')}\n`;
 }
@@ -346,6 +351,7 @@ export function docToCsv(doc: ShareDoc): string {
     });
     tables.push([line(SHEET_CSV_HEADER), ...rows]);
   }
+  if ((doc.projects ?? []).length > 0) tables.push([line(PROJECT_CSV_HEADER), ...(doc.projects ?? []).flatMap(projectCsvRows)]);
   if (doc.gear !== null) tables.push([line(GEAR_CSV_HEADER), ...doc.gear.sections.flatMap((s) => s.lines.map((l) => line([s.title, l])))]);
   return `${tables.map((t) => t.join('\r\n')).join('\r\n\r\n')}\r\n`;
 }
