@@ -1,9 +1,10 @@
 'use client';
 
 import { Fragment, memo, useEffect, useRef, useState } from 'react';
-import type { Profile, TrainEntry } from '@/planner/profile';
+import type { Profile, ProfileFilter, TrainEntry } from '@/planner/profile';
 import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText, reducedFocalNote, siteBadKeys, siteProblems } from '@/planner/profile';
-import { limitOf } from '@/planner/profile/limits';
+import { GEAR_LIMITS, MAX_PASSBANDS, limitOf, rangeText } from '@/planner/profile/limits';
+import { bandKey, bandText, bandsFromTexts, bandsLineNote, filledRows, withDerivedSums, withoutBandRow } from '@/planner/profile/passbands';
 import { LIST_SPECS, addItem, addTrain, boxHint, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
 import { GEAR_CLASSES, UsedError, usedText, usesOf } from '@/planner/state/gear';
@@ -76,8 +77,8 @@ function summaryOf(list: ListKey, item: object): string {
     .join(', ');
 }
 
-function Box({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value: string; onChange: (v: string) => void }) {
-  const hint = spec.key === 'name' ? `up to ${MAX_NAME_CHARS} characters` : boxHint(spec);
+function Box({ id, spec, value, onChange, derived }: { id: string; spec: FieldSpec; value: string; onChange: (v: string) => void; derived?: boolean }) {
+  const hint = spec.key === 'name' ? `up to ${MAX_NAME_CHARS} characters` : derived ? 'worked out from the passbands' : boxHint(spec);
   const label = hint ? `${spec.label} (${hint})` : spec.label;
   const options: readonly { value: string; text: string }[] | null =
     spec.kind === 'tristate'
@@ -103,11 +104,53 @@ function Box({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value
             autoComplete="off"
             className={field}
             value={value}
+            readOnly={derived}
             onChange={(e) => onChange(e.target.value)}
           />
         ) : (
           <WrapText id={id} autoComplete="off" className={field} value={value} onChange={(e) => onChange(e.target.value)} />
         )
+      )}
+    </div>
+  );
+}
+
+/**
+ * A filter's passbands: one row per band (centre and width in nm), add and remove. The two totals below follow the rows; with no rows they are typed as before.
+ * Boxes are plain text like the others, judged on Save (and by the library path) by the one passband judge.
+ */
+function BandRows({ idBase, texts, rows, onEdit, onAdd, onRemove }: { idBase: string; texts: Record<string, string>; rows: number; onEdit: (key: string, v: string) => void; onAdd: () => void; onRemove: (row: number) => void }) {
+  return (
+    <div className="sm:col-span-2 xl:col-span-3 min-w-0">
+      <p className="mb-2 break-words text-sm font-normal text-p-t1/80" id={`${idBase}-bands-help`}>
+        Passbands: the wavelengths the filter lets through. Centre {rangeText(GEAR_LIMITS.passbandCentreNm)}, width {rangeText(GEAR_LIMITS.bandWidthNm)}, at most {MAX_PASSBANDS} bands that do not overlap. Leave them out when you do not know them.
+      </p>
+      <div className="space-y-3 [&>*]:min-w-0">
+        {Array.from({ length: rows }, (_, i) => i + 1).map((row) => (
+          <fieldset key={row} className="min-w-0 rounded border border-p-line/15 p-3">
+            <legend className="px-1 text-p-t1 font-normal text-sm">Passband {row}</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>*]:min-w-0">
+              {(['Centre', 'Width'] as const).map((part) => (
+                <div key={part}>
+                  <label htmlFor={`${idBase}-${bandKey(row, part)}`} className={labelClass}>Passband {part === 'Centre' ? 'centre' : 'width'} (nm)</label>
+                  <input
+                    id={`${idBase}-${bandKey(row, part)}`}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    className={field}
+                    value={texts[bandKey(row, part)] ?? ''}
+                    onChange={(e) => onEdit(bandKey(row, part), e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+            <button type="button" className={`${btn} mt-3`} onClick={() => onRemove(row)}>Remove passband {row}</button>
+          </fieldset>
+        ))}
+      </div>
+      {rows < MAX_PASSBANDS && (
+        <button type="button" id={`${idBase}-add-band`} className={`${btn} mt-3`} onClick={onAdd}>Add a passband</button>
       )}
     </div>
   );
@@ -164,9 +207,12 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
   const [texts, setTexts] = useState(() => textsOf(list, item));
   // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
   const textsRef = useRef(texts);
+  // The band rows shown: those holding something, and the blank ones the user added. The two totals follow good bands (withDerivedSums).
+  const [blankRows, setBlankRows] = useState(0);
   const commit = (next: Record<string, string>) => {
-    textsRef.current = next;
-    setTexts(next);
+    const settled = list === 'filters' ? withDerivedSums(next) : next;
+    textsRef.current = settled;
+    setTexts(settled);
   };
   const [error, setError] = useState<string | null>(null);
   // Boxes whose value a lookup wrote and the user has not edited since. A lookup may overwrite only these (and empty boxes); every other value is saved or typed by the user.
@@ -189,6 +235,27 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
     if (entry) setAi(entry.source === 'model' && !entry.confirmed);
     commit(next);
   };
+  const rows = list === 'filters' ? Math.max(filledRows(texts), blankRows) : 0;
+  const bandsNow = list === 'filters' ? bandsFromTexts(texts) : null;
+  const bandsDecide = bandsNow !== null && 'bands' in bandsNow && bandsNow.bands.length > 0;
+  const idBase = `edit-${list}-${item.id}`;
+  const editBand = (key: string, v: string) => {
+    filled.current.delete(key);
+    setAi(false);
+    commit({ ...textsRef.current, [key]: v });
+  };
+  const addBand = () => {
+    const next = Math.min(MAX_PASSBANDS, rows + 1);
+    setBlankRows(next);
+    window.setTimeout(() => document.getElementById(`${idBase}-${bandKey(next, 'Centre')}`)?.focus(), 0);
+  };
+  const removeBand = (row: number) => {
+    for (const part of ['Centre', 'Width'] as const) filled.current.delete(bandKey(row, part));
+    setAi(false);
+    setBlankRows(Math.max(rows - 1, 0));
+    commit(withoutBandRow(textsRef.current, row));
+    window.setTimeout(() => document.getElementById(`${idBase}-add-band`)?.focus(), 0);
+  };
   const lookupKeys = list === 'sites' || libraryClassOf(list) === null ? [] : lookupBoxKeys(list as LibraryList);
   return (
     <FormShell
@@ -202,10 +269,12 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
       {list === 'sites' && <SiteFinder inputId={findBoxId(item.id)} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
       {spec.fields.map((f, i) => (
         <Fragment key={f.key}>
+          {f.key === 'passbandWidthNm' && <BandRows idBase={idBase} texts={texts} rows={rows} onEdit={editBand} onAdd={addBand} onRemove={removeBand} />}
           <Box
             id={`edit-${list}-${item.id}-${f.key}`}
             spec={f}
             value={texts[f.key] ?? ''}
+            derived={bandsDecide && (f.key === 'passbandWidthNm' || f.key === 'narrowestBandNm')}
             onChange={(v) => {
               filled.current.delete(f.key);
               if (lookupKeys.includes(f.key)) setAi(false);
@@ -342,6 +411,23 @@ function TrainChain({ profile, train }: { profile: Profile; train: TrainEntry })
       <Chip tone="border-p-chip-camera/50 bg-p-chip-camera-fill/15" label="Camera" name={nameOf(eq.cameras, train.cameraId)} />
       <Join />
       <Chip tone="border-p-chip-filter/50 bg-p-chip-filter-fill/15" label="Filter" name={train.filterId === undefined ? 'No filter' : nameOf(eq.filters, train.filterId)} />
+    </div>
+  );
+}
+
+/** A filter's passbands on its card: "Ha 656 nm, 10 nm wide" per band, then one plain line naming the emission lines they are centred near. Nothing when the bands are not known. */
+function FilterBands({ filter }: { filter: object }) {
+  const bands = (filter as ProfileFilter).passbands;
+  if (!Array.isArray(bands) || bands.length === 0) return null;
+  const note = bandsLineNote(bands);
+  return (
+    <div className="mt-1 min-w-0" data-testid="gear-bands">
+      <ul className="break-words text-sm font-normal text-p-t1/80" aria-label="Passbands">
+        {bands.map((b, i) => (
+          <li key={i}>{bandText(b)}</li>
+        ))}
+      </ul>
+      {note && <p className="break-words text-sm font-normal text-p-t1/80">{note}</p>}
     </div>
   );
 }
@@ -576,6 +662,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
               {e.kind === 'train' && <div className="mt-2"><TrainChain profile={profile} train={e.train} /></div>}
               {focalNote !== null && <p className="mt-1 break-words text-sm font-normal text-p-info-text" data-testid="gear-focal-note">{focalNote}</p>}
               {detail && <p className="mt-1 break-words text-sm font-normal text-p-t1/80">{detail}</p>}
+              {e.kind === 'item' && e.list === 'filters' && <FilterBands filter={e.item} />}
               {e.kind === 'item' && (e.item as { aiFilled?: boolean }).aiFilled === true && (
                 <p className="mt-1 break-words text-sm font-normal text-p-warn-text" data-testid="gear-ai-mark">
                   <span aria-hidden="true">! </span>

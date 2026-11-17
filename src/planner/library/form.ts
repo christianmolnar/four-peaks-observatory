@@ -1,6 +1,7 @@
 import type { ListKey } from '../state/edit'
 import { GEAR_LIMITS, enterText, inRange, rangeProblem } from '../profile/limits'
 import type { GearLimit, GearLimitKey } from '../profile/limits'
+import { BAND_BOX_KEYS, bandsFromTexts, bandsToTexts, hasBandBoxes } from '../profile/passbands'
 import { validateSpecs } from './specs'
 import type { LibraryClass, Specs } from './specs'
 
@@ -27,12 +28,18 @@ const BOXES: Record<LibraryList, Box[]> = {
   scopes: [{ key: 'focalLengthMm', spec: 'focalLengthMm', kind: 'number' }, { key: 'apertureMm', spec: 'apertureMm', kind: 'number' }],
 }
 const LABELS: Record<string, string> = { kind: 'Kind', sizeMm: 'Size', pixelSizeUm: 'Pixel size', sensorWidthPx: 'Sensor width', sensorHeightPx: 'Sensor height', hasUvIrCut: 'Has its own UV/IR cut', readNoiseClass: 'Read noise', focalLengthMm: 'Focal length', apertureMm: 'Aperture', passbandWidthNm: 'Total passband width', narrowestBandNm: 'Narrowest band', bandpassNotes: 'Bandpass notes' }
-export const labelOf = (key: string): string => LABELS[key] ?? key
+export function labelOf(key: string): string {
+  const band = /^band(\d)(Centre|Width)$/.exec(key)
+  return band ? `Passband ${band[1]} ${band[2].toLowerCase()}` : (LABELS[key] ?? key)
+}
 
 /** Every box a lookup can fill, derived ones included: editing one of them makes the values the user's own, not the AI's. */
-export const lookupBoxKeys = (list: LibraryList): string[] => [...BOXES[list].map((b) => b.key), ...(list === 'filters' ? ['passbandWidthNm', 'narrowestBandNm', 'bandpassNotes'] : [])]
+export const lookupBoxKeys = (list: LibraryList): string[] => [...BOXES[list].map((b) => b.key), ...(list === 'filters' ? [...BAND_BOX_KEYS, 'passbandWidthNm', 'narrowestBandNm', 'bandpassNotes'] : [])]
 
-export const correctableKeys = (list: LibraryList): string[] => BOXES[list].map((b) => b.key)
+/** The two boxes a filter's bands decide: they follow the bands, so a lookup never fills them on their own. */
+export const DERIVED_BOXES: readonly string[] = ['passbandWidthNm', 'narrowestBandNm']
+
+export const correctableKeys = (list: LibraryList): string[] => [...BOXES[list].map((b) => b.key), ...(list === 'filters' ? BAND_BOX_KEYS : [])]
 
 const rec = (s: Specs) => s as Record<string, unknown>
 const num = (n: number) => String(Math.round(n * 1e6) / 1e6)
@@ -49,10 +56,11 @@ export function specsToTexts(list: LibraryList, specs: Specs): Record<string, st
   if (list === 'filters') {
     const bands = (s.passbands as { centreNm: number; widthNm: number }[] | undefined) ?? []
     if (bands.length > 0) {
+      Object.assign(out, Object.fromEntries(Object.entries(bandsToTexts(bands)).filter(([, v]) => v !== '')))
       out.passbandWidthNm = num(bands.reduce((t, b) => t + b.widthNm, 0))
       out.narrowestBandNm = num(Math.min(...bands.map((b) => b.widthNm)))
     }
-    const parts = [...bands.map((b) => `${num(b.centreNm)} nm (${num(b.widthNm)} nm wide)`), ...(typeof s.glassMm === 'number' ? [`glass ${num(s.glassMm)} mm`] : [])]
+    const parts = typeof s.glassMm === 'number' ? [`glass ${num(s.glassMm)} mm`] : []
     const line = parts.join(', ')
     const notes = typeof s.notes === 'string' ? s.notes : ''
     if (line || notes) out.bandpassNotes = line && notes ? `${line}. ${notes}` : line || notes
@@ -60,6 +68,7 @@ export function specsToTexts(list: LibraryList, specs: Specs): Record<string, st
   return out
 }
 
+const NUMBER_BOX: Box = { key: '', spec: '', kind: 'number' }
 const same = (box: Box, a: string, b: string): boolean => {
   const x = a.trim()
   const y = b.trim()
@@ -70,7 +79,8 @@ const same = (box: Box, a: string, b: string): boolean => {
 /** True when a box a correction can carry holds something other than the entry's value (an empty box the entry has no value for is the same). */
 export function isEdited(list: LibraryList, specs: Specs, texts: Record<string, string>, ignore: readonly string[] = []): boolean {
   const lib = specsToTexts(list, specs)
-  return BOXES[list].filter((b) => !ignore.includes(b.key)).some((b) => !same(b, texts[b.key] ?? '', lib[b.key] ?? ''))
+  if (BOXES[list].filter((b) => !ignore.includes(b.key)).some((b) => !same(b, texts[b.key] ?? '', lib[b.key] ?? ''))) return true
+  return list === 'filters' && BAND_BOX_KEYS.filter((k) => !ignore.includes(k)).some((k) => !same(NUMBER_BOX, texts[k] ?? '', lib[k] ?? ''))
 }
 
 /**
@@ -93,6 +103,12 @@ export function textsToSpecs(list: LibraryList, texts: Record<string, string>, b
   if (list === 'scopes') {
     if (typeof out.apertureMm === 'number' && typeof out.focalLengthMm === 'number') out.fNumber = Math.round((out.focalLengthMm / out.apertureMm) * 100) / 100
     else delete out.fNumber
+  }
+  if (list === 'filters' && hasBandBoxes(texts)) {
+    const b = bandsFromTexts(texts)
+    if ('problem' in b) return { problem: b.problem }
+    if (b.bands.length > 0) out.passbands = b.bands
+    else delete out.passbands
   }
   const r = validateSpecs(list === 'filters' ? 'filter' : list === 'cameras' ? 'camera' : 'scope', out)
   if ('problems' in r) return { problem: r.problems[0] }

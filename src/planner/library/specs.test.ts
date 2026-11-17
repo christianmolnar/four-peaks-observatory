@@ -85,8 +85,9 @@ describe('validateSpecs judges the values a filter derives from its passbands', 
     expect(bad('filter', WIDE_PAIR)).toMatch(/edges reach 100 to 700 nm/)
   })
   it('accepts a total of exactly 1,000 nm and refuses 1,000.5', () => {
-    expect(bandsOf({ passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500 }] })).toHaveLength(2)
-    expect(bad('filter', { passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500.5 }] })).toMatch(/Total passband width/)
+    const tiled = [{ centreNm: 350, widthNm: 300 }, { centreNm: 650, widthNm: 300 }, { centreNm: 1000, widthNm: 400 }] // 200 to 1,200 nm, bands touching
+    expect(bandsOf({ passbands: tiled })).toHaveLength(3)
+    expect(bad('filter', { passbands: [tiled[0], tiled[1], { centreNm: 1000.25, widthNm: 400.5 }] })).toMatch(/Total passband width/)
   })
   it('refuses a band whose edges leave the wavelength range, in plain words with the edges', () => {
     expect(bad('filter', { passbands: [{ centreNm: 300, widthNm: 900 }] })).toMatch(/^Passband 300 nm, 900 nm wide: its edges reach -150 to 750 nm, outside 200 to 1,200 nm\./)

@@ -3,7 +3,8 @@
 import { useId, useState } from 'react';
 import { lookupSpecs, saveCorrection } from '@/planner/library/client';
 import type { ClientFetch } from '@/planner/library/client';
-import { isEdited, labelOf, libraryClassOf, specsToTexts, textsToSpecs } from '@/planner/library/form';
+import { DERIVED_BOXES, isEdited, labelOf, libraryClassOf, specsToTexts, textsToSpecs } from '@/planner/library/form';
+import { BAND_BOX_KEYS, isBandBox } from '@/planner/profile/passbands';
 import type { LibraryList } from '@/planner/library/form';
 import { cleanName, nameKey } from '@/planner/library/specs';
 import type { LibraryEntry, Specs } from '@/planner/library/specs';
@@ -35,6 +36,35 @@ export interface GearLookupProps {
   onState: (s: LookupState | null) => void;
   /** For tests. */
   fetchImpl?: ClientFetch;
+}
+
+/**
+ * What a lookup does with the boxes: the library values go into empty boxes and boxes an earlier lookup wrote; a box the user typed is kept (and named, with the
+ * "Apply library values" button). The passbands are one set, never mixed: if any band box is the user's own, all of them are kept. The two totals follow the bands.
+ */
+export function planFill(fill: Record<string, string>, now: Record<string, string>, overwritable: ReadonlySet<string>): { next: Record<string, string>; changed: string[]; kept: Record<string, string> } {
+  const next = { ...now };
+  const changed: string[] = [];
+  const kept: Record<string, string> = {};
+  const hasBands = fill.band1Centre !== undefined;
+  const mine = (k: string) => (now[k] ?? '').trim() !== '' && !overwritable.has(k);
+  const bandsProtected = hasBands && BAND_BOX_KEYS.some((k) => mine(k) && (now[k] ?? '').trim() !== (fill[k] ?? ''));
+  for (const [key, v] of Object.entries(fill)) {
+    if (hasBands && DERIVED_BOXES.includes(key)) continue;
+    const have = (now[key] ?? '').trim();
+    if (have === v) continue;
+    if (isBandBox(key) ? !bandsProtected && (have === '' || overwritable.has(key)) : have === '' || overwritable.has(key)) {
+      next[key] = v;
+      changed.push(key);
+    } else {
+      kept[key] = now[key] ?? '';
+    }
+  }
+  if (hasBands && !bandsProtected) {
+    // Rows an earlier lookup filled that this entry has no band for are cleared.
+    for (const k of BAND_BOX_KEYS) if (fill[k] === undefined && (now[k] ?? '') !== '') { next[k] = ''; changed.push(k); }
+  }
+  return { next, changed, kept };
 }
 
 const sentenceList = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`);
@@ -83,21 +113,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
       setMessage(result.message);
       return;
     }
-    const fill = specsToTexts(lib, result.entry.specs);
-    const now = getTexts();
-    const next = { ...now };
-    const changed: string[] = [];
-    const kept: Record<string, string> = {};
-    for (const [key, v] of Object.entries(fill)) {
-      const have = (now[key] ?? '').trim();
-      if (have === v) continue;
-      if (have === '' || overwritable.has(key)) {
-        next[key] = v;
-        changed.push(key);
-      } else {
-        kept[key] = now[key] ?? '';
-      }
-    }
+    const { next, changed, kept } = planFill(specsToTexts(lib, result.entry.specs), getTexts(), overwritable);
     if (changed.length > 0) onApply(next, changed, result.entry);
     onState({ entry: result.entry, kept });
     setMessage(result.from === 'model' ? 'The AI looked this up.' : '');
@@ -109,6 +125,8 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
     const next = { ...getTexts() };
     const keys = Object.keys(state.kept);
     for (const key of keys) if (fill[key] !== undefined) next[key] = fill[key];
+    // The passbands are one set: replacing any of them replaces all, and a row the entry has no band for is cleared.
+    if (keys.some(isBandBox)) for (const k of BAND_BOX_KEYS) { next[k] = fill[k] ?? ''; if (!keys.includes(k)) keys.push(k); }
     onApply(next, keys, current);
     onState({ entry: current, kept: {} });
   };
@@ -137,7 +155,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
     void save(r.specs);
   };
 
-  const keptLabels = keptNow.map((k) => (k === 'bandpassNotes' ? labelOf(k) : `${labelOf(k)} ${texts[k] ?? ''}`.trim()));
+  const keptLabels = [...new Set(keptNow.map((k) => (isBandBox(k) ? 'Passbands' : k === 'bandpassNotes' ? labelOf(k) : `${labelOf(k)} ${texts[k] ?? ''}`.trim())))];
   const status = (() => {
     if (!current) return aiMarked && !state ? { warn: true, text: 'Filled by AI, check it.' } : null;
     if (edited) return { warn: false, text: 'You changed these values. They are not saved for others yet.' };

@@ -1,6 +1,7 @@
 import { GEAR_LIMITS, MAX_NAME_CHARS, SITE_LIMITS, enterText, inRange } from './limits';
 import type { GearLimitKey, SiteLimitKey } from './limits';
 import { migrateProfile } from './migrate';
+import { bandSums, judgePassbands } from './passbands';
 import { MAX_ZONES, PROFILE_VERSION } from './types';
 import type {
   BlockedArc,
@@ -10,6 +11,7 @@ import type {
   ProfileCamera,
   ProfileFilter,
   FilterKind,
+  Passband,
   ReadNoiseClass,
   ProfileScope,
   ProfileSite,
@@ -240,20 +242,47 @@ function camera(v: unknown, path: string, strict: boolean): ProfileCamera {
   });
 }
 
+/**
+ * A filter's passbands, judged the same way in a stored profile and an imported file (a corrupt list is never kept, so the sums derived from it can be trusted):
+ * 1 to MAX_PASSBANDS separate bands, nothing but a centre and a width in each. The judge is `judgePassbands`, shared with the spec library.
+ */
+function passbands(o: Obj, path: string): Passband[] | undefined {
+  if (o.passbands === undefined) return undefined;
+  const at = `${path}.passbands`;
+  const list = arr(o.passbands, at);
+  if (list.length === 0) throw new ProfileError(at, 'a filter has 1 to 6 passbands; leave the field out when they are not known');
+  list.forEach((b, i) => onlyKeys(obj(b, `${at}[${i}]`), `${at}[${i}]`, ['centreNm', 'widthNm']));
+  const r = judgePassbands(list);
+  if ('problems' in r) throw new ProfileError(at, r.problems.join(' '));
+  return r.bands;
+}
+
+/** With bands, the sum is the bands' own: a stored value that differs is refused (never silently changed), an absent one is filled in. */
+function derivedSum(o: Obj, key: 'passbandWidthNm' | 'narrowestBandNm', label: string, path: string, bands: Passband[], strict: boolean): number {
+  const derived = bandSums(bands)[key];
+  const given = optLimited(o, key, path, strict);
+  if (given !== undefined && !(typeof given === 'number' && Math.abs(given - derived) <= 1e-6)) {
+    throw new ProfileError(`${path}.${key}`, `${label} ${typeof given === 'number' ? `${given} nm` : JSON.stringify(given)} does not match its passbands (${derived} nm). Remove the field to use the passbands' value, or change the passbands.`);
+  }
+  return derived;
+}
+
 function filter(v: unknown, path: string, strict: boolean): ProfileFilter {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg', 'aiFilled']);
+  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbands', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg', 'aiFilled']);
   if (o.kind !== undefined && !FILTER_KINDS.includes(o.kind as FilterKind)) {
     throw new ProfileError(`${path}.kind`, `expected one of ${FILTER_KINDS.join(', ')}, got ${JSON.stringify(o.kind)}`);
   }
+  const bands = passbands(o, path);
   return withoutUndefined({
     id: str(o, 'id', path),
     name: nameOf(o, path, strict),
     kind: o.kind as FilterKind | undefined,
     sizeMm: optLimited(o, 'sizeMm', path, strict),
     bandpassNotes: o.bandpassNotes === undefined ? undefined : str(o, 'bandpassNotes', path),
-    passbandWidthNm: optLimited(o, 'passbandWidthNm', path, strict),
-    narrowestBandNm: optLimited(o, 'narrowestBandNm', path, strict),
+    passbands: bands,
+    passbandWidthNm: bands ? derivedSum(o, 'passbandWidthNm', 'Total passband width', path, bands, strict) : optLimited(o, 'passbandWidthNm', path, strict),
+    narrowestBandNm: bands ? derivedSum(o, 'narrowestBandNm', 'Narrowest band', path, bands, strict) : optLimited(o, 'narrowestBandNm', path, strict),
     blocksUvIr: optBool(o, 'blocksUvIr', path),
     ratedMinFRatio: optLimited(o, 'ratedMinFRatio', path, strict),
     maxIncidentAngleDeg: optLimited(o, 'maxIncidentAngleDeg', path, strict),

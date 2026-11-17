@@ -1,5 +1,7 @@
 import { WIDE_PAIR } from './wide-pair.fixture'
-import { correctableKeys, isEdited, libraryClassOf, specsToTexts, textsToSpecs } from './form'
+import { SEED_ENTRIES } from './seed'
+import { BAND_BOX_KEYS } from '../profile/passbands'
+import { correctableKeys, isEdited, labelOf, libraryClassOf, specsToTexts, textsToSpecs } from './form'
 
 describe('libraryClassOf', () => {
   it('maps the gear lists that have a library class', () => {
@@ -11,10 +13,12 @@ describe('libraryClassOf', () => {
 })
 
 describe('specsToTexts', () => {
-  it('filter: kind, size, total and narrowest band, and a notes line with every passband', () => {
+  it('filter: kind, size, the band boxes, total and narrowest band, and a notes line with the glass and the notes', () => {
     const t = specsToTexts('filters', { type: 'dual-band', passbands: [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }], sizeMm: 36, glassMm: 2, notes: 'f/2 optimized' })
     expect(t).toMatchObject({ kind: 'dual-band', sizeMm: '36', passbandWidthNm: '17.5', narrowestBandNm: '8' })
-    expect(t.bandpassNotes).toBe('656.3 nm (9.5 nm wide), 500.7 nm (8 nm wide), glass 2 mm. f/2 optimized')
+    expect(t).toMatchObject({ band1Centre: '656.3', band1Width: '9.5', band2Centre: '500.7', band2Width: '8' })
+    expect(t.band3Centre).toBeUndefined()
+    expect(t.bandpassNotes).toBe('glass 2 mm. f/2 optimized')
   })
   it('camera: numbers, yes/no, class', () => {
     expect(specsToTexts('cameras', { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176, hasUvIrCut: false, readNoiseClass: 'low' })).toEqual({ pixelSizeUm: '3.76', sensorWidthPx: '6248', sensorHeightPx: '4176', hasUvIrCut: 'no', readNoiseClass: 'low' })
@@ -29,7 +33,7 @@ describe('specsToTexts', () => {
 
 describe('correctable keys and isEdited', () => {
   it('lists the boxes a correction can carry', () => {
-    expect(correctableKeys('filters')).toEqual(['kind', 'sizeMm'])
+    expect(correctableKeys('filters')).toEqual(['kind', 'sizeMm', ...BAND_BOX_KEYS])
     expect(correctableKeys('scopes')).toEqual(['focalLengthMm', 'apertureMm'])
   })
   it('a box changed from the library value is an edit; spacing and number format are not', () => {
@@ -81,8 +85,60 @@ describe('the form path judges the same derived values', () => {
     expect('problem' in big && big.problem).toMatch(/not a whole number/)
   })
   it('the biggest allowed filter (1,000 nm in total) fills boxes inside their ranges', () => {
-    const t = specsToTexts('filters', { passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500 }] })
+    const t = specsToTexts('filters', { passbands: [{ centreNm: 600, widthNm: 400 }, { centreNm: 1000, widthNm: 400 }] })
     expect(Number(t.passbandWidthNm)).toBeLessThanOrEqual(1000)
     expect(Number(t.narrowestBandNm)).toBeGreaterThanOrEqual(0.1)
+  })
+})
+
+describe('passbands in the form path', () => {
+  const NBZ = [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }]
+  it('a changed band box is an edit; the same numbers in another format are not', () => {
+    const specs = { passbands: NBZ }
+    const base = specsToTexts('filters', specs)
+    expect(isEdited('filters', specs, base)).toBe(false)
+    expect(isEdited('filters', specs, { ...base, band1Width: ' 9.50 ' })).toBe(false)
+    expect(isEdited('filters', specs, { ...base, band1Width: '10' })).toBe(true)
+    expect(isEdited('filters', specs, { ...base, band3Centre: '672', band3Width: '19' })).toBe(true)
+    expect(isEdited('filters', specs, { ...base, band2Centre: '', band2Width: '' })).toBe(true)
+    expect(isEdited('filters', specs, { ...base, band2Width: '99' }, ['band2Width'])).toBe(false)
+  })
+  it('a correction takes the band boxes: edits, additions and removals', () => {
+    const base = { type: 'dual-band' as const, passbands: NBZ, glassMm: 2 }
+    const t = specsToTexts('filters', base)
+    expect(textsToSpecs('filters', { ...t, band1Width: '12' }, base)).toEqual({ specs: { type: 'dual-band', passbands: [{ centreNm: 656.3, widthNm: 12 }, NBZ[1]], glassMm: 2 } })
+    expect(textsToSpecs('filters', { ...t, band2Centre: '', band2Width: '' }, base)).toEqual({ specs: { type: 'dual-band', passbands: [NBZ[0]], glassMm: 2 } })
+    const none = textsToSpecs('filters', { ...t, band1Centre: '', band1Width: '', band2Centre: '', band2Width: '' }, base)
+    expect(none).toEqual({ specs: { type: 'dual-band', glassMm: 2 } })
+  })
+  it('a hostile or inconsistent band box is a plain problem, never specs', () => {
+    const base = { passbands: NBZ }
+    const t = specsToTexts('filters', base)
+    for (const v of ['NaN', 'abc', '1e308', '-1', '0']) {
+      const r = textsToSpecs('filters', { ...t, band1Width: v }, base)
+      expect('problem' in r && r.problem).toMatch(/Passband 1 width/)
+    }
+    expect('problem' in textsToSpecs('filters', { ...t, band2Centre: '656', band2Width: '9' }, base)).toBe(true) // overlaps band 1
+    expect('problem' in textsToSpecs('filters', { ...t, band2Width: '' }, base)).toBe(true) // a half row
+  })
+  it('a caller without band boxes keeps the entry bands (the boxes are not in its form)', () => {
+    expect(textsToSpecs('filters', { kind: 'narrowband' }, { passbands: NBZ })).toEqual({ specs: { type: 'narrowband', passbands: NBZ } })
+  })
+  it('the labels of the band boxes read plain', () => {
+    expect(labelOf('band2Centre')).toBe('Passband 2 centre')
+    expect(labelOf('band6Width')).toBe('Passband 6 width')
+  })
+})
+
+describe('the seed filters', () => {
+  it.each(SEED_ENTRIES.map((e) => [e.name, e] as const))('a lookup of %s fills the band boxes and the totals, and the boxes read back to the same bands', (_n, e) => {
+    const t = specsToTexts('filters', e.specs)
+    const bands = (e.specs as { passbands: { centreNm: number; widthNm: number }[] }).passbands
+    expect(bands).toHaveLength(2)
+    expect(t.band1Centre).toBe(String(bands[0].centreNm))
+    expect(t.band2Width).toBe(String(bands[1].widthNm))
+    expect(Number(t.passbandWidthNm)).toBe(bands[0].widthNm + bands[1].widthNm)
+    const back = textsToSpecs('filters', t, e.specs)
+    expect('specs' in back && (back.specs as { passbands: unknown }).passbands).toEqual(bands)
   })
 })

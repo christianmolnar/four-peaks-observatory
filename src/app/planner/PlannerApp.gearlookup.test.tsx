@@ -235,7 +235,7 @@ describe('Look up specs', () => {
     expect(within(form).queryByText(/Filled by AI/)).toBeNull();
   });
 
-  it('filter: kind and size fill, the passbands and glass appear in the notes box, and the AI label shows', async () => {
+  it('filter: kind and size fill, the passbands go into their own boxes, the glass and notes into the notes box', async () => {
     const nbz = entryOf('IDAS NBZ-II', { cls: 'filter', source: 'seed', specs: { type: 'dual-band', passbands: [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }], glassMm: 2, notes: 'f/2 optimized' } });
     route({ get: () => json({ entry: nbz }) });
     await mount();
@@ -246,7 +246,11 @@ describe('Look up specs', () => {
     expect(value(form, /^Kind/)).toBe('dual-band');
     expect(value(form, /^Total passband width/)).toBe('17.5');
     expect(value(form, /^Narrowest band/)).toBe('8');
-    expect(value(form, /^Bandpass notes/)).toBe('656.3 nm (9.5 nm wide), 500.7 nm (8 nm wide), glass 2 mm. f/2 optimized');
+    expect(value(form, /^Bandpass notes/)).toBe('glass 2 mm. f/2 optimized');
+    const centres = within(form).getAllByLabelText('Passband centre (nm)') as HTMLInputElement[];
+    const widths = within(form).getAllByLabelText('Passband width (nm)') as HTMLInputElement[];
+    expect(centres.map((b) => b.value)).toEqual(['656.3', '500.7']);
+    expect(widths.map((b) => b.value)).toEqual(['9.5', '8']);
   });
 
   it('the result stays on the card after Save, so the AI label is not lost by saving the gear form', async () => {
@@ -281,11 +285,12 @@ describe('Look up specs', () => {
     await lookup(form, 'Wide Pair');
     expect(within(form).getByText(/cannot be used/)).toBeTruthy();
     for (const label of [/^Total passband width/, /^Narrowest band/, /^Size/, /^Bandpass notes/]) expect(value(form, label)).toBe('');
+    expect(within(form).queryByLabelText('Passband centre (nm)')).toBeNull();
     expect(form.textContent).not.toContain('1200');
   });
 
   it('a lookup never puts a number outside its box range into any box: the largest allowed filter fills 1,000 nm total, inside both ranges', async () => {
-    const big = filterEntry('Big Pair', { type: 'narrowband', passbands: [{ centreNm: 600, widthNm: 500 }, { centreNm: 700, widthNm: 500 }] });
+    const big = filterEntry('Big Pair', { type: 'narrowband', passbands: [{ centreNm: 350, widthNm: 300 }, { centreNm: 650, widthNm: 300 }, { centreNm: 1000, widthNm: 400 }] });
     route({ get: () => json({ entry: big }) });
     await mount();
     const form = openFilter();
@@ -366,6 +371,134 @@ describe('Look up specs', () => {
       fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
       await waitFor(() => expect(window.localStorage.getItem(PROFILE_KEY) ?? '').toContain('"apertureMm":80'));
       expect(window.localStorage.getItem(PROFILE_KEY)).not.toContain('aiFilled');
+    });
+  });
+
+  describe('filter passbands on the Gear tab', () => {
+    const NBZ = [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }];
+    const nbz = () => entryOf('IDAS NBZ-II', { cls: 'filter', source: 'seed', specs: { type: 'dual-band', passbands: NBZ, glassMm: 2 } });
+    const openNewFilter = async () => {
+      await mount();
+      fireEvent.click(screen.getByRole('button', { name: /^Filters \(\d+\)$/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+      return gearForm();
+    };
+    const centres = (form: HTMLElement) => (within(form).queryAllByLabelText('Passband centre (nm)') as HTMLInputElement[]).map((b) => b.value);
+    const widths = (form: HTMLElement) => (within(form).queryAllByLabelText('Passband width (nm)') as HTMLInputElement[]).map((b) => b.value);
+    const savedFilter = (name: string) => JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.filters.find((f: { name: string }) => f.name === name);
+
+    it('a new filter has no band rows; "Add a passband" adds one, up to six, and Remove takes one away', async () => {
+      route({});
+      const form = await openNewFilter();
+      expect(centres(form)).toEqual([]);
+      const add = () => fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+      add();
+      expect(centres(form)).toEqual(['']);
+      for (let i = 0; i < 5; i++) add();
+      expect(centres(form)).toHaveLength(6);
+      expect(within(form).queryByRole('button', { name: 'Add a passband' })).toBeNull();
+      fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 6' }));
+      expect(centres(form)).toHaveLength(5);
+      expect(within(form).getByRole('button', { name: 'Add a passband' })).toBeTruthy();
+    });
+
+    it('a lookup fills the bands and the two totals follow them (read-only); Save stores them, and the card reads them in words', async () => {
+      route({ get: () => json({ entry: nbz() }) });
+      const form = await openNewFilter();
+      await lookup(form, 'IDAS NBZ-II');
+      expect(centres(form)).toEqual(['656.3', '500.7']);
+      expect(widths(form)).toEqual(['9.5', '8']);
+      const total = within(form).getByLabelText(/^Total passband width/) as HTMLInputElement;
+      expect(total.value).toBe('17.5');
+      expect(total.readOnly).toBe(true);
+      expect((within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement).value).toBe('8');
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(savedFilter('IDAS NBZ-II')).toMatchObject({ passbands: NBZ, passbandWidthNm: 17.5, narrowestBandNm: 8 }));
+      const bands = await screen.findByTestId('gear-bands');
+      expect(within(bands).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Ha 656.3 nm, 9.5 nm wide', 'OIII 500.7 nm, 8 nm wide']);
+      expect(bands.textContent).toContain('Centred near Ha (hydrogen-alpha, 656.3 nm) and OIII (doubly ionised oxygen, 500.7 nm).');
+    });
+
+    it('editing a band width recomputes the totals; an edit to a band is the user\'s own, not the AI\'s', async () => {
+      route({ get: () => json({ entry: nbz() }) });
+      const form = await openNewFilter();
+      await lookup(form, 'IDAS NBZ-II');
+      fireEvent.change(within(form).getAllByLabelText('Passband width (nm)')[1], { target: { value: '12' } });
+      expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('21.5');
+      expect((within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement).value).toBe('9.5');
+      fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+      expect(centres(form)).toEqual(['500.7']);
+      expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('12');
+      expect(within(form).getByText('You changed these values. They are not saved for others yet.')).toBeTruthy();
+    });
+
+    it('bands the user typed are kept by a lookup, named, and replaced only by Apply library values', async () => {
+      route({ get: () => json({ entry: nbz() }) });
+      const form = await openNewFilter();
+      fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+      fireEvent.change(within(form).getByLabelText('Passband centre (nm)'), { target: { value: '640' } });
+      fireEvent.change(within(form).getByLabelText('Passband width (nm)'), { target: { value: '30' } });
+      await lookup(form, 'IDAS NBZ-II');
+      expect(centres(form)).toEqual(['640']);
+      expect(widths(form)).toEqual(['30']);
+      expect(within(form).getByText(/Kept your Passbands\./)).toBeTruthy();
+      fireEvent.click(within(form).getByRole('button', { name: 'Apply library values' }));
+      expect(centres(form)).toEqual(['656.3', '500.7']);
+      expect(widths(form)).toEqual(['9.5', '8']);
+    });
+
+    it.each([['NaN'], ['abc'], ['1e308'], ['-4'], ['0'], ['Infinity']])('%s in a band width is refused on Save in plain words and nothing is stored', async (bad) => {
+      route({});
+      const form = await openNewFilter();
+      fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+      typeIn(form, /^Name/, 'Hostile');
+      fireEvent.change(within(form).getByLabelText('Passband centre (nm)'), { target: { value: '656' } });
+      fireEvent.change(within(form).getByLabelText('Passband width (nm)'), { target: { value: bad } });
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      const alert = await within(form).findByRole('alert');
+      expect(alert.textContent).toMatch(/Passband 1 width/);
+      expect(alert.textContent).not.toMatch(/e\+\d/);
+      expect(window.localStorage.getItem(PROFILE_KEY) ?? '').not.toContain('Hostile');
+    });
+
+    it('overlapping bands and a half-filled row are refused in plain words', async () => {
+      route({});
+      const form = await openNewFilter();
+      typeIn(form, /^Name/, 'Overlap');
+      for (let i = 0; i < 2; i++) fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+      const c = within(form).getAllByLabelText('Passband centre (nm)');
+      const w = within(form).getAllByLabelText('Passband width (nm)');
+      fireEvent.change(c[0], { target: { value: '656' } });
+      fireEvent.change(w[0], { target: { value: '20' } });
+      fireEvent.change(c[1], { target: { value: '660' } });
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      expect((await within(form).findByRole('alert')).textContent).toBe('! Passband 2: enter both the centre and the width, or remove the row.');
+      fireEvent.change(w[1], { target: { value: '20' } });
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      expect((await within(form).findByRole('alert')).textContent).toMatch(/overlap/);
+      expect(window.localStorage.getItem(PROFILE_KEY) ?? '').not.toContain('Overlap');
+    });
+
+    it('a filter with no bands is as before: the totals are typed, nothing is read-only, the card shows no band lines', async () => {
+      route({});
+      const form = await openNewFilter();
+      typeIn(form, /^Name/, 'Plain');
+      typeIn(form, /^Total passband width/, '120');
+      expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).readOnly).toBe(false);
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(savedFilter('Plain')).toEqual({ id: expect.any(String), name: 'Plain', passbandWidthNm: 120 }));
+      expect(screen.queryByTestId('gear-bands')).toBeNull();
+    });
+
+    it('a stored bands list that is corrupt holds the profile (the standard message) and is never shown as bands', async () => {
+      route({});
+      const p = JSON.parse(JSON.stringify((await import('@/planner/state')).sampleProfile()));
+      p.equipment.filters = [{ id: 'f1', name: 'Bad', passbands: [{ centreNm: 656, widthNm: 1e308 }] }];
+      p.trains = p.trains.map((t: { kind: string }) => (t.kind === 'optical' ? { ...t, filterId: 'f1' } : t));
+      window.localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
+      await mount();
+      expect(document.body.textContent).toMatch(/could not be used/i);
+      expect(document.body.textContent).not.toMatch(/e\+\d/);
     });
   });
 });

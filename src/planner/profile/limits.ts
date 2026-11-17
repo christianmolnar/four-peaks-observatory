@@ -46,6 +46,9 @@ export type GearLimitKey = keyof typeof GEAR_LIMITS;
 /** The wavelengths a passband's two edges (centre minus and plus half its width) may reach: ultraviolet to near infrared, what a filter for an imaging sensor covers. */
 export const BAND_EDGE_NM = { min: 200, max: 1200, whole: false, unit: 'nm', noun: 'passband edge' } as const satisfies GearLimit;
 
+/** Most passbands one filter can hold (the gear filter and a library entry read this one number). */
+export const MAX_PASSBANDS = 6;
+
 /** The numbers of a site. Latitude, longitude and the Bortle class are structure, not gear: a value outside is always refused. */
 export const SITE_LIMITS = {
   latitude: { min: -90, max: 90, unit: 'deg', noun: 'latitude' },
@@ -78,6 +81,15 @@ export function enterText(limit: GearLimit): string {
   const unit = limit.unit === '' ? '' : ` ${limit.unit}`;
   const article = /^[aeiou]/i.test(limit.noun) ? 'an' : 'a';
   return `Enter ${limit.whole ? `a whole number for the ${limit.noun}` : `${article} ${limit.noun}`} between ${fmt(limit.min)} and ${fmt(limit.max)}${unit}.`;
+}
+
+const shortNum = (n: number): string => (Math.abs(n) >= 1e7 ? 'an impossibly large number' : Math.abs(n) < 1e-3 && n !== 0 ? 'an impossibly small number' : String(n));
+
+/** Why a value is refused, whole-number wording first: a fraction in a whole-number box is not a whole number, whatever the range. Never prints Infinity, NaN or e+N. */
+export function badNumber(limit: GearLimit, v: unknown): string {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return 'that is not a usable number';
+  if (limit.whole === true && !Number.isInteger(v)) return `${shortNum(v)} is not a whole number`;
+  return `${shortNum(v)} is outside the allowed range`;
 }
 
 /** A value a box holds that is not a number in range, as one plain sentence: "Focal length: Enter a focal length between 10 and 10,000 mm." */

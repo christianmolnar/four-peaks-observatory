@@ -1,5 +1,6 @@
 import { MAX_NAME_CHARS, PROFILE_VERSION, ProfileError, enterText, migrateProfile, rangeProblem, rangeText, usableSites, validateProfile } from '../profile';
 import { limitOf } from '../profile/limits';
+import { bandSums, bandsFromTexts, bandsToTexts } from '../profile/passbands';
 import type { Profile, TrainEntry } from '../profile';
 import { resolveTrain } from '../profile';
 import { DEFAULT_BORTLE } from '../exposure';
@@ -114,10 +115,11 @@ function withItems(profile: Profile, list: ListKey, items: Item[]): Profile {
   return { ...profile, equipment: { ...profile.equipment, [list]: items } };
 }
 
-/** The text of each box for one item, as the form shows it. */
+/** The text of each box for one item, as the form shows it. A filter also has the twelve passband boxes (the bands' centres and widths; none: all empty). */
 export function textsOf(list: ListKey, item: object): Record<string, string> {
   const rec = item as Record<string, unknown>;
-  return Object.fromEntries(
+  const bands = list === 'filters' && Array.isArray(rec.passbands) ? (rec.passbands as { centreNm: number; widthNm: number }[]) : undefined;
+  return Object.assign(list === 'filters' ? bandsToTexts(bands) : {}, Object.fromEntries(
     LIST_SPECS[list].fields.map((f) => {
       const v = rec[f.key];
       if (v === undefined || v === null) return [f.key, ''];
@@ -126,7 +128,7 @@ export function textsOf(list: ListKey, item: object): Record<string, string> {
       if (f.kind === 'number' && typeof v !== 'number' && typeof v !== 'string') return [f.key, ''];
       return [f.key, String(v)];
     }),
-  );
+  ));
 }
 
 /** The hint after a box's label: its note, then the allowed range ("north is positive; -90 to 90 deg"). */
@@ -158,6 +160,9 @@ export function checkName(raw: string, noun: string, others: readonly string[]):
 /** Builds the item from the boxes. Throws an Error with a plain sentence for the box that is wrong. */
 function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>, others: readonly string[], aiFilled: boolean): Item {
   const out: Record<string, unknown> = { id: base.id };
+  // The passband boxes of a filter: judged first so a refused row is said, and the two sums follow them.
+  const bandsRead = list === 'filters' ? bandsFromTexts(texts) : undefined;
+  const bands = bandsRead && 'bands' in bandsRead && bandsRead.bands.length > 0 ? bandsRead.bands : undefined;
   if (list === 'sites') out.blockedArcs = (base as Record<string, unknown>).blockedArcs ?? [];
   for (const f of LIST_SPECS[list].fields) {
     const t = (texts[f.key] ?? '').trim();
@@ -174,6 +179,11 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>,
       const n = Number(t);
       if (!limit) throw new Error(`${f.label}: enter a number.`);
       if (!Number.isFinite(n) || n < limit.min || n > limit.max || (limit.whole === true && !Number.isInteger(n))) throw new Error(rangeProblem(f.label, limit, t));
+      if (bands && (f.key === 'passbandWidthNm' || f.key === 'narrowestBandNm')) {
+        // With bands the sums are theirs: a typed value that differs is refused, never silently kept or changed.
+        const derived = bandSums(bands)[f.key];
+        if (Math.abs(n - derived) > 1e-6) throw new Error(`${f.label}: ${t} does not match the passbands (${derived} nm). Clear the box to use the passbands, or change the passbands.`);
+      }
       out[f.key] = n;
     } else if (f.kind === 'tristate') {
       if (t !== 'yes' && t !== 'no') throw new Error(`${f.label}: choose yes, no or leave empty.`);
@@ -191,6 +201,11 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>,
       }
       out[f.key] = t;
     }
+  }
+  if (bandsRead && 'problem' in bandsRead) throw new Error(bandsRead.problem);
+  if (bands) {
+    out.passbands = bands;
+    Object.assign(out, bandSums(bands));
   }
   if (aiFilled && (list === 'scopes' || list === 'cameras' || list === 'filters')) out.aiFilled = true;
   return out as Item;

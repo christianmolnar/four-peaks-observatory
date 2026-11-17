@@ -1,6 +1,7 @@
-import { BAND_EDGE_NM, GEAR_LIMITS, MAX_NAME_CHARS, enterText, inRange, rangeProblem, rangeText } from '../profile/limits'
-import type { GearLimit, GearLimitKey } from '../profile/limits'
-import type { FilterKind, ReadNoiseClass } from '../profile/types'
+import { GEAR_LIMITS, MAX_NAME_CHARS, MAX_PASSBANDS, badNumber, enterText, inRange } from '../profile/limits'
+import type { GearLimitKey } from '../profile/limits'
+import { judgePassbands } from '../profile/passbands'
+import type { FilterKind, Passband, ReadNoiseClass } from '../profile/types'
 
 /**
  * The spec library's data model and the one place a spec is judged. Every path (a model reply, a user correction, a stored entry read back,
@@ -14,10 +15,10 @@ export const isLibraryClass = (v: unknown): v is LibraryClass => typeof v === 's
 
 export const FILTER_KINDS = ['broadband-LP', 'dual-band', 'tri-band', 'narrowband', 'UV-IR cut', 'visual-only'] as const satisfies readonly FilterKind[]
 export const READ_NOISE_CLASSES = ['low', 'medium', 'high'] as const satisfies readonly ReadNoiseClass[]
-export const MAX_PASSBANDS = 6
+export { MAX_PASSBANDS }
 export const MAX_NOTES_CHARS = 200
 
-export interface Passband { centreNm: number; widthNm: number }
+export type { Passband }
 export interface FilterSpecs { type?: FilterKind; passbands?: Passband[]; sizeMm?: number; glassMm?: number; notes?: string }
 export interface CameraSpecs { sensorWidthPx?: number; sensorHeightPx?: number; pixelSizeUm?: number; readNoiseClass?: ReadNoiseClass; hasUvIrCut?: boolean; notes?: string }
 export interface ScopeSpecs { apertureMm?: number; focalLengthMm?: number; fNumber?: number; notes?: string }
@@ -93,48 +94,14 @@ class Check {
     if (t !== '') this.out.notes = t
   }
 }
-/** Why a value is refused, whole-number wording first: a fraction in a whole-number box is not a whole number, whatever the range. */
-const badNumber = (limit: GearLimit, v: unknown): string => {
-  if (typeof v !== 'number' || !Number.isFinite(v)) return 'that is not a usable number'
-  if (limit.whole === true && !Number.isInteger(v)) return `${shortNum(v)} is not a whole number`
-  return `${shortNum(v)} is outside the allowed range`
-}
 const capital = (s: string) => (s === '' ? s : s[0].toUpperCase() + s.slice(1))
-const shortNum = (n: number) => (Math.abs(n) >= 1e7 ? 'an impossibly large number' : Math.abs(n) < 1e-3 && n !== 0 ? 'an impossibly small number' : String(n))
-
-const round = (n: number) => Math.round(n * 1e6) / 1e6
-
 function passbands(c: Check, raw: Obj): void {
   const v = own(raw, 'passbands')
   if (absent(v)) return
-  if (!Array.isArray(v)) return void c.problems.push('The passbands must be a list of centre and width pairs.')
-  if (v.length === 0) return
-  if (v.length > MAX_PASSBANDS) return void c.problems.push(`A filter has at most ${MAX_PASSBANDS} passbands.`)
-  const bands: Passband[] = []
-  const problemsBefore = c.problems.length
-  for (const b of v) {
-    if (!isObj(b)) return void c.problems.push('Each passband needs a centre and a width in nm.')
-    const centre = own(b, 'centreNm')
-    const width = own(b, 'widthNm')
-    const centreOk = inRange(GEAR_LIMITS.passbandCentreNm, centre)
-    const widthOk = inRange(GEAR_LIMITS.bandWidthNm, width)
-    if (!centreOk) c.problems.push(`Passband centre: ${badNumber(GEAR_LIMITS.passbandCentreNm, centre)}. ${enterText(GEAR_LIMITS.passbandCentreNm)}`)
-    if (!widthOk) c.problems.push(`Passband width: ${badNumber(GEAR_LIMITS.bandWidthNm, width)}. ${enterText(GEAR_LIMITS.bandWidthNm)}`)
-    if (centreOk && widthOk) bands.push({ centreNm: centre as number, widthNm: width as number })
-  }
-  if (bands.length !== v.length) return
-  // The values the Gear form derives from the bands (total width, narrowest band) and the wavelengths the edges reach are judged here, once,
-  // so every path (reply, correction, backup, stored entry, seed) refuses what the form could not hold.
-  const total = round(bands.reduce((t, b) => t + b.widthNm, 0))
-  const narrowest = Math.min(...bands.map((b) => b.widthNm))
-  if (!inRange(GEAR_LIMITS.passbandWidthNm, total)) c.problems.push(rangeProblem('Total passband width', GEAR_LIMITS.passbandWidthNm, String(total)))
-  if (!inRange(GEAR_LIMITS.narrowestBandNm, narrowest)) c.problems.push(rangeProblem('Narrowest band', GEAR_LIMITS.narrowestBandNm, String(narrowest)))
-  for (const b of bands) {
-    const lo = round(b.centreNm - b.widthNm / 2)
-    const hi = round(b.centreNm + b.widthNm / 2)
-    if (lo < BAND_EDGE_NM.min || hi > BAND_EDGE_NM.max) c.problems.push(`Passband ${b.centreNm} nm, ${b.widthNm} nm wide: its edges reach ${lo.toLocaleString('en-US')} to ${hi.toLocaleString('en-US')} nm, outside ${rangeText(BAND_EDGE_NM)}. Check the centre and the width.`)
-  }
-  if (c.problems.length === problemsBefore) c.out.passbands = bands
+  // The one judge of a band list (shared with the gear profile): ranges, count, the derived total and narrowest band, edges, width against centre, overlap.
+  const r = judgePassbands(v)
+  if ('problems' in r) c.problems.push(...r.problems)
+  else if (r.bands.length > 0) c.out.passbands = r.bands
 }
 
 /** The f-number a scope's own numbers give, so a stored f-number that disagrees is caught. */

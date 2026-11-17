@@ -1,7 +1,7 @@
 import { MemoryLibraryStore } from './store'
 import { LOOKUP_SYSTEM_PROMPT, LookupError, applyCorrection, buildLookupMessages, fillFromModel, parseLookupReply, readFromLibrary } from './service'
 import { nameKey } from './specs'
-import { WIDE_PAIR } from './wide-pair.fixture'
+import { OVERLAP_PAIR, WIDE_PAIR } from './wide-pair.fixture'
 import type { CallModel } from '../ai/plan'
 
 const T1 = new Date('2026-11-17T10:00:00.000Z')
@@ -182,5 +182,16 @@ describe('applyCorrection', () => {
     const before = await seedModel(store)
     await expect(applyCorrection({ store, cls: 'scope', name: 'Edge', specs, now: T2 })).rejects.toThrow()
     expect(await store.get('scope', 'edge')).toEqual(before)
+  })
+})
+
+describe('overlapping passbands are refused on every library path', () => {
+  it('a reply, a model fill and a correction refuse them and store nothing', async () => {
+    const store = new MemoryLibraryStore()
+    const r = parseLookupReply('filter', reply(OVERLAP_PAIR))
+    expect('problem' in r && r.problem).toMatch(/overlap/)
+    await expect(fillFromModel({ store, callModel: modelOf(reply(OVERLAP_PAIR)), cls: 'filter', name: 'Overlap', now: T1 })).rejects.toThrow(/overlap/)
+    await expect(applyCorrection({ store, cls: 'filter', name: 'Overlap', specs: OVERLAP_PAIR, now: T1 })).rejects.toThrow(/overlap.*Nothing was saved/)
+    expect(await store.list()).toEqual([])
   })
 })

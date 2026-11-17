@@ -644,3 +644,23 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
 function snapNearestFor(s: number): number {
   return SUB_STEPS_S.reduce((b, x) => (Math.abs(Math.log(x / s)) < Math.abs(Math.log(b / s)) ? x : b));
 }
+
+describe('a filter with passbands gives the exposure numbers of the same filter with only its sums', () => {
+  const NBZ = [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }];
+  const sumsOnly: ProfileFilter = { id: 'nbz', name: 'Dual 9.5 and 8', kind: 'dual-band', blocksUvIr: true, ratedMinFRatio: 2, passbandWidthNm: 17.5, narrowestBandNm: 8 };
+  const withBands = validateProfile({ ...sample, equipment: { ...sample.equipment, filters: [{ ...sumsOnly, passbandWidthNm: undefined, narrowestBandNm: undefined, passbands: NBZ }] } }).equipment.filters[0];
+  it('the validator derives the sums the engine reads', () => {
+    expect(withBands).toMatchObject({ passbands: NBZ, passbandWidthNm: 17.5, narrowestBandNm: 8 });
+  });
+  it.each([['f10'], ['f63'], ['hs']] as const)('%s: every result field and warning is identical across Bortle, Moon and preset', (tr) => {
+    for (const bortle of [3, 6, 8]) {
+      for (const n of [night(), night(MOON3)]) {
+        for (const preset of ['quick', 'balanced', 'deep'] as const) {
+          const a = exposureFor(nebula(22), rig(TRAINS[tr], sumsOnly), { bortle }, n, { preset });
+          const b = exposureFor(nebula(22), rig(TRAINS[tr], withBands), { bortle }, n, { preset });
+          expect(b).toEqual(a);
+        }
+      }
+    }
+  });
+});

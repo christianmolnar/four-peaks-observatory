@@ -82,6 +82,12 @@ export type FilterKind =
   | 'UV-IR cut'
   | 'visual-only';
 
+/** One wavelength band a filter passes: its centre and its full width, in nm. */
+export interface Passband {
+  centreNm: number;
+  widthNm: number;
+}
+
 /**
  * A filter in the library. Every value but id and name is optional: absent
  * means unknown, never a default. Wavelengths in nm.
@@ -94,9 +100,14 @@ export interface ProfileFilter {
   sizeMm?: number;
   /** Free text, e.g. "Ha 15 nm, OIII 35 nm". */
   bandpassNotes?: string;
-  /** Sum of the passband widths. Needed for the exposure estimate; absent: the kind's default is used and flagged. */
+  /**
+   * The bands the filter passes, 1 to MAX_PASSBANDS, separate from each other. Absent: unknown (never a default). When present the two sums below are
+   * derived from it (`bandSums`) and the validator keeps them equal. A new optional field needed no version bump: no older profile has it.
+   */
+  passbands?: Passband[];
+  /** Sum of the passband widths. Needed for the exposure estimate; absent: the kind's default is used and flagged. Derived from `passbands` when those are present. */
   passbandWidthNm?: number;
-  /** Width of the narrowest passband; used to judge the angle shift. */
+  /** Width of the narrowest passband; used to judge the angle shift. Derived from `passbands` when those are present. */
   narrowestBandNm?: number;
   /** The filter itself cuts UV and IR. */
   blocksUvIr?: boolean;
