@@ -56,13 +56,14 @@ interface FormProps {
   /** Called after a save went through; `again` is true for the add form, which stays open for the next entry. */
   onDone: (draft: NewSession) => void;
   onCancel: () => void;
+  onRefused: () => void;
   keepOpen: boolean;
   /** Where the focus goes when the form opens (the first box). */
   focusOnOpen: boolean;
 }
 
 /** One session form, to add or to edit: date, target and filter of the project, minutes or exposures with a sub length, and a note. */
-function SessionForm({ project, names, initial, submitLabel, title, onSubmit, onDone, onCancel, keepOpen, focusOnOpen }: FormProps) {
+function SessionForm({ project, names, initial, submitLabel, title, onSubmit, onDone, onCancel, onRefused, keepOpen, focusOnOpen }: FormProps) {
   const uid = useId();
   const [f, setF] = useState<FormState>(initial);
   const [errors, setErrors] = useState<Errors>({});
@@ -77,6 +78,7 @@ function SessionForm({ project, names, initial, submitLabel, title, onSubmit, on
     setFailure('');
     const r = readForm(f);
     if (!r.ok) {
+      onRefused();
       setErrors(r.errors);
       return;
     }
@@ -175,10 +177,12 @@ export interface ProjectSessionsProps {
   onAdd: (draft: NewSession) => ProjectsResult;
   onUpdate: (id: string, draft: NewSession) => ProjectsResult;
   onDelete: (id: string) => ProjectsResult;
+  /** A form was refused before saving (a box is wrong): the page drops its earlier "Saved" line. */
+  onRefused: () => void;
 }
 
 /** "Add session", and the session log of a project, newest first (50, then "Show all"), with Edit and Delete (asking first) on every row. */
-export default function ProjectSessions({ project, names, today, onAdd, onUpdate, onDelete }: ProjectSessionsProps) {
+export default function ProjectSessions({ project, names, today, onAdd, onUpdate, onDelete, onRefused }: ProjectSessionsProps) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
@@ -221,6 +225,7 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
           initial={{ date: last.date, targetId: last.targetId, filterId: last.filterId, mode: 'minutes', amount: '', subText: String(project.setup.subSeconds), note: '' }}
           keepOpen
           focusOnOpen
+          onRefused={onRefused}
           onSubmit={onAdd}
           onDone={(d) => {
             setLast({ targetId: d.targetId, filterId: d.filterId, date: d.date });
@@ -250,6 +255,7 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
                     initial={formFrom(s)}
                     keepOpen={false}
                     focusOnOpen
+                    onRefused={onRefused}
                     onSubmit={(d) => onUpdate(s.id, d)}
                     onDone={() => {
                       setEditing(null);

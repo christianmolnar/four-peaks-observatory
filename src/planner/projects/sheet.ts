@@ -43,6 +43,9 @@ export const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 const sheetTotals = (t: Totals): SheetTotals => ({ planned: round2(t.planned), done: round2(t.done), remaining: round2(t.remaining), over: round2(t.over), percent: t.percent === null ? null : round1(t.percent) });
 
+/** All the light logged in a project, in minutes (two decimals): planned lines, optional lines and sessions not in the plan together. */
+export const loggedMinutes = (project: Pick<Project, 'sessions'>): number => round2(project.sessions.reduce((n, s) => n + sessionMinutes(s), 0));
+
 export const NOT_IN_PLAN_TARGET = 'the target is not in this project';
 export const NOT_IN_PLAN_FILTER = 'the target has no hours planned for this filter';
 

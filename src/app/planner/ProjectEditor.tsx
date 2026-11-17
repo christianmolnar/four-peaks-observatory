@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
-import { MAX_PROJECT_NAME, PROJECT_LIMITS } from '@/planner/projects';
+import { MAX_PROJECT_NAME, PROJECT_LIMITS, SEED_DATE } from '@/planner/projects';
 import type { NewProject } from '@/planner/projects';
 import type { Profile } from '@/planner/profile';
 import TargetSearch from './TargetSearch';
@@ -33,11 +33,13 @@ export interface ProjectEditorProps {
   editNote?: string;
   saveLabel: string;
   onSave: (value: NewProject) => ProjectsResult;
+  /** The form was refused before saving (a box is wrong): the page drops its earlier "Saved" line. */
+  onRefused: () => void;
   onCancel: () => void;
 }
 
 /** Create or edit a project: name, setup (scope, camera, filters, sub length), targets (the open plan's first, then the catalog search) and the planned minutes per target and filter. */
-export default function ProjectEditor({ title, initial, profile, targetName, filterName, filterOrder, planTargets, search, review, editNote, saveLabel, onSave, onCancel }: ProjectEditorProps) {
+export default function ProjectEditor({ title, initial, profile, targetName, filterName, filterOrder, planTargets, search, review, editNote, saveLabel, onSave, onRefused, onCancel }: ProjectEditorProps) {
   const uid = useId();
   const [d, setD] = useState<Draft>(initial);
   const [errors, setErrors] = useState<DraftErrors>({ lines: {} });
@@ -77,6 +79,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
     setFailure('');
     const r = parseDraft(d, names);
     if (!r.ok) {
+      onRefused();
       pending.current = true;
       setErrors(r.errors);
       setSummary(r.summary);
@@ -109,7 +112,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
       <h3 id={`${uid}-title`} className="text-lg font-normal text-p-t1">{title}</h3>
       {review !== undefined && review.length > 0 && (
         <div className="rounded border border-p-line/20 p-3" data-testid="seed-review">
-          <p className="text-sm font-medium text-p-t1">Saving also logs these hours (all broadband, night of 2026-11-16):</p>
+          <p className="text-sm font-medium text-p-t1">Saving also logs these hours (all broadband, night of {SEED_DATE}):</p>
           <ul className="mt-1 list-disc pl-5">
             {review.map((l) => <li key={l} className="break-words text-sm font-normal text-p-t1">{l}</li>)}
           </ul>

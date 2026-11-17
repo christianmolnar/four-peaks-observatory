@@ -9,6 +9,6 @@ export { HELD_TEXT, NEWER_NOTICE, DAMAGED_NOTICE, PROJECTS_BACKUP_PREFIX, PROJEC
 export type { ChangeResult, HeldWhy, LoadedProjects, OpenedProjects, ProjectsHandle, StoredProjects } from './store';
 export { addProject, addSession, addSessionsWithIds, compareIncomingProjects, importProjects, removeProject, removeSession, updateProject, updateSession } from './edit';
 export type { ImportedProjects, NewProject, NewSession } from './edit';
-export { SEED_DATE, missingSeedSessions, seedSessions } from './seed';
-export { NOT_IN_PLAN_FILTER, NOT_IN_PLAN_TARGET, projectSheet } from './sheet';
+export { SEED_DATE, missingSeedSessions, seedHeldBy, seedSessions } from './seed';
+export { NOT_IN_PLAN_FILTER, NOT_IN_PLAN_TARGET, loggedMinutes, projectSheet } from './sheet';
 export type { ProjectSheet, SheetNames, SheetTotals } from './sheet';

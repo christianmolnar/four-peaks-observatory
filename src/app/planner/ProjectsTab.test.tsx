@@ -216,6 +216,27 @@ describe('seed offer', () => {
     expect(screen.queryByTestId('not-in-plan')).toBeNull();
   });
 
+  it('two tabs both offer the seed: the first saves, the second is refused in words, one project holds the hours once', async () => {
+    const a = render(<Harness />, { container: document.body.appendChild(document.createElement('div')) });
+    const b = render(<Harness />, { container: document.body.appendChild(document.createElement('div')) });
+    const A = within(a.container);
+    const B = within(b.container);
+    await waitFor(() => expect(A.queryByText('Loading your projects…')).toBeNull());
+    await waitFor(() => expect(B.queryByText('Loading your projects…')).toBeNull());
+    fireEvent.click(A.getByRole('button', { name: /^Start from last night/ }));
+    fireEvent.click(B.getByRole('button', { name: /^Start from last night/ }));
+    fireEvent.click(A.getByRole('button', { name: 'Save project' }));
+    expect(A.getByTestId('projects-status').textContent).toBe('Saved the project “Marathon”.');
+    fireEvent.click(B.getByRole('button', { name: 'Save project' }));
+    const refusal = B.getAllByRole('alert').map(text).join(' | ');
+    expect(refusal).toBe('Not saved: last night’s hours are already logged in the project “Marathon”. Open that project instead of starting another.');
+    expect(B.queryByTestId('projects-problem')).toBeNull();
+    expect(B.getByTestId('projects-status').textContent).toBe('');
+    expect(stored()).toHaveLength(1);
+    expect(stored()[0].sessions).toHaveLength(3);
+    expect(stored()[0].sessions.map((s) => s.minutes)).toEqual([120, 50, 60]);
+  });
+
   it('review before saving: Cancel keeps nothing; the hours are not in the plan until minutes are planned, and the page says so', async () => {
     await draw();
     press(/^Start from last night/);
@@ -313,6 +334,19 @@ describe('sessions', () => {
     expect(text(screen.getAllByTestId('session-row')[0])).toContain('2026-11-17, Andromeda Galaxy, Optolong H-alpha 7 nm, 15m');
     expect((screen.getByLabelText('Minutes of light') as HTMLInputElement).value).toBe('');
     expect(document.activeElement).toBe(screen.getByLabelText('Minutes of light'));
+  });
+
+  it('a refused session form clears the earlier "Added" line, and the picker shows each project\'s engine percent', async () => {
+    store(plain, over);
+    await draw();
+    expect(within(screen.getByLabelText('Project')).getAllByRole('option').map(text)).toEqual([plain, over].map((p) => `${p.name}, ${percentText(projectSheet(p, sheetNames(profile, p.setup, targetName)).overall.percent)}`));
+    press('Add session');
+    type('Minutes of light', '15');
+    fireEvent.click(screen.getByRole('button', { name: 'Add session' }));
+    expect(screen.getByTestId('projects-status').textContent).toMatch(/^Added 15m/);
+    type('Minutes of light', 'abc');
+    fireEvent.click(screen.getByRole('button', { name: 'Add session' }));
+    expect(screen.getByTestId('projects-status').textContent).toBe('');
   });
 
   it('exposures with a sub length add exposures x sub; the log row says both; a plan gap is said before saving', async () => {
@@ -489,8 +523,9 @@ describe('Copy tracker, and storage that does not take the change', () => {
     type('Project name', 'X');
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
     press('Save project');
-    expect(screen.getAllByRole('alert').map(text).join(' ')).toMatch(/Not saved/);
-    expect(document.body.textContent).not.toMatch(/Saved the project/);
+    const alerts = screen.getAllByRole('alert').map(text).filter((x) => /Not saved/.test(x));
+    expect(alerts).toEqual(['Not saved: browser storage is blocked or unavailable, so nothing was changed. Allow storage for this site, then try again.']); // once, in the open editor
+    expect(document.body.textContent).not.toMatch(/Saved the project|denied|on this page only; export/);
   });
 
   it('projects saved by a newer version are held: said in words, saving is off, stored text untouched', async () => {

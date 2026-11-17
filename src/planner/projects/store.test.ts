@@ -1,4 +1,5 @@
-import { addProject, addSession, removeSession, updateProject } from './edit';
+import { addProject, addSession, addSessionsWithIds, removeSession, updateProject } from './edit';
+import { seedHeldBy, seedSessions } from './seed';
 import { PROJECTS_BACKUP_PREFIX, PROJECTS_KEY, HELD_TEXT, changeProjects, inspectProjects, listProjectsBackups, loadProjects, mergeProjects, openProjects, projectsText } from './store';
 import type { ProjectsHandle } from './store';
 import { L, NOW, memory, project, session } from './testkit';
@@ -93,7 +94,8 @@ describe('reading the store', () => {
 
   it('a storage that cannot be read throws in words; opening it says so and is not held', () => {
     const s = { ...memory(), getItem: () => { throw new Error('denied'); } };
-    expect(() => loadProjects(s)).toThrow(/blocked or unavailable\): denied/);
+    expect(() => loadProjects(s)).toThrow(/blocked or unavailable\)\.$/);
+    expect(() => loadProjects(s)).not.toThrow(/denied/);
     expect(openProjects(s).notes[0]).toMatch(/blocked or unavailable/);
   });
 
@@ -207,6 +209,25 @@ describe('two tabs', () => {
     const ra2 = changeProjects(s, ra.handle, add('from A again', 5));
     expect(sessionsOf(ra2.handle)).toEqual(['from A', 'from A again', 'from B']);
     expect(JSON.parse(s.getItem(PROJECTS_KEY)!).projects[0].sessions).toHaveLength(3);
+  });
+
+  it('both offer the seed: the second refuses in words, one project holds the hours once', () => {
+    const s = memory();
+    const a = openProjects(s).handle;
+    const b = openProjects(s).handle; // both opened with nothing stored
+    const seed = (st: ProjectsState) => {
+      const held = seedHeldBy(st);
+      if (held !== null) throw new Error(`already logged in “${held}”`);
+      const made = addProject(st, { name: 'Marathon', setup: project().setup, targets: project().targets }, NOW);
+      return addSessionsWithIds(made.state, made.id, seedSessions(), NOW);
+    };
+    const ra = changeProjects(s, a, seed);
+    const rb = changeProjects(s, b, seed);
+    expect(ra.ok).toBe(true);
+    expect(!rb.ok && rb.message).toBe('Not saved: already logged in “Marathon”');
+    const stored = JSON.parse(s.getItem(PROJECTS_KEY)!).projects;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].sessions).toHaveLength(3);
   });
 
   it('another tab deleted a session: this tab does not bring it back', () => {

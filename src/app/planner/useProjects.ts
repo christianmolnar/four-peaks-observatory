@@ -56,8 +56,8 @@ export function useProjects(): ProjectsApi {
     let opened: ReturnType<typeof openProjects>;
     try {
       opened = openProjects(storage);
-    } catch (e) {
-      opened = { handle: EMPTY_HANDLE, notes: [`Your projects could not be read: ${(e as Error).message}`] };
+    } catch {
+      opened = { handle: EMPTY_HANDLE, notes: ['Your projects could not be read (browser storage is blocked or unavailable).'] };
     }
     adopt(opened.handle);
     setNotes(opened.notes);

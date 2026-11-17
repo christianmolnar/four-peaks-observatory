@@ -1,6 +1,7 @@
 import { addProject, addSession, addSessionsWithIds, compareIncomingProjects, importProjects, removeProject, removeSession, updateProject, updateSession } from './edit';
 import { computeProgress } from './progress';
-import { missingSeedSessions, seedSessions } from './seed';
+import { missingSeedSessions, seedHeldBy, seedSessions } from './seed';
+import { loggedMinutes } from './sheet';
 import { L, NOW, line, project, session } from './testkit';
 import { EMPTY_PROJECTS } from './validate';
 import type { ProjectsState } from './validate';
@@ -191,5 +192,20 @@ describe('every refusal that reaches a caller is in plain words, never a validat
     const m = messageOf(() => importProjects(EMPTY_PROJECTS, [project({ targets: badLine })], 'copy', NOW));
     noPath(m);
     expect(m).toMatch(/target 1, filter line 1, minutes: -5/);
+  });
+});
+
+describe('seedHeldBy and loggedMinutes', () => {
+  it('names the project that holds any seed session, and none when no project does', () => {
+    const seeded = addSessionsWithIds(one(project()), 'p-1', seedSessions(), NOW);
+    expect(seedHeldBy(seeded)).toBe('Fall marathon');
+    expect(seedHeldBy(one(project()))).toBeNull();
+    expect(seedHeldBy({ projects: [] })).toBeNull();
+  });
+
+  it('loggedMinutes adds every session: in the plan, optional and not in the plan, exposures included', () => {
+    const p = project({ sessions: [session('a', 'm31', L, 30), session('b', 'm42', 'nb3', 20), session('c', 'zz', L, 5.5), { id: 'd', date: '2026-11-16', targetId: 'm31', filterId: L, exposures: 10, subSeconds: 30, note: '' }] });
+    expect(loggedMinutes(p)).toBe(60.5);
+    expect(loggedMinutes(project())).toBe(0);
   });
 });

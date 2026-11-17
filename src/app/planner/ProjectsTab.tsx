@@ -11,11 +11,12 @@ import {
   addSession,
   addSessionsWithIds,
   compareIncomingProjects,
-  computeProgress,
   importProjects,
+  loggedMinutes,
   projectSheet,
   removeProject,
   removeSession,
+  seedHeldBy,
   seedSessions,
   sessionMinutes,
   updateProject,
@@ -91,14 +92,15 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
     el?.focus();
   });
 
-  const finish = (r: ProjectsResult, okText: string): boolean => {
+  /** `inForm`: a refusal that leaves its form open is said in that form only (the form is where the user looks), not a second time up here. */
+  const finish = (r: ProjectsResult, okText: string, inForm = false): boolean => {
     if (r.ok) {
       setProblem('');
       setSaid(okText);
       return true;
     }
     setSaid('');
-    setProblem(r.message);
+    setProblem(inForm && !r.kept ? '' : r.message);
     return r.kept;
   };
 
@@ -119,12 +121,15 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
   const saveNew = (value: NewProject, seed: boolean): ProjectsResult => {
     let made = '';
     const r = api.change((s, now) => {
+      // The latest stored projects, not this page's: another tab may have saved the same offer, and its hours must not be logged twice.
+      const held = seed ? seedHeldBy(s) : null;
+      if (held !== null) throw new Error(`last night’s hours are already logged in the project “${held}”. Open that project instead of starting another.`);
       const a = addProject(s, value, now);
       made = a.id;
-      // The seed's sessions have fixed ids: adding them twice adds nothing.
+      // The seed's sessions have fixed ids: adding them twice to one project adds nothing.
       return seed ? addSessionsWithIds(a.state, a.id, seedSessions(), now) : a.state;
     });
-    if (finish(r, `Saved the project “${value.name}”.`)) {
+    if (finish(r, `Saved the project “${value.name}”.`, true)) {
       setSelected(made);
       setView({ kind: 'show' });
       refocus.current = 'project-heading';
@@ -134,7 +139,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
   const saveEdit = (value: NewProject): ProjectsResult => {
     if (project === null) return { ok: false, message: 'There is no such project.', kept: false };
     const r = api.change((s, now) => updateProject(s, project.id, value, now));
-    if (finish(r, `Saved the changes to “${value.name}”.`)) {
+    if (finish(r, `Saved the changes to “${value.name}”.`, true)) {
       setView({ kind: 'show' });
       refocus.current = 'project-edit';
     }
@@ -180,12 +185,12 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
   const withNames = names!;
   const addSessionTo = (draft: NewSession): ProjectsResult => {
     const r = api.change((s, now) => addSession(s, project!.id, draft, now).state);
-    finish(r, `Added ${durationText(sessionMinutes(draft))} of ${withNames.filter(draft.filterId)} on ${withNames.target(draft.targetId)} for ${draft.date}.`);
+    finish(r, `Added ${durationText(sessionMinutes(draft))} of ${withNames.filter(draft.filterId)} on ${withNames.target(draft.targetId)} for ${draft.date}.`, true);
     return r;
   };
   const updateSessionIn = (id: string, draft: NewSession): ProjectsResult => {
     const r = api.change((s, now) => updateSession(s, project!.id, id, draft, now));
-    finish(r, `Changed the session of ${draft.date} on ${withNames.target(draft.targetId)}.`);
+    finish(r, `Changed the session of ${draft.date} on ${withNames.target(draft.targetId)}.`, true);
     return r;
   };
   const deleteSessionIn = (id: string): ProjectsResult => {
@@ -201,7 +206,11 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
     const text = trackerText(projectSheet(project, names));
     try {
       if (!navigator.clipboard) throw new Error('this browser does not let a page copy');
-      await navigator.clipboard.writeText(text);
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        throw new Error('the browser did not allow it');
+      }
       setCopyFallback('');
       setProblem('');
       setSaid(`Copied the tracker of “${project.name}”.`);
@@ -226,7 +235,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
       const c = compareIncomingProjects(api.state, read.projects);
       setAsk({ file: file.name.length > 40 ? `${file.name.slice(0, 40)}…` : file.name, names: names5, total: read.projects.length, same: c.same, clash: c.clash, notices: read.notices, incoming: read.projects });
     } catch (e) {
-      setImportError(e instanceof PlansFileError ? e.message : `The file could not be read: ${(e as Error).message}`);
+      setImportError(e instanceof PlansFileError ? e.message : 'The file could not be read.');
     }
   };
   const finishImport = (choice: 'copy' | 'skip' | 'cancel') => {
@@ -252,8 +261,8 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
   };
 
   const planLine = (p: Project) => {
-    const t = computeProgress(p).overall;
-    return `${p.name}${p.status === 'active' ? '' : ` (${p.status})`}, ${percentText(t.percent === null ? null : Math.round(t.percent * 10) / 10)}`;
+    const percent = projectSheet(p, sheetNames(profile, p.setup, targetName)).overall.percent;
+    return `${p.name}${p.status === 'active' ? '' : ` (${p.status})`}, ${percentText(percent)}`;
   };
 
   const importBox = (
@@ -322,6 +331,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
           initial={newProjectDraft(view.seed)}
           review={view.seed ? seedSessions().map((s) => `${targetName(s.targetId)}: ${s.minutes} min`) : undefined}
           saveLabel="Save project"
+          onRefused={() => setSaid('')}
           onSave={(v) => saveNew(v, view.seed)}
           onCancel={() => {
             setView({ kind: 'show' });
@@ -383,7 +393,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
           {view.kind === 'delete' && (
             <div role="group" aria-labelledby={`${uid}-del`} className="space-y-2 rounded-lg border border-p-warn/50 p-3" data-testid="project-delete-confirm">
               <p id={`${uid}-del`} className="break-words text-sm font-normal text-p-t1">
-                Delete the project “{project.name}”? This removes the project, its {project.targets.length} {project.targets.length === 1 ? 'target' : 'targets'}, {project.targets.reduce((n, t) => n + t.lines.length, 0)} planned {project.targets.reduce((n, t) => n + t.lines.length, 0) === 1 ? 'line' : 'lines'} and its {project.sessions.length} logged {project.sessions.length === 1 ? 'session' : 'sessions'} ({durationText(project.sessions.reduce((n, s) => n + sessionMinutes(s), 0))} of light). It cannot be undone. Copy the tracker or export it first to keep a record.
+                Delete the project “{project.name}”? This removes the project, its {project.targets.length} {project.targets.length === 1 ? 'target' : 'targets'}, {project.targets.reduce((n, t) => n + t.lines.length, 0)} planned {project.targets.reduce((n, t) => n + t.lines.length, 0) === 1 ? 'line' : 'lines'} and its {project.sessions.length} logged {project.sessions.length === 1 ? 'session' : 'sessions'} ({durationText(loggedMinutes(project))} of light). It cannot be undone. Copy the tracker or export it first to keep a record.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" autoFocus className={btn} onClick={() => { setView({ kind: 'show' }); refocus.current = 'project-delete'; }}>Keep the project</button>
@@ -400,6 +410,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
               initial={draftFromProject(project)}
               editNote="Logged sessions are kept. A session for a target or filter you take out stays in the log and shows as not in the plan."
               saveLabel="Save changes"
+              onRefused={() => setSaid('')}
               onSave={saveEdit}
               onCancel={() => { setView({ kind: 'show' }); refocus.current = 'project-edit'; }}
             />
@@ -410,7 +421,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
                 {project.status !== 'active' && <span className="ml-2 text-sm font-normal text-p-t1/80">({project.status})</span>}
               </h3>
               <ProjectProgress project={project} names={names!} />
-              <ProjectSessions key={project.id} project={project} names={names!} today={today} onAdd={addSessionTo} onUpdate={updateSessionIn} onDelete={deleteSessionIn} />
+              <ProjectSessions key={project.id} project={project} names={names!} today={today} onAdd={addSessionTo} onUpdate={updateSessionIn} onDelete={deleteSessionIn} onRefused={() => setSaid('')} />
               {copyFallback !== '' && (
                 <div>
                   <label htmlFor={`${uid}-tracker`} className="mb-1 block text-sm font-normal text-p-t1/90">Tracker text</label>
