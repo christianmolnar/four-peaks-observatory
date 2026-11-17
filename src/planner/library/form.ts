@@ -1,7 +1,7 @@
 import type { ListKey } from '../state/edit'
 import { GEAR_LIMITS, enterText, inRange, rangeProblem } from '../profile/limits'
 import type { GearLimit, GearLimitKey } from '../profile/limits'
-import { BAND_BOX_KEYS, bandsFromTexts, bandsToTexts, hasBandBoxes } from '../profile/passbands'
+import { BAND_BOX_KEYS, bandSums, bandsFromTexts, bandsToTexts, hasBandBoxes } from '../profile/passbands'
 import { validateSpecs } from './specs'
 import type { LibraryClass, Specs } from './specs'
 
@@ -57,8 +57,9 @@ export function specsToTexts(list: LibraryList, specs: Specs): Record<string, st
     const bands = (s.passbands as { centreNm: number; widthNm: number }[] | undefined) ?? []
     if (bands.length > 0) {
       Object.assign(out, Object.fromEntries(Object.entries(bandsToTexts(bands)).filter(([, v]) => v !== '')))
-      out.passbandWidthNm = num(bands.reduce((t, b) => t + b.widthNm, 0))
-      out.narrowestBandNm = num(Math.min(...bands.map((b) => b.widthNm)))
+      const sums = bandSums(bands)
+      out.passbandWidthNm = num(sums.passbandWidthNm)
+      out.narrowestBandNm = num(sums.narrowestBandNm)
     }
     const parts = typeof s.glassMm === 'number' ? [`glass ${num(s.glassMm)} mm`] : []
     const line = parts.join(', ')

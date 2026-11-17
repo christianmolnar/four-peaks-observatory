@@ -257,12 +257,15 @@ function passbands(o: Obj, path: string): Passband[] | undefined {
   return r.bands;
 }
 
+/** The stored sum as " 20 nm" when it is a plain number, else nothing (a huge, tiny or non-number value is never printed: no e+N, Infinity, NaN or null). */
+const plainNm = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) && (v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e7)) ? ` ${v} nm` : '');
+
 /** With bands, the sum is the bands' own: a stored value that differs is refused (never silently changed), an absent one is filled in. */
 function derivedSum(o: Obj, key: 'passbandWidthNm' | 'narrowestBandNm', label: string, path: string, bands: Passband[], strict: boolean): number {
   const derived = bandSums(bands)[key];
   const given = optLimited(o, key, path, strict);
   if (given !== undefined && !(typeof given === 'number' && Math.abs(given - derived) <= 1e-6)) {
-    throw new ProfileError(`${path}.${key}`, `${label} ${typeof given === 'number' ? `${given} nm` : JSON.stringify(given)} does not match its passbands (${derived} nm). Remove the field to use the passbands' value, or change the passbands.`);
+    throw new ProfileError(`${path}.${key}`, `${label}${plainNm(given)} does not match its passbands (${derived} nm). Remove the field to use the passbands' value, or change the passbands.`);
   }
   return derived;
 }

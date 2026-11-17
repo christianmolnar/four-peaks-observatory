@@ -39,6 +39,14 @@ describe('a filter with passbands', () => {
       expect(refusal({ passbands: NBZ, narrowestBandNm: 9 }, lenient)).toMatch(/narrowestBandNm: Narrowest band 9 nm does not match/);
     }
   });
+  it('a stored sum that is huge or null is refused without printing e+N, Infinity, NaN or null', () => {
+    // The stored-profile path (lenient). The strict import path keeps its older range wording, from before passbands.
+    for (const bad of [1e308, null, 1e-9]) {
+      const m = refusal({ passbands: NBZ, passbandWidthNm: bad }, true);
+      expect(m).toMatch(/passbandWidthNm: Total passband width does not match its passbands \(17\.5 nm\)/);
+      expect(m).not.toMatch(/e[+-]\d|Infinity|NaN|null/);
+    }
+  });
   it('a file with no passbands is exactly what it was: sums alone stay valid and nothing is added', () => {
     const f = validateProfile(withFilter({ passbandWidthNm: 14, narrowestBandNm: 7 })).equipment.filters[0];
     expect(f).toEqual({ id: 'f1', name: 'Test dual', passbandWidthNm: 14, narrowestBandNm: 7 });

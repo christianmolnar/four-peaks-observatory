@@ -139,5 +139,8 @@ export function withoutBandRow(texts: Record<string, string>, row: number): Reco
     out[bandKey(i, 'Centre')] = i < MAX_PASSBANDS ? (texts[bandKey(i + 1, 'Centre')] ?? '') : '';
     out[bandKey(i, 'Width')] = i < MAX_PASSBANDS ? (texts[bandKey(i + 1, 'Width')] ?? '') : '';
   }
+  // The last band gone: the filter has no bands, so the sums the bands decided go too (unknown), never the last band's width.
+  const hadBands = bandsFromTexts(texts);
+  if ('bands' in hadBands && hadBands.bands.length > 0 && filledRows(out) === 0) return { ...out, passbandWidthNm: '', narrowestBandNm: '' };
   return withDerivedSums(out);
 }

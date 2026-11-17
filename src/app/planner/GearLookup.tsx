@@ -48,9 +48,16 @@ export function planFill(fill: Record<string, string>, now: Record<string, strin
   const kept: Record<string, string> = {};
   const hasBands = fill.band1Centre !== undefined;
   const mine = (k: string) => (now[k] ?? '').trim() !== '' && !overwritable.has(k);
-  const bandsProtected = hasBands && BAND_BOX_KEYS.some((k) => mine(k) && (now[k] ?? '').trim() !== (fill[k] ?? ''));
+  const ownBands = hasBands && BAND_BOX_KEYS.some((k) => mine(k) && (now[k] ?? '').trim() !== (fill[k] ?? ''));
+  // Totals the user typed (with no bands of their own) are theirs too: the bands they would be derived from are kept out, so the totals stay.
+  const differs = (k: string) => Number((now[k] ?? '').trim()) !== Number(fill[k]);
+  const ownSums = hasBands && DERIVED_BOXES.some((k) => mine(k) && differs(k));
+  const bandsProtected = ownBands || ownSums;
   for (const [key, v] of Object.entries(fill)) {
-    if (hasBands && DERIVED_BOXES.includes(key)) continue;
+    if (hasBands && DERIVED_BOXES.includes(key)) {
+      if (ownSums && !ownBands && mine(key) && differs(key)) kept[key] = now[key] ?? '';
+      continue;
+    }
     const have = (now[key] ?? '').trim();
     if (have === v) continue;
     if (isBandBox(key) ? !bandsProtected && (have === '' || overwritable.has(key)) : have === '' || overwritable.has(key)) {

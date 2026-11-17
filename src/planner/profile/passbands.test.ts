@@ -124,4 +124,9 @@ describe('band rows in the form', () => {
     expect(t).toMatchObject({ band1Centre: '500.7', band1Width: '8', band2Centre: '672', band2Width: '19', band3Centre: '', band3Width: '', passbandWidthNm: '27', narrowestBandNm: '8' });
     expect(withoutBandRow(three, 6)).toMatchObject(three);
   });
+  it('removing the last band leaves the sums empty, never that band\'s width; with no bands to begin with the typed sums stay', () => {
+    const one = { ...bandsToTexts([{ centreNm: 656.3, widthNm: 9.5 }]), passbandWidthNm: '9.5', narrowestBandNm: '9.5' };
+    expect(withoutBandRow(one, 1)).toMatchObject({ band1Centre: '', band1Width: '', passbandWidthNm: '', narrowestBandNm: '' });
+    expect(withoutBandRow({ ...bandsToTexts([]), passbandWidthNm: '50', narrowestBandNm: '15' }, 1)).toMatchObject({ passbandWidthNm: '50', narrowestBandNm: '15' });
+  });
 });

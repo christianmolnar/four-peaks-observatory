@@ -447,6 +447,39 @@ describe('Look up specs', () => {
       expect(widths(form)).toEqual(['9.5', '8']);
     });
 
+    it('sums the user typed are theirs: a lookup that brings bands keeps the bands and the sums, names them, and only Apply library values replaces them', async () => {
+      route({ get: () => json({ entry: entryOf('Duo', { cls: 'filter', source: 'seed', specs: { type: 'dual-band', passbands: [{ centreNm: 656.3, widthNm: 7 }, { centreNm: 500.7, widthNm: 7 }] } }) }) });
+      const form = await openNewFilter();
+      fireEvent.change(within(form).getByLabelText(/^Total passband width/), { target: { value: '50' } });
+      fireEvent.change(within(form).getByLabelText(/^Narrowest band/), { target: { value: '15' } });
+      await lookup(form, 'Duo');
+      expect(centres(form)).toEqual([]);
+      expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('50');
+      expect((within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement).value).toBe('15');
+      expect(within(form).getByText(/Kept your .*Passbands.*Total passband width 50.*Narrowest band 15/)).toBeTruthy();
+      fireEvent.click(within(form).getByRole('button', { name: 'Apply library values' }));
+      expect(centres(form)).toEqual(['656.3', '500.7']);
+      expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('14');
+      expect((within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement).value).toBe('7');
+    });
+
+    it('removing every band row through the form and saving stores no passbands and no leftover sums', async () => {
+      route({ get: () => json({ entry: nbz() }) });
+      const form = await openNewFilter();
+      await lookup(form, 'IDAS NBZ-II');
+      fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+      fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+      expect(centres(form)).toEqual([]);
+      expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('');
+      expect((within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement).value).toBe('');
+      fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(savedFilter('IDAS NBZ-II')).toBeTruthy());
+      const f = savedFilter('IDAS NBZ-II');
+      expect(f.passbands).toBeUndefined();
+      expect(f.passbandWidthNm).toBeUndefined();
+      expect(f.narrowestBandNm).toBeUndefined();
+    });
+
     it.each([['NaN'], ['abc'], ['1e308'], ['-4'], ['0'], ['Infinity']])('%s in a band width is refused on Save in plain words and nothing is stored', async (bad) => {
       route({});
       const form = await openNewFilter();
