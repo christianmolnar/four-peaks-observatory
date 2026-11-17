@@ -186,7 +186,7 @@ describe('rules', () => {
     const lp: MixFilter = { id: 'lp', name: 'Light pollution cut', bands: [{ centreNm: 550, widthNm: 200 }] };
     const r = mix(M42, [lp, NB3]);
     expect(of(r, 'NB3-PM').verdict).toBe('adds');
-    expect(r.lines.filter((l) => l.verdict === 'broadband')).toHaveLength(0);
+    expect(r.lines.filter((l) => l.verdict === 'broadband').map((l) => l.minutes)).toEqual([0]);
     const gate = mix(M31, [lp, NB3]);
     expect(gate.lines[0].name).toBe('Broadband (Light pollution cut)');
     expect(gate.lines[0].minutes).toBe(HOURS);
@@ -248,5 +248,45 @@ describe('nothing to split, and filters it cannot use', () => {
     expect(text).toMatch(/NBZ II \d+ min \(adds Ha and OIII\)/);
     expect(text).toMatch(/NB3-PM 0 min \(covered by NBZ II\)/);
     expect(text).toMatch(/Measured \(Sanchez/);
+  });
+});
+
+describe('every selected filter appears once, broadband ones included', () => {
+  const LUM: MixFilter = { id: 'lum', name: 'Lum', bands: [{ centreNm: 550, widthNm: 300 }] };
+  const UVIR: MixFilter = { id: 'uvir', name: 'UV/IR cut', bands: [{ centreNm: 550, widthNm: 300 }] };
+  const names = (r: Extract<MixResult, { kind: 'mix' }>) => r.lines.map((l) => l.filterId).sort();
+
+  it('Lum + NBZ II on M42: Lum has a plain line with 0 min, the hours add up', () => {
+    const r = mix(M42, [LUM, NBZ]);
+    expect(names(r)).toEqual(['lum', 'nbz']);
+    const l = of(r, 'Broadband (Lum)');
+    expect(l).toMatchObject({ filterId: 'lum', minutes: 0, verdict: 'broadband' });
+    expect(l.reason).toMatch(/Earns no hours here/);
+    expect(of(r, 'NBZ II').minutes).toBe(HOURS);
+    expect(sum(r)).toBe(HOURS);
+    expect(mixSummary('M42', r, (m) => `${m} min`)).toContain('Broadband (Lum) 0 min (earns no hours here)');
+  });
+
+  it('UV/IR + Lum + NBZ II on M42: one line each, the second broadband one is covered by the first', () => {
+    const r = mix(M42, [UVIR, LUM, NBZ]);
+    expect(names(r)).toEqual(['lum', 'nbz', 'uvir']);
+    expect(r.lines.filter((l) => l.filterId === 'uvir')).toHaveLength(1);
+    expect(r.lines.find((l) => l.verdict === 'broadband')!.filterId).toBe('uvir');
+    expect(of(r, 'Lum').verdict).toBe('covered');
+    expect(sum(r)).toBe(HOURS);
+  });
+
+  it('the setup’s own broadband filter plus a picked narrowband one, either order', () => {
+    for (const order of [[UVIR, NB3], [NB3, UVIR]]) {
+      const r = mix(CALIFORNIA, order);
+      expect(names(r)).toEqual(['nb3', 'uvir']);
+      expect(sum(r)).toBe(HOURS);
+    }
+  });
+
+  it('a continuum target still gives its broadband filter the hours, and no filter is listed twice', () => {
+    const r = mix(profile('ngc1952', 'supernova-remnant'), [LUM, NBZ]);
+    expect(names(r)).toEqual(['lum', 'nbz']);
+    expect(sum(r)).toBe(HOURS);
   });
 });

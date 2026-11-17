@@ -11,7 +11,7 @@ import type { PlanTarget } from '@/planner/ai/body';
 import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
-import { MAX_PLANS_FILE_CHARS, NOT_IN_CATALOG, PlansFileError, asiairCsv, asiairPanes, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText } from '@/planner/export';
+import { MAX_PLANS_FILE_CHARS, NOT_IN_CATALOG, NOT_SCHEDULED, PlansFileError, asiairCsv, asiairPanes, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText } from '@/planner/export';
 import type { AsiairTarget, PlanExposureRow, PlanSheet, SheetRow, ShareDoc, TargetFacts } from '@/planner/export';
 import { opticalTrain } from '@/planner/optics';
 import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError, resolveTrain } from '@/planner/profile';
@@ -118,7 +118,7 @@ import PlanRowMix from './PlanRowMix';
 import type { MixFilter } from '@/planner/filtermix';
 import { mixSummary } from '@/planner/filtermix';
 import { rowMix } from '@/planner/filtermix/row';
-import type { RowMix } from '@/planner/filtermix/row';
+import type { RowMix, RowMixInput } from '@/planner/filtermix/row';
 import { baseOf, minutesText, notUsedNoPresetText, presetLabel, rowExposure, splitWarnings, storedProblem, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
@@ -1107,25 +1107,36 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     });
   }, [train, mixPicks, profile]);
   const noMixFilters = !train ? 'No setup is chosen, so there is no filter mix to work out.' : train.kind !== 'optical' ? 'A smart scope has its filter built in, so there is no filter mix to work out.' : 'No filter is selected in the setup, so there is no filter mix to work out. Pick one under Setup.';
+  // The timeline's plan, once it is worked out for this night and site (the rail reads it the same way); null before then, and the row's own light stands in.
+  const mixTimeline = stableNight && astroSite && catalog.status !== 'loading' ? timelinePlan : null;
   const mixViews = useMemo(
     () =>
       new Map(
         planItems.map(({ id, body, target }): [string, RowMix] => {
           const view = rowViews.get(id);
           if (body === undefined && target === undefined && catalog.status === 'loading') return [id, { kind: 'message', text: 'The catalog is still loading, so the filter mix is not worked out yet.' }];
+          // The light to split is the timeline's slot for this target (the same light the sheet and the timeline show); a target the timeline leaves out has none.
+          const slot = mixTimeline?.slots.find((s) => s.id === id);
+          const scheduled = slot !== undefined && slot.altitudes !== null && slot.end.getTime() > slot.start.getTime();
+          const light: RowMixInput['light'] =
+            view?.kind !== 'ok'
+              ? { kind: 'none', reason: view?.reason ?? '' }
+              : mixTimeline === null
+                ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes }
+                : { kind: 'ok', minutes: scheduled ? slot.integrationMin : 0, usableMinutes: scheduled ? view.usableMinutes : 0 };
           return [
             id,
             rowMix({
               body: body !== undefined,
               target: target === undefined ? null : { id: target.id, type: target.type },
-              light: view?.kind === 'ok' ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes } : { kind: 'none', reason: view?.reason ?? '' },
+              light,
               filters: mixFilters,
               noFilters: noMixFilters,
             }),
           ];
         }),
       ),
-    [planItems, rowViews, mixFilters, noMixFilters, catalog.status],
+    [planItems, rowViews, mixFilters, noMixFilters, catalog.status, mixTimeline],
   );
 
   // The altitude chart is drawn in the open row only.
@@ -1674,7 +1685,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         ? {
             mix: planItems.flatMap(({ id }, i) => {
               const m = mixViews.get(id);
-              return m?.kind === 'mix' && rows[i].state !== 'unscheduled' ? [mixSummary(rows[i].name, m, minutesText)] : [];
+              if (rows[i].state === 'unscheduled') return [`${rows[i].name}: ${NOT_SCHEDULED}, no filter mix.`];
+              return m?.kind === 'mix' ? [mixSummary(rows[i].name, m, minutesText)] : [];
             }),
           }
         : {}),

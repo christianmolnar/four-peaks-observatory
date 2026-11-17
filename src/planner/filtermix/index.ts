@@ -284,6 +284,7 @@ export function filterMix(input: MixInput): MixResult {
   });
   const lines: MixLine[] = [];
   if (broadMin > 0) lines.push(slotLine(broadMin, `A broadband slot stays: ${Math.round(continuum * 100)}% of this target’s light is continuum, which narrowband does not carry.`));
+  else if (slotFilter !== null) lines.push(slotLine(0, `Earns no hours here: only ${Math.round(continuum * 100)}% of this target’s light is continuum, so the narrowband filters take all of it.`));
   lines.push(...extraBroad(), ...ranked.map((a) => verdicts.get(a) as MixLine));
   return finish(lines, result);
 }
@@ -293,6 +294,6 @@ export type MinutesText = (minutes: number) => string;
 
 /** One line for the plan text: "M42: NB3-PM 2 h (adds OIII); NBZ II 0 min (covered by NB3-PM). Typical for this type, not measured." */
 export function mixSummary(name: string, r: Extract<MixResult, { kind: 'mix' }>, fmt: MinutesText): string {
-  const parts = r.lines.map((l) => `${l.name} ${fmt(l.minutes)}${l.verdict === 'skipped' ? ' (unknown passband, not used)' : l.verdict === 'adds' ? ` (adds ${list(l.adds)})` : l.verdict === 'contrast' ? ' (better contrast)' : l.verdict === 'covered' || l.verdict === 'no-need' || l.verdict === 'gate' ? ` (${l.verdict === 'covered' && l.coveredBy.length > 0 ? `covered by ${list(l.coveredBy)}` : 'adds nothing'})` : ''}`);
+  const parts = r.lines.map((l) => `${l.name} ${fmt(l.minutes)}${l.verdict === 'skipped' ? ' (unknown passband, not used)' : l.verdict === 'broadband' && l.minutes === 0 ? ' (earns no hours here)' : l.verdict === 'adds' ? ` (adds ${list(l.adds)})` : l.verdict === 'contrast' ? ' (better contrast)' : l.verdict === 'covered' || l.verdict === 'no-need' || l.verdict === 'gate' ? ` (${l.verdict === 'covered' && l.coveredBy.length > 0 ? `covered by ${list(l.coveredBy)}` : 'adds nothing'})` : ''}`);
   return `${name} (${fmt(r.availableMin)} of light): ${parts.join('; ')}. ${r.confidence}.`;
 }

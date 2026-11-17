@@ -1,4 +1,4 @@
-import { NOT_IN_CATALOG_MIX_TEXT, NOT_UP_MIX_TEXT, NO_PROFILE_MIX_TEXT, SOLAR_MIX_TEXT, rowMix } from './row';
+import { NOT_IN_CATALOG_MIX_TEXT, NOT_UP_MIX_TEXT, NO_PROFILE_MIX_TEXT, SOLAR_MIX_TEXT, TOO_LITTLE_LIGHT_MIX_TEXT, rowMix } from './row';
 import type { RowMixInput } from './row';
 
 const NB3 = { id: 'nb3', name: 'NB3-PM', bands: [{ centreNm: 672, widthNm: 19 }, { centreNm: 500.7, widthNm: 21 }] };
@@ -16,7 +16,7 @@ describe('rowMix', () => {
     expect(rowMix({ ...base, target: null })).toEqual({ kind: 'message', text: NOT_IN_CATALOG_MIX_TEXT });
     expect(rowMix({ ...base, light: { kind: 'none', reason: 'Numbers appear once the night has loaded.' } })).toEqual({ kind: 'message', text: 'No planned light to split yet. Numbers appear once the night has loaded.' });
     expect(rowMix({ ...base, light: { kind: 'ok', minutes: 0, usableMinutes: 0 } })).toEqual({ kind: 'message', text: NOT_UP_MIX_TEXT });
-    expect(rowMix({ ...base, light: { kind: 'ok', minutes: 0, usableMinutes: 200 } })).toEqual({ kind: 'message', text: NOT_UP_MIX_TEXT });
+    expect(rowMix({ ...base, light: { kind: 'ok', minutes: 0, usableMinutes: 200 } })).toEqual({ kind: 'message', text: TOO_LITTLE_LIGHT_MIX_TEXT });
     expect(rowMix({ ...base, target: { id: 'm42', type: 'star' } })).toEqual({ kind: 'message', text: NO_PROFILE_MIX_TEXT });
     expect(rowMix({ ...base, filters: [] })).toEqual({ kind: 'message', text: 'No filter in the setup.' });
   });

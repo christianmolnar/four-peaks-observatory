@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { sampleProfile } from '@/planner/state';
 import type { Profile } from '@/planner/profile';
 import PlannerApp from './PlannerApp';
-import { openControls, openPlanTab, pageProps, planRowItems, ready, seedPlan } from './testkit';
+import { openControls, openPlanTab, pageProps, planRowItems, ready, seedPlan, timelineSlots } from './testkit';
 
 // The filter mix on each plan row: a folded part, the setup's filter as the default, plain messages instead of made-up numbers, and the plain-text export.
 
@@ -110,6 +110,51 @@ describe('the Filter mix part of a plan row', () => {
     openControls();
     fireEvent.click(within(screen.getByTestId('mix-filters')).getByRole('checkbox', { name: 'Use IDAS NB3-PM' }));
     expect(screen.getByTestId('plan-numbers-ic405').textContent).toBe(before);
+  });
+});
+
+describe('the light comes from the timeline, and a target it leaves out has none', () => {
+  const four = ['m42', 'm31', 'ngc7000', 'm33'].map((id) => ({ id, preset: 'balanced' }));
+  const fmt = (n: number) => (n >= 60 ? `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}` : `${n} min`);
+  const slotMinutes = (i: number) => Math.round(Number(/= ([\d.]+) min/.exec(timelineSlots()[i].textContent ?? '')![1]));
+
+  it('earlier slots push North America out: its row says "not scheduled tonight" and shows no hours; the others split their slot’s light', async () => {
+    await app(four, profileWith('nbz'));
+    expect(timelineSlots().map((s) => /no time/.test(s.textContent ?? ''))).toEqual([false, false, true, false]);
+    for (const [id, i] of [['m42', 0], ['m31', 1], ['m33', 3]] as const) {
+      open(id);
+      expect(body(id)).toContain(`Light to split: ${fmt(slotMinutes(i))}`);
+    }
+    // The row's own stand-alone light is longer than the slot's for Andromeda (the window closes): the mix follows the slot.
+    open('ngc7000');
+    expect(screen.getByTestId('plan-mix-message-ngc7000').textContent).toMatch(/not scheduled tonight/);
+    expect(body('ngc7000')).not.toMatch(/\d+ min|\d+ h|Light to split/);
+  });
+
+  it('the text export gives the same: slot light for scheduled targets, a plain line for the one left out', async () => {
+    await app(four, profileWith('nbz'));
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Share and export…' }));
+    const text = (screen.getByLabelText('Text to share') as HTMLTextAreaElement).value;
+    expect(text).toContain(`- Orion Nebula (${fmt(slotMinutes(0))} of light): IDAS NBZ-II ${fmt(slotMinutes(0))}`);
+    expect(text).toContain(`- Andromeda Galaxy (${fmt(slotMinutes(1))} of light)`);
+    expect(text).toContain('- North America Nebula: not scheduled tonight, no filter mix.');
+    expect(text.slice(text.indexOf('Filter mix'))).not.toMatch(/North America Nebula \(/);
+  });
+});
+
+describe('every selected filter is in the row', () => {
+  const LUM = { id: 'lum', name: 'Plain Lum', kind: 'dual-band' as const, passbands: [{ centreNm: 550, widthNm: 300 }] };
+  it('a broadband filter beside a narrowband one has its own line, in the row and in the export', async () => {
+    await app([{ id: 'm42', preset: 'balanced' }], profileWith('lum', [LUM, NBZ]));
+    openControls();
+    fireEvent.click(within(screen.getByTestId('mix-filters')).getByRole('checkbox', { name: 'Use IDAS NBZ-II' }));
+    open('m42');
+    expect(body('m42')).toContain('Broadband (Plain Lum)');
+    expect(body('m42')).toContain('IDAS NBZ-II');
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Share and export…' }));
+    expect((screen.getByLabelText('Text to share') as HTMLTextAreaElement).value).toContain('Broadband (Plain Lum) 0 min (earns no hours here)');
   });
 });
 
