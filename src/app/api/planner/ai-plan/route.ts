@@ -2,17 +2,15 @@ import { identifyCaller } from '@/lib/planner-auth/require-user'
 import { createAnthropicCaller, MissingKeyError, redactKey } from '@/planner/ai/anthropic'
 import { NoNightError } from '@/planner/ai/facts'
 import { ModelReplyError, planNightWithAi } from '@/planner/ai/plan'
-import { CounterStoreError, getCounterStore } from '@/planner/ai/counter-store'
-import { GuestLimiter, GuestLimitError, guestLimitsFrom, LimitConfigError, VisitorKeyError, visitorKey } from '@/planner/ai/guest-limits'
+import { getCounterStore } from '@/planner/ai/counter-store'
+import { GuestLimiter, guestLimitsFrom, visitorKey } from '@/planner/ai/guest-limits'
+import { fail, noStore, refusal } from '@/planner/ai/refusal'
 import { MAX_BODY_BYTES, parseBody } from '@/planner/ai/request'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 // At most 6 model calls and a 110 s budget (planNightWithAi stops repairing when a full call no longer fits).
 export const maxDuration = 120
-
-const noStore = { 'Cache-Control': 'private, no-store' }
-const fail = (status: number, error: string, extra: HeadersInit = {}): Response => Response.json({ error }, { status, headers: { ...noStore, ...extra } })
 
 // Open to everyone. An allowlisted Google account (owner) is uncapped; every other caller is a guest:
 // no sign-in needed, no quality review, and every model call counted against a per-visitor hour limit and a global day limit.
@@ -57,12 +55,4 @@ export async function POST(request: Request): Promise<Response> {
     if (e instanceof ModelReplyError) return fail(502, e.message)
     return fail(502, `Model call failed: ${redactKey(e instanceof Error ? e.message : String(e)).slice(0, 300)}`)
   }
-}
-
-/** The answer for a limit, a broken limit config or an unreachable counter store; undefined for any other error. Guests are refused, never let through uncounted. */
-function refusal(e: unknown): Response | undefined {
-  if (e instanceof GuestLimitError) return fail(429, e.message, { 'Retry-After': String(e.retryAfterSeconds) })
-  if (e instanceof LimitConfigError || e instanceof VisitorKeyError) return fail(503, e.message)
-  if (e instanceof CounterStoreError) return fail(503, 'Planner limits are unavailable right now, try again later')
-  return undefined
 }

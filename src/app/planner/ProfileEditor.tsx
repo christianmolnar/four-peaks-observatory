@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useRef, useState } from 'react';
 import type { Profile, TrainEntry } from '@/planner/profile';
 import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText, reducedFocalNote, siteBadKeys, siteProblems } from '@/planner/profile';
 import { limitOf } from '@/planner/profile/limits';
@@ -9,7 +9,8 @@ import type { FieldSpec, ListKey } from '@/planner/state/edit';
 import { GEAR_CLASSES, UsedError, usedText, usesOf } from '@/planner/state/gear';
 import type { Use } from '@/planner/state/gear';
 import type { GearClass, PlanRef } from '@/planner/state/gear';
-import type { SiteFieldKey } from '@/planner/location/client';
+import GearLookup from './GearLookup';
+import type { LookupState } from './GearLookup';
 import SiteFinder from './SiteFinder';
 import WrapSelect from './WrapSelect';
 import WrapText from './WrapText';
@@ -155,7 +156,7 @@ function FormShell({ legend, error, notice, onSave, onClose, focusTo, nameId, ch
   );
 }
 
-function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onRefuse: () => void; onClose: () => void; focusTo: () => FocusTo }) {
+function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, lookup, onLookup }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onRefuse: () => void; onClose: () => void; focusTo: () => FocusTo; lookup: LookupState | null; onLookup: (s: LookupState | null) => void }) {
   const spec = LIST_SPECS[list];
   const [texts, setTexts] = useState(() => textsOf(list, item));
   // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
@@ -178,7 +179,7 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo }:
       setError((e as Error).message);
     }
   };
-  const apply = (next: Record<string, string>, changed: SiteFieldKey[]) => {
+  const apply = (next: Record<string, string>, changed: string[]) => {
     changed.forEach((k) => filled.current.add(k));
     commit(next);
   };
@@ -192,17 +193,19 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo }:
       nameId={`edit-${list}-${item.id}-name`}
     >
       {list === 'sites' && <SiteFinder inputId={findBoxId(item.id)} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} />}
-      {spec.fields.map((f) => (
-        <Box
-          key={f.key}
-          id={`edit-${list}-${item.id}-${f.key}`}
-          spec={f}
-          value={texts[f.key] ?? ''}
-          onChange={(v) => {
-            filled.current.delete(f.key);
-            commit({ ...textsRef.current, [f.key]: v });
-          }}
-        />
+      {spec.fields.map((f, i) => (
+        <Fragment key={f.key}>
+          <Box
+            id={`edit-${list}-${item.id}-${f.key}`}
+            spec={f}
+            value={texts[f.key] ?? ''}
+            onChange={(v) => {
+              filled.current.delete(f.key);
+              commit({ ...textsRef.current, [f.key]: v });
+            }}
+          />
+          {i === 0 && <GearLookup list={list} texts={texts} getTexts={() => textsRef.current} overwritable={filled.current} onApply={apply} state={lookup} onState={onLookup} />}
+        </Fragment>
       ))}
     </FormShell>
   );
@@ -357,6 +360,8 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   // The one card whose form is open, and the one message (an error from Add, or a refusal) with the card it belongs to ('' for the class).
   const [editing, setEditing] = useState<string>('');
   const [problem, setProblem] = useState<{ card: string; text: string; plan?: { id: string; name: string } } | null>(null);
+  // The last spec lookup of each card, kept here so saving a form (which rebuilds it) does not lose "Filled by AI, check it".
+  const [lookups, setLookups] = useState<Record<string, LookupState | null>>({});
   const listRef = useRef<HTMLUListElement>(null);
   const seenQuiet = useRef(quiet);
   useEffect(() => {
@@ -607,7 +612,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
                 (e.kind === 'train' ? (
                   <TrainForm key={`train:${JSON.stringify(e.train)}`} profile={profile} train={e.train} use={use} onChange={saveFromForm} onRefuse={refuse} onClose={() => closeForm(card)} focusTo={takeFocus} />
                 ) : (
-                  <ItemForm key={`${e.list}:${JSON.stringify(e.item)}`} profile={profile} list={e.list} item={e.item} onChange={saveFromForm} onRefuse={refuse} onClose={() => closeForm(card)} focusTo={takeFocus} />
+                  <ItemForm key={`${e.list}:${JSON.stringify(e.item)}`} profile={profile} list={e.list} item={e.item} onChange={saveFromForm} onRefuse={refuse} onClose={() => closeForm(card)} focusTo={takeFocus} lookup={lookups[card] ?? null} onLookup={(s) => setLookups((all) => ({ ...all, [card]: s }))} />
                 ))}
             </li>
           );

@@ -34,6 +34,11 @@ export const GEAR_LIMITS = {
   narrowestBandNm: { min: 0.1, max: 1000, unit: 'nm', noun: 'narrowest band' },
   ratedMinFRatio: { min: 0.5, max: 30, unit: '', noun: 'fastest rated focal ratio' },
   maxIncidentAngleDeg: { min: 0.1, max: 89, unit: 'deg', noun: 'largest incident angle' },
+  // The spec library's numbers (a passband is a centre and a width; glass is the filter's thickness; the f-number is a scope's focal ratio).
+  passbandCentreNm: { min: 300, max: 1100, unit: 'nm', noun: 'passband centre' },
+  bandWidthNm: { min: 0.1, max: 1000, unit: 'nm', noun: 'passband width' },
+  glassMm: { min: 0.5, max: 10, unit: 'mm', noun: 'glass thickness' },
+  fNumber: { min: 0.5, max: 30, unit: '', noun: 'focal ratio' },
 } as const satisfies Record<string, GearLimit>;
 
 export type GearLimitKey = keyof typeof GEAR_LIMITS;
