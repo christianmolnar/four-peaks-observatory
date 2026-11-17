@@ -22,7 +22,7 @@ export interface LookupState {
 
 export interface GearLookupProps {
   list: ListKey;
-  /** The boxes as of the last render, for what is shown. */
+  /** The boxes as of the last render. A filter's two sums here are only those the user typed (the bands' sums are worked out, never held), so sums an earlier lookup's bands gave are never taken for the user's. */
   texts: Record<string, string>;
   /** The boxes right now: a lookup that finishes later merges against this, so nothing typed meanwhile is lost. */
   getTexts: () => Record<string, string>;
@@ -131,7 +131,8 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
     const fill = specsToTexts(lib, current.specs);
     const next = { ...getTexts() };
     const keys = Object.keys(state.kept);
-    for (const key of keys) if (fill[key] !== undefined) next[key] = fill[key];
+    // The sums go with the bands put in (worked out from them), so the user's own are cleared, never kept to come back as the library's.
+    for (const key of keys) if (fill[key] !== undefined) next[key] = DERIVED_BOXES.includes(key) ? '' : fill[key];
     // The passbands are one set: replacing any of them replaces all, and a row the entry has no band for is cleared.
     if (keys.some(isBandBox)) for (const k of BAND_BOX_KEYS) { next[k] = fill[k] ?? ''; if (!keys.includes(k)) keys.push(k); }
     onApply(next, keys, current);
@@ -162,7 +163,8 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
     void save(r.specs);
   };
 
-  const keptLabels = [...new Set(keptNow.map((k) => (isBandBox(k) ? 'Passbands' : k === 'bandpassNotes' ? labelOf(k) : `${labelOf(k)} ${texts[k] ?? ''}`.trim())))];
+  // An empty band box kept (the user had sums but no bands) names nothing: "Passbands" only when the user had bands.
+  const keptLabels = [...new Set(keptNow.filter((k) => !isBandBox(k) || (texts[k] ?? '').trim() !== '').map((k) => (isBandBox(k) ? 'Passbands' : k === 'bandpassNotes' ? labelOf(k) : `${labelOf(k)} ${texts[k] ?? ''}`.trim())))];
   const status = (() => {
     if (!current) return aiMarked && !state ? { warn: true, text: 'Filled by AI, check it.' } : null;
     if (edited) return { warn: false, text: 'You changed these values. They are not saved for others yet.' };

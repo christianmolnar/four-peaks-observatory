@@ -4,7 +4,7 @@ import { Fragment, memo, useEffect, useRef, useState } from 'react';
 import type { Profile, ProfileFilter, TrainEntry } from '@/planner/profile';
 import { MAX_NAME_CHARS, gearProblems, outOfRangeKeys, problemText, reducedFocalNote, siteBadKeys, siteProblems } from '@/planner/profile';
 import { GEAR_LIMITS, MAX_PASSBANDS, limitOf, rangeText } from '@/planner/profile/limits';
-import { bandKey, bandText, bandsFromTexts, bandsLineNote, filledRows, withDerivedSums, withoutBandRow } from '@/planner/profile/passbands';
+import { bandKey, bandText, bandsLineNote, filledRows, formTexts, withDerivedSums, sumsFollowBands, withoutBandRow } from '@/planner/profile/passbands';
 import { LIST_SPECS, addItem, addTrain, boxHint, removeItem, removeTrain, replaceItem, replaceTrain, textsOf } from '@/planner/state/edit';
 import type { FieldSpec, ListKey } from '@/planner/state/edit';
 import { GEAR_CLASSES, UsedError, usedText, usesOf } from '@/planner/state/gear';
@@ -204,16 +204,18 @@ function FormShell({ legend, error, notice, onSave, onClose, focusTo, nameId, ch
 
 function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, lookup, onLookup }: { profile: Profile; list: ListKey; item: { id: string; name: string } & object; onChange: (p: Profile, what: string) => void; onRefuse: () => void; onClose: () => void; focusTo: () => FocusTo; lookup: LookupState | null; onLookup: (s: LookupState | null) => void }) {
   const spec = LIST_SPECS[list];
-  const [texts, setTexts] = useState(() => textsOf(list, item));
+  // A filter's boxes hold its bands and only the sums the user typed (formTexts); the sums shown and saved are worked out from them (withDerivedSums), so sums
+  // from bands that are gone can never stay behind, whatever route took the bands away.
+  const [texts, setTexts] = useState(() => (list === 'filters' ? formTexts(textsOf(list, item)) : textsOf(list, item)));
   // The boxes as they are this instant (state lags a render). A lookup that finishes later merges against this, so nothing typed meanwhile is lost.
   const textsRef = useRef(texts);
-  // The band rows shown: those holding something, and the blank ones the user added. The two totals follow good bands (withDerivedSums).
+  // The band rows shown: those holding something, and the blank ones the user added.
   const [blankRows, setBlankRows] = useState(0);
   const commit = (next: Record<string, string>) => {
-    const settled = list === 'filters' ? withDerivedSums(next) : next;
-    textsRef.current = settled;
-    setTexts(settled);
+    textsRef.current = next;
+    setTexts(next);
   };
+  const shown = list === 'filters' ? withDerivedSums(texts) : texts;
   const [error, setError] = useState<string | null>(null);
   // Boxes whose value a lookup wrote and the user has not edited since. A lookup may overwrite only these (and empty boxes); every other value is saved or typed by the user.
   const filled = useRef(new Set<string>());
@@ -236,8 +238,7 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
     commit(next);
   };
   const rows = list === 'filters' ? Math.max(filledRows(texts), blankRows) : 0;
-  const bandsNow = list === 'filters' ? bandsFromTexts(texts) : null;
-  const bandsDecide = bandsNow !== null && 'bands' in bandsNow && bandsNow.bands.length > 0;
+  const bandsDecide = list === 'filters' && sumsFollowBands(texts);
   const idBase = `edit-${list}-${item.id}`;
   const editBand = (key: string, v: string) => {
     filled.current.delete(key);
@@ -261,7 +262,7 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
     <FormShell
       legend={`${spec.title === 'Site' ? 'Site' : spec.noun[0].toUpperCase() + spec.noun.slice(1)}: ${item.name}`}
       error={error}
-      onSave={() => run(() => replaceItem(profile, list, item.id, texts, ai), `Saved ${texts.name || item.name}.`)}
+      onSave={() => run(() => replaceItem(profile, list, item.id, shown, ai), `Saved ${texts.name || item.name}.`)}
       onClose={onClose}
       focusTo={focusTo}
       nameId={`edit-${list}-${item.id}-name`}
@@ -273,9 +274,10 @@ function ItemForm({ profile, list, item, onChange, onRefuse, onClose, focusTo, l
           <Box
             id={`edit-${list}-${item.id}-${f.key}`}
             spec={f}
-            value={texts[f.key] ?? ''}
+            value={shown[f.key] ?? ''}
             derived={bandsDecide && (f.key === 'passbandWidthNm' || f.key === 'narrowestBandNm')}
             onChange={(v) => {
+              if (bandsDecide && (f.key === 'passbandWidthNm' || f.key === 'narrowestBandNm')) return; // read-only: the bands decide it
               filled.current.delete(f.key);
               if (lookupKeys.includes(f.key)) setAi(false);
               commit({ ...textsRef.current, [f.key]: v });

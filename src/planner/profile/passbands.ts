@@ -124,23 +124,32 @@ export function filledRows(texts: Record<string, string>): number {
   return 0;
 }
 
-/** The boxes with the two sums following the bands, when the bands are all there and judged good; otherwise the boxes as they are. */
+/**
+ * The form holds the bands and the sums the user typed; the sums shown and saved are worked out from that (withDerivedSums), so they can never be left over from bands
+ * that are gone. While any band row holds anything the sums are the bands' (or none while a row is half-filled or refused); with no band rows they are the user's.
+ */
+export const sumsFollowBands = (texts: Record<string, string>): boolean => filledRows(texts) > 0;
+
+/** The boxes a form starts from: a filter that has bands holds no sums of its own (its saved sums are the bands'). */
+export function formTexts(texts: Record<string, string>): Record<string, string> {
+  return sumsFollowBands(texts) ? { ...texts, passbandWidthNm: '', narrowestBandNm: '' } : texts;
+}
+
+/** The boxes as shown and saved: with band rows, the two sums are the good bands' sums, or empty while the rows are not good bands; with none, the typed sums. */
 export function withDerivedSums(texts: Record<string, string>): Record<string, string> {
+  if (!sumsFollowBands(texts)) return texts;
   const r = bandsFromTexts(texts);
-  if (!('bands' in r) || r.bands.length === 0) return texts;
+  if (!('bands' in r)) return { ...texts, passbandWidthNm: '', narrowestBandNm: '' };
   const s = bandSums(r.bands);
   return { ...texts, passbandWidthNm: num(s.passbandWidthNm), narrowestBandNm: num(s.narrowestBandNm) };
 }
 
-/** The boxes with row `row` (1-based) removed and the rows after it moved up one. */
+/** The boxes with row `row` (1-based) removed and the rows after it moved up one. The typed sums are left as they are. */
 export function withoutBandRow(texts: Record<string, string>, row: number): Record<string, string> {
   const out = { ...texts };
   for (let i = row; i <= MAX_PASSBANDS; i++) {
     out[bandKey(i, 'Centre')] = i < MAX_PASSBANDS ? (texts[bandKey(i + 1, 'Centre')] ?? '') : '';
     out[bandKey(i, 'Width')] = i < MAX_PASSBANDS ? (texts[bandKey(i + 1, 'Width')] ?? '') : '';
   }
-  // The last band gone: the filter has no bands, so the sums the bands decided go too (unknown), never the last band's width.
-  const hadBands = bandsFromTexts(texts);
-  if ('bands' in hadBands && hadBands.bands.length > 0 && filledRows(out) === 0) return { ...out, passbandWidthNm: '', narrowestBandNm: '' };
-  return withDerivedSums(out);
+  return out;
 }

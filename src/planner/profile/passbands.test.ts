@@ -1,5 +1,5 @@
 import { EMISSION_LINES, LINE_MATCH_NM, lineNear } from './lines';
-import { bandSums, bandText, bandsFromTexts, bandsLineNote, bandsToTexts, filledRows, judgePassbands, withDerivedSums, withoutBandRow } from './passbands';
+import { bandSums, bandText, bandsFromTexts, bandsLineNote, bandsToTexts, filledRows, formTexts, judgePassbands, withDerivedSums, sumsFollowBands, withoutBandRow } from './passbands';
 
 const NBZ = [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }];
 const problems = (raw: unknown): string => {
@@ -111,22 +111,35 @@ describe('band rows in the form', () => {
     expect(filledRows(bandsToTexts(NBZ))).toBe(2);
     expect(filledRows({ ...bandsToTexts([]), band4Width: '5' })).toBe(4);
   });
-  it('the sums follow good bands and are left alone otherwise', () => {
-    expect(withDerivedSums({ ...bandsToTexts(NBZ), passbandWidthNm: '', narrowestBandNm: '' })).toMatchObject({ passbandWidthNm: '17.5', narrowestBandNm: '8' });
-    const typed = { ...bandsToTexts([]), passbandWidthNm: '30', narrowestBandNm: '10' };
-    expect(withDerivedSums(typed)).toBe(typed);
-    const half = { ...bandsToTexts(NBZ), band2Width: '', passbandWidthNm: '30' };
-    expect(withDerivedSums(half)).toBe(half);
+  it('the form keeps only the sums the user typed: a filter that has bands holds no sums of its own', () => {
+    expect(formTexts({ ...bandsToTexts(NBZ), passbandWidthNm: '17.5', narrowestBandNm: '8' })).toMatchObject({ band1Centre: '656.3', passbandWidthNm: '', narrowestBandNm: '' });
+    const typed = { ...bandsToTexts([]), passbandWidthNm: '50', narrowestBandNm: '15' };
+    expect(formTexts(typed)).toEqual(typed);
   });
-  it('removing a row moves the later rows up and recomputes the sums', () => {
+  it('the sums shown follow the bands whenever a band row holds anything: good bands give their sums, a half or bad row gives none; no rows give the typed sums', () => {
+    expect(sumsFollowBands(bandsToTexts([]))).toBe(false);
+    expect(sumsFollowBands({ ...bandsToTexts([]), band2Width: '3' })).toBe(true);
+    expect(withDerivedSums({ ...bandsToTexts(NBZ), passbandWidthNm: '50', narrowestBandNm: '15' })).toMatchObject({ passbandWidthNm: '17.5', narrowestBandNm: '8' });
+    expect(withDerivedSums({ ...bandsToTexts(NBZ), band2Width: '', passbandWidthNm: '50', narrowestBandNm: '15' })).toMatchObject({ passbandWidthNm: '', narrowestBandNm: '' });
+    expect(withDerivedSums({ ...bandsToTexts(NBZ), band2Width: 'abc', passbandWidthNm: '', narrowestBandNm: '' })).toMatchObject({ passbandWidthNm: '', narrowestBandNm: '' });
+    const typed = { ...bandsToTexts([]), passbandWidthNm: '50', narrowestBandNm: '15' };
+    expect(withDerivedSums(typed)).toEqual(typed);
+    expect(withDerivedSums({ ...bandsToTexts([]), passbandWidthNm: '', narrowestBandNm: '' })).toMatchObject({ passbandWidthNm: '', narrowestBandNm: '' });
+  });
+  it('removing a row moves the later rows up and leaves the typed sums alone; the shown sums follow the rows left', () => {
     const three = bandsToTexts([{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }, { centreNm: 672, widthNm: 19 }]);
-    const t = withoutBandRow({ ...three, passbandWidthNm: '36.5', narrowestBandNm: '8' }, 1);
-    expect(t).toMatchObject({ band1Centre: '500.7', band1Width: '8', band2Centre: '672', band2Width: '19', band3Centre: '', band3Width: '', passbandWidthNm: '27', narrowestBandNm: '8' });
+    const t = withoutBandRow({ ...three, passbandWidthNm: '', narrowestBandNm: '' }, 1);
+    expect(t).toMatchObject({ band1Centre: '500.7', band1Width: '8', band2Centre: '672', band2Width: '19', band3Centre: '', band3Width: '', passbandWidthNm: '', narrowestBandNm: '' });
+    expect(withDerivedSums(t)).toMatchObject({ passbandWidthNm: '27', narrowestBandNm: '8' });
     expect(withoutBandRow(three, 6)).toMatchObject(three);
   });
-  it('removing the last band leaves the sums empty, never that band\'s width; with no bands to begin with the typed sums stay', () => {
-    const one = { ...bandsToTexts([{ centreNm: 656.3, widthNm: 9.5 }]), passbandWidthNm: '9.5', narrowestBandNm: '9.5' };
-    expect(withoutBandRow(one, 1)).toMatchObject({ band1Centre: '', band1Width: '', passbandWidthNm: '', narrowestBandNm: '' });
-    expect(withoutBandRow({ ...bandsToTexts([]), passbandWidthNm: '50', narrowestBandNm: '15' }, 1)).toMatchObject({ passbandWidthNm: '50', narrowestBandNm: '15' });
+  it('the last band gone by any route leaves the sums the user had before bands, or none, never a band\'s width', () => {
+    const one = formTexts({ ...bandsToTexts([{ centreNm: 656.3, widthNm: 9.5 }]), passbandWidthNm: '9.5', narrowestBandNm: '9.5' });
+    expect(withDerivedSums(withoutBandRow(one, 1))).toMatchObject({ band1Centre: '', passbandWidthNm: '', narrowestBandNm: '' });
+    expect(withDerivedSums({ ...one, band1Centre: '', band1Width: '' })).toMatchObject({ passbandWidthNm: '', narrowestBandNm: '' });
+    expect(withDerivedSums(withoutBandRow({ ...one, band1Width: '' }, 1))).toMatchObject({ passbandWidthNm: '', narrowestBandNm: '' });
+    const own = { ...bandsToTexts([{ centreNm: 656.3, widthNm: 7 }]), passbandWidthNm: '50', narrowestBandNm: '15' };
+    expect(withDerivedSums(own)).toMatchObject({ passbandWidthNm: '7', narrowestBandNm: '7' });
+    expect(withDerivedSums(withoutBandRow(own, 1))).toMatchObject({ passbandWidthNm: '50', narrowestBandNm: '15' });
   });
 });

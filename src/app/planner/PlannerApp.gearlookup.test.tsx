@@ -456,7 +456,7 @@ describe('Look up specs', () => {
       expect(centres(form)).toEqual([]);
       expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('50');
       expect((within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement).value).toBe('15');
-      expect(within(form).getByText(/Kept your .*Passbands.*Total passband width 50.*Narrowest band 15/)).toBeTruthy();
+      expect(within(form).getByText(/^Kept your Total passband width 50 and Narrowest band 15\./)).toBeTruthy(); // no bands of theirs, so no "Passbands" named
       fireEvent.click(within(form).getByRole('button', { name: 'Apply library values' }));
       expect(centres(form)).toEqual(['656.3', '500.7']);
       expect((within(form).getByLabelText(/^Total passband width/) as HTMLInputElement).value).toBe('14');
@@ -478,6 +478,232 @@ describe('Look up specs', () => {
       expect(f.passbands).toBeUndefined();
       expect(f.passbandWidthNm).toBeUndefined();
       expect(f.narrowestBandNm).toBeUndefined();
+    });
+
+    // Every path by which the sums and bands change in the form ends in Save: the stored filter has the bands' sums with bands, and with no bands the sums the
+    // user typed (or had before bands), never a band's width.
+    describe('the sums are the bands\' while there are band rows, and the user\'s own otherwise, on every path', () => {
+      const sum = (form: HTMLElement) => within(form).getByLabelText(/^Total passband width/) as HTMLInputElement;
+      const narrow = (form: HTMLElement) => within(form).getByLabelText(/^Narrowest band/) as HTMLInputElement;
+      const storeFilter = async (filter: Record<string, unknown>) => {
+        const p = JSON.parse(JSON.stringify((await import('@/planner/state')).sampleProfile()));
+        p.equipment.filters = [...p.equipment.filters, { id: 'fx', name: 'Stored', ...filter }];
+        window.localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
+      };
+      const openStored = async () => {
+        await mount();
+        fireEvent.click(screen.getByRole('button', { name: /^Filters \(\d+\)$/ }));
+        const card = screen.getByText('Stored').closest('li')!;
+        fireEvent.click(within(card).getByRole('button', { name: /^Change/ }));
+        return gearForm();
+      };
+      const save = (form: HTMLElement) => fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+      const savedClean = async (name: string) => {
+        await waitFor(() => expect(savedFilter(name)).toBeTruthy());
+        const f = savedFilter(name);
+        await waitFor(() => expect(savedFilter(name).passbands).toBeUndefined());
+        return f;
+      };
+      const noSums = (f: Record<string, unknown>) => {
+        expect(f.passbands).toBeUndefined();
+        expect(f.passbandWidthNm).toBeUndefined();
+        expect(f.narrowestBandNm).toBeUndefined();
+      };
+      const band = (form: HTMLElement, i: number, part: 'centre' | 'width', v: string) => fireEvent.change(within(form).getAllByLabelText(`Passband ${part} (nm)`)[i], { target: { value: v } });
+
+      it('load: a stored filter with bands shows their sums, read-only', async () => {
+        route({});
+        await storeFilter({ passbands: [{ centreNm: 656.3, widthNm: 9.5 }], passbandWidthNm: 9.5, narrowestBandNm: 9.5 });
+        const form = await openStored();
+        expect(widths(form)).toEqual(['9.5']);
+        expect(sum(form).value).toBe('9.5');
+        expect(sum(form).readOnly).toBe(true);
+        expect(narrow(form).value).toBe('9.5');
+      });
+
+      it('S5: clearing the centre then the width of a stored single band, Save: no passbands, no sums', async () => {
+        route({});
+        await storeFilter({ passbands: [{ centreNm: 656.3, widthNm: 9.5 }], passbandWidthNm: 9.5, narrowestBandNm: 9.5 });
+        const form = await openStored();
+        band(form, 0, 'centre', '');
+        expect(sum(form).value).toBe(''); // a half row decides no sums
+        expect(sum(form).readOnly).toBe(true);
+        band(form, 0, 'width', '');
+        expect(sum(form).value).toBe('');
+        expect(sum(form).readOnly).toBe(false);
+        expect(narrow(form).value).toBe('');
+        save(form);
+        noSums(await savedClean('Stored'));
+        expect(screen.queryByText(/Total passband width 9\.5/)).toBeNull();
+      });
+
+      it('S6b: clearing the width of a stored single band, then Remove passband 1, Save: no passbands, no sums', async () => {
+        route({});
+        await storeFilter({ passbands: [{ centreNm: 656.3, widthNm: 9.5 }], passbandWidthNm: 9.5, narrowestBandNm: 9.5 });
+        const form = await openStored();
+        band(form, 0, 'width', '');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        expect(centres(form)).toEqual([]);
+        expect(sum(form).value).toBe('');
+        save(form);
+        noSums(await savedClean('Stored'));
+        expect(within(form.ownerDocument.body).queryByRole('alert')).toBeNull();
+      });
+
+      it('S6: NBZ 9.5 + 8, "abc" in band 2\'s width, Remove passband 1 twice, Save: no passbands, no sums', async () => {
+        route({});
+        await storeFilter({ passbands: NBZ, passbandWidthNm: 17.5, narrowestBandNm: 8 });
+        const form = await openStored();
+        band(form, 1, 'width', 'abc');
+        expect(sum(form).value).toBe('');
+        expect(sum(form).readOnly).toBe(true);
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        expect(centres(form)).toEqual([]);
+        expect(sum(form).value).toBe('');
+        expect(narrow(form).value).toBe('');
+        save(form);
+        noSums(await savedClean('Stored'));
+        expect(screen.queryByText(/Total passband width 17\.5/)).toBeNull();
+      });
+
+      it('clearing both boxes of the last band after a lookup, Save: no passbands, no sums', async () => {
+        route({ get: () => json({ entry: nbz() }) });
+        const form = await openNewFilter();
+        await lookup(form, 'IDAS NBZ-II');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 2' }));
+        band(form, 0, 'width', '');
+        band(form, 0, 'centre', '');
+        expect(sum(form).value).toBe('');
+        save(form);
+        noSums(await savedClean('IDAS NBZ-II'));
+      });
+
+      it('delete and re-add: the sums follow the new band only, and removing it again leaves none', async () => {
+        route({ get: () => json({ entry: nbz() }) });
+        const form = await openNewFilter();
+        await lookup(form, 'IDAS NBZ-II');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+        band(form, 0, 'centre', '656.3');
+        band(form, 0, 'width', '3');
+        expect(sum(form).value).toBe('3');
+        expect(narrow(form).value).toBe('3');
+        save(form);
+        await waitFor(() => expect(savedFilter('IDAS NBZ-II')).toMatchObject({ passbands: [{ centreNm: 656.3, widthNm: 3 }], passbandWidthNm: 3, narrowestBandNm: 3 }));
+        const again = gearForm();
+        fireEvent.click(within(again).getByRole('button', { name: 'Remove passband 1' }));
+        expect(sum(again).value).toBe('');
+        save(again);
+        noSums(await savedClean('IDAS NBZ-II'));
+      });
+
+      it('edit then undo: own sums 50/15, a band typed (7/7, read-only), its boxes cleared: 50/15 come back editable and are saved', async () => {
+        route({});
+        await storeFilter({ passbandWidthNm: 50, narrowestBandNm: 15 });
+        const form = await openStored();
+        fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+        band(form, 0, 'centre', '656.3');
+        band(form, 0, 'width', '7');
+        expect(sum(form).value).toBe('7');
+        expect(sum(form).readOnly).toBe(true);
+        band(form, 0, 'width', '');
+        band(form, 0, 'centre', '');
+        expect(sum(form).value).toBe('50');
+        expect(narrow(form).value).toBe('15');
+        expect(sum(form).readOnly).toBe(false);
+        save(form);
+        await waitFor(() => expect(savedFilter('Stored')).toEqual({ id: 'fx', name: 'Stored', passbandWidthNm: 50, narrowestBandNm: 15 }));
+      });
+
+      it('own sums 50/15, a band added then removed: 50/15 come back', async () => {
+        route({});
+        await storeFilter({ passbandWidthNm: 50, narrowestBandNm: 15 });
+        const form = await openStored();
+        fireEvent.click(within(form).getByRole('button', { name: 'Add a passband' }));
+        band(form, 0, 'centre', '656.3');
+        band(form, 0, 'width', '7');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        expect(sum(form).value).toBe('50');
+        expect(narrow(form).value).toBe('15');
+        save(form);
+        await waitFor(() => expect(savedFilter('Stored')).toEqual({ id: 'fx', name: 'Stored', passbandWidthNm: 50, narrowestBandNm: 15 }));
+      });
+
+      it('typing into a read-only sum box while bands decide it changes nothing, then or after the bands go', async () => {
+        route({});
+        await storeFilter({ passbands: [{ centreNm: 656.3, widthNm: 9.5 }], passbandWidthNm: 9.5, narrowestBandNm: 9.5 });
+        const form = await openStored();
+        fireEvent.change(sum(form), { target: { value: '40' } });
+        expect(sum(form).value).toBe('9.5');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        expect(sum(form).value).toBe('');
+        save(form);
+        noSums(await savedClean('Stored'));
+      });
+
+      it('lookup, then Apply over own sums, then every band removed: the library\'s sums do not stay behind', async () => {
+        route({ get: () => json({ entry: entryOf('Duo', { cls: 'filter', source: 'seed', specs: { type: 'dual-band', passbands: [{ centreNm: 656.3, widthNm: 7 }, { centreNm: 500.7, widthNm: 7 }] } }) }) });
+        const form = await openNewFilter();
+        typeIn(form, /^Total passband width/, '50');
+        typeIn(form, /^Narrowest band/, '15');
+        await lookup(form, 'Duo');
+        fireEvent.click(within(form).getByRole('button', { name: 'Apply library values' }));
+        expect(sum(form).value).toBe('14');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        expect(sum(form).value).toBe('');
+        expect(narrow(form).value).toBe('');
+        save(form);
+        noSums(await savedClean('Duo'));
+      });
+
+      it.each([
+        ['NBZ-II first, then a 7/7 entry', 'IDAS NBZ-II', 'Duo 7', ['656.3', '500.7'], ['7', '7'], '14', '7'],
+        ['a 7/7 entry first, then NBZ-II', 'Duo 7', 'IDAS NBZ-II', ['656.3', '500.7'], ['9.5', '8'], '17.5', '8'],
+      ])('lookup, rename, lookup again (%s): the bands and sums an earlier lookup wrote are replaced, nothing is "Kept your"', async (_c, first, second, cs, ws, total, narrowest) => {
+        const duo = entryOf('Duo 7', { cls: 'filter', source: 'model', specs: { type: 'dual-band', passbands: [{ centreNm: 656.3, widthNm: 7 }, { centreNm: 500.7, widthNm: 7 }] } });
+        route({ get: (url) => json({ entry: url.includes('NBZ') ? nbz() : duo }) });
+        const form = await openNewFilter();
+        await lookup(form, first);
+        await lookup(form, second);
+        expect(centres(form)).toEqual(cs);
+        expect(widths(form)).toEqual(ws);
+        expect(sum(form).value).toBe(total);
+        expect(narrow(form).value).toBe(narrowest);
+        expect(within(form).queryByText(/Kept your/)).toBeNull();
+        save(form);
+        await waitFor(() => expect(savedFilter(second)).toMatchObject({ passbandWidthNm: Number(total), narrowestBandNm: Number(narrowest) }));
+      });
+
+      it('import: a gear file with bands, then the band removed in the form, Save: no passbands, no sums', async () => {
+        route({});
+        if (!Blob.prototype.text) {
+          Blob.prototype.text = function (this: Blob) {
+            return new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(String(r.result));
+              r.onerror = () => rej(r.error);
+              r.readAsText(this);
+            });
+          };
+        }
+        const p = JSON.parse(JSON.stringify((await import('@/planner/state')).sampleProfile()));
+        p.equipment.filters = [...p.equipment.filters, { id: 'fx', name: 'Stored', passbands: [{ centreNm: 656.3, widthNm: 9.5 }], passbandWidthNm: 9.5, narrowestBandNm: 9.5 }];
+        render(<PlannerApp {...pageProps} initialDate="2026-12-15" />);
+        await ready();
+        fireEvent.change(screen.getByLabelText('Import profile (JSON)'), { target: { files: [new File([JSON.stringify(p)], 'profile.json', { type: 'application/json' })] } });
+        await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Imported profile\.json/));
+        openGear();
+        fireEvent.click(screen.getByRole('button', { name: /^Filters \(\d+\)$/ }));
+        fireEvent.click(within(screen.getByText('Stored').closest('li')!).getByRole('button', { name: /^Change/ }));
+        const form = gearForm();
+        expect(sum(form).value).toBe('9.5');
+        fireEvent.click(within(form).getByRole('button', { name: 'Remove passband 1' }));
+        save(form);
+        noSums(await savedClean('Stored'));
+      });
     });
 
     it.each([['NaN'], ['abc'], ['1e308'], ['-4'], ['0'], ['Infinity']])('%s in a band width is refused on Save in plain words and nothing is stored', async (bad) => {
