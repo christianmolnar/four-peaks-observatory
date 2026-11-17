@@ -54,6 +54,11 @@ export interface TargetSearchProps {
   renderNotFound?: (text: string) => ReactNode;
   /** The detail of a Moon or planet result (size, phase, clip limit, checklist), shown whether or not it is up that night. */
   renderBodyDetail?: (body: CardBody) => ReactNode;
+  /**
+   * `plan` (default): results are added to the open plan and say what the night makes of them. `project`: the same search picks targets for a project:
+   * catalog targets only (no Moon or planets), the buttons say project, and nothing about tonight is shown. `planIds` are then the project's targets.
+   */
+  variant?: 'plan' | 'project';
 }
 
 /**
@@ -61,21 +66,22 @@ export interface TargetSearchProps {
  * the chosen night whether it is up and what it scores, even when it is not among tonight's best. Enter or the Search button
  * does the same as typing; they exist so a keyboard or a phone's "Go" key has something to press.
  */
-export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWord, formatTime, planIds, listedAs, added, onAdd, renderNotFound, renderBodyDetail }: TargetSearchProps) {
+export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWord, formatTime, planIds, listedAs, added, onAdd, renderNotFound, renderBodyDetail, variant = 'plan' }: TargetSearchProps) {
+  const inProject = variant === 'project';
   const [text, setText] = useState('');
   const [openBody, setOpenBody] = useState('');
   // What the Search button or Enter committed; typing updates `text` and the results follow it either way.
   const [, setSubmitted] = useState('');
   const uid = useId();
-  const inputId = 'target-search'; // one search box on the page; the sticky strip jumps to it
+  const inputId = inProject ? 'project-target-search' : 'target-search'; // one search box on the plan; the sticky strip jumps to it
   const hintId = `${uid}-find-hint`;
   const typed = text.trim();
   const result = useMemo(() => (catalog.status === 'ready' && typed !== '' ? catalog.index.search({ text: typed, limit: MAX_RESULTS }) : null), [catalog, typed]);
   // The planets and the Moon are not in the catalog: they answer to their own names, first, and are scored by the same night scorer.
   const bodies = useMemo(() => {
     const q = typed.toLowerCase();
-    return q.length < BODY_MIN_LETTERS ? [] : SLOT_BODIES.filter((b) => b.toLowerCase().startsWith(q));
-  }, [typed]);
+    return inProject || q.length < BODY_MIN_LETTERS ? [] : SLOT_BODIES.filter((b) => b.toLowerCase().startsWith(q));
+  }, [typed, inProject]);
   const rows = useMemo((): Row[] => {
     if (typed === '') return [];
     const planets = bodies.map((b): Row => ({ id: planetIdOf(b), name: b, aka: '', meta: 'Solar system', entry: scorer === null ? null : scorer.planet(b), type: null }));
@@ -139,7 +145,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
         </button>
       </form>
       <p id={hintId} className="mt-1 text-p-t1/60 font-normal text-sm">
-        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}, the solar system (Moon and planets) on this device, as you type. Nothing is sent anywhere.
+        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}{inProject ? '' : ', the solar system (Moon and planets)'} on this device, as you type. Nothing is sent anywhere.
       </p>
 
       {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-p-t1/80 font-normal text-sm">Loading the catalog…</p>}
@@ -168,7 +174,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                 const inPlan = planIds.has(r.id);
                 const body = SLOT_BODIES.find((b) => planetIdOf(b) === r.id);
                 const bodyOpen = body !== undefined && renderBodyDetail !== undefined && openBody === r.id;
-                const outside = r.type !== null && place === undefined && r.entry !== null && r.entry.usableMinutes > 0 ? outsideTheList(r.type, r.entry) : '';
+                const outside = !inProject && r.type !== null && place === undefined && r.entry !== null && r.entry.usableMinutes > 0 ? outsideTheList(r.type, r.entry) : '';
                 return (
                   <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
                     <div className="min-w-0 flex-1 basis-56 break-words">
@@ -177,11 +183,13 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                         {r.aka !== '' && <span className="ml-2 text-p-t1/70">{r.aka}</span>}
                       </p>
                       <p className="text-p-t1/70">{r.meta}</p>
-                      <p className="mt-1">
-                        {r.entry === null ? `No astronomical night ${nightWord === 'tonight' ? 'tonight' : 'on that date'}.` : nightStatus(r.entry, nightWord, formatTime)}
-                        {place !== undefined && ` ${place}`}
-                        {outside !== '' && ` ${outside}`}
-                      </p>
+                      {!inProject && (
+                        <p className="mt-1">
+                          {r.entry === null ? `No astronomical night ${nightWord === 'tonight' ? 'tonight' : 'on that date'}.` : nightStatus(r.entry, nightWord, formatTime)}
+                          {place !== undefined && ` ${place}`}
+                          {outside !== '' && ` ${outside}`}
+                        </p>
+                      )}
                       {body !== undefined && renderBodyDetail !== undefined && (
                         <button
                           type="button"
@@ -197,14 +205,14 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                     <div className="flex flex-col items-end">
                       <button
                         type="button"
-                        aria-label={inPlan ? `${r.name} is in the plan` : `Add ${r.name} to the plan`}
+                        aria-label={inPlan ? `${r.name} is in the ${inProject ? 'project' : 'plan'}` : `Add ${r.name} to the ${inProject ? 'project' : 'plan'}`}
                         aria-disabled={inPlan}
                         onClick={() => {
                           if (!inPlan) onAdd(r.id);
                         }}
                         className={`min-h-11 px-3 py-1.5 rounded border text-sm ${inPlan ? 'border-p-line/15 text-p-t1/70' : 'border-p-line/30 text-p-t1 hover:bg-p-raised/10'}`}
                       >
-                        {inPlan ? 'In plan' : 'Add to plan'}
+                        {inPlan ? (inProject ? 'In project' : 'In plan') : inProject ? 'Add to project' : 'Add to plan'}
                       </button>
                       {added?.id === r.id && <span aria-hidden="true" className="mt-0.5 text-sm text-p-ok">{added.text}</span>}
                     </div>

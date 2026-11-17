@@ -12,8 +12,10 @@ import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { MAX_PLANS_FILE_CHARS, NOT_IN_CATALOG, NOT_SCHEDULED, PlansFileError, asiairCsv, asiairPanes, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText } from '@/planner/export';
+import type { ProjectSheet } from '@/planner/projects';
 import type { AsiairTarget, PlanExposureRow, PlanSheet, SheetRow, ShareDoc, TargetFacts } from '@/planner/export';
 import { opticalTrain } from '@/planner/optics';
+import { BROADBAND_ID, projectSheet } from '@/planner/projects';
 import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError, resolveTrain } from '@/planner/profile';
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, PRESETS } from '@/planner/exposure';
@@ -113,6 +115,9 @@ import OpenPlan from './OpenPlan';
 import PlanRail, { RAIL_MIN_WIDTH, useMinWidth } from './PlanRail';
 import type { PlanRow } from './OpenPlan';
 import PlansBar from './PlansBar';
+import ProjectsTab from './ProjectsTab';
+import { sheetNames } from './projectNames';
+import { useProjects } from './useProjects';
 import PlanRowExposure from './PlanRowExposure';
 import PlanRowMix from './PlanRowMix';
 import type { MixFilter } from '@/planner/filtermix';
@@ -183,7 +188,9 @@ const BRIGHT_MOON = 0.8;
 const TABS = [
   { id: 'plan', label: 'Plan' },
   { id: 'gear', label: 'Gear and site' },
+  { id: 'projects', label: 'Projects' },
 ] as const;
+type TabId = (typeof TABS)[number]['id'];
 
 /** Tonight's list holds at most this many targets. */
 const LIST_LIMIT = 100;
@@ -291,7 +298,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [alwaysRestore, setAlwaysRestore] = useState(false);
   // Find a target: the user's open or close; null follows the plan (open while it has no targets, one line once it has some).
   const [findOpen, setFindOpen] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<'plan' | 'gear'>('plan');
+  const [tab, setTab] = useState<TabId>('plan');
+  // The Projects tab is built the first time it is opened and kept (a half-made project survives a visit to the other tabs); the saved projects are read by the page at once, for Share.
+  const [projectsSeen, setProjectsSeen] = useState(false);
+  const projectsApi = useProjects();
   // The one copy of the form: what is in the boxes. Messages and the horizon the plan uses are derived from it.
   const [fields, setFields] = useState<HorizonFields[]>(() => fieldsOf((initialProfile ?? sampleProfile()).sites[0]?.blockedArcs ?? []));
   // Each row's own last saved (or loaded) zone, in the same order as `fields`; null for a row added since. A bad box falls back to its own row's base only.
@@ -389,17 +399,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The tabs follow the address: #plan and #gear, and a link to anything inside a tab (#horizon, #gear-heading) opens that tab first.
   const land = useCallback(() => {
     const id = window.location.hash.slice(1);
-    if (id === 'plan' || id === 'gear') {
+    if (id === 'plan' || id === 'gear' || id === 'projects') {
       setTab(id);
       return;
     }
     const el = id === '' ? null : document.getElementById(id);
     const panel = el?.closest<HTMLElement>('[role="tabpanel"]');
     if (el && panel) {
-      setTab(panel.id === 'panel-gear' ? 'gear' : 'plan');
+      setTab(panel.id === 'panel-gear' ? 'gear' : panel.id === 'panel-projects' ? 'projects' : 'plan');
       requestAnimationFrame(() => el.scrollIntoView());
     }
   }, []);
+  useEffect(() => {
+    if (tab === 'projects') setProjectsSeen(true);
+  }, [tab]);
   useEffect(() => {
     land();
     window.addEventListener('hashchange', land);
@@ -410,7 +423,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     };
   }, [land]);
   /** The one way a tab is chosen by the user: the address follows, so Back and a shared link return to it. */
-  const selectTab = (next: 'plan' | 'gear') => {
+  const selectTab = (next: TabId) => {
     setTab(next);
     if (window.location.hash !== `#${next}`) window.history.pushState(null, '', `#${next}`);
   };
@@ -1725,17 +1738,37 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const sheetsFor = (what: ShareWhat, withMix = false): PlanSheet[] => (what === 'plan' ? [openSheet(withMix)] : what === 'all' || what === 'everything' ? (plans?.plans ?? []).map((p) => (p.id === plans?.openId ? openSheet(withMix) : otherSheet(p))) : []);
   /** Why a choice is off: saved gear that could not be loaded is never shared as if it were the sample on screen. */
   const shareBlocked: Partial<Record<ShareWhat, string>> =
-    profileHeld !== null ? { gear: 'Your saved gear could not be loaded, so it cannot be shared from here. Export profile (JSON) under Gear and site keeps the saved text as it is.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {};
+    {
+      ...(profileHeld !== null ? { gear: 'Your saved gear could not be loaded, so it cannot be shared from here. Export profile (JSON) under Gear and site keeps the saved text as it is.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {}),
+      ...(projectsApi.state.projects.length === 0 ? { projects: 'You have no projects yet. Make one under Projects.' } : {}),
+    };
   const shareNow: ShareWhat = shareBlocked[shareWhat] !== undefined ? 'plan' : shareWhat;
   const heldNote = heldPlans !== null ? 'Your saved plans are held back (see the notice at the top of the page), so this is the plans on this page.' : null;
-  const docFor = (what: ShareWhat, withMix = false): ShareDoc => ({ plans: sheetsFor(what, withMix), gear: what === 'gear' || what === 'everything' ? gearSheet(profile) : null, notes: heldNote === null ? [] : [heldNote] });
+  /** The page's one way to name a target id (a project's targets, in its tab and in every file). */
+  const targetName = useCallback(
+    (id: string): string => {
+      const body = SLOT_BODIES.find((b) => planetIdOf(b) === id);
+      if (body !== undefined) return body;
+      const t = catalogById?.get(id);
+      return t === undefined ? id : (t.displayName ?? t.name);
+    },
+    [catalogById],
+  );
+  const projectSheets = (): ProjectSheet[] => projectsApi.state.projects.map((p) => projectSheet(p, sheetNames(profile, p.setup, targetName)));
+  const docFor = (what: ShareWhat, withMix = false): ShareDoc => ({
+    plans: sheetsFor(what, withMix),
+    gear: what === 'gear' || what === 'everything' ? gearSheet(profile) : null,
+    notes: heldNote === null ? [] : [heldNote],
+    ...(what === 'projects' ? { projects: projectSheets() } : {}),
+  });
   const slug = (s: string): string => s.normalize('NFD').replace(/[^\x20-\x7e]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'plan';
   const makeShare = (what: ShareWhat, format: ShareFormat): { text: string; file: string } => {
     const ext = FORMATS.find((f) => f.id === format)!.ext;
-    const stem = what === 'plan' ? `fpo-plan-${slug(open?.name ?? '')}-${date}` : what === 'all' ? `fpo-plans-${date}` : what === 'gear' ? 'fpo-gear' : `fpo-everything-${date}`;
+    const stem = what === 'plan' ? `fpo-plan-${slug(open?.name ?? '')}-${date}` : what === 'all' ? `fpo-plans-${date}` : what === 'gear' ? 'fpo-gear' : what === 'projects' ? `fpo-projects-${date}` : `fpo-everything-${date}`;
     const file = `${stem}.${ext}`;
     if (format === 'json') {
       if (what === 'gear') return { text: gearFileText(profile), file };
+      if (what === 'projects') return { text: plansFileText({ exportedAt: sharedAt, plans: [], sheets: [], profile: null, projects: projectsApi.state.projects, projectSheets: projectSheets() }), file };
       const stored = what === 'plan' ? (open ? [open] : []) : (plans?.plans ?? []);
       return { text: plansFileText({ exportedAt: sharedAt, plans: stored, sheets: sheetsFor(what), profile: what === 'everything' ? profile : null }), file };
     }
@@ -2094,13 +2127,29 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     part?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
   };
   const openAi = () => setAiOpen(true);
-  const openShare = () => {
-    setShareWhat('plan');
+  const openShare = (what: ShareWhat = 'plan') => {
+    setShareWhat(what);
     setSharedAt(new Date().toISOString());
     setImportPanel({ kind: 'none' });
     setShareOpen(true);
   };
   const showRail = railWide && tab === 'plan';
+  // The Projects tab starts a new project from the open plan's setup: its scope and camera, its filter (Broadband when it has none) and the filters picked for the filter mix, and a sub length when every row of the plan shares one (else 60 s).
+  const projectFilters = train?.kind === 'optical' ? [train.filterId ?? BROADBAND_ID, ...mixPicks] : [BROADBAND_ID];
+  const projectFilterOrder = [BROADBAND_ID, ...profile.equipment.filters.map((f) => f.id)];
+  const projectContext = {
+    scopeId: train?.kind === 'optical' ? train.scopeId : null,
+    cameraId: train?.kind === 'optical' ? train.cameraId : null,
+    filterIds: projectFilterOrder.filter((id) => projectFilters.includes(id)),
+    subSeconds: (() => {
+      const subs = [...new Set(exposureRows.map((r) => r.subSeconds).filter((x): x is number => x !== null))];
+      return subs.length === 1 ? subs[0] : 60;
+    })(),
+  };
+  const localToday = (() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  })();
   return (
     <>
     <div
@@ -2186,7 +2235,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         ))}
       </div>
 
-      <section ref={stripRef} aria-labelledby="controls-heading" className="sticky top-[var(--planner-nav,0px)] z-30 rounded-lg border border-p-line/10 bg-p-bg/95 backdrop-blur">
+      <section ref={stripRef} hidden={tab === 'projects'} aria-labelledby="controls-heading" className="sticky top-[var(--planner-nav,0px)] z-30 rounded-lg border border-p-line/10 bg-p-bg/95 backdrop-blur">
         <h2 id="controls-heading" className="sr-only">{nightWord.toUpperCase()}</h2>
         <div className="flex items-center gap-2 px-2 sm:px-4">
           <button
@@ -2543,6 +2592,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         <ShareSheet
           planName={open?.name ?? ''}
           planCount={plans?.plans.length ?? 1}
+          projectCount={projectsApi.state.projects.length}
           what={shareNow}
           onWhat={setShareWhat}
           blocked={shareBlocked}
@@ -2557,7 +2607,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             pendingImport.current = null;
             setShareOpen(false);
             setShareWhat('plan');
-            window.setTimeout(() => document.getElementById('plan-more')?.focus(), 0);
+            window.setTimeout(() => document.getElementById(tab === 'projects' ? 'project-share' : 'plan-more')?.focus(), 0);
           }}
         />
       )}
@@ -2572,7 +2622,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           onGoToRow={goToRow}
           onGoToWarnings={goToWarnings}
           onPlanWithAi={openAi}
-          onShare={openShare}
+          onShare={() => openShare()}
         />
       )}
       </div>
@@ -2653,9 +2703,24 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </p>
       </section>
       </div>
+
+      <div id="panel-projects" role="tabpanel" aria-labelledby="tab-projects" hidden={tab !== 'projects'} className="space-y-8">
+        {projectsSeen && (
+          <ProjectsTab
+            api={projectsApi}
+            profile={profile}
+            targetName={targetName}
+            context={projectContext}
+            planTargets={planItems.map(({ id }) => ({ id, name: targetName(id) }))}
+            today={tonightDate !== '' ? tonightDate : localToday}
+            search={{ catalog, onRetryCatalog: retryCatalog, scorer, nightWord, formatTime }}
+            onShare={() => openShare('projects')}
+          />
+        )}
+      </div>
     </div>
     {printing && (
-    <PrintSheet doc={docFor(shareOpen ? shareNow : 'plan')} />
+    <PrintSheet doc={docFor(shareOpen && shareNow !== 'projects' ? shareNow : 'plan')} />
     )}
     </>
   );

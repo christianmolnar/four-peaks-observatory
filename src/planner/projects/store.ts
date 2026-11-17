@@ -221,7 +221,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
   } catch (e) {
     // The two copies together pass a limit: refuse, and keep this page's state (and its unsaved mark) so nothing is lost.
     if (!(e instanceof ProjectsError)) throw e;
-    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). Your change is on this page only; export the project, then remove some sessions or projects and change something again.`);
+    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). This change was not made. Your earlier changes are kept on this page. Export the project, or remove sessions or projects in your other tab, then try again.`);
   }
   let next: ProjectsState;
   try {

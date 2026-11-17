@@ -289,6 +289,10 @@ describe('changeProjects refuses in words, never throws, when the two copies tog
     if (r === undefined || r.ok) throw new Error('expected a refusal');
     expect(r.message).toMatch(/^Not saved: .*sessions: holds 0 to 5,000, found 6,000/);
     noPath(r.message);
+    // The remedy is true: this change was not made; the earlier unsaved ones are kept; removing in this page cannot help.
+    expect(r.message).toContain('This change was not made');
+    expect(r.message).toContain('Your earlier changes are kept on this page');
+    expect(r.message).not.toContain('remove some sessions or projects and change something again');
     expect(r.handle).toBe(mine);
     expect(r.handle.unsaved).toBe(true);
     expect(s.getItem(PROJECTS_KEY)).toBe(before);

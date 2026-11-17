@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { download } from './download';
 
-export type ShareWhat = 'plan' | 'all' | 'gear' | 'everything';
+export type ShareWhat = 'plan' | 'all' | 'gear' | 'everything' | 'projects';
 export type ShareFormat = 'text' | 'markdown' | 'json' | 'csv';
 
 export const FORMATS: readonly { id: ShareFormat; label: string; ext: string; mime: string }[] = [
@@ -24,6 +24,8 @@ export type ImportPanel =
 export interface ShareSheetProps {
   planName: string;
   planCount: number;
+  /** How many projects there are (the Projects choice says it). */
+  projectCount: number;
   what: ShareWhat;
   onWhat: (w: ShareWhat) => void;
   /** Why a choice cannot be made now (saved gear that could not be loaded), by choice. */
@@ -57,7 +59,7 @@ const radio = 'flex min-h-11 items-start gap-2 py-2 text-sm font-normal text-p-t
  * The Share sheet: what to share (this plan, all plans, gear, everything) and in what format, each as a file or as text to copy; Print; the ASIAir
  * positions file; and Import plans. A dialog over the page (full screen on a phone, a side panel on a desktop); Escape closes it.
  */
-export default function ShareSheet({ planName, planCount, what, onWhat, blocked, note, make, asiair, onPrint, onPickFile, importPanel, onImport, onClose }: ShareSheetProps) {
+export default function ShareSheet({ planName, planCount, projectCount, what, onWhat, blocked, note, make, asiair, onPrint, onPickFile, importPanel, onImport, onClose }: ShareSheetProps) {
   const [format, setFormat] = useState<ShareFormat>('text');
   const [letter, setLetter] = useState(false);
   const [said, setSaid] = useState('');
@@ -127,6 +129,7 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
     { id: 'all', label: `All plans (${planCount})` },
     { id: 'gear', label: 'Gear' },
     { id: 'everything', label: 'Everything: all plans and gear' },
+    { id: 'projects', label: `Projects (${projectCount})` },
   ];
 
   return createPortal(
@@ -180,7 +183,8 @@ export default function ShareSheet({ planName, planCount, what, onWhat, blocked,
         <section aria-labelledby="share-print" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-print" className="mb-1 text-base font-normal text-p-t1">Print</h3>
           <p className="mb-2 text-sm font-normal text-p-t1/80">Prints the run sheet for what is chosen above, black on white, one column, A4 or Letter. In the print dialog choose Save as PDF for a PDF.</p>
-          <button type="button" className={btn} onClick={onPrint}>Print run sheet</button>
+          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/80" data-testid="print-projects-note">Projects have no run sheet to print. Choose a plan above to print it, or download the projects as text or Markdown.</p>}
+          <button type="button" className={btn} disabled={what === 'projects'} onClick={onPrint}>Print run sheet</button>
         </section>
 
         <section aria-labelledby="share-asiair" className="mb-4 border-t border-p-line/10 pt-3">
