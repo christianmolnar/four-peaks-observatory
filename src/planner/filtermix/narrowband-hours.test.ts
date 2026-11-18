@@ -1,0 +1,178 @@
+import { emissionProfileFor } from '../catalog/emission';
+import type { EmissionProfile } from '../catalog/emission';
+import { PRESETS } from '../exposure';
+import { narrowbandHours } from './narrowband-hours';
+import type { NbFilterInput, NbInput, NbResult } from './narrowband-hours';
+
+/**
+ * The held cases are the research note's own (~/Token/research/fourpeaks-narrowband-hours.md, its python script run as written): Bortle 6, f/1.9, 3.76 um pixels,
+ * 560 mm, read noise 1 e, the Balanced knee, an NBZ II (Ha 10 nm, OIII 8 nm) and an NB3-PM (OIII 21 nm, SII 19 nm). Minutes must match within 5 per filter.
+ */
+const NBZ: NbFilterInput = { id: 'nbz', name: 'NBZ II', bands: [{ centreNm: 656.3, widthNm: 10 }, { centreNm: 500.7, widthNm: 8 }] };
+const NB3: NbFilterInput = { id: 'nb3', name: 'NB3-PM', bands: [{ centreNm: 500.7, widthNm: 21 }, { centreNm: 672.4, widthNm: 19 }] };
+const HA7: NbFilterInput = { id: 'ha7', name: 'Optolong H-alpha 7 nm', bands: [{ centreNm: 656.3, widthNm: 7 }] };
+const LEX: NbFilterInput = { id: 'lex', name: 'Optolong L-eXtreme', bands: [{ centreNm: 656.3, widthNm: 7 }, { centreNm: 500.7, widthNm: 7 }] };
+
+const profile = (lines: EmissionProfile['lines'], continuum = 0.1): EmissionProfile => ({ lines, continuum, source: 'test', confidence: 'type-default' });
+const M42 = profile({ Ha: 1, OIII: 0.83, SII: 0.034, NII: 0.25 });
+const ROSETTE = profile({ Ha: 1, OIII: 0.4, SII: 0.15, NII: 0.2 });
+const M57 = profile({ Ha: 0.25, OIII: 1, SII: 0.05, NII: 0.5 });
+const GALAXY = profile({}, 1);
+
+const run = (p: EmissionProfile, mu: number, hours: number, filters: NbFilterInput[], over: Partial<NbInput> = {}): NbResult =>
+  narrowbandHours({ profile: p, surfaceBrightnessMu: mu, broadbandHours: hours, bortle: 6, train: { fRatio: 1.9, pixelUm: 3.76, focalLengthMm: 560 }, readNoiseE: 1, knee: 'balanced', filters, ...over });
+const mins = (r: NbResult): Record<string, number> => Object.fromEntries(r.filters.map((f) => [f.filterId, f.minutes]));
+const near = (got: number, want: number): void => expect(Math.abs(got - want)).toBeLessThanOrEqual(5);
+
+describe('the research note’s worked examples (within 5 minutes per filter)', () => {
+  const both = [NBZ, NB3];
+  it.each([
+    ['M42', M42, 20, 2, 125, 0],
+    ['M42', M42, 20, 4, 105, 0],
+    ['Rosette', ROSETTE, 22, 2, 135, 135],
+    ['Rosette', ROSETTE, 22, 4, 130, 130],
+    ['M57', M57, 18, 2, 100, 0],
+    ['M57', M57, 18, 4, 55, 0],
+  ])('%s, %i mag, B = %i h: NBZ II %i, NB3-PM %i', (_n, p, mu, hours, nbz, nb3) => {
+    const m = mins(run(p, mu, hours, both));
+    near(m.nbz, nbz);
+    if (nb3 === 0) expect(m.nb3).toBe(0);
+    else near(m.nb3, nb3);
+  });
+
+  it('the Deep knee matches the note (M42 215 and 255 min, Rosette NBZ II 175 and 280)', () => {
+    near(mins(run(M42, 20, 2, both, { knee: 'deep' })).nbz, 215);
+    near(mins(run(M42, 20, 4, both, { knee: 'deep' })).nbz, 255);
+    near(mins(run(ROSETTE, 22, 2, both, { knee: 'deep' })).nbz, 175);
+    near(mins(run(ROSETTE, 22, 4, both, { knee: 'deep' })).nbz, 280);
+  });
+
+  it('the gains E and the cap match the note (M42 Ha 4.1 and OIII 6.2; cap 2.4 h at Balanced)', () => {
+    const r = run(M42, 20, 2, both);
+    const lines = r.filters.find((f) => f.filterId === 'nbz')?.lines ?? [];
+    expect(lines.find((l) => l.line === 'Ha')?.gain).toBeCloseTo(4.1, 0);
+    expect(lines.find((l) => l.line === 'OIII')?.gain).toBeCloseTo(6.2, 0);
+    expect(r.capMin / 60).toBeCloseTo(2.38, 1);
+    expect(PRESETS.balanced.maxNextHalfHourGain).toBe(0.1);
+  });
+
+  it('M42 puts SII under the cut, so NB3-PM is told it adds nothing', () => {
+    const f = run(M42, 20, 2, both).filters.find((x) => x.filterId === 'nb3');
+    expect(f?.verdict).toBe('no-help');
+    expect(f?.minutes).toBe(0);
+    expect(f?.reason).toMatch(/nbz ii|NBZ II/);
+  });
+});
+
+describe('a galaxy', () => {
+  it.each([2, 4])('gets no minutes at B = %i h, and the reason says no narrowband', (h) => {
+    const r = run(GALAXY, 23, h, [NBZ, NB3, HA7]);
+    expect(r.gate).toBe(true);
+    for (const f of r.filters) {
+      expect(f.minutes).toBe(0);
+      expect(f.verdict).toBe('no-narrowband');
+      expect(f.reason).toMatch(/no narrowband/i);
+    }
+  });
+  it('works out the same through the catalog profile of a galaxy', () => {
+    const p = emissionProfileFor('ngc224', 'galaxy') as EmissionProfile;
+    expect(run(p, 23, 3, [NBZ]).filters[0].minutes).toBe(0);
+  });
+});
+
+describe('filters that cannot be judged', () => {
+  it('lists unknown passbands and broadband filters as cannot judge, never with minutes', () => {
+    const unknown: NbFilterInput = { id: 'u', name: 'Mystery filter' };
+    const empty: NbFilterInput = { id: 'e', name: 'Empty bands', bands: [] };
+    const lp: NbFilterInput = { id: 'lp', name: 'Light pollution', bands: [{ centreNm: 550, widthNm: 300 }] };
+    const r = run(M42, 20, 2, [NBZ, unknown, empty, lp]);
+    for (const id of ['u', 'e', 'lp']) {
+      const f = r.filters.find((x) => x.filterId === id);
+      expect(f?.verdict).toBe('cannot-judge');
+      expect(f?.minutes).toBe(0);
+      expect(f?.gain).toBeNull();
+      expect(f?.reason).toMatch(/cannot judge/i);
+    }
+    expect(r.filters.find((x) => x.filterId === 'u')?.reason).toMatch(/passbands unknown/i);
+    expect(mins(r).nbz).toBeGreaterThan(0);
+  });
+  it('lists them on a galaxy too', () => {
+    const r = run(GALAXY, 23, 2, [{ id: 'u', name: 'Mystery filter' }]);
+    expect(r.filters[0].verdict).toBe('cannot-judge');
+  });
+});
+
+describe('the train: the ranking comes out of the maths, not a special case', () => {
+  // A target that wants Ha almost alone, medium-faint (surface brightness 22), four hours of broadband.
+  const HA_HEAVY = profile({ Ha: 1, OIII: 0.05, SII: 0.05, NII: 0.2 });
+  const pair = [NBZ, HA7];
+  it('at f/7 and f/10 the 7 nm H-alpha is the one recommended on a Ha target; at f/1.9 NBZ II is', () => {
+    for (const f of [7, 10]) {
+      const r = mins(run(HA_HEAVY, 22, 4, pair, { train: { fRatio: f, pixelUm: 3.76, focalLengthMm: 1000 } }));
+      expect(r.ha7).toBeGreaterThan(0);
+      expect(r.nbz).toBe(0);
+    }
+    const fast = mins(run(HA_HEAVY, 22, 4, pair, { train: { fRatio: 1.9, pixelUm: 3.76, focalLengthMm: 560 } }));
+    expect(fast.nbz).toBeGreaterThan(0);
+    expect(fast.ha7).toBe(0);
+  });
+  it('the 7 nm Ha band of the standard L-eXtreme loses light at f/2; the same filter rated for f/2 does not', () => {
+    const at = (f: NbFilterInput) => run(HA_HEAVY, 22, 4, [f], { train: { fRatio: 2, pixelUm: 3.76, focalLengthMm: 560 } }).filters[0];
+    const [plain, rated] = [at(LEX), at({ ...LEX, ratedMinFRatio: 2 })];
+    expect(plain.basis.join(' ')).toMatch(/beam edge shifts/i);
+    expect(rated.basis.join(' ')).not.toMatch(/beam edge shifts/i);
+    expect(plain.lines[0].matchMin).toBeGreaterThan(rated.lines[0].matchMin);
+    expect(plain.lines[0].gain).toBeLessThan(rated.lines[0].gain);
+  });
+  it('at f/7 nothing shifts, so the basis does not mention it', () => {
+    const r = run(HA_HEAVY, 22, 4, [LEX], { train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1000 } }).filters[0];
+    expect(r.basis.join(' ')).not.toMatch(/beam edge shifts/i);
+  });
+});
+
+describe('single-band and dual-band filters share the lines', () => {
+  it('a line goes to the filter whose band is clearly better, and the dual-band keeps the other line', () => {
+    // A faint Rosette (surface brightness 23, six hours of broadband) at f/7: Ha is clearly better on a 3 nm band (a 7 nm one is only about 1.1 times better than NBZ II's 10 nm, under the 1.25 hurdle); OIII stays on NBZ II.
+    const HA3: NbFilterInput = { id: 'ha7', name: 'Ha 3 nm', bands: [{ centreNm: 656.3, widthNm: 3 }] };
+    const r = run(ROSETTE, 23, 6, [NBZ, HA3], { train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1000 } });
+    const m = mins(r);
+    expect(m.ha7).toBeGreaterThan(0);
+    expect(m.nbz).toBeGreaterThan(0);
+    expect(r.filters.find((f) => f.filterId === 'ha7')?.reason).toMatch(/Ha/);
+    expect(r.filters.find((f) => f.filterId === 'nbz')?.reason).toMatch(/Ha goes to Ha 3 nm/);
+  });
+  it('a 7 nm Ha band is not worth a second filter beside NBZ II on Rosette: the gain is under the hurdle', () => {
+    const r = run(ROSETTE, 22, 2, [NBZ, HA7], { train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1000 } });
+    expect(mins(r).ha7).toBe(0);
+    expect(mins(r).nbz).toBeGreaterThan(0);
+  });
+  it('every recommended filter says why and what is unverified', () => {
+    for (const f of run(ROSETTE, 22, 2, [NBZ, NB3]).filters.filter((x) => x.minutes > 0)) {
+      expect(f.reason.length).toBeGreaterThan(10);
+      expect(f.basis.join(' ')).toMatch(/centres and leakage not verified/);
+      expect(f.basis.join(' ')).toMatch(/not measured/);
+    }
+  });
+});
+
+describe('inputs', () => {
+  it('minutes grow with nothing odd: whole multiples of 5, never between 1 and 29', () => {
+    for (const h of [1, 2, 3, 4, 6]) {
+      for (const f of run(ROSETTE, 22, h, [NBZ, NB3]).filters) {
+        expect(f.minutes % 5).toBe(0);
+        expect(f.minutes === 0 || f.minutes >= 30).toBe(true);
+      }
+    }
+  });
+  it('refuses a broadband time that is not a positive number, and a missing train number', () => {
+    expect(() => run(M42, 20, 0, [NBZ])).toThrow(RangeError);
+    expect(() => run(M42, 20, Number.NaN, [NBZ])).toThrow(RangeError);
+    expect(() => run(M42, 20, 2, [NBZ], { train: { fRatio: 0, pixelUm: 3.76, focalLengthMm: 560 } })).toThrow(RangeError);
+    expect(() => run(M42, 20, 2, [NBZ], { bortle: 12 })).toThrow(RangeError);
+  });
+  it('carries the profile confidence label and the knee cap', () => {
+    const r = run(M42, 20, 2, [NBZ]);
+    expect(r.confidence).toMatch(/Typical for this type/);
+    expect(r.basis.join(' ')).toMatch(/signal-to-noise only/i);
+  });
+});
