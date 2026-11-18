@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { sampleProfile } from '@/planner/state';
 import type { Profile } from '@/planner/profile';
 import PlannerApp from './PlannerApp';
-import { openControls, openPlanTab, pageProps, planRowItems, ready, seedPlan, timelineSlots } from './testkit';
+import { openControls, openPlanTab, pageProps, planRowItems, ready, seedPlan, timelineSlots, untickNarrowband } from './testkit';
 
 // The filter mix on each plan row: a folded part, the setup's filter as the default, plain messages instead of made-up numbers, and the plain-text export.
 
@@ -24,6 +24,8 @@ const app = async (targets: readonly object[], profile: Profile) => {
   render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
   await ready();
   openPlanTab();
+  // These tests are about the broadband filter mix; the narrowband ticks start live, so they are taken out here.
+  untickNarrowband();
 };
 const ic405 = { id: 'ic405', preset: 'balanced' };
 const m31 = { id: 'm31', preset: 'balanced' };

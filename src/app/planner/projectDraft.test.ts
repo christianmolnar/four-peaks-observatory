@@ -1,5 +1,5 @@
 import { BROADBAND_ID, PROJECT_LIMITS } from '@/planner/projects';
-import { addDraftTarget, draftFromProject, newDraft, parseDraft, removeDraftTarget, setDraftFilter } from './projectDraft';
+import { addDraftTarget, draftFromProject, fillFromPlan, newDraft, parseDraft, removeDraftTarget, setDraftFilter } from './projectDraft';
 import { project } from '@/planner/projects/testkit';
 
 const names = { target: (id: string) => id.toUpperCase(), filter: (id: string) => (id === BROADBAND_ID ? 'Broadband' : id) };
@@ -71,5 +71,17 @@ describe('the project draft', () => {
     expect(d.targets[0].lines.nbz).toEqual({ minutes: '', optional: false });
     d = removeDraftTarget(d, 'm31');
     expect(d.targets).toEqual([]);
+  });
+
+  it('fills a target\'s boxes from the plan for the filters the draft holds, and counts the lines it has no filter for', () => {
+    const d = addDraftTarget(base(), 'm31');
+    const r = fillFromPlan(d, 'm31', [{ filterId: L, minutes: 120 }, { filterId: 'nbz', minutes: 135 }, { filterId: 'nb3', minutes: 60 }]);
+    expect(r.filled).toBe(2);
+    expect(r.left).toBe(1);
+    expect(r.draft.targets[0].lines[L].minutes).toBe('120');
+    expect(r.draft.targets[0].lines.nbz).toEqual({ minutes: '135', optional: false });
+    expect(Object.keys(r.draft.targets[0].lines)).toEqual([L, 'nbz']);
+    expect(d.targets[0].lines.nbz.minutes).toBe('');
+    expect(fillFromPlan(d, 'nope', [{ filterId: L, minutes: 1 }])).toEqual({ draft: d, filled: 0, left: 1 });
   });
 });

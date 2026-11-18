@@ -49,6 +49,22 @@ export function draftFromProject(p: Project): Draft {
 export const addDraftTarget = (d: Draft, id: string): Draft => (d.targets.some((t) => t.id === id) ? d : { ...d, targets: [...d.targets, { id, lines: blankLines(d.filterIds) }] });
 export const removeDraftTarget = (d: Draft, id: string): Draft => ({ ...d, targets: d.targets.filter((t) => t.id !== id) });
 
+/** Minutes the open plan holds for a target, by filter (Broadband is BROADBAND_ID): the broadband time and each ticked narrowband filter. */
+export interface PlanLine {
+  filterId: string;
+  minutes: number;
+}
+
+/** Puts the plan's minutes into the target's boxes, for the filters the draft holds; `filled` counts the boxes written, `left` the plan's lines the draft has no filter for. */
+export function fillFromPlan(d: Draft, targetId: string, plan: readonly PlanLine[]): { draft: Draft; filled: number; left: number } {
+  const target = d.targets.find((t) => t.id === targetId);
+  if (target === undefined) return { draft: d, filled: 0, left: plan.length };
+  const fit = plan.filter((l) => Object.hasOwn(target.lines, l.filterId));
+  const lines = { ...target.lines };
+  for (const l of fit) lines[l.filterId] = { ...lines[l.filterId], minutes: String(l.minutes) };
+  return { draft: { ...d, targets: d.targets.map((t) => (t === target ? { ...t, lines } : t)) }, filled: fit.length, left: plan.length - fit.length };
+}
+
 /** Ticks or unticks a filter. `order` is the one order filters are listed in, so the project's list does not depend on the order of ticking. An unticked filter's boxes go with it. */
 export function setDraftFilter(d: Draft, filterId: string, on: boolean, order: readonly string[]): Draft {
   const has = d.filterIds.includes(filterId);

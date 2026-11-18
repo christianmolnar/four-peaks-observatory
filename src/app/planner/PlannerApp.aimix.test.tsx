@@ -12,7 +12,7 @@ import type { ModelPlan } from '@/planner/ai/schema';
 import type { Profile } from '@/planner/profile';
 import { sampleProfile, saveMyPlan } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, fakeWorkerRanker, openControls, openPlanTab, ready } from './testkit';
+import { fakeCatalog, fakeWorkerRanker, openControls, openPlanTab, ready, untickNarrowband } from './testkit';
 
 // The filter mix in the AI night plan result: worked out by code from the light each slot gets once the plan is used (the same numbers the plan row shows),
 // never by the model. The fetch is a fake; the "model" is a fake behind the real engine and the real checker.
@@ -105,6 +105,7 @@ describe('the Filters line under each slot of the AI result', () => {
     openControls();
     fireEvent.click(within(screen.getByTestId('mix-filters')).getByRole('checkbox', { name: 'Use IDAS NBZ-II copy' }));
     const user = await planned();
+    untickNarrowband();
     expect(slotMix(0)).toContain('IDAS NBZ-II copy: 0 min (covered by IDAS NBZ-II)');
     const shown = pairs(slotMix(0));
     await afterUse(user);
@@ -115,6 +116,7 @@ describe('the Filters line under each slot of the AI result', () => {
   it('says plainly when the setup has no filter, and for a smart scope', async () => {
     mount(fetchWith(), ['ic405'], profileWith(undefined));
     await planned();
+    untickNarrowband();
     expect(slotMix(0)).toMatch(/No filter is selected in the setup/);
     expect(slotMix(0)).not.toMatch(/\d+ min|\d+ h/);
   });
@@ -136,6 +138,7 @@ describe('one source: the flyout and the plan row after Use this plan', () => {
     openControls();
     fireEvent.click(within(screen.getByTestId('mix-filters')).getByRole('checkbox', { name: 'Use IDAS NB3-PM' }));
     const user = await planned();
+    untickNarrowband();
     const shown = [0, 1].map((i) => ({ light: flyoutLight(i), pairs: pairs(slotMix(i)), id: ['ic405', 'm31'][i] }));
     expect(shown[0].pairs.length).toBeGreaterThanOrEqual(2);
     await afterUse(user);
@@ -155,6 +158,7 @@ describe('one source: the flyout and the plan row after Use this plan', () => {
     };
     mount(fetchWith(short), ['ic405', 'm31'], profileWith('nbz'));
     const user = await planned();
+    untickNarrowband();
     const ids = ['m31', 'ic405'];
     const shown = [0, 1].map((i) => ({ light: flyoutLight(i), pairs: pairs(slotMix(i)) }));
     expect(shown[1].light).not.toBe('25 min');
@@ -165,5 +169,29 @@ describe('one source: the flyout and the plan row after Use this plan', () => {
       expect(row).toContain(`Light to split: ${shown[i].light}`);
       expect(pairs(row)).toEqual(shown[i].pairs);
     });
+  });
+});
+
+describe('the narrowband panel in the AI result', () => {
+  const slotOf = (id: string) => screen.getByTestId(`nb-ai-${id}`).closest('[data-testid^="ai-slot-mix-"]') as HTMLElement;
+  /** The slot's mix lines without the panel's own rows. */
+  const mixText = (id: string) => (slotOf(id).textContent ?? '').replace(screen.getByTestId(`nb-ai-${id}`).textContent ?? '', '');
+  it('is under the slot; a tick changed there changes that slot’s mix, and the plan row after Use this plan says the same', async () => {
+    mount(fetchWith(), ['ic405', 'm31'], profileWith('nbz'));
+    const user = await planned();
+    expect(slotOf('ic405').textContent).toMatch(/ticked below/);
+    expect(pairs(mixText('ic405')).some((p) => p.startsWith('IDAS NB3-PM'))).toBe(true);
+    fireEvent.click(document.getElementById('nb-fold-ai-ic405') as HTMLButtonElement);
+    expect(screen.getByTestId('nb-ai-ic405').textContent).toContain('Filters from your gear that could help most');
+    const nb3 = screen.getByTestId('nb-tick-ai-ic405-nb3') as HTMLInputElement;
+    expect(nb3.checked).toBe(true);
+    fireEvent.click(nb3); // untick: the plan keeps broadband and NBZ II only
+    expect(slotOf('ic405').textContent).toMatch(/ticked below/);
+    expect(slotOf('ic405').textContent).toMatch(/Broadband \(no narrowband filter\): \d/);
+    expect((screen.getByTestId('nb-tick-ai-ic405-nb3') as HTMLInputElement).checked).toBe(false);
+    const flyout = pairs(mixText('ic405'));
+    expect(flyout.some((p) => p.startsWith('IDAS NB3-PM'))).toBe(false);
+    await afterUse(user);
+    expect(pairs(rowMix('ic405'))).toEqual(flyout);
   });
 });

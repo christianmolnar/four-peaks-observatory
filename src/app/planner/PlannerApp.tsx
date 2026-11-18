@@ -120,6 +120,11 @@ import { sheetNames } from './projectNames';
 import { useProjects } from './useProjects';
 import PlanRowExposure from './PlanRowExposure';
 import PlanRowMix from './PlanRowMix';
+import type { AiSlotView } from './AiSlotMix';
+import NarrowbandPanel from './NarrowbandPanel';
+import type { PlanLine } from './projectDraft';
+import { nbRowView } from './nbRow';
+import type { NbGear, NbRowTarget, NbView } from './nbRow';
 import type { MixFilter } from '@/planner/filtermix';
 import { mixSummary } from '@/planner/filtermix';
 import { rowMix } from '@/planner/filtermix/row';
@@ -382,6 +387,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const [resetFocus, setResetFocus] = useState(0);
   // Filters the user added to the filter mix beside the setup's own filter (ids). Not stored: the setup's filter is the default, never "all".
   const [mixPicks, setMixPicks] = useState<ReadonlySet<string>>(new Set());
+  // The narrowband panel's own entries, by target id: the broadband hours typed (absent: the row's planned light) and the ticks the user set (absent: the engine's recommendation). Not stored.
+  const [nbHours, setNbHours] = useState<ReadonlyMap<string, string>>(new Map());
+  const [nbTicks, setNbTicks] = useState<ReadonlyMap<string, ReadonlyMap<string, boolean>>>(new Map());
+  const setNbHoursFor = useCallback((id: string, text: string) => setNbHours((prev) => new Map(prev).set(id, text)), []);
+  const setNbTickFor = useCallback((id: string, filterId: string, on: boolean) => setNbTicks((prev) => new Map(prev).set(id, new Map(prev.get(id)).set(filterId, on))), []);
   useEffect(() => {
     if (resetFocus > 0) document.getElementById('reset-all')?.focus();
   }, [resetFocus]);
@@ -1092,6 +1102,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // A plan that was opened afresh starts from the plan's own rule again.
   const openPlanId = plans?.openId ?? '';
   useEffect(() => setFindOpen(null), [openPlanId]);
+  // The narrowband panel's typed hours and ticks belong to the plan they were made on.
+  useEffect(() => {
+    setNbHours(new Map());
+    setNbTicks(new Map());
+  }, [openPlanId]);
 
   // What the engine computes for each deep-sky row on the plan's night, site, train and Moon: the same inputs the timeline resolves a slot with.
   const catalogTargets = catalog.status === 'ready' ? (catalog.index.targets as readonly SlotTarget[]) : null;
@@ -1122,31 +1137,64 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const noMixFilters = !train ? 'No setup is chosen, so there is no filter mix to work out.' : train.kind !== 'optical' ? 'A smart scope has its filter built in, so there is no filter mix to work out.' : 'No filter is selected in the setup, so there is no filter mix to work out. Pick one under Setup.';
   // The timeline's plan, once it is worked out for this night and site (the rail reads it the same way); null before then, and the row's own light stands in.
   const mixTimeline = stableNight && astroSite && catalog.status !== 'loading' ? timelinePlan : null;
-  /** One plan target's filter mix on a timeline: the plan row's, the text export's and the AI result's all come from here. */
-  const mixOf = useCallback(
-    ({ id, body, target }: { id: string; body: unknown; target: { id: string; type: string } | undefined }, timeline: ItineraryPlan | null): RowMix => {
+  /** The light one plan target gets on a timeline: the timeline's slot for it (the same light the sheet and the timeline show); a target the timeline leaves out has none. */
+  const lightFor = useCallback(
+    (id: string, timeline: ItineraryPlan | null): RowMixInput['light'] => {
       const view = rowViews.get(id);
-      if (body === undefined && target === undefined && catalog.status === 'loading') return { kind: 'message', text: 'The catalog is still loading, so the filter mix is not worked out yet.' };
-      // The light to split is the timeline's slot for this target (the same light the sheet and the timeline show); a target the timeline leaves out has none.
       const slot = timeline?.slots.find((s) => s.id === id);
       const scheduled = slot !== undefined && slot.altitudes !== null && slot.end.getTime() > slot.start.getTime();
-      const light: RowMixInput['light'] =
-        view?.kind !== 'ok'
-          ? { kind: 'none', reason: view?.reason ?? '' }
-          : timeline === null
-            ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes }
-            : { kind: 'ok', minutes: scheduled ? slot.integrationMin : 0, usableMinutes: scheduled ? view.usableMinutes : 0 };
+      return view?.kind !== 'ok'
+        ? { kind: 'none', reason: view?.reason ?? '' }
+        : timeline === null
+          ? { kind: 'ok', minutes: view.chosen.integrationMin, usableMinutes: view.usableMinutes }
+          : { kind: 'ok', minutes: scheduled ? (slot as { integrationMin: number }).integrationMin : 0, usableMinutes: scheduled ? view.usableMinutes : 0 };
+    },
+    [rowViews],
+  );
+  // The narrowband panel's gear: the open plan's train and camera, or why there is none.
+  const nbGear = useMemo((): NbGear | { problem: string } => {
+    if (!train) return { problem: 'No setup is chosen, so no narrowband minutes are worked out.' };
+    if (train.kind !== 'optical') return { problem: 'A smart scope has its filter built in, so there is no narrowband to add here.' };
+    if (planTrain === null || planTrain.kind !== 'optical' || planTrain.optics === null) return { problem: trainError ?? 'The setup’s numbers are not complete, so no narrowband minutes are worked out.' };
+    const camera = resolveTrain(profile, train).cameraSpec;
+    return { fRatio: planTrain.optics.focalRatio, focalLengthMm: planTrain.optics.focalLengthMm, pixelUm: camera?.pixelSizeUm, colour: camera?.colour, readNoiseClass: camera?.readNoiseClass };
+  }, [train, planTrain, trainError, profile]);
+  /** What the narrowband panel shows for one plan target on a timeline: the row's, the text export's and the AI result's all come from here. */
+  const nbOf = useCallback(
+    ({ id, body, target, ref }: NbRowTarget, timeline: ItineraryPlan | null): NbView =>
+      nbRowView({
+        body: body !== undefined,
+        target: target === undefined ? null : { id: target.id, type: target.type, surfaceBrightness: target.surfaceBrightness },
+        light: lightFor(id, timeline),
+        gear: nbGear,
+        bortle: bortleOfSite,
+        bortleAssumed: site?.bortle === undefined,
+        knee: baseOf(ref),
+        filters: profile.equipment.filters,
+        hoursText: nbHours.get(id),
+        ticks: nbTicks.get(id),
+      }),
+    [lightFor, nbGear, bortleOfSite, site, profile, nbHours, nbTicks],
+  );
+  /** One plan target's filter mix on a timeline: the plan row's, the text export's and the AI result's all come from here. */
+  const mixOf = useCallback(
+    (p: NbRowTarget, timeline: ItineraryPlan | null): RowMix => {
+      const { id, body, target } = p;
+      if (body === undefined && target === undefined && catalog.status === 'loading') return { kind: 'message', text: 'The catalog is still loading, so the filter mix is not worked out yet.' };
+      const nb = nbOf(p, timeline);
       return rowMix({
         body: body !== undefined,
         target: target === undefined ? null : { id: target.id, type: target.type },
-        light,
+        light: lightFor(id, timeline),
         filters: mixFilters,
         noFilters: noMixFilters,
+        narrowband: nb.kind === 'panel' ? { result: nb.result, ticked: nb.ticked, broadbandMin: Math.round(nb.hours * 60) } : undefined,
       });
     },
-    [rowViews, mixFilters, noMixFilters, catalog.status],
+    [lightFor, nbOf, mixFilters, noMixFilters, catalog.status],
   );
   const mixViews = useMemo(() => new Map(planItems.map((p): [string, RowMix] => [p.id, mixOf(p, mixTimeline)])), [planItems, mixOf, mixTimeline]);
+  const nbViews = useMemo(() => new Map(planItems.map((p): [string, NbView] => [p.id, nbOf(p, mixTimeline)])), [planItems, nbOf, mixTimeline]);
 
   // The altitude chart is drawn in the open row only.
   const track = useMemo(() => {
@@ -1505,7 +1553,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
    * exposure), timed by the same timeline code, then the same mix as the row. So the row after Use this plan shows what the flyout showed. Null when there is no night yet.
    */
   const aiMixFor = useCallback(
-    (ids: readonly string[], startTime: string | null): ReadonlyMap<string, RowMix> | null => {
+    (ids: readonly string[], startTime: string | null): ReadonlyMap<string, AiSlotView> | null => {
       if (!stableNight || stableNight.kind !== 'normal' || !astroSite || catalog.status === 'loading') return null;
       const items = aiOrder(ids).slice(0, MAX_SLOTS).map(slotOf);
       const startAt = startTime && stableNight.start ? clockToInstant(startTime, stableNight.start, siteZone || zone || undefined) : null;
@@ -1520,9 +1568,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         formatTime,
         windows: makeWindowLookup({ site: astroSite, night: stableNight, horizon, minAltitude }),
       });
-      return new Map(planItems.filter((p) => ids.includes(p.id)).map((p): [string, RowMix] => [p.id, mixOf(p, plan)]));
+      return new Map(planItems.filter((p) => ids.includes(p.id)).map((p): [string, AiSlotView] => [p.id, { mix: mixOf(p, plan), nb: nbOf(p, plan) }]));
     },
-    [stableNight, astroSite, catalog, aiOrder, slotOf, siteZone, zone, horizon, minAltitude, bortleOfSite, profile, formatTime, planItems, mixOf],
+    [stableNight, astroSite, catalog, aiOrder, slotOf, siteZone, zone, horizon, minAltitude, bortleOfSite, profile, formatTime, planItems, mixOf, nbOf],
   );
 
   // The AI flyout: open or closed. Closing puts the keyboard back on the button that opened it.
@@ -1638,7 +1686,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             onGoTo={goToControl}
           />
         ),
-      mix: <PlanRowMix id={id} mix={mixViews.get(id) as RowMix} />,
+      mix: (
+        <>
+          <PlanRowMix id={id} mix={mixViews.get(id) as RowMix} />
+          <NarrowbandPanel idBase={id} view={nbViews.get(id) as NbView} onHours={(t) => setNbHoursFor(id, t)} onTick={(f, on) => setNbTickFor(id, f, on)} />
+        </>
+      ),
     };
   });
   /** The plan's rows with their numbers, for the plan CSV and the print sheet. */
@@ -2135,7 +2188,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   const showRail = railWide && tab === 'plan';
   // The Projects tab starts a new project from the open plan's setup: its scope and camera, its filter (Broadband when it has none) and the filters picked for the filter mix, and a sub length when every row of the plan shares one (else 60 s).
-  const projectFilters = train?.kind === 'optical' ? [train.filterId ?? BROADBAND_ID, ...mixPicks] : [BROADBAND_ID];
+  // The minutes the plan holds for each target when narrowband filters are ticked (the broadband time and each ticked filter), and the filters they use.
+  const nbPlanned = new Map<string, PlanLine[]>(
+    planItems.flatMap((p): [string, PlanLine[]][] => {
+      const m = mixViews.get(p.id);
+      return m?.kind === 'mix' && m.narrowbandAdded === true ? [[p.id, m.lines.filter((l) => l.minutes > 0).map((l) => ({ filterId: l.filterId ?? BROADBAND_ID, minutes: l.minutes }))]] : [];
+    }),
+  );
+  const nbFilterIds = [...nbPlanned.values()].flatMap((lines) => lines.map((l) => l.filterId));
+  const projectFilters = [...(train?.kind === 'optical' ? [train.filterId ?? BROADBAND_ID, ...mixPicks] : [BROADBAND_ID]), ...nbFilterIds];
   const projectFilterOrder = [BROADBAND_ID, ...profile.equipment.filters.map((f) => f.id)];
   const projectContext = {
     scopeId: train?.kind === 'optical' ? train.scopeId : null,
@@ -2581,6 +2642,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           presetLabels={aiPresetLabels}
           catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
           mixFor={aiMixFor}
+          onNbHours={setNbHoursFor}
+          onNbTick={setNbTickFor}
           formatTime={formatTime}
           owner={owner}
           fetchPlan={aiFetch}
@@ -2712,6 +2775,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             targetName={targetName}
             context={projectContext}
             planTargets={planItems.map(({ id }) => ({ id, name: targetName(id) }))}
+            planned={nbPlanned}
             today={tonightDate !== '' ? tonightDate : localToday}
             search={{ catalog, onRetryCatalog: retryCatalog, scorer, nightWord, formatTime }}
             onShare={() => openShare('projects')}

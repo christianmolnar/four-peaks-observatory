@@ -7,8 +7,8 @@ import type { NewProject } from '@/planner/projects';
 import type { Profile } from '@/planner/profile';
 import TargetSearch from './TargetSearch';
 import WrapSelect from './WrapSelect';
-import { addDraftTarget, lineKey, parseDraft, removeDraftTarget, setDraftFilter } from './projectDraft';
-import type { Draft, DraftErrors } from './projectDraft';
+import { addDraftTarget, fillFromPlan, lineKey, parseDraft, removeDraftTarget, setDraftFilter } from './projectDraft';
+import type { Draft, DraftErrors, PlanLine } from './projectDraft';
 import type { ProjectsResult } from './useProjects';
 
 const btn = 'min-h-11 min-w-11 rounded border border-p-line/30 px-3 py-1.5 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
@@ -25,6 +25,8 @@ export interface ProjectEditorProps {
   filterOrder: readonly string[];
   /** The open plan's targets, offered first. Never all ticked: the user picks. */
   planTargets: readonly { id: string; name: string }[];
+  /** What the open plan holds for each of its targets, by filter: the broadband time and the ticked narrowband filters. Adding a target from the plan starts its boxes from these. */
+  planned: ReadonlyMap<string, readonly PlanLine[]>;
   /** The page's target search props; the editor adds the project variant and its own add. */
   search: Omit<ComponentProps<typeof TargetSearch>, 'variant' | 'planIds' | 'onAdd' | 'listedAs' | 'added'>;
   /** Lines said above the form (what the seed adds). */
@@ -39,7 +41,7 @@ export interface ProjectEditorProps {
 }
 
 /** Create or edit a project: name, setup (scope, camera, filters, sub length), targets (the open plan's first, then the catalog search) and the planned minutes per target and filter. */
-export default function ProjectEditor({ title, initial, profile, targetName, filterName, filterOrder, planTargets, search, review, editNote, saveLabel, onSave, onRefused, onCancel }: ProjectEditorProps) {
+export default function ProjectEditor({ title, initial, profile, targetName, filterName, filterOrder, planTargets, planned, search, review, editNote, saveLabel, onSave, onRefused, onCancel }: ProjectEditorProps) {
   const uid = useId();
   const [d, setD] = useState<Draft>(initial);
   const [errors, setErrors] = useState<DraftErrors>({ lines: {} });
@@ -65,8 +67,15 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
       setAdded(`A project holds at most ${PROJECT_LIMITS.targets.max} targets.`);
       return;
     }
-    setD(addDraftTarget(d, id));
-    setAdded(`Added ${targetName(id)} to the project.`);
+    const held = planned.get(id);
+    if (held === undefined || !planTargets.some((t) => t.id === id)) {
+      setD(addDraftTarget(d, id));
+      setAdded(`Added ${targetName(id)} to the project.`);
+      return;
+    }
+    const r = fillFromPlan(addDraftTarget(d, id), id, held);
+    setD(r.draft);
+    setAdded(`Added ${targetName(id)} to the project, with ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled from the minutes in your plan (broadband and the ticked narrowband filters).${r.left > 0 ? ` ${r.left} of the plan’s ${r.left === 1 ? 'filter is' : 'filters are'} not in this project, so ${r.left === 1 ? 'its minutes were' : 'their minutes were'} left out; tick ${r.left === 1 ? 'it' : 'them'} under Filters, then untick and tick the target again.` : ''}`);
   };
   const dropTarget = (id: string) => {
     setD(removeDraftTarget(d, id));

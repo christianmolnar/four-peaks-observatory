@@ -72,6 +72,8 @@ export type MixResult =
       confidence: string;
       /** The profile's own note, when it has one. */
       profileNote: string | null;
+      /** Set when the lines are the broadband time plus ticked narrowband minutes (the total is then more than the planned light), not a split of it. */
+      narrowbandAdded?: boolean;
     }
   | { kind: 'none'; message: string; skipped: MixLine[] };
 
