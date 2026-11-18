@@ -96,7 +96,7 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
               : 'No narrowband filter is ticked, so this row’s filter mix has no narrowband in it. Tick a filter to add it.'}
           </p>
           <p className="break-words text-p-t1/70" data-testid={`nb-twice-${idBase}`}>
-            A line is never counted twice: if two ticked filters pass the same line, it is counted once, for the recommended filter first and then in the order listed above, and the second filter adds only what is new.
+            A line is never counted twice: if two ticked filters pass the same line, it is counted once, for the recommended filter first, then for the filter that covers the most of the remaining lines, and the other filter adds only what is new.
           </p>
         </>
       )}

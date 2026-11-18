@@ -340,19 +340,31 @@ export function narrowbandHours(input: NbInput): NbResult {
         return t !== undefined && lineNumbers(L, t.band).minutes > 0;
       };
       const base = { ...none, ...alone, gain: topGain, lines: [] as NbLine[] };
-      if (passing.every((L) => taken(L) !== undefined && takerRuns(L))) {
-        const compare = mineNums.map((l) => {
+      const runs = mineNums.filter((l) => takerRuns(l.line));
+      const rest = mineNums.filter((l) => !takerRuns(l.line));
+      const parts: string[] = [];
+      if (runs.length > 0) {
+        const compare = runs.map((l) => {
           const t = taken(l.line) as { filter: NbFilterInput; band: BandCalc };
-          const r = l.gain / t.band.gain;
-          const how = r >= 1.05 ? 'A little better than' : r > 0.95 ? 'About the same as' : 'Weaker than';
-          return `${how} ${t.filter.name} for ${l.line} (${Math.round(r * 100) / 100} times)`;
+          const r = Math.round((l.gain / t.band.gain) * 100) / 100;
+          if (r === 1) return `About the same as ${t.filter.name} for ${l.line}`;
+          const how = l.gain / t.band.gain >= 1.05 ? 'A little better than' : l.gain / t.band.gain > 0.95 ? 'About the same as' : 'Weaker than';
+          return `${how} ${t.filter.name} for ${l.line} (${r} times)`;
         });
-        const by = [...new Set(passing.map((L) => (taken(L) as { filter: NbFilterInput }).filter.name))];
-        const sentence = `${compare.join('; ')}; ${list(by)} already runs for ${list(passing)}, so a separate night is not needed.`;
-        return { ...base, verdict: 'no-help', reason: sentence, basis };
+        const by = [...new Set(runs.map((l) => (taken(l.line) as { filter: NbFilterInput }).filter.name))];
+        parts.push(`${compare.join('; ')}; ${list(by)} already runs for ${list(runs.map((l) => l.line))}, so a separate night is not needed`);
       }
-      const notes = mineNums.map((l) => hurdleNote(l));
-      return { ...base, verdict: 'no-help', reason: `Does not help: ${list(notes)}.`, basis };
+      for (const l of rest) {
+        if (l.minutes === 0) {
+          parts.push(hurdleNote(l));
+          continue;
+        }
+        const t = taken(l.line);
+        const why = t === undefined ? 'no filter in the plan takes it' : `${t.filter.name} takes ${l.line} instead and for it ${hurdleNote(lineNumbers(l.line, t.band))}`;
+        parts.push(`${l.line} would earn ${nbMinutes(l.minutes)} on its own, but the plan leaves it out: ${why}`);
+      }
+      const lead = runs.length > 0 ? '' : 'Does not help: ';
+      return { ...base, verdict: 'no-help', reason: `${lead}${parts.join('. ')}.`, basis };
     }
     const lines = own.map((L) => lineNumbers(L, (taker.get(L) as { band: BandCalc }).band));
     const total = Math.max(...lines.map((l) => l.minutes));
@@ -403,23 +415,44 @@ export interface NbPlanLine {
 
 /**
  * The narrowband time of the ticked filters. A recommended filter adds the minutes of the lines it was given; a ticked filter that is not recommended adds its
- * stand-alone minutes. A line two ticked filters both pass is counted once, for the recommended filter first, then in the order the gear is listed; a filter
+ * stand-alone minutes. A line two ticked filters both pass is counted once, for the recommended filter first, then for the filter covering the most of the remaining lines (a tie goes to the higher gain, then the name); a filter
  * left with no new line adds nothing.
  */
 export function narrowbandPlan(result: NbResult, ticked: ReadonlySet<string>): NbPlanLine[] {
   const chosen = result.filters.filter((f) => ticked.has(f.filterId) && (f.minutes > 0 || f.standaloneMin > 0));
-  const ordered = [...chosen.filter((f) => f.minutes > 0), ...chosen.filter((f) => f.minutes === 0)];
   const done = new Set<MixLineName>();
-  return ordered.map((f): NbPlanLine => {
-    const own = (f.minutes > 0 ? f.lines : f.standaloneLines).filter((l) => l.minutes > 0);
-    const fresh = own.filter((l) => !done.has(l.line));
-    for (const l of fresh) done.add(l.line);
+  const fresh = new Map<NbFilterResult, NbLine[]>();
+  const ownOf = (f: NbFilterResult): NbLine[] => (f.minutes > 0 ? f.lines : f.standaloneLines).filter((l) => l.minutes > 0);
+  // Recommended filters hold disjoint lines, so they come first. The rest share what is left: the filter covering the most uncovered lines takes them all;
+  // a tie goes to the higher mean gain, then to the name (the rule the recommendation uses).
+  for (const f of chosen.filter((c) => c.minutes > 0)) {
+    fresh.set(f, ownOf(f));
+    for (const l of ownOf(f)) done.add(l.line);
+  }
+  const rest = chosen.filter((c) => c.minutes === 0);
+  for (;;) {
+    const picks = rest
+      .filter((f) => !fresh.has(f))
+      .map((f) => ({ f, got: ownOf(f).filter((l) => !done.has(l.line)) }))
+      .filter((c) => c.got.length > 0)
+      .map((c) => ({ ...c, mean: c.got.reduce((t, l) => t + l.gain, 0) / c.got.length }));
+    if (picks.length === 0) break;
+    const win = picks.reduce((a, b) => {
+      if (b.got.length !== a.got.length) return b.got.length > a.got.length ? b : a;
+      if (b.mean !== a.mean) return b.mean > a.mean ? b : a;
+      return `${b.f.name}\u0000${b.f.filterId}` < `${a.f.name}\u0000${a.f.filterId}` ? b : a;
+    });
+    fresh.set(win.f, win.got);
+    for (const l of win.got) done.add(l.line);
+  }
+  return chosen.map((f): NbPlanLine => {
+    const mine = fresh.get(f) ?? [];
     return {
       filterId: f.filterId,
       name: f.name,
-      minutes: Math.max(0, ...fresh.map((l) => l.minutes)),
-      lines: fresh.map((l) => l.line),
-      covered: own.filter((l) => !fresh.includes(l)).map((l) => l.line),
+      minutes: Math.max(0, ...mine.map((l) => l.minutes)),
+      lines: mine.map((l) => l.line),
+      covered: ownOf(f).filter((l) => !mine.includes(l)).map((l) => l.line),
     };
   });
 }

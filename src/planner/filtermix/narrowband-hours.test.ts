@@ -177,6 +177,37 @@ describe('the plan does not depend on the order the filters are listed', () => {
   });
 });
 
+describe('a not-recommended filter’s reason is true for every line it passes', () => {
+  const f7 = { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 };
+  it('Rosette f/7, Bortle 6: no row says a line "would need under 30 min" when that line earns 30 min or more on its own', () => {
+    let checked = 0;
+    for (const mu of [22, 23, 24]) {
+      for (const hours of [2, 2.38, 3]) {
+        const r = run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 });
+        for (const f of r.filters) {
+          if (f.verdict === 'recommend') continue;
+          checked += 1;
+          for (const l of f.standaloneLines.filter((x) => x.minutes >= 30)) {
+            const sentence = f.reason.split(/[;.]/).filter((part) => part.trim().replace(/^Does not help: /, '').startsWith(`${l.line} would need under 30 min`));
+            expect(sentence).toEqual([]);
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(18);
+  });
+  it('a line with minutes but no running taker says what it would earn and why the plan leaves it out', () => {
+    const r = run(ROSETTE, 23, 2.38, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 });
+    const nbz = r.filters.find((f) => f.filterId === 'nbz');
+    expect(nbz?.standaloneLines.find((l) => l.line === 'Ha')?.minutes).toBe(35);
+    expect(nbz?.reason).toMatch(/Ha would earn 35 min on its own, but the plan leaves it out/);
+    expect(nbz?.reason).toMatch(/already runs for OIII/);
+  });
+  it('a tie reads "the same as", not "1 times"', () => {
+    for (const mu of [22, 23, 24]) for (const hours of [2, 2.38, 3]) for (const f of run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 }).filters) expect(f.reason).not.toMatch(/\(1 times\)/);
+  });
+});
+
 describe('a filter that is not recommended', () => {
   const f7 = { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 };
   const r = run(ROSETTE, 22, 2, [NBZ, HA7], { bortle: 4, train: f7 });
@@ -206,6 +237,26 @@ describe('the plan of the ticked filters', () => {
     const plan = narrowbandPlan(r, new Set(['ha7']));
     expect(plan).toHaveLength(1);
     expect(plan[0].minutes).toBe(r.filters.find((f) => f.filterId === 'ha7')?.standaloneMin);
+  });
+  it('ticks NB3, NBZ and H-alpha on Rosette f/7 Bortle 4 give one plan in every gear order: the filter covering the most lines takes them', () => {
+    const permutations = <T,>(xs: T[]): T[][] => (xs.length < 2 ? [xs] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+    const f7 = { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 };
+    const plans = permutations([NBZ, NB3, HA7, LEX]).map((order) => {
+      const res = run(ROSETTE, 22, 2, order, { bortle: 4, train: f7 });
+      const plan = narrowbandPlan(res, new Set(['nb3', 'nbz', 'ha7'])).map((p) => [p.filterId, p.minutes, p.lines, p.covered]);
+      return JSON.stringify([...plan].sort());
+    });
+    expect(new Set(plans).size).toBe(1);
+    const res = run(ROSETTE, 22, 2, [HA7, LEX, NBZ, NB3], { bortle: 4, train: f7 });
+    expect(narrowbandPlan(res, new Set(['nb3', 'nbz', 'ha7'])).reduce((t, p) => t + p.minutes, 0)).toBe(265);
+  });
+  it('among filters that are not recommended, the one covering the most lines takes them regardless of order', () => {
+    const f7 = { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 };
+    const totals = [[NBZ, HA7], [HA7, NBZ]].map((order) => {
+      const res = run(ROSETTE, 22, 2, order, { bortle: 4, train: f7 });
+      return JSON.stringify([...narrowbandPlan(res, new Set(['nbz', 'ha7'])).map((p) => [p.filterId, p.minutes])].sort());
+    });
+    expect(new Set(totals).size).toBe(1);
   });
   it('nothing ticked, nothing added', () => {
     expect(narrowbandPlan(r, new Set())).toEqual([]);

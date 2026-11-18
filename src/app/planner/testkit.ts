@@ -93,7 +93,6 @@ export const pageProps = {
   loadAuth: async (): Promise<AuthState> => ({ kind: 'signedOut' }),
 };
 
-/** Opens the sticky strip's controls (Evening of, Site, Train, Filter, Minimum altitude), which start closed; does nothing when they are open. */
 /** Unticks every ticked narrowband filter box on the page (opening each panel and closing it again), so a test of the broadband filter mix sees the mix without narrowband in it. */
 export const untickNarrowband = (): void => {
   const opened = [...document.querySelectorAll<HTMLButtonElement>('[id^="nb-fold-"]')].filter((f) => f.getAttribute('aria-expanded') === 'false');
@@ -102,6 +101,7 @@ export const untickNarrowband = (): void => {
   for (const f of opened) fireEvent.click(f);
 };
 
+/** Opens the sticky strip's controls (Evening of, Site, Train, Filter, Minimum altitude), which start closed; does nothing when they are open. */
 export const openControls = (): void => {
   const strip = document.querySelector<HTMLElement>('[aria-controls="controls-panel"]');
   if (strip !== null && strip.getAttribute('aria-expanded') === 'false') fireEvent.click(strip);
