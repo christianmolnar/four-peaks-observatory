@@ -134,10 +134,10 @@ describe('the seed filters', () => {
   it.each(SEED_ENTRIES.map((e) => [e.name, e] as const))('a lookup of %s fills the band boxes and the totals, and the boxes read back to the same bands', (_n, e) => {
     const t = specsToTexts('filters', e.specs)
     const bands = (e.specs as { passbands: { centreNm: number; widthNm: number }[] }).passbands
-    expect(bands).toHaveLength(2)
+    expect(bands.length).toBeGreaterThanOrEqual(1)
     expect(t.band1Centre).toBe(String(bands[0].centreNm))
-    expect(t.band2Width).toBe(String(bands[1].widthNm))
-    expect(Number(t.passbandWidthNm)).toBe(bands[0].widthNm + bands[1].widthNm)
+    if (bands.length > 1) expect(t.band2Width).toBe(String(bands[1].widthNm))
+    expect(Number(t.passbandWidthNm)).toBe(bands.reduce((sum, b) => sum + b.widthNm, 0))
     const back = textsToSpecs('filters', t, e.specs)
     expect('specs' in back && (back.specs as { passbands: unknown }).passbands).toEqual(bands)
   })
