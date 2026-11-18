@@ -167,3 +167,27 @@ describe('one source: the flyout and the plan row after Use this plan', () => {
     });
   });
 });
+
+describe('the narrowband panel in the AI result', () => {
+  const slotOf = (id: string) => screen.getByTestId(`nb-ai-${id}`).closest('[data-testid^="ai-slot-mix-"]') as HTMLElement;
+  /** The slot's mix lines without the panel's own rows. */
+  const mixText = (id: string) => (slotOf(id).textContent ?? '').replace(screen.getByTestId(`nb-ai-${id}`).textContent ?? '', '');
+  it('is under the slot; a tick changed there changes that slot’s mix, and the plan row after Use this plan says the same', async () => {
+    mount(fetchWith(), ['ic405', 'm31'], profileWith('nbz'));
+    const user = await planned();
+    const unchanged = slotOf('ic405').textContent ?? '';
+    fireEvent.click(document.getElementById('nb-fold-ai-ic405') as HTMLButtonElement);
+    expect(screen.getByTestId('nb-ai-ic405').textContent).toContain('Filters from your gear that could help most');
+    expect(unchanged).not.toMatch(/ticked below/);
+    const nb3 = screen.getByTestId('nb-tick-ai-ic405-nb3') as HTMLInputElement;
+    expect(nb3.checked).toBe(true);
+    fireEvent.click(nb3); // untick: the plan keeps broadband and NBZ II only
+    expect(slotOf('ic405').textContent).toMatch(/ticked below/);
+    expect(slotOf('ic405').textContent).toMatch(/Broadband \(no narrowband filter\): \d/);
+    expect((screen.getByTestId('nb-tick-ai-ic405-nb3') as HTMLInputElement).checked).toBe(false);
+    const flyout = pairs(mixText('ic405'));
+    expect(flyout.some((p) => p.startsWith('IDAS NB3-PM'))).toBe(false);
+    await afterUse(user);
+    expect(pairs(rowMix('ic405'))).toEqual(flyout);
+  });
+});
