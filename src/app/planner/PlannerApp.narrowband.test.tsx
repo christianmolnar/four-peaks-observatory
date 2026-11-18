@@ -162,8 +162,10 @@ describe('a filter that is not recommended can still be chosen', () => {
     await withHa7();
     const total = () => screen.getByTestId('nb-total-ic405').textContent ?? '';
     const before = total();
+    expect(screen.queryByTestId('nb-adds-nothing-ic405-ha7')).toBeNull();
     fireEvent.click(tick('ic405', 'ha7'));
     expect(total()).toBe(before);
+    expect(screen.getByTestId('nb-adds-nothing-ic405-ha7').textContent).toBe('Adds nothing here: its lines (Ha) are already covered by another ticked filter.');
     fireEvent.click(tick('ic405', 'nbz'));
     expect(total()).toMatch(/plus H-alpha 7 nm .* = /);
   });

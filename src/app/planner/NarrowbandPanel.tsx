@@ -52,7 +52,9 @@ export default function NarrowbandPanel({ idBase, view, onHours, onTick }: { idB
 
 function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView, { kind: 'panel' }>; onTick: (filterId: string, on: boolean) => void }) {
   const { result } = view;
-  const plan = narrowbandPlan(result, view.ticked).filter((p) => p.minutes > 0);
+  const whole = narrowbandPlan(result, view.ticked);
+  const plan = whole.filter((p) => p.minutes > 0);
+  const coveredOnly = new Map(whole.filter((p) => p.minutes === 0).map((p) => [p.filterId, p.covered]));
   const added = plan.reduce((t, p) => t + p.minutes, 0);
   const noneJudged = result.filters.every((f) => f.verdict === 'cannot-judge');
   return (
@@ -82,6 +84,11 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
                 </span>
               </label>
               <p className="break-words pl-7 text-p-t1/80">{f.reason}</p>
+              {view.ticked.has(f.filterId) && coveredOnly.has(f.filterId) && (
+                <p className="break-words pl-7 text-p-t1/80" data-testid={`nb-adds-nothing-${idBase}-${f.filterId}`}>
+                  Adds nothing here: its lines ({(coveredOnly.get(f.filterId) ?? []).join(' and ')}) are already covered by another ticked filter.
+                </p>
+              )}
               {f.verdict !== 'cannot-judge' && f.basis.some((b) => /beam edge/.test(b)) && <p className="break-words pl-7 text-p-t1/70">{f.basis.filter((b) => /beam edge/.test(b)).join(' ')}</p>}
             </li>
           );

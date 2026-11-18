@@ -205,14 +205,18 @@ describe('a not-recommended filter’s reason is true for every line it passes',
   });
   it('every recommended row says "which runs for it" only of lines whose taker earns minutes, and gives the hurdle note for the rest', () => {
     let said = 0;
-    for (const f of [1.9, 7, 10]) for (const mu of [21, 22, 23, 24]) for (const bortle of [4, 6, 8]) for (const hours of [1, 2, 3, 4]) {
-      const r = run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle, train: { fRatio: f, pixelUm: 3.76, focalLengthMm: f * 280 } });
+    const targets = [M42, ROSETTE, M57, profile({ Ha: 1 }, 0.9), profile({ Ha: 0.6, OIII: 1, SII: 0.5 }, 0.2)];
+    for (const target of targets) for (const f of [1.9, 7, 10]) for (const mu of [21, 22, 23, 24]) for (const bortle of [4, 6, 8]) for (const hours of [1, 2, 3, 4]) {
+      const r = run(target, mu, hours, [NBZ, NB3, HA7, LEX], { bortle, train: { fRatio: f, pixelUm: 3.76, focalLengthMm: f * 280 } });
       const lineMin = (L: string): number => Math.max(0, ...r.filters.flatMap((x) => x.lines.filter((l) => l.line === L).map((l) => l.minutes)));
       for (const x of r.filters.filter((y) => y.verdict === 'recommend')) {
         const m = /(\w[\w, and]*) goes to [^.]*, which runs for it/.exec(x.reason);
         if (m === null) continue;
         said += 1;
         for (const L of m[1].split(/, | and /)) expect([f, mu, bortle, hours, L, lineMin(L) > 0]).toEqual([f, mu, bortle, hours, L, true]);
+      }
+      for (const x of r.filters.filter((y) => y.verdict !== 'recommend')) {
+        for (const l of x.standaloneLines.filter((y) => y.minutes >= 30)) expect(x.reason).not.toMatch(new RegExp(`(^|[;.] )(Does not help: )?${l.line} would need under 30 min`));
       }
     }
     expect(said).toBeGreaterThan(0);
