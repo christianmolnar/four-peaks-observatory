@@ -81,6 +81,11 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
           );
         })}
       </ul>
+      <p className="break-words text-p-t1/80" data-testid={`nb-state-${idBase}`}>
+        {view.inPlan
+          ? 'The ticked filters are in this row’s filter mix and in the minutes a new project starts from.'
+          : 'These ticks are suggestions. Nothing is added to the plan until you change a tick or the broadband hours; then the ticked filters go into the filter mix and a new project’s minutes.'}
+      </p>
       <p data-testid={`nb-total-${idBase}`}>
         Broadband {minutesText(Math.round(view.hours * 60))}{added > 0 ? ` plus ${minutesText(added)} of narrowband ticked = ${minutesText(Math.round(view.hours * 60) + added)}` : '; no narrowband ticked'}.
       </p>

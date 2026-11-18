@@ -1188,7 +1188,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         light: lightFor(id, timeline),
         filters: mixFilters,
         noFilters: noMixFilters,
-        narrowband: nb.kind === 'panel' ? { result: nb.result, ticked: nb.ticked, broadbandMin: Math.round(nb.hours * 60) } : undefined,
+        narrowband: nb.kind === 'panel' && nb.inPlan ? { result: nb.result, ticked: nb.ticked, broadbandMin: Math.round(nb.hours * 60) } : undefined,
       });
     },
     [lightFor, nbOf, mixFilters, noMixFilters, catalog.status],

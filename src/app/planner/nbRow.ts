@@ -64,6 +64,11 @@ export type NbView =
       hoursText: string;
       /** The filters ticked: those with minutes the user has not unticked. */
       ticked: ReadonlySet<string>;
+      /**
+       * The ticks reach the plan (its filter mix, the AI result, a new project's minutes) once the user has changed a tick or the hours on this target.
+       * Before that the ticks are the engine's suggestion only and the plan's mix is what it was without this panel.
+       */
+      inPlan: boolean;
       /** Inputs the planner assumed (a surface brightness, a read noise, a Bortle class), each said in words. */
       assumptions: string[];
     };
@@ -126,5 +131,5 @@ export function nbRowView(input: NbRowInput): NbView {
     filters: input.filters.map((f) => ({ id: f.id, name: f.name, bands: f.passbands, ratedMinFRatio: f.ratedMinFRatio })),
   });
   const ticked = new Set(result.filters.filter((f) => f.minutes > 0 && (input.ticks?.get(f.filterId) ?? true)).map((f) => f.filterId));
-  return { kind: 'panel', result, hours, hoursText, ticked, assumptions };
+  return { kind: 'panel', result, hours, hoursText, ticked, inPlan: input.ticks !== undefined || input.hoursText !== undefined, assumptions };
 }

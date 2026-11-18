@@ -34,6 +34,17 @@ describe('nbRowView', () => {
     expect([...v.ticked].sort()).toEqual(['nb3', 'nbz']);
     expect(v.result.filters.find((f) => f.filterId === 'u')?.verdict).toBe('cannot-judge');
     expect(v.assumptions).toEqual([]);
+    expect(v.inPlan).toBe(false);
+  });
+  it('the ticks reach the plan once a tick or the hours have been changed, not before', () => {
+    const at = (over: Partial<NbRowInput>) => {
+      const v = nbRowView({ ...base, ...over });
+      if (v.kind !== 'panel') throw new Error(v.kind);
+      return v.inPlan;
+    };
+    expect(at({})).toBe(false);
+    expect(at({ ticks: new Map([['nbz', false]]) })).toBe(true);
+    expect(at({ hoursText: '3' })).toBe(true);
   });
   it('a different typed time updates the numbers', () => {
     const at = (t: string) => {
