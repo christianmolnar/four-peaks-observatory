@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { GAIN_HURDLE, HONESTY_LINE, narrowbandPlan } from '@/planner/filtermix/narrowband-hours';
+import { GAIN_HURDLE, HONESTY_LINE, KNOTS_HEADLINE, narrowbandPlan } from '@/planner/filtermix/narrowband-hours';
 import { Fold } from './PlanRowExposure';
 import { minutesText } from './rowExposure';
 import type { NbView } from './nbRow';
@@ -124,6 +124,7 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
           <p className="break-words">
             More than about {minutesText(Math.round(result.capMin))} of one filter stops paying, less the broadband’s own share. A filter must be at least {GAIN_HURDLE} times better than broadband and earn at least 30 minutes to count; a filter takes a line from another filter (single-band or dual-band) only when its band is at least {GAIN_HURDLE} times better; otherwise one filter that passes several needed lines at a comparable gain is preferred to splitting them, whatever order your gear is listed in. A filter that is not recommended can still be ticked: it then adds its minutes on its own.
           </p>
+          {result.headline === KNOTS_HEADLINE && <p className="break-words">This galaxy’s Ha is in small knots, a small part of the frame, so more time pays less overall: the stop is the quick preset’s, whatever preset you chose. That is a planner choice, not a measurement.</p>}
           <p className="break-words">The match rule and the {GAIN_HURDLE} hurdle are planner choices, not measurements. On a fast beam the band shift is worked out from the planner’s own formula.</p>
           <p className="break-words">The broadband stack alone reaches a signal-to-noise of about {Math.round(result.broadbandSnr)} per 2.5 arcsecond element on the whole nebula.</p>
         </div>

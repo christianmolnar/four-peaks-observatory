@@ -44,6 +44,16 @@ describe('nbRowView: galaxies', () => {
     expect(rec[0].minutes).toBeGreaterThanOrEqual(30);
     expect(rec[0].lines.map((l) => l.line)).toEqual(['Ha']);
   });
+  it.each(['m31', 'ngc2903', 'ngc4490', 'ngc891', 'ngc4501', 'ngc3368', 'ngc4565', 'ngc2841', 'ngc5907', 'ngc4244', 'ngc4826', 'm82'])('%s gets the knots Ha suggestion, about an hour at most', (id) => {
+    const v = panel(galaxy(id, 23));
+    expect(v.result.gate).toBe(false);
+    const rec = v.result.filters.filter((f) => f.minutes > 0);
+    expect(rec).toHaveLength(1);
+    expect(rec[0].minutes).toBeLessThanOrEqual(75);
+  });
+  it('the Leo Triplet (M65, M66 and NGC 3628 in one entry) still gets none', () => {
+    expect(panel(galaxy('leo-triplet', 23)).result.gate).toBe(true);
+  });
   it('the knots use a faint feature’s brightness, not the whole galaxy’s mean, and say so', () => {
     const v = panel(galaxy('m51', 22.9));
     expect(v.assumptions.join(' ')).toMatch(/knots/);

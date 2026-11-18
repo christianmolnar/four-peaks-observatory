@@ -221,7 +221,8 @@ export function narrowbandHours(input: NbInput): NbResult {
   const gate = w('Ha') + w('OIII') + w('SII') < GATE_SUM;
   const needed = gate ? [] : NEED_LINES.filter((L) => w(L) >= W_MIN && !(L === 'Ha' && haMostlyNii));
 
-  const g = PRESETS[input.knee].maxNextHalfHourGain;
+  // Planner choice, not a measurement: knots are a small part of the frame, so more time on them pays less overall. A knots-only profile always uses the quick knee cap, whatever the user's preset.
+  const g = PRESETS[p.knotsOnly === true ? 'quick' : input.knee].maxNextHalfHourGain;
   const capHours = 0.5 / ((1 + g) ** 2 - 1);
   const confidence = confidenceLabel(p);
   const headline = gate ? 'This target gives off almost no emission light, so no narrowband filter helps. Shoot it broadband.' : p.knotsOnly === true ? KNOTS_HEADLINE : null;

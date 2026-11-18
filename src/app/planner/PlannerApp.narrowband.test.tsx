@@ -24,7 +24,8 @@ const app = async (targets: readonly object[]) => {
   openPlanTab();
 };
 const rosette = { id: 'ic405', preset: 'balanced' };
-const galaxy = { id: 'm31', preset: 'balanced' };
+// The Leo Triplet (no knots profile): the gate. M31 has HII knots since the knots work.
+const galaxy = { id: 'leo-triplet', preset: 'balanced' };
 const openNb = (id: string) => {
   const f = document.getElementById(`nb-fold-${id}`) as HTMLButtonElement;
   if (f.getAttribute('aria-expanded') === 'false') fireEvent.click(f);
@@ -75,11 +76,11 @@ describe('the narrowband panel on a plan row', () => {
 
   it('a galaxy: no filter gets minutes and the reason says no narrowband', async () => {
     await app([galaxy]);
-    openNb('m31');
-    expect(screen.getByTestId('nb-headline-m31').textContent).toMatch(/almost no emission/);
+    openNb('leo-triplet');
+    expect(screen.getByTestId('nb-headline-leo-triplet').textContent).toMatch(/almost no emission/);
     for (const f of ['nbz', 'nb3']) {
-      expect(row('m31', f)).toMatch(/no narrowband/i);
-      expect(tick('m31', f).disabled).toBe(true);
+      expect(row('leo-triplet', f)).toMatch(/no narrowband/i);
+      expect(tick('leo-triplet', f).disabled).toBe(true);
     }
   });
 

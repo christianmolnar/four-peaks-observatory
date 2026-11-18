@@ -92,8 +92,9 @@ describe('the Filters line under each slot of the AI result', () => {
     expect(slotMix(0)).toMatch(/^Filters/);
     expect(slotMix(0)).toMatch(/IDAS NBZ-II: \d/);
     expect(slotMix(0)).toMatch(/adds Ha and OIII|adds/i);
-    // Andromeda gives off almost no emission: said plainly, all the light on broadband.
-    expect(slotMix(1)).toMatch(/almost no emission light/);
+    // Andromeda has faint HII knots (Ha only): it gets the knots suggestion, not the gate.
+    expect(slotMix(1)).toMatch(/adds Ha/);
+    expect(slotMix(1)).not.toMatch(/almost no emission light/);
     expect(screen.queryByTestId('ai-cut')?.textContent ?? '').not.toMatch(/Filters/);
     expect(document.body.textContent).not.toMatch(/NaN|Infinity|undefined|e\+\d/);
   });

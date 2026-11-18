@@ -29,6 +29,8 @@ const app = async (targets: readonly object[], profile: Profile) => {
 };
 const ic405 = { id: 'ic405', preset: 'balanced' };
 const m31 = { id: 'm31', preset: 'balanced' };
+// The Leo Triplet (no knots profile): the gate. M31 has HII knots since the knots work.
+const leo = { id: 'leo-triplet', preset: 'balanced' };
 const jupiter = { id: 'planet-jupiter', preset: 'balanced' };
 const fold = (id: string) => document.getElementById(`plan-mix-fold-${id}`) as HTMLButtonElement;
 const open = (id: string) => {
@@ -82,10 +84,10 @@ describe('the Filter mix part of a plan row', () => {
   });
 
   it('a target that gives off no emission shows the gate message with all the light on broadband', async () => {
-    await app([m31], profileWith('nbz'));
-    open('m31');
-    expect(screen.getByTestId('plan-mix-headline-m31').textContent).toMatch(/almost no emission light, so narrowband filters add nothing/);
-    expect(body('m31')).toContain(`Broadband (no narrowband filter): ${light('m31')}`);
+    await app([leo], profileWith('nbz'));
+    open('leo-triplet');
+    expect(screen.getByTestId('plan-mix-headline-leo-triplet').textContent).toMatch(/almost no emission light, so narrowband filters add nothing/);
+    expect(body('leo-triplet')).toContain(`Broadband (no narrowband filter): ${light('leo-triplet')}`);
   });
 
   it('a filter without passbands is named and skipped, and says so', async () => {

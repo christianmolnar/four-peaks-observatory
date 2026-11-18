@@ -80,10 +80,8 @@ const knotsOf = (source: string, confidence: 'amateur' | 'type-default'): Partia
   knotsOnly: true,
   note: 'For the knots only: the HII regions in the arms are small and faint against the disk. The disk itself is broadband light.',
 });
-const SPIRAL_DEFAULT = 'Late-type spiral or irregular: HII knots expected (type default; Kennicutt 1998, arXiv:astro-ph/9807187: Ha+NII equivalent width 20 to 150 A for late types). Not measured for this galaxy';
-const FAMOUS = 'Its HII regions are well known from Ha imaging (amateur-grade; no flux table)';
-const knotsType = (): Partial<EmissionProfile> => knotsOf(SPIRAL_DEFAULT, 'type-default');
-const knotsImaged = (): Partial<EmissionProfile> => knotsOf(FAMOUS, 'amateur');
+const SPIRAL_SOURCE = 'Typical for a star-forming spiral, not measured for this galaxy (Kennicutt 1998, arXiv:astro-ph/9807187)';
+const knotsType = (): Partial<EmissionProfile> => knotsOf(SPIRAL_SOURCE, 'type-default');
 
 const REFLECTION: Partial<EmissionProfile> = {
   lines: {},
@@ -143,18 +141,29 @@ export const OBJECT_OVERRIDES: Record<string, Partial<EmissionProfile>> = {
   // HII regions in M33.
   ngc604: { ...HII_IN_GALAXY },
   ngc595: { ...HII_IN_GALAXY },
-  // Star-forming galaxies: Ha for the knots only. Ellipticals, S0 and any galaxy not named here keep the type default (no emission): M87, M49, M60, M84, M85, M86, M89, M105, M32, M110, M31, M64, M104, M65.
-  // Well imaged in Ha:
-  m33: knotsImaged(),
-  m51: knotsImaged(),
-  m101: knotsImaged(),
-  m81: knotsImaged(),
-  m82: knotsOf('Starburst galaxy; its Ha filaments are well known from imaging (amateur-grade; no flux table)', 'amateur'),
-  ngc6946: knotsImaged(),
-  ngc628: knotsImaged(),
-  ngc5236: knotsImaged(),
-  ngc253: knotsImaged(),
-  // Late-type spirals and irregulars by class alone:
+  // Star-forming galaxies: Ha for the knots only. Ellipticals, S0 and any galaxy not named here keep the type default (no emission): M87, M49, M60, M84, M85, M86, M89, M105, M32, M110, M104, M65.
+  // Amateur-grade sources named: M33 (NGC 604 and the other HII regions, imaged and mapped) and M82 (Shopbell, Ha filaments of the starburst wind).
+  m33: knotsOf('M33 HII regions (NGC 604 Ha maps); amateur-grade, no flux table', 'amateur'),
+  m82: knotsOf('M82 starburst Ha filaments (Shopbell, Ha imaging of the wind); no flux table', 'amateur'),
+  // The rest, by class alone (type default), including the large spirals that are well imaged:
+  m31: knotsType(), // its HII rings are faint: type default
+  m51: knotsType(),
+  m101: knotsType(),
+  m81: knotsType(),
+  ngc6946: knotsType(),
+  ngc628: knotsType(),
+  ngc5236: knotsType(),
+  ngc253: knotsType(),
+  ngc2903: knotsType(),
+  ngc4490: knotsType(),
+  ngc891: knotsType(),
+  ngc4501: knotsType(),
+  ngc3368: knotsType(),
+  ngc4565: knotsType(),
+  ngc2841: knotsType(),
+  ngc5907: knotsType(),
+  ngc4244: knotsType(),
+  ngc4826: knotsType(),
   ngc4736: knotsType(),
   ngc3351: knotsType(),
   ngc4254: knotsType(),

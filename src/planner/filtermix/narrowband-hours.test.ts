@@ -74,9 +74,28 @@ describe('a galaxy', () => {
       expect(f.reason).toMatch(/no narrowband/i);
     }
   });
-  it('works out the same through the catalog profile of a galaxy', () => {
-    const p = emissionProfileFor('ngc224', 'galaxy') as EmissionProfile;
+  it('works out the same through the catalog profile of an elliptical', () => {
+    const p = emissionProfileFor('ngc4486', 'galaxy') as EmissionProfile;
     expect(run(p, 23, 3, [NBZ]).filters[0].minutes).toBe(0);
+  });
+  it('M31 has HII knots: Ha for the knots only, no gate', () => {
+    const p = emissionProfileFor('m31', 'galaxy') as EmissionProfile;
+    expect(p.knotsOnly).toBe(true);
+    expect(run(p, 24, 3, [HA7]).gate).toBe(false);
+  });
+  it('knots minutes (M33, M82) use the quick knee whatever the preset: about an hour, below the Rosette at Balanced, equal across balanced and deep', () => {
+    for (const id of ['m33', 'm82']) {
+      const p = emissionProfileFor(id, 'galaxy') as EmissionProfile;
+      for (const bortle of [2, 4, 6, 8]) {
+        const at = (knee: 'quick' | 'balanced' | 'deep') => run(p, 24, 3, [NBZ], { knee, bortle }).filters[0].minutes;
+        const rosette = run(ROSETTE, 22, 3, [NBZ], { bortle }).filters[0].minutes;
+        expect(at('balanced')).toBeGreaterThan(0);
+        expect(at('balanced')).toBeLessThan(rosette);
+        expect(at('deep')).toBe(at('balanced'));
+        expect(at('quick')).toBe(at('balanced'));
+        expect(at('balanced')).toBeLessThanOrEqual(75);
+      }
+    }
   });
 });
 
