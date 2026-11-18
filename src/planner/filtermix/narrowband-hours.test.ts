@@ -155,6 +155,45 @@ describe('single-band and dual-band filters share the lines', () => {
   });
 });
 
+describe('the plan does not depend on the order the filters are listed', () => {
+  const permutations = <T,>(xs: T[]): T[][] => (xs.length < 2 ? [xs] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+  const f7 = { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 };
+  const stable = (r: NbResult): Record<string, unknown> =>
+    Object.fromEntries(r.filters.map((f) => [f.filterId, [f.minutes, f.verdict, f.lines.map((l) => `${l.line}:${l.minutes}`), f.standaloneMin]]));
+
+  it('Rosette at f/7, Bortle 4, B = 2 h: every order of the four filters gives the same 265-minute plan', () => {
+    const results = permutations([NBZ, NB3, HA7, LEX]).map((order) => run(ROSETTE, 22, 2, order, { bortle: 4, train: f7 }));
+    expect(results).toHaveLength(24);
+    const want = stable(results[0]);
+    for (const r of results) {
+      expect(stable(r)).toEqual(want);
+      expect(r.filters.reduce((t, f) => t + f.minutes, 0)).toBe(265);
+    }
+  });
+  it('a filter that passes several needed lines at a comparable gain is preferred to splitting them across two dual-bands', () => {
+    const m = mins(run(ROSETTE, 22, 2, [NBZ, NB3, HA7, LEX], { bortle: 4, train: f7 }));
+    expect([m.nbz, m.lex].filter((x) => x > 0)).toHaveLength(1);
+    expect(m.nb3).toBeGreaterThan(0);
+  });
+});
+
+describe('a filter that is not recommended', () => {
+  const f7 = { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 };
+  const r = run(ROSETTE, 22, 2, [NBZ, HA7], { bortle: 4, train: f7 });
+  const ha7 = r.filters.find((f) => f.filterId === 'ha7');
+  it('shows its own gain and its stand-alone minutes', () => {
+    expect(ha7?.minutes).toBe(0);
+    expect(ha7?.gain).toBeGreaterThan(0);
+    expect(ha7?.standaloneMin).toBeGreaterThan(0);
+    expect(ha7?.standaloneLines.map((l) => l.line)).toEqual(['Ha']);
+  });
+  it('says what the engine decided and never calls a weaker or equal filter better', () => {
+    expect(ha7?.reason).toMatch(/About the same as NBZ II for Ha \(1\.\d+ times\)/);
+    expect(ha7?.reason).toMatch(/NBZ II already runs/);
+    expect(ha7?.reason).not.toMatch(/better collected/);
+  });
+});
+
 describe('inputs', () => {
   it('minutes grow with nothing odd: whole multiples of 5, never between 1 and 29', () => {
     for (const h of [1, 2, 3, 4, 6]) {

@@ -102,6 +102,13 @@ export interface NbFilterResult {
   gain: number | null;
   /** The needed lines this filter was given, with their numbers. */
   lines: NbLine[];
+  /**
+   * What this filter would add run on its own for every needed line it passes (the lines with minutes), whether or not the plan gives it those lines.
+   * The user may tick a filter the plan does not recommend; these are the minutes it then adds.
+   */
+  standaloneLines: NbLine[];
+  /** The longest of the stand-alone lines, whole minutes; 0 when none of its lines earns minutes. */
+  standaloneMin: number;
   /** What is unverified in this filter's numbers. */
   basis: string[];
 }
@@ -257,24 +264,32 @@ export function narrowbandHours(input: NbInput): NbResult {
     return mine.length === 0 ? null : mine.reduce((a, b) => (b.gain > a.gain ? b : a));
   };
 
-  // ---- which filter takes each needed line. The planner's order first (most needed lines, then the better band); a line moves to another filter only when
-  // that filter's band has at least GAIN_HURDLE times the gain E (a band that collects more of the line but also more sky does not count).
-  const meanGain = (f: NbFilterInput): number => {
-    const bs = needed.map((L) => bandFor(f, L)).filter((b): b is BandCalc => b !== null);
-    return bs.length === 0 ? 0 : bs.reduce((t, b) => t + b.gain, 0) / bs.length;
+  // ---- which filter takes each needed line. Joint across the lines and independent of the order the gear is listed in. A filter is eligible for a line when its
+  // band's gain E is within GAIN_HURDLE of the best band for that line (a band that is clearly better, GAIN_HURDLE times or more, leaves the others out). Then the
+  // filter eligible for the most still-unassigned lines takes them all (one filter that passes several needed lines at a comparable gain beats splitting them
+  // across two); a tie goes to the higher mean gain, then to the name.
+  const bestGain = new Map<MixLineName, number>(needed.map((L) => [L, Math.max(0, ...usable.map((f) => bandFor(f, L)?.gain ?? 0))]));
+  const eligible = (f: NbFilterInput, L: MixLineName): BandCalc | null => {
+    const b = bandFor(f, L);
+    return b !== null && b.gain > 0 && b.gain * GAIN_HURDLE >= (bestGain.get(L) as number) ? b : null;
   };
-  const count = (f: NbFilterInput): number => needed.filter((L) => bandFor(f, L) !== null).length;
-  const order = [...usable].sort((a, b) => count(b) - count(a) || meanGain(b) - meanGain(a) || usable.indexOf(a) - usable.indexOf(b));
   const taker = new Map<MixLineName, { filter: NbFilterInput; band: BandCalc }>();
-  for (const L of needed) {
-    const first = order.find((f) => bandFor(f, L) !== null);
-    if (first === undefined) continue;
-    let chosen = { filter: first, band: bandFor(first, L) as BandCalc };
-    for (const f of usable) {
-      const b = bandFor(f, L);
-      if (b !== null && b.gain >= GAIN_HURDLE * chosen.band.gain && b.gain > 0) chosen = { filter: f, band: b };
+  const left = new Set<MixLineName>(needed);
+  while (left.size > 0) {
+    const picks = usable
+      .map((f) => ({ f, got: [...left].flatMap((L) => { const b = eligible(f, L); return b === null ? [] : [{ L, b }]; }) }))
+      .filter((c) => c.got.length > 0)
+      .map((c) => ({ ...c, mean: c.got.reduce((t, x) => t + x.b.gain, 0) / c.got.length }));
+    if (picks.length === 0) break;
+    const win = picks.reduce((a, b) => {
+      if (b.got.length !== a.got.length) return b.got.length > a.got.length ? b : a;
+      if (b.mean !== a.mean) return b.mean > a.mean ? b : a;
+      return `${b.f.name}\u0000${b.f.id}` < `${a.f.name}\u0000${a.f.id}` ? b : a;
+    });
+    for (const { L, b } of win.got) {
+      taker.set(L, { filter: win.f, band: b });
+      left.delete(L);
     }
-    taker.set(L, chosen);
   }
 
   // ---- minutes per assigned line, then per filter (the bands of one filter run at once, so its minutes are the longest of its lines)
@@ -286,9 +301,15 @@ export function narrowbandHours(input: NbInput): NbResult {
     return { line: L, gain: b.gain, matchMin, kneeMin, minutes: helps ? Math.round(Math.max(t, MIN_TOTAL_MIN) / STEP_MIN) * STEP_MIN : 0 };
   };
   const nbMinutes = (n: number): string => `${n} min`;
+  const hurdleNote = (l: NbLine): string =>
+    l.gain < GAIN_HURDLE
+      ? `${l.line} gains only ${times(l.gain)} times over broadband, under the ${GAIN_HURDLE} times hurdle`
+      : l.kneeMin <= 0
+        ? `broadband already carries ${l.line} well enough (more narrowband adds under ${Math.round(g * 100)}% per half hour)`
+        : `${l.line} would need under ${MIN_TOTAL_MIN} min, too little to be worth the setup`;
 
   const results: NbFilterResult[] = input.filters.map((f): NbFilterResult => {
-    const none = { filterId: f.id, name: f.name, minutes: 0, gain: null, lines: [] as NbLine[] };
+    const none = { filterId: f.id, name: f.name, minutes: 0, gain: null, lines: [] as NbLine[], standaloneLines: [] as NbLine[], standaloneMin: 0 };
     const bands = f.bands ?? [];
     if (bands.length === 0) return { ...none, verdict: 'cannot-judge', reason: 'Cannot judge: passbands unknown. Add them in Gear to see what this filter would add.', basis: ['Passbands unknown.'] };
     if (isBroad(bands)) return { ...none, verdict: 'cannot-judge', reason: `Cannot judge: a broadband filter (a band ${BROAD_BAND_NM} nm or wider) is not a narrowband addition, so it gets no minutes here.`, basis: ['Broadband filter: not sized by this method.'] };
@@ -302,14 +323,36 @@ export function narrowbandHours(input: NbInput): NbResult {
     const mine = bandsOf(f);
     if (mine.some((b) => b.share < 1)) {
       const least = Math.min(...mine.filter((b) => b.passes.length > 0).map((b) => b.share));
-      basis.push(`At f/${Number(fRatio.toFixed(2))} the beam edge shifts the band toward blue (the planner’s own formula, the band taken as centred on its line at normal incidence): about ${Math.round(least * 100)}% of the beam still sees the line on the narrowest-margin band.`);
+      basis.push(`At f/${fRatio.toFixed(1)} the beam edge shifts the band toward blue (the planner’s own formula, the band taken as centred on its line at normal incidence): about ${Math.round(least * 100)}% of the beam still sees the line on the narrowest-margin band.`);
     }
     if (f.ratedMinFRatio !== undefined && fRatio >= f.ratedMinFRatio) basis.push(`The maker rates it for f/${f.ratedMinFRatio} and slower; its shift is taken as covered.`);
+    const passing = needed.filter((L) => bandFor(f, L) !== null);
+    const standaloneLines = passing.map((L) => lineNumbers(L, bandFor(f, L) as BandCalc)).filter((l) => l.minutes > 0);
+    const standaloneMin = Math.max(0, ...standaloneLines.map((l) => l.minutes));
+    const alone = { standaloneLines, standaloneMin };
     if (own.length === 0) {
-      const passing = needed.filter((L) => bandFor(f, L) !== null);
       if (passing.length === 0) return { ...none, verdict: 'no-help', reason: `Does not help: it passes no line this target needs (${list(needed)}).`, basis };
-      const by = [...new Set(passing.map((L) => (taker.get(L) as { filter: NbFilterInput }).filter.name))];
-      return { ...none, verdict: 'no-help', reason: `Does not help: ${list(passing)} ${passing.length > 1 ? 'are' : 'is'} better collected by ${list(by)}.`, basis };
+      const mineNums = passing.map((L) => lineNumbers(L, bandFor(f, L) as BandCalc));
+      const topGain = Math.max(...mineNums.map((l) => l.gain));
+      const taken = (L: MixLineName): { filter: NbFilterInput; band: BandCalc } | undefined => taker.get(L);
+      const takerRuns = (L: MixLineName): boolean => {
+        const t = taken(L);
+        return t !== undefined && lineNumbers(L, t.band).minutes > 0;
+      };
+      const base = { ...none, ...alone, gain: topGain, lines: [] as NbLine[] };
+      if (passing.every((L) => taken(L) !== undefined && takerRuns(L))) {
+        const compare = mineNums.map((l) => {
+          const t = taken(l.line) as { filter: NbFilterInput; band: BandCalc };
+          const r = l.gain / t.band.gain;
+          const how = r >= 1.05 ? 'A little better than' : r > 0.95 ? 'About the same as' : 'Weaker than';
+          return `${how} ${t.filter.name} for ${l.line} (${Math.round(r * 100) / 100} times)`;
+        });
+        const by = [...new Set(passing.map((L) => (taken(L) as { filter: NbFilterInput }).filter.name))];
+        const sentence = `${compare.join('; ')}; ${list(by)} already runs for ${list(passing)}, so a separate night is not needed.`;
+        return { ...base, verdict: 'no-help', reason: sentence, basis };
+      }
+      const notes = mineNums.map((l) => hurdleNote(l));
+      return { ...base, verdict: 'no-help', reason: `Does not help: ${list(notes)}.`, basis };
     }
     const lines = own.map((L) => lineNumbers(L, (taker.get(L) as { band: BandCalc }).band));
     const total = Math.max(...lines.map((l) => l.minutes));
@@ -323,17 +366,11 @@ export function narrowbandHours(input: NbInput): NbResult {
         : `${nbMinutes(total)} makes this line as clean as the broadband nebula.`;
       const dual = lines.filter((l) => l.minutes > 0).length > 1 ? ' Both bands run at once.' : '';
       const taken = needed.filter((L) => !own.includes(L) && bandFor(f, L) !== null && taker.get(L) !== undefined);
-      const gave = taken.length > 0 ? ` ${list(taken)} goes to ${list([...new Set(taken.map((L) => (taker.get(L) as { filter: NbFilterInput }).filter.name))])}, a clearly better band for it.` : '';
-      return { filterId: f.id, name: f.name, verdict: 'recommend', minutes: total, reason: `${first} ${second}${dual}${gave}`, gain: best.gain, lines, basis };
+      const gave = taken.length > 0 ? ` ${list(taken)} goes to ${list([...new Set(taken.map((L) => (taker.get(L) as { filter: NbFilterInput }).filter.name))])}, which runs for it.` : '';
+      return { filterId: f.id, name: f.name, verdict: 'recommend', minutes: total, reason: `${first} ${second}${dual}${gave}`, gain: best.gain, lines, ...alone, basis };
     }
-    const notes = lines.map((l) =>
-      l.gain < GAIN_HURDLE
-        ? `${l.line} gains only ${times(l.gain)} times over broadband, under the ${GAIN_HURDLE} times hurdle`
-        : l.kneeMin <= 0
-          ? `broadband already carries ${l.line} well enough (more narrowband adds under ${Math.round(g * 100)}% per half hour)`
-          : `${l.line} would need under ${MIN_TOTAL_MIN} min, too little to be worth the setup`,
-    );
-    return { filterId: f.id, name: f.name, verdict: 'no-help', minutes: 0, reason: `Does not help: ${list(notes)}.`, gain: best.gain, lines, basis };
+    const notes = lines.map(hurdleNote);
+    return { filterId: f.id, name: f.name, verdict: 'no-help', minutes: 0, reason: `Does not help: ${list(notes)}.`, gain: best.gain, lines, ...alone, basis };
   });
 
   return {
