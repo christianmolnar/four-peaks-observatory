@@ -194,17 +194,56 @@ describe('a not-recommended filter’s reason is true for every line it passes',
         }
       }
     }
-    expect(checked).toBeGreaterThanOrEqual(18);
+    expect(checked).toBeGreaterThanOrEqual(12);
   });
-  it('a line with minutes but no running taker says what it would earn and why the plan leaves it out', () => {
+  it('a line goes to a filter that earns minutes for it: the NBZ II takes Ha (35 min), the L-eXtreme keeps OIII, and each reason is true', () => {
     const r = run(ROSETTE, 23, 2.38, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 });
     const nbz = r.filters.find((f) => f.filterId === 'nbz');
-    expect(nbz?.standaloneLines.find((l) => l.line === 'Ha')?.minutes).toBe(35);
-    expect(nbz?.reason).toMatch(/Ha would earn 35 min on its own, but the plan leaves it out/);
-    expect(nbz?.reason).toMatch(/already runs for OIII/);
+    expect(nbz?.minutes).toBe(35);
+    expect(nbz?.lines.map((l) => `${l.line}:${l.minutes}`)).toEqual(['Ha:35']);
+    expect(nbz?.reason).toMatch(/OIII goes to Optolong L-eXtreme, which runs for it/);
+  });
+  it('every recommended row says "which runs for it" only of lines whose taker earns minutes, and gives the hurdle note for the rest', () => {
+    let said = 0;
+    for (const f of [1.9, 7, 10]) for (const mu of [21, 22, 23, 24]) for (const bortle of [4, 6, 8]) for (const hours of [1, 2, 3, 4]) {
+      const r = run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle, train: { fRatio: f, pixelUm: 3.76, focalLengthMm: f * 280 } });
+      const lineMin = (L: string): number => Math.max(0, ...r.filters.flatMap((x) => x.lines.filter((l) => l.line === L).map((l) => l.minutes)));
+      for (const x of r.filters.filter((y) => y.verdict === 'recommend')) {
+        const m = /(\w[\w, and]*) goes to [^.]*, which runs for it/.exec(x.reason);
+        if (m === null) continue;
+        said += 1;
+        for (const L of m[1].split(/, | and /)) expect([f, mu, bortle, hours, L, lineMin(L) > 0]).toEqual([f, mu, bortle, hours, L, true]);
+      }
+    }
+    expect(said).toBeGreaterThan(0);
   });
   it('a tie reads "the same as", not "1 times"', () => {
     for (const mu of [22, 23, 24]) for (const hours of [2, 2.38, 3]) for (const f of run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 }).filters) expect(f.reason).not.toMatch(/\(1 times\)/);
+  });
+});
+
+describe('a line whose best taker earns nothing goes to a filter that earns minutes', () => {
+  const permutations = <T,>(xs: T[]): T[][] => (xs.length < 2 ? [xs] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+  const stable = (r: NbResult): string => JSON.stringify(r.filters.map((f) => [f.filterId, f.minutes, f.lines.map((l) => `${l.line}:${l.minutes}`)]).sort());
+  it('f/10 Rosette: NBZ II earns 30 min of Ha where the L-eXtreme earns none, so NBZ II takes Ha, in either gear order', () => {
+    const train = { fRatio: 10, pixelUm: 3.76, focalLengthMm: 2800 };
+    const rs = permutations([NBZ, LEX]).map((o) => run(ROSETTE, 21, 2, o, { bortle: 8, train }));
+    for (const r of rs) {
+      const m = mins(r);
+      expect(r.filters.find((f) => f.filterId === 'nbz')?.lines.find((l) => l.line === 'Ha')?.minutes).toBe(30);
+      expect(m.nbz).toBe(30);
+      expect(m.lex).toBeGreaterThan(0);
+    }
+    expect(new Set(rs.map(stable)).size).toBe(1);
+  });
+  it('f/1.9 Rosette: H-alpha earns 30 min of Ha where NBZ II earns none, so the H-alpha takes Ha', () => {
+    const train = { fRatio: 1.9, pixelUm: 3.76, focalLengthMm: 560 };
+    const rs = permutations([NBZ, HA7]).map((o) => run(ROSETTE, 22, 1, o, { bortle: 6, train }));
+    for (const r of rs) {
+      expect(mins(r).ha7).toBe(30);
+      expect(r.filters.find((f) => f.filterId === 'nbz')?.lines.map((l) => l.line)).toEqual(['OIII']);
+    }
+    expect(new Set(rs.map(stable)).size).toBe(1);
   });
 });
 
