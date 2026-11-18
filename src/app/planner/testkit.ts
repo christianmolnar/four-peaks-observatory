@@ -94,6 +94,14 @@ export const pageProps = {
 };
 
 /** Opens the sticky strip's controls (Evening of, Site, Train, Filter, Minimum altitude), which start closed; does nothing when they are open. */
+/** Unticks every ticked narrowband filter box on the page (opening each panel and closing it again), so a test of the broadband filter mix sees the mix without narrowband in it. */
+export const untickNarrowband = (): void => {
+  const opened = [...document.querySelectorAll<HTMLButtonElement>('[id^="nb-fold-"]')].filter((f) => f.getAttribute('aria-expanded') === 'false');
+  for (const f of opened) fireEvent.click(f);
+  for (const el of document.querySelectorAll<HTMLInputElement>('[data-testid^="nb-tick-"]')) if (el.checked) fireEvent.click(el);
+  for (const f of opened) fireEvent.click(f);
+};
+
 export const openControls = (): void => {
   const strip = document.querySelector<HTMLElement>('[aria-controls="controls-panel"]');
   if (strip !== null && strip.getAttribute('aria-expanded') === 'false') fireEvent.click(strip);

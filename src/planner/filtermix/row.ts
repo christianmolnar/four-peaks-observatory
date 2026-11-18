@@ -1,6 +1,7 @@
 import { emissionProfileFor } from '../catalog/emission';
 import { filterMix } from './index';
-import type { MixFilter, MixLine, MixLineName, MixResult } from './index';
+import type { MixFilter, MixLine, MixResult } from './index';
+import { narrowbandPlan } from './narrowband-hours';
 import type { NbResult } from './narrowband-hours';
 
 /** What a plan row shows for its filter mix: a plain message (never a made-up number) or the mix. */
@@ -42,19 +43,24 @@ const BROADBAND_SLOT = 'Broadband (no narrowband filter)';
  * the usual mix stands.
  */
 export function narrowbandMix(nb: RowNarrowband): Extract<MixResult, { kind: 'mix' }> | null {
-  const ticked = nb.result.filters.filter((f) => f.minutes > 0 && nb.ticked.has(f.filterId));
+  const byId = new Map(nb.result.filters.map((f) => [f.filterId, f]));
+  const ticked = narrowbandPlan(nb.result, nb.ticked).filter((p) => p.minutes > 0);
   if (ticked.length === 0) return null;
   const broad: MixLine = { filterId: null, name: BROADBAND_SLOT, minutes: nb.broadbandMin, verdict: 'broadband', reason: 'The broadband light of this plan; the ticked narrowband filters add their minutes to it.', adds: [], shared: [], coveredBy: [] };
-  const lines: MixLine[] = ticked.map((f) => ({
-    filterId: f.filterId,
-    name: f.name,
-    minutes: f.minutes,
-    verdict: 'adds',
-    reason: f.reason,
-    adds: f.lines.filter((l) => l.minutes > 0).map((l): MixLineName => l.line),
-    shared: [],
-    coveredBy: [],
-  }));
+  const lines: MixLine[] = ticked.map((p) => {
+    const f = byId.get(p.filterId) as NbResult['filters'][number];
+    const chosen = f.minutes > 0 ? f.reason : `Ticked by you: ${p.minutes} min for ${p.lines.join(' and ')}.`;
+    return {
+      filterId: p.filterId,
+      name: p.name,
+      minutes: p.minutes,
+      verdict: 'adds',
+      reason: p.covered.length > 0 ? `${chosen} ${p.covered.join(' and ')} is already covered by another ticked filter and is not counted twice.` : chosen,
+      adds: p.lines,
+      shared: [],
+      coveredBy: [],
+    };
+  });
   const availableMin = nb.broadbandMin + lines.reduce((t, l) => t + l.minutes, 0);
   return {
     kind: 'mix',

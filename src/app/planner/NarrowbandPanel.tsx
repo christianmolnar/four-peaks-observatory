@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { GAIN_HURDLE, HONESTY_LINE } from '@/planner/filtermix/narrowband-hours';
+import { GAIN_HURDLE, HONESTY_LINE, narrowbandPlan } from '@/planner/filtermix/narrowband-hours';
 import { Fold } from './PlanRowExposure';
 import { minutesText } from './rowExposure';
 import type { NbView } from './nbRow';
@@ -52,13 +52,19 @@ export default function NarrowbandPanel({ idBase, view, onHours, onTick }: { idB
 
 function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView, { kind: 'panel' }>; onTick: (filterId: string, on: boolean) => void }) {
   const { result } = view;
-  const added = result.filters.filter((f) => view.ticked.has(f.filterId)).reduce((t, f) => t + f.minutes, 0);
+  const plan = narrowbandPlan(result, view.ticked).filter((p) => p.minutes > 0);
+  const added = plan.reduce((t, p) => t + p.minutes, 0);
+  const noneJudged = result.filters.every((f) => f.verdict === 'cannot-judge');
   return (
     <>
       {result.headline !== null && <p className="break-words font-medium text-p-t1" data-testid={`nb-headline-${idBase}`}>{result.headline}</p>}
+      {noneJudged ? (
+        <p className="break-words" data-testid={`nb-none-${idBase}`}>None of your filters is a narrowband filter with known passbands.</p>
+      ) : (
       <ul className="space-y-2">
         {result.filters.map((f) => {
-          const tickable = f.minutes > 0;
+          const tickable = f.standaloneMin > 0;
+          const recommended = f.minutes > 0;
           return (
             <li key={f.filterId} data-verdict={f.verdict} data-testid={`nb-filter-${idBase}-${f.filterId}`}>
               <label className="flex min-h-11 max-w-full items-start gap-2 break-words text-p-t1">
@@ -71,7 +77,7 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
                   onChange={(e) => onTick(f.filterId, e.target.checked)}
                 />
                 <span className="min-w-0 pt-2.5">
-                  <span className="font-medium">{f.name}</span>: {tickable ? minutesText(f.minutes) : f.verdict === 'cannot-judge' ? 'cannot judge' : f.verdict === 'no-narrowband' ? 'no narrowband' : 'does not help'}
+                  <span className="font-medium">{f.name}</span>: {recommended ? minutesText(f.minutes) : tickable ? `not recommended, ${minutesText(f.standaloneMin)} on its own` : f.verdict === 'cannot-judge' ? 'cannot judge' : f.verdict === 'no-narrowband' ? 'no narrowband' : 'does not help'}
                   {f.gain !== null && f.verdict !== 'no-narrowband' && <span className="text-p-t1/70"> (signal-to-noise gain about {f.gain >= 10 ? Math.round(f.gain) : Math.round(f.gain * 10) / 10} times)</span>}
                 </span>
               </label>
@@ -81,15 +87,21 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
           );
         })}
       </ul>
-      {result.filters.some((f) => f.minutes > 0) && (
-        <p className="break-words text-p-t1/80" data-testid={`nb-state-${idBase}`}>
-          {view.inPlan
-            ? 'The ticked filters are in this row’s filter mix and in the minutes a new project starts from.'
-            : 'These ticks are suggestions. Nothing is added to the plan until you change a tick or the broadband hours; then the ticked filters go into the filter mix and a new project’s minutes.'}
-        </p>
+      )}
+      {result.filters.some((f) => f.standaloneMin > 0) && (
+        <>
+          <p className="break-words text-p-t1/80" data-testid={`nb-state-${idBase}`}>
+            {added > 0
+              ? 'The ticked filters are in this row’s filter mix and in the minutes a new project starts from. The recommended filters start ticked; untick one to take it out.'
+              : 'No narrowband filter is ticked, so this row’s filter mix has no narrowband in it. Tick a filter to add it.'}
+          </p>
+          <p className="break-words text-p-t1/70" data-testid={`nb-twice-${idBase}`}>
+            A line is never counted twice: if two ticked filters pass the same line, it is counted once, for the recommended filter first and then in the order listed above, and the second filter adds only what is new.
+          </p>
+        </>
       )}
       <p data-testid={`nb-total-${idBase}`}>
-        Broadband {minutesText(Math.round(view.hours * 60))}{added > 0 ? ` plus ${minutesText(added)} of narrowband ticked = ${minutesText(Math.round(view.hours * 60) + added)}` : '; no narrowband ticked'}.
+        Broadband {minutesText(Math.round(view.hours * 60))}{added > 0 ? ` plus ${plan.map((p) => `${p.name} ${minutesText(p.minutes)}`).join(' plus ')} = ${minutesText(Math.round(view.hours * 60) + added)}` : '; no narrowband ticked'}.
       </p>
       {view.assumptions.map((a) => (
         <p key={a} className="break-words text-p-t1/70">{a}</p>
@@ -103,7 +115,7 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
             For each line this target needs, the filter band’s signal-to-noise per hour is compared with the same line in the broadband stack. The minutes are the shorter of two: the time at which the narrowband is as clean as the broadband nebula, and the time past which another half hour adds under {Math.round(result.kneeGain * 100)}%.
           </p>
           <p className="break-words">
-            More than about {minutesText(Math.round(result.capMin))} of one filter stops paying, less the broadband’s own share. A filter must be at least {GAIN_HURDLE} times better than broadband and earn at least 30 minutes to count; a single-band filter takes a line from a dual-band one only when its band is at least {GAIN_HURDLE} times better.
+            More than about {minutesText(Math.round(result.capMin))} of one filter stops paying, less the broadband’s own share. A filter must be at least {GAIN_HURDLE} times better than broadband and earn at least 30 minutes to count; a filter takes a line from another filter (single-band or dual-band) only when its band is at least {GAIN_HURDLE} times better; otherwise one filter that passes several needed lines at a comparable gain is preferred to splitting them, whatever order your gear is listed in. A filter that is not recommended can still be ticked: it then adds its minutes on its own.
           </p>
           <p className="break-words">The match rule and the {GAIN_HURDLE} hurdle are planner choices, not measurements. On a fast beam the band shift is worked out from the planner’s own formula.</p>
           <p className="break-words">The broadband stack alone reaches a signal-to-noise of about {Math.round(result.broadbandSnr)} per 2.5 arcsecond element on the whole nebula.</p>

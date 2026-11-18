@@ -4,6 +4,7 @@ import type { RowMix } from '@/planner/filtermix/row';
 import NarrowbandPanel from './NarrowbandPanel';
 import type { NbView } from './nbRow';
 import { minutesText } from './rowExposure';
+import { mixLightText } from './PlanRowMix';
 
 /** What one slot of the AI plan shows under it: the filter mix it will have once the plan is used, and the narrowband panel for the same light. */
 export interface AiSlotView {
@@ -29,7 +30,7 @@ export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }
       ) : (
         <>
           <p className="text-p-t1">Filters (light after Use this plan: {minutesText(mix.availableMin)})</p>
-          {mix.narrowbandAdded === true && <p className="mt-1 break-words">This includes the narrowband filters ticked below, added to the broadband time.</p>}
+          {mix.narrowbandAdded === true && <p className="mt-1 break-words">{mixLightText(mix)} The narrowband filters ticked below are added to the broadband time.</p>}
           {mix.headline !== null && <p className="mt-1 break-words">{mix.headline}</p>}
           <Lines lines={mix.lines} />
           {mix.uncovered.length > 0 && <p className="mt-1 break-words">This target needs {mix.uncovered.join(' and ')}, which none of the selected filters passes.</p>}

@@ -388,3 +388,38 @@ export function narrowbandHours(input: NbInput): NbResult {
     basis: [BASIS_SNR_ONLY, BASIS_PASSBANDS, BASIS_ESTIMATE, BASIS_SKY, BASIS_RULES],
   };
 }
+
+/** One ticked filter's share of the plan. */
+export interface NbPlanLine {
+  filterId: string;
+  name: string;
+  /** What the filter adds once lines an earlier ticked filter already covers are left out. */
+  minutes: number;
+  /** The lines that count for this filter. */
+  lines: MixLineName[];
+  /** Lines this filter passes that an earlier ticked filter already covers, so they are not added twice. */
+  covered: MixLineName[];
+}
+
+/**
+ * The narrowband time of the ticked filters. A recommended filter adds the minutes of the lines it was given; a ticked filter that is not recommended adds its
+ * stand-alone minutes. A line two ticked filters both pass is counted once, for the recommended filter first, then in the order the gear is listed; a filter
+ * left with no new line adds nothing.
+ */
+export function narrowbandPlan(result: NbResult, ticked: ReadonlySet<string>): NbPlanLine[] {
+  const chosen = result.filters.filter((f) => ticked.has(f.filterId) && (f.minutes > 0 || f.standaloneMin > 0));
+  const ordered = [...chosen.filter((f) => f.minutes > 0), ...chosen.filter((f) => f.minutes === 0)];
+  const done = new Set<MixLineName>();
+  return ordered.map((f): NbPlanLine => {
+    const own = (f.minutes > 0 ? f.lines : f.standaloneLines).filter((l) => l.minutes > 0);
+    const fresh = own.filter((l) => !done.has(l.line));
+    for (const l of fresh) done.add(l.line);
+    return {
+      filterId: f.filterId,
+      name: f.name,
+      minutes: Math.max(0, ...fresh.map((l) => l.minutes)),
+      lines: fresh.map((l) => l.line),
+      covered: own.filter((l) => !fresh.includes(l)).map((l) => l.line),
+    };
+  });
+}

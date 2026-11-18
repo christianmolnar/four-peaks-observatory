@@ -1,7 +1,7 @@
 import { emissionProfileFor } from '../catalog/emission';
 import type { EmissionProfile } from '../catalog/emission';
 import { PRESETS } from '../exposure';
-import { narrowbandHours } from './narrowband-hours';
+import { narrowbandHours, narrowbandPlan } from './narrowband-hours';
 import type { NbFilterInput, NbInput, NbResult } from './narrowband-hours';
 
 /**
@@ -191,6 +191,24 @@ describe('a filter that is not recommended', () => {
     expect(ha7?.reason).toMatch(/About the same as NBZ II for Ha \(1\.\d+ times\)/);
     expect(ha7?.reason).toMatch(/NBZ II already runs/);
     expect(ha7?.reason).not.toMatch(/better collected/);
+  });
+});
+
+describe('the plan of the ticked filters', () => {
+  const r = run(ROSETTE, 22, 2, [NBZ, HA7], { bortle: 4, train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 } });
+  it('a line two ticked filters pass is counted once: the recommended one keeps it', () => {
+    const plan = narrowbandPlan(r, new Set(['nbz', 'ha7']));
+    expect(plan.map((p) => p.filterId)).toEqual(['nbz', 'ha7']);
+    expect(plan[0].minutes).toBeGreaterThan(0);
+    expect(plan[1]).toMatchObject({ minutes: 0, covered: ['Ha'] });
+  });
+  it('a filter chosen instead of the recommended one adds its own stand-alone minutes', () => {
+    const plan = narrowbandPlan(r, new Set(['ha7']));
+    expect(plan).toHaveLength(1);
+    expect(plan[0].minutes).toBe(r.filters.find((f) => f.filterId === 'ha7')?.standaloneMin);
+  });
+  it('nothing ticked, nothing added', () => {
+    expect(narrowbandPlan(r, new Set())).toEqual([]);
   });
 });
 

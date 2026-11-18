@@ -46,7 +46,7 @@ export interface NbRowInput {
   filters: readonly ProfileFilter[];
   /** What the user typed in the broadband hours box; undefined until they type. */
   hoursText: string | undefined;
-  /** The user's own ticks by filter id; a filter with minutes and no entry is ticked (the engine's recommendation). */
+  /** The user's own ticks by filter id; a recommended filter with no entry is ticked (the engine's recommendation is live from the start). */
   ticks: ReadonlyMap<string, boolean> | undefined;
 }
 
@@ -62,13 +62,8 @@ export type NbView =
       hours: number;
       /** What the box shows: the typed text, else the row's planned light. */
       hoursText: string;
-      /** The filters ticked: those with minutes the user has not unticked. */
+      /** The filters ticked: the recommended ones unless the user unticked them, and any other filter with minutes the user ticked. Always in the plan. */
       ticked: ReadonlySet<string>;
-      /**
-       * The ticks reach the plan (its filter mix, the AI result, a new project's minutes) once the user has changed a tick or the hours on this target.
-       * Before that the ticks are the engine's suggestion only and the plan's mix is what it was without this panel.
-       */
-      inPlan: boolean;
       /** Inputs the planner assumed (a surface brightness, a read noise, a Bortle class), each said in words. */
       assumptions: string[];
     };
@@ -130,6 +125,6 @@ export function nbRowView(input: NbRowInput): NbView {
     knee: input.knee,
     filters: input.filters.map((f) => ({ id: f.id, name: f.name, bands: f.passbands, ratedMinFRatio: f.ratedMinFRatio })),
   });
-  const ticked = new Set(result.filters.filter((f) => f.minutes > 0 && (input.ticks?.get(f.filterId) ?? true)).map((f) => f.filterId));
-  return { kind: 'panel', result, hours, hoursText, ticked, inPlan: input.ticks !== undefined || input.hoursText !== undefined, assumptions };
+  const ticked = new Set(result.filters.filter((f) => f.standaloneMin > 0 && (input.ticks?.get(f.filterId) ?? f.minutes > 0)).map((f) => f.filterId));
+  return { kind: 'panel', result, hours, hoursText, ticked, assumptions };
 }
