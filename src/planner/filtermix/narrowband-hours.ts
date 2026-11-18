@@ -46,6 +46,9 @@ const BASIS_ESTIMATE = 'Estimated from sky and band width, not measured on your 
 const BASIS_SKY = 'The sky is taken as flat across the bands and moonless.';
 const BASIS_RULES = 'The match rule (narrowband as clean as the broadband nebula) and the 1.25 hurdle are planner choices, not measured.';
 
+/** Said for a galaxy whose profile is for its HII knots only. */
+export const KNOTS_HEADLINE = 'Only the star-forming knots gain from narrowband; the disk is broadband light.';
+
 export type NbVerdict = 'recommend' | 'no-help' | 'cannot-judge' | 'no-narrowband';
 
 export interface NbFilterInput {
@@ -221,7 +224,7 @@ export function narrowbandHours(input: NbInput): NbResult {
   const g = PRESETS[input.knee].maxNextHalfHourGain;
   const capHours = 0.5 / ((1 + g) ** 2 - 1);
   const confidence = confidenceLabel(p);
-  const headline = gate ? 'This target gives off almost no emission light, so no narrowband filter helps. Shoot it broadband.' : null;
+  const headline = gate ? 'This target gives off almost no emission light, so no narrowband filter helps. Shoot it broadband.' : p.knotsOnly === true ? KNOTS_HEADLINE : null;
   const baseBasis = [BASIS_SNR_ONLY, BASIS_PASSBANDS, BASIS_ESTIMATE, BASIS_SKY, BASIS_RULES, ...(p.confidence === 'measured' ? [] : [`Line shares: ${confidence.toLowerCase()}.`])];
 
   // ---- every band of every judgeable filter

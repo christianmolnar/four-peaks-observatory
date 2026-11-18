@@ -24,6 +24,43 @@ describe('readHours', () => {
   it.each([[''], ['abc'], ['0'], ['-1'], ['49'], ['1e2'], ['2,5'], ['NaN']])('refuses %j', (t) => expect(readHours(t)).toBeNull());
 });
 
+describe('nbRowView: galaxies', () => {
+  const HA7: ProfileFilter = { id: 'ha7', name: 'H-alpha 7 nm', passbands: [{ centreNm: 656.3, widthNm: 7 }] };
+  const galaxy = (id: string, mu?: number): NbRowInput => ({ ...base, target: { id, type: 'galaxy', ...(mu === undefined ? {} : { surfaceBrightness: mu }) }, filters: [NBZ, HA7] });
+  const panel = (input: NbRowInput) => {
+    const v = nbRowView(input);
+    if (v.kind !== 'panel') throw new Error(v.kind);
+    return v;
+  };
+  it.each([['m33', 23.61], ['m51', 22.9], ['m101', 23.97]])('%s gets a Ha-only suggestion with minutes and the knots headline', (id, mu) => {
+    const v = panel(galaxy(id, mu));
+    expect(v.result.gate).toBe(false);
+    expect(v.result.needed).toEqual(['Ha']);
+    expect(v.result.headline).toBe('Only the star-forming knots gain from narrowband; the disk is broadband light.');
+    expect(v.result.headline).not.toMatch(/almost no emission/);
+    expect(v.result.profileNote).toMatch(/knots only/);
+    const rec = v.result.filters.filter((f) => f.minutes > 0);
+    expect(rec).toHaveLength(1);
+    expect(rec[0].minutes).toBeGreaterThanOrEqual(30);
+    expect(rec[0].lines.map((l) => l.line)).toEqual(['Ha']);
+  });
+  it('the knots use a faint feature’s brightness, not the whole galaxy’s mean, and say so', () => {
+    const v = panel(galaxy('m51', 22.9));
+    expect(v.assumptions.join(' ')).toMatch(/knots/);
+    expect(v.assumptions.join(' ')).toMatch(/24 mag/);
+  });
+  it.each(['ngc4486', 'ngc4472', 'ngc4649'])('the elliptical %s still gets no narrowband', (id) => {
+    const v = panel(galaxy(id, 22.8));
+    expect(v.result.gate).toBe(true);
+    expect(v.result.filters.every((f) => f.minutes === 0)).toBe(true);
+    expect(v.result.headline).toMatch(/almost no emission/);
+  });
+  it('a galaxy of unknown morphology gets no narrowband', () => {
+    const v = panel(galaxy('ngc7814x', 23));
+    expect(v.result.gate).toBe(true);
+  });
+});
+
 describe('nbRowView', () => {
   it('works out the Rosette numbers from the row: B is the planned light, every gear filter is listed, recommended ones are ticked', () => {
     const v = nbRowView(base);
