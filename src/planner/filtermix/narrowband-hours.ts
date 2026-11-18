@@ -118,6 +118,8 @@ export interface NbResult {
   profileNote: string | null;
   /** The most light one filter's narrowband can earn before the knee, minutes, before taking off the broadband's share. */
   capMin: number;
+  /** The knee's stop share: another half hour adding less than this share of the line's signal-to-noise is not worth it (0.1 at Balanced). */
+  kneeGain: number;
   broadbandMin: number;
   /** Signal-to-noise per resolution element of the broadband stack on the whole nebula. */
   broadbandSnr: number;
@@ -343,6 +345,7 @@ export function narrowbandHours(input: NbInput): NbResult {
     confidence,
     profileNote: p.note ?? null,
     capMin: capHours * 60,
+    kneeGain: g,
     broadbandMin: B * 60,
     broadbandSnr,
     basis: [BASIS_SNR_ONLY, BASIS_PASSBANDS, BASIS_ESTIMATE, BASIS_SKY, BASIS_RULES],

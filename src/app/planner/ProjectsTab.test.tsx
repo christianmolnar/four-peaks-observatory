@@ -63,7 +63,7 @@ const plain: Project = baseProject({
 const store = (...projects: Project[]) => window.localStorage.setItem(PROJECTS_KEY, projectsText({ version: 1, projects } as ProjectsState));
 const stored = (): Project[] => loadProjects(window.localStorage).state?.projects ?? [];
 
-function Harness({ context, planTargets = [], onShare = () => {} }: { context?: Partial<Parameters<typeof ProjectsTab>[0]['context']>; planTargets?: { id: string; name: string }[]; onShare?: () => void }) {
+function Harness({ context, planTargets = [], planLines = new Map(), onShare = () => {} }: { context?: Partial<Parameters<typeof ProjectsTab>[0]['context']>; planTargets?: { id: string; name: string }[]; planLines?: Parameters<typeof ProjectsTab>[0]['planned']; onShare?: () => void }) {
   const api = useProjects();
   const { state, retry } = useCatalog(cat.load);
   return (
@@ -73,6 +73,7 @@ function Harness({ context, planTargets = [], onShare = () => {} }: { context?: 
       targetName={targetName}
       context={{ scopeId: 'c11-edgehd', cameraId: 'asi2600mc-duo', filterIds: [L], subSeconds: 60, ...context }}
       planTargets={planTargets}
+      planned={planLines}
       today="2026-11-17"
       search={{ catalog: state, onRetryCatalog: retry, scorer: null, nightWord: 'tonight', formatTime: () => '' }}
       onShare={onShare}
@@ -253,6 +254,21 @@ describe('seed offer', () => {
 });
 
 describe('creating a project', () => {
+  it('a target added from the open plan starts its boxes from the plan\'s minutes (broadband and the ticked narrowband filter); a filter the project lacks is said, not dropped silently', async () => {
+    const lines = new Map([['m31', [{ filterId: L, minutes: 120 }, { filterId: HA, minutes: 60 }, { filterId: 'not-in-project', minutes: 30 }]]]);
+    await draw(<Harness context={{ filterIds: [L, HA] }} planTargets={[{ id: 'm31', name: 'Andromeda Galaxy' }]} planLines={lines} />);
+    press('New project');
+    type('Project name', 'Fall');
+    fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
+    expect((minutesBox('Andromeda Galaxy', 'Broadband') as HTMLInputElement).value).toBe('120');
+    expect((minutesBox('Andromeda Galaxy', 'Optolong H-alpha 7 nm') as HTMLInputElement).value).toBe('60');
+    expect(screen.getByText(/^Added Andromeda Galaxy to the project, with/).textContent).toMatch(/with 2 boxes filled from the minutes in your plan.*1 of the plan’s filter is not in this project/);
+    // unticking and ticking again restores them
+    fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
+    fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
+    expect((minutesBox('Andromeda Galaxy', 'Broadband') as HTMLInputElement).value).toBe('120');
+  });
+
   it('starts from the open plan\'s setup and offers its targets first (none ticked); the search picks the rest; hostile minutes are refused in words at the box and nothing is saved', async () => {
     await draw(<Harness context={{ filterIds: [L, HA], subSeconds: 90 }} planTargets={[{ id: 'm31', name: 'Andromeda Galaxy' }, { id: 'm42', name: 'Orion Nebula' }]} />);
     press('New project');

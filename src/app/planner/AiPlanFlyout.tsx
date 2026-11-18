@@ -26,8 +26,8 @@ import {
   timelinePlanOf,
 } from '@/planner/ai/view';
 import type { AiProblem } from '@/planner/ai/view';
-import type { RowMix } from '@/planner/filtermix/row';
 import AiSlotMix from './AiSlotMix';
+import type { AiSlotView } from './AiSlotMix';
 import NightTimeline from './NightTimeline';
 
 export const AI_PLAN_URL = '/api/planner/ai-plan';
@@ -65,7 +65,10 @@ export interface AiPlanFlyoutProps {
    * The filter mix each target of the AI plan will have once the plan is used, by target id: the page's own mix (the plan row's and the text export's)
    * on the timeline the plan gets, given the targets in the AI's order and its first start. Null when the page cannot work it out (no night, no catalog yet).
    */
-  mixFor?: (ids: readonly string[], startTime: string | null) => ReadonlyMap<string, RowMix> | null;
+  mixFor?: (ids: readonly string[], startTime: string | null) => ReadonlyMap<string, AiSlotView> | null;
+  /** The narrowband panel of a slot: the broadband hours typed for a target, and a filter ticked or unticked (the page keeps both, by target id). */
+  onNbHours?: (id: string, text: string) => void;
+  onNbTick?: (id: string, filterId: string, on: boolean) => void;
   formatTime: (d: Date) => string;
   /** Shown only to the owner. */
   owner: boolean;
@@ -129,7 +132,7 @@ function Step({ n, title, state, children }: { n: number; title: string; state: 
  * the AI is given it, the AI ordering and timing the targets, the code checking every slot against the sky. It ends in a result; the open
  * plan changes only when "Use this plan" is pressed. Closing it stops any request in flight.
  */
-export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, staleNotes = [], onChangeStale = () => undefined, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, mixFor, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
+export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, staleNotes = [], onChangeStale = () => undefined, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, mixFor, onNbHours = () => undefined, onNbTick = () => undefined, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
   const [run, setRun] = useState<Run>('idle');
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -427,6 +430,8 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
             night={night}
             catalogTargets={catalogTargets}
             mixFor={mixFor}
+            onNbHours={onNbHours}
+            onNbTick={onNbTick}
             formatTime={formatTime}
             nightWord={nightWord}
             presetLabels={presetLabels}
@@ -480,6 +485,8 @@ function Result({
   night,
   catalogTargets,
   mixFor,
+  onNbHours,
+  onNbTick,
   formatTime,
   nightWord,
   presetLabels,
@@ -491,6 +498,8 @@ function Result({
   night: AstronomicalNight | null;
   catalogTargets: readonly SlotTarget[];
   mixFor: AiPlanFlyoutProps['mixFor'];
+  onNbHours: (id: string, text: string) => void;
+  onNbTick: (id: string, filterId: string, on: boolean) => void;
   formatTime: (d: Date) => string;
   nightWord: string;
   presetLabels: ReadonlyMap<string, string>;
@@ -547,7 +556,7 @@ function Result({
                       {last.reason}
                     </p>
                   )}
-                  {mixes?.get(s.id) !== undefined && <AiSlotMix index={i} mix={mixes.get(s.id) as RowMix} />}
+                  {mixes?.get(s.id) !== undefined && <AiSlotMix index={i} targetId={s.id} slot={mixes.get(s.id) as AiSlotView} onNbHours={onNbHours} onNbTick={onNbTick} />}
                 </li>
               );
             })}

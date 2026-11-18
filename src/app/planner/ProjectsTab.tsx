@@ -29,7 +29,7 @@ import ProjectProgress from './ProjectProgress';
 import ProjectSessions from './ProjectSessions';
 import WrapSelect from './WrapSelect';
 import { draftFromProject, newDraft } from './projectDraft';
-import type { Draft, DraftContext } from './projectDraft';
+import type { Draft, DraftContext, PlanLine } from './projectDraft';
 import { BROADBAND_NAME, filterName, sheetNames } from './projectNames';
 import type { ProjectsApi, ProjectsResult } from './useProjects';
 
@@ -48,6 +48,8 @@ export interface ProjectsTabProps {
   context: DraftContext;
   /** The open plan's targets, offered first when picking a project's targets. */
   planTargets: readonly { id: string; name: string }[];
+  /** The minutes the open plan holds per target and filter (broadband and the ticked narrowband filters): a plan target added to a new project starts its boxes from them. */
+  planned: ReadonlyMap<string, readonly PlanLine[]>;
   /** The evening a new session starts on (YYYY-MM-DD). */
   today: string;
   search: ProjectEditorProps['search'];
@@ -62,7 +64,7 @@ type ImportAsk = { file: string; names: string[]; total: number; same: number; c
  * The Projects tab: the marathon projects (several at once, one shown at a time), their progress, the session log, Copy tracker, share and import.
  * Every number comes from the projects engine; this file only lays it out.
  */
-export default function ProjectsTab({ api, profile, targetName, context, planTargets, today, search, onShare }: ProjectsTabProps) {
+export default function ProjectsTab({ api, profile, targetName, context, planTargets, planned, today, search, onShare }: ProjectsTabProps) {
   const uid = useId();
   const projects = api.state.projects;
   const [selected, setSelected] = useState('');
@@ -305,7 +307,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
     </div>
   );
 
-  const editorCommon = { profile, targetName, filterName: (id: string) => filterName(profile, id), filterOrder, planTargets, search };
+  const editorCommon = { profile, targetName, filterName: (id: string) => filterName(profile, id), filterOrder, planTargets, planned, search };
 
   return (
     <div className="space-y-4" data-testid="projects-tab">

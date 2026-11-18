@@ -6,6 +6,7 @@ import type { NbResult } from '@/planner/filtermix/narrowband-hours';
 import { NOT_UP_MIX_TEXT, TOO_LITTLE_LIGHT_MIX_TEXT } from '@/planner/filtermix/row';
 import type { RowMixInput } from '@/planner/filtermix/row';
 import type { ProfileFilter, ReadNoiseClass } from '@/planner/profile';
+import type { PlanTargetRef } from '@/planner/state/plans';
 
 /** The panel's most and least broadband hours a person may type. */
 export const NB_HOURS_MIN = 0.25;
@@ -20,6 +21,14 @@ export interface NbGear {
   /** One-shot colour camera. false: mono, which this panel does not work out. Absent: taken as colour (the planner's cameras are). */
   colour?: boolean;
   readNoiseClass?: ReadNoiseClass;
+}
+
+/** One plan target as the page holds it: its id, a body when it is a solar-system one, the catalog target, and its plan entry. */
+export interface NbRowTarget {
+  id: string;
+  body: unknown;
+  target: { id: string; type: string; surfaceBrightness?: number } | undefined;
+  ref: PlanTargetRef;
 }
 
 export interface NbRowInput {

@@ -28,7 +28,7 @@ export const SEED_ENTRIES: readonly LibraryEntry[] = [
     passbands: [{ centreNm: 656.3, widthNm: 7 }],
     notes: 'Ha 656.3 nm 7 nm (the vendor width, centred on the line). Not yet checked against the maker.',
   }),
-  seed('Optolong L-eXtreme', {
+  seed('Optolong L-eXtreme (standard)', {
     type: 'dual-band',
     passbands: [{ centreNm: 656.3, widthNm: 7 }, { centreNm: 500.7, widthNm: 7 }],
     notes: 'The standard 7 nm version: Ha 656.3 nm 7 nm and OIII 500.7 nm 7 nm (the vendor widths, centred on the lines). Not yet checked against the maker.',
