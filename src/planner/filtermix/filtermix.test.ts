@@ -14,6 +14,8 @@ const M42 = profile('m42', 'nebula');
 const M57 = profile('ngc6720', 'planetary-nebula');
 const VEIL = profile('ngc6960', 'supernova-remnant');
 const M31 = profile('m31', 'galaxy');
+// An elliptical: no emission lines, so the gate. (These gate tests used M31 before it was given HII knots.)
+const M87 = profile('ngc4486', 'galaxy');
 const CALIFORNIA = profile('ngc1499', 'nebula');
 const HOURS = 120;
 
@@ -60,9 +62,15 @@ describe('research example cases', () => {
     expect(of(both, 'NB3-PM').minutes).toBeGreaterThan(0);
   });
 
-  it('M31 with any narrowband filter returns the gate message and gives all light to broadband', () => {
+  it('M31 has HII knots, so it is not gated: the Ha filter adds minutes', () => {
+    const r = mix(M31, [NBZ]);
+    expect(r.headline).toBeNull();
+    expect(of(r, 'NBZ II').verdict).not.toBe('gate');
+  });
+
+  it('M87 with any narrowband filter returns the gate message and gives all light to broadband', () => {
     for (const f of [NBZ, NB3, DUO]) {
-      const r = mix(M31, [f]);
+      const r = mix(M87, [f]);
       expect(r.headline).toMatch(/almost no emission light, so narrowband filters add nothing/);
       expect(r.lines[0]).toMatchObject({ verdict: 'broadband', minutes: HOURS });
       expect(of(r, f.name)).toMatchObject({ verdict: 'gate', minutes: 0 });
@@ -187,7 +195,7 @@ describe('rules', () => {
     const r = mix(M42, [lp, NB3]);
     expect(of(r, 'NB3-PM').verdict).toBe('adds');
     expect(r.lines.filter((l) => l.verdict === 'broadband').map((l) => l.minutes)).toEqual([0]);
-    const gate = mix(M31, [lp, NB3]);
+    const gate = mix(M87, [lp, NB3]);
     expect(gate.lines[0].name).toBe('Broadband (Light pollution cut)');
     expect(gate.lines[0].minutes).toBe(HOURS);
   });
@@ -301,7 +309,7 @@ describe('lineNote: the few words beside a filter, one wording for the plan text
     const r = mix(M42, [haTight, oTight]);
     expect(lineNote(of(r, 'Ha tight'))).toBe('better contrast');
     expect(lineNote(of(r, 'OIII tight'))).toMatch(/^adds /);
-    expect(lineNote(of(mix(M31, [NBZ]), 'NBZ II'))).toBe('adds nothing');
+    expect(lineNote(of(mix(M87, [NBZ]), 'NBZ II'))).toBe('adds nothing');
     const none = filterMix({ profile: M42, filters: [NOBANDS], minutes: HOURS });
     expect(none.kind).toBe('none');
     if (none.kind === 'none') expect(lineNote(none.skipped[0])).toBe('unknown passband, not used');

@@ -29,6 +29,22 @@ describe('emission profiles', () => {
     for (const id of Object.keys(OBJECT_OVERRIDES)) expect([id, ids.has(id)]).toEqual([id, true]);
   });
 
+  it('galaxy knots: amateur only for M33 and M82 with the source named; the rest are type defaults, nothing is measured', () => {
+    const knots = Object.entries(OBJECT_OVERRIDES).filter(([, o]) => o.knotsOnly === true);
+    expect(knots.length).toBeGreaterThan(40);
+    for (const [id, o] of knots) {
+      expect(o.confidence).not.toBe('measured');
+      if (id === 'm33') expect(o.source).toMatch(/NGC 604/);
+      else if (id === 'm82') expect(o.source).toMatch(/Shopbell/);
+      else {
+        expect([id, o.confidence]).toEqual([id, 'type-default']);
+        expect(o.source).toMatch(/not measured/);
+      }
+    }
+    for (const id of ['m31', 'ngc2903', 'ngc4490', 'ngc891', 'ngc4501', 'ngc3368', 'ngc4565', 'ngc2841', 'ngc5907', 'ngc4244', 'ngc4826']) expect(OBJECT_OVERRIDES[id]?.knotsOnly).toBe(true);
+    for (const id of ['ngc4486', 'ngc4472', 'ngc4649', 'ngc3623x']) expect(emissionProfileFor(id, 'galaxy')!.knotsOnly).toBeUndefined();
+  });
+
   it('a measured override beats the type default', () => {
     const m42 = emissionProfileFor('m42', 'nebula')!;
     expect(m42.confidence).toBe('measured');

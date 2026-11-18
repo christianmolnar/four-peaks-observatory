@@ -16,6 +16,8 @@ export interface EmissionProfile {
   source: string;
   confidence: Confidence;
   note?: string;
+  /** True when the lines belong to small knots (HII regions) inside a target whose light is mostly something else: the whole target is not the emission target. */
+  knotsOnly?: boolean;
 }
 
 const LINES: readonly Line[] = ['Ha', 'NII', 'SII', 'OIII', 'Hb', 'HeII'];
@@ -39,6 +41,7 @@ export function judgeProfile(p: unknown): string[] {
   if (typeof o.source !== 'string' || o.source.trim() === '') problems.push('A profile needs a source.');
   if (!CONFIDENCES.includes(o.confidence as Confidence)) problems.push('The confidence must be measured, amateur or type-default.');
   if (o.note !== undefined && typeof o.note !== 'string') problems.push('The note must be text.');
+  if (o.knotsOnly !== undefined && typeof o.knotsOnly !== 'boolean') problems.push('knotsOnly must be true or false.');
   return problems;
 }
 
@@ -63,6 +66,22 @@ export const TYPE_DEFAULTS: Record<TargetType, EmissionProfile> = {
 
 /** An HII region inside a galaxy (a knot small against the disk). The catalog has no type for it; the objects below use it. */
 const HII_IN_GALAXY = typed({ Ha: 1, OIII: 0.3, SII: 0.15 }, 0.9, 'An HII region in a galaxy: the knot is small against the stellar disk.');
+
+/**
+ * The HII knots of a star-forming galaxy (spiral arms, irregulars). Ha only: the OIII and SII shares in the knots depend on metallicity and are not modelled
+ * (research note: HII regions, "Ha only for its HII regions"). The continuum is the disk under the knot. Which galaxies are star-forming is set by name below:
+ * the bundled catalog carries no morphology.
+ */
+const knotsOf = (source: string, confidence: 'amateur' | 'type-default'): Partial<EmissionProfile> => ({
+  lines: { Ha: 1 },
+  continuum: 0.9,
+  source,
+  confidence,
+  knotsOnly: true,
+  note: 'For the knots only: the HII regions in the arms are small and faint against the disk. The disk itself is broadband light.',
+});
+const SPIRAL_SOURCE = 'Typical for a star-forming spiral, not measured for this galaxy (Kennicutt 1998, arXiv:astro-ph/9807187)';
+const knotsType = (): Partial<EmissionProfile> => knotsOf(SPIRAL_SOURCE, 'type-default');
 
 const REFLECTION: Partial<EmissionProfile> = {
   lines: {},
@@ -122,6 +141,55 @@ export const OBJECT_OVERRIDES: Record<string, Partial<EmissionProfile>> = {
   // HII regions in M33.
   ngc604: { ...HII_IN_GALAXY },
   ngc595: { ...HII_IN_GALAXY },
+  // Star-forming galaxies: Ha for the knots only. Ellipticals, S0 and any galaxy not named here keep the type default (no emission): M87, M49, M60, M84, M85, M86, M89, M105, M32, M110, M104, M65.
+  // Amateur-grade sources named: M33 (NGC 604 and the other HII regions, imaged and mapped) and M82 (Shopbell, Ha filaments of the starburst wind).
+  m33: knotsOf('M33 HII regions (NGC 604 Ha maps); amateur-grade, no flux table', 'amateur'),
+  m82: knotsOf('M82 starburst Ha filaments (Shopbell, Ha imaging of the wind); no flux table', 'amateur'),
+  // The rest, by class alone (type default), including the large spirals that are well imaged:
+  m31: knotsType(), // its HII rings are faint: type default
+  m51: knotsType(),
+  m101: knotsType(),
+  m81: knotsType(),
+  ngc6946: knotsType(),
+  ngc628: knotsType(),
+  ngc5236: knotsType(),
+  ngc253: knotsType(),
+  ngc2903: knotsType(),
+  ngc4490: knotsType(),
+  ngc891: knotsType(),
+  ngc4501: knotsType(),
+  ngc3368: knotsType(),
+  ngc4565: knotsType(),
+  ngc2841: knotsType(),
+  ngc5907: knotsType(),
+  ngc4244: knotsType(),
+  ngc4826: knotsType(),
+  ngc4736: knotsType(),
+  ngc3351: knotsType(),
+  ngc4254: knotsType(),
+  ngc4321: knotsType(),
+  ngc4303: knotsType(),
+  ngc4258: knotsType(),
+  ngc5055: knotsType(),
+  ngc3556: knotsType(),
+  ngc4945: knotsType(),
+  ngc2403: knotsType(),
+  ngc300: knotsType(),
+  ngc55: knotsType(),
+  ngc247: knotsType(),
+  ic342: knotsType(),
+  ngc4449: knotsType(),
+  ngc4631: knotsType(),
+  ngc4559: knotsType(),
+  ngc4038: knotsType(),
+  ngc4039: knotsType(),
+  ngc6822: knotsType(),
+  ic1613: knotsType(),
+  ngc1097: knotsType(),
+  ngc7479: knotsType(),
+  ngc6744: knotsType(),
+  ngc4236: knotsType(),
+  ngc7331: knotsType(),
 };
 
 function veil(): Partial<EmissionProfile> {

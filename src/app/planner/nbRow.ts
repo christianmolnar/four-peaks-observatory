@@ -102,8 +102,17 @@ export function nbRowView(input: NbRowInput): NbView {
 
   const assumptions: string[] = [];
   const sb = input.target.surfaceBrightness;
+  // A galaxy's knots are small, faint features against the disk: the mean brightness of the whole galaxy is not theirs. Taken as the faint class (24 mag per
+  // square arcsecond, a planner stand-in, not a measurement), or fainter when the galaxy's own mean already is.
+  const knots = profile.knotsOnly === true;
   const mu =
-    sb !== undefined
+    knots
+      ? (() => {
+          const faint = Math.max(SB_CLASS_MU.low, sb ?? SB_CLASS_MU.low);
+          assumptions.push(`The knots are small and faint against the disk, so their brightness is taken as ${faint} mag per square arcsecond (the faint class, a stand-in, not measured), not the whole galaxy's mean.`);
+          return faint;
+        })()
+      : sb !== undefined
       ? sb
       : (() => {
           const cls = surfaceBrightnessOf({ type: input.target?.type });
