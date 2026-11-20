@@ -21,7 +21,8 @@ export const SEED_ENTRIES: readonly LibraryEntry[] = [
     type: 'dual-band',
     passbands: [{ centreNm: 672, widthNm: 19 }, { centreNm: 500.7, widthNm: 21 }],
     glassMm: 2,
-    notes: 'SII about 672 nm about 19 nm and OIII about 21 nm. Glass 2.0 or 2.5 mm. Not yet checked against the maker.',
+    needsUvIrCut: true,
+    notes: 'Needs a UV/IR cut in the train (IDAS, via research note, unverified). SII about 672 nm about 19 nm and OIII about 21 nm. Glass 2.0 or 2.5 mm. Not yet checked against the maker.',
   }),
   seed('Optolong H-alpha 7 nm', {
     type: 'narrowband',

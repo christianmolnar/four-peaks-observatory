@@ -1688,7 +1688,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         ),
       mix: (
         <>
-          <PlanRowMix id={id} mix={mixViews.get(id) as RowMix} />
+          <PlanRowMix
+            id={id}
+            mix={mixViews.get(id) as RowMix}
+            extra={view?.kind === 'ok' ? (filterId, minutes) => view.forFilter(filterId === null ? null : (profile.equipment.filters.find((f) => f.id === filterId) ?? null), minutes) : undefined}
+          />
           <NarrowbandPanel idBase={id} view={nbViews.get(id) as NbView} onHours={(t) => setNbHoursFor(id, t)} onTick={(f, on) => setNbTickFor(id, f, on)} />
         </>
       ),

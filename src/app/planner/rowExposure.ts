@@ -1,8 +1,10 @@
 import { nextMeridianTransit } from '@/planner/astro';
 import type { Site } from '@/planner/astro';
-import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, exposureFor, marginalBenefit } from '@/planner/exposure';
+import { MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, exposureFor, filterWarnings, marginalBenefit } from '@/planner/exposure';
 import type { ExposureChoice, ExposureMode, ExposureOverrides, ExposureResult, ExposureWarning, MarginalRow } from '@/planner/exposure';
+import { filterSub } from '@/planner/filtermix/subs';
 import type { PlanEntry } from '@/planner/plan';
+import type { ProfileFilter } from '@/planner/profile';
 import type { SlotInput } from '@/planner/itinerary';
 import type { PlanTargetRef } from '@/planner/state/plans';
 
@@ -25,6 +27,8 @@ export type RowExposure =
       customUnusable: string | null;
       /** What the engine would give if the row's sub length or count were this number (the row's other own numbers kept); null when it cannot compute. */
       withNumber: (field: 'subSeconds' | 'subCount', value: number) => ExposureResult | null;
+      /** One filter's line of the plan row for the minutes the plan gives it (null: no filter; the result is null when the plan gives it no minutes): its sub length and count at its own bandwidth, and the UV/IR warning when it applies. */
+      forFilter: (filter: ProfileFilter | null, minutes: number) => { subs: string; warning: string | null } | null;
     };
 
 /** The stored custom numbers that are inside the limits: a number typed on a row replaces the custom value, so a stored one outside the limits is not carried along. */
@@ -171,7 +175,13 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
     const r = run({ preset: base.preset, overrides: { ...keepUsable(base.overrides ?? {}), [field]: value } });
     return r.ok ? r : null;
   };
-  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, customUnusable, withNumber };
+  const forFilter = (filter: ProfileFilter | null, minutes: number) => {
+    if (!(minutes > 0)) return null;
+    const s = filterSub({ target: slot.exposureTarget, rig, filter, bortle, night, preset: baseOf(ref), minutes });
+    const warning = filter === null ? null : (filterWarnings(slot.optics?.focalRatio ?? 0, filter, cam).find((w) => w.code === 'filter-needs-uvir')?.text ?? null);
+    return { subs: s.kind === 'ok' ? `Subs: ${s.subSeconds} s x ${s.subCount}, total ${minutesText(s.minutes)}` : `Subs: ${s.text}`, warning };
+  };
+  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, customUnusable, withNumber, forFilter };
 }
 
 /** The most light one plan row accepts. The longest sub, the shortest sub and the most subs are the engine's own (MAX_SUB_S, MIN_CUSTOM_SUB_S, MAX_SUBS). */

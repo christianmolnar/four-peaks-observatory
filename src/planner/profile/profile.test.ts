@@ -71,6 +71,7 @@ describe('validateProfile', () => {
     failsAt((p) => { p.equipment.filters[0].kind = 'rainbow'; }, '$.equipment.filters[0].kind');
     failsAt((p) => { p.equipment.filters[0].sizeMm = -48; }, '$.equipment.filters[0].sizeMm');
     failsAt((p) => { p.equipment.filters[0].blocksUvIr = 'yes'; }, '$.equipment.filters[0].blocksUvIr');
+    failsAt((p) => { p.equipment.filters[0].needsUvIrCut = 'yes'; }, '$.equipment.filters[0].needsUvIrCut');
     failsAt((p) => { p.equipment.filters[0].ratedMinFRatio = 0; }, '$.equipment.filters[0].ratedMinFRatio');
     failsAt((p) => { p.equipment.filters[0].maxIncidentAngleDeg = 90; }, '$.equipment.filters[0].maxIncidentAngleDeg');
     failsAt((p) => { p.equipment.filters[0].bandwith = 7; }, '$.equipment.filters[0].bandwith');

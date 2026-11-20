@@ -33,7 +33,7 @@ describe('specsToTexts', () => {
 
 describe('correctable keys and isEdited', () => {
   it('lists the boxes a correction can carry', () => {
-    expect(correctableKeys('filters')).toEqual(['kind', 'sizeMm', ...BAND_BOX_KEYS])
+    expect(correctableKeys('filters')).toEqual(['kind', 'sizeMm', 'needsUvIrCut', ...BAND_BOX_KEYS])
     expect(correctableKeys('scopes')).toEqual(['focalLengthMm', 'apertureMm'])
   })
   it('a box changed from the library value is an edit; spacing and number format are not', () => {
@@ -56,6 +56,14 @@ describe('textsToSpecs', () => {
     const base = { type: 'dual-band' as const, passbands: [{ centreNm: 656.3, widthNm: 9.5 }], glassMm: 2, sizeMm: 36, notes: 'n' }
     const r = textsToSpecs('filters', { kind: 'narrowband', sizeMm: '50' }, base)
     expect(r).toEqual({ specs: { type: 'narrowband', passbands: [{ centreNm: 656.3, widthNm: 9.5 }], glassMm: 2, sizeMm: 50, notes: 'n' } })
+  })
+  it('needsUvIrCut round-trips through the filter form, and the seed marks only the NB3-PM', () => {
+    expect(specsToTexts('filters', { needsUvIrCut: true })).toEqual({ needsUvIrCut: 'yes' })
+    expect(textsToSpecs('filters', { needsUvIrCut: 'yes' }, {})).toEqual({ specs: { needsUvIrCut: true } })
+    expect(textsToSpecs('filters', { needsUvIrCut: 'no' }, {})).toEqual({ specs: { needsUvIrCut: false } })
+    const flag = (n: string) => (SEED_ENTRIES.find((e) => e.name === n)?.specs as { needsUvIrCut?: boolean }).needsUvIrCut
+    expect(flag('IDAS NB3-PM')).toBe(true)
+    expect(flag('IDAS NBZ-II')).toBeUndefined()
   })
   it('an emptied box removes that value', () => {
     expect(textsToSpecs('cameras', { pixelSizeUm: '3', sensorWidthPx: '' }, { pixelSizeUm: 3, sensorWidthPx: 4000 })).toEqual({ specs: { pixelSizeUm: 3 } })

@@ -171,6 +171,27 @@ describe('filter warnings', () => {
     const explicit = filterWarnings(7, { id: 'x', name: 'Plain', blocksUvIr: false }, c533);
     expect(explicit[0].text).toMatch(/does not block UV\/IR/);
   });
+  describe('a filter that needs a UV/IR cut in the light path', () => {
+    const nb3 = { id: 'nb3', name: 'IDAS NB3-PM', needsUvIrCut: true };
+    const needs = (f: ProfileFilter, cam: { hasUvIrCut?: boolean }) => filterWarnings(7, f, cam).filter((x) => x.code === 'filter-needs-uvir');
+    it('camera has one: no warning', () => {
+      expect(filterWarnings(7, nb3, { hasUvIrCut: true })).toEqual([]);
+    });
+    it('camera has none: one plain warning, and the generic missing-cut line is not repeated', () => {
+      const w = filterWarnings(7, nb3, { hasUvIrCut: false });
+      expect(codes(w)).toEqual(['filter-needs-uvir']);
+      expect(w[0].text).toBe('This filter needs a UV/IR cut in the light path; your camera does not list one, so add one.');
+    });
+    it('camera unknown: a warning that says unknown', () => {
+      const w = needs(nb3, {});
+      expect(w).toHaveLength(1);
+      expect(w[0].text).toMatch(/unknown/);
+    });
+    it('a filter without the flag never warns about it, and one that blocks UV/IR itself does not either', () => {
+      for (const cam of [{ hasUvIrCut: true }, { hasUvIrCut: false }, {}]) expect(needs({ id: 'x', name: 'Plain' }, cam)).toEqual([]);
+      expect(needs({ ...nb3, blocksUvIr: true }, { hasUvIrCut: false })).toEqual([]);
+    });
+  });
   it('ASI533MC with a filter that blocks UV/IR gets no IR warning', () => {
     for (const id of ['astronomik-cls-ccd', 'idas-lps-p3', 'baader-uvir-cut', 'optolong-lextreme']) {
       expect(codes(filterWarnings(7, filter(id), c533))).not.toContain('filter-uvir-missing');

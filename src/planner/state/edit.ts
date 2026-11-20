@@ -98,6 +98,7 @@ export const LIST_SPECS: Record<ListKey, ListSpec> = {
       { key: 'passbandWidthNm', label: 'Total passband width', kind: 'number' },
       { key: 'narrowestBandNm', label: 'Narrowest band', kind: 'number' },
       { key: 'blocksUvIr', label: 'Blocks UV and IR itself', kind: 'tristate' },
+      { key: 'needsUvIrCut', label: 'Needs a UV/IR cut in the light path', kind: 'tristate' },
       { key: 'ratedMinFRatio', label: 'Fastest rated focal ratio', kind: 'number', unit: 'f/ number' },
       { key: 'maxIncidentAngleDeg', label: 'Largest incident angle', kind: 'number' },
     ],

@@ -272,7 +272,7 @@ function derivedSum(o: Obj, key: 'passbandWidthNm' | 'narrowestBandNm', label: s
 
 function filter(v: unknown, path: string, strict: boolean): ProfileFilter {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbands', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'ratedMinFRatio', 'maxIncidentAngleDeg', 'aiFilled']);
+  onlyKeys(o, path, ['id', 'name', 'kind', 'sizeMm', 'bandpassNotes', 'passbands', 'passbandWidthNm', 'narrowestBandNm', 'blocksUvIr', 'needsUvIrCut', 'ratedMinFRatio', 'maxIncidentAngleDeg', 'aiFilled']);
   if (o.kind !== undefined && !FILTER_KINDS.includes(o.kind as FilterKind)) {
     throw new ProfileError(`${path}.kind`, `expected one of ${FILTER_KINDS.join(', ')}, got ${JSON.stringify(o.kind)}`);
   }
@@ -287,6 +287,7 @@ function filter(v: unknown, path: string, strict: boolean): ProfileFilter {
     passbandWidthNm: bands ? derivedSum(o, 'passbandWidthNm', 'Total passband width', path, bands, strict) : optLimited(o, 'passbandWidthNm', path, strict),
     narrowestBandNm: bands ? derivedSum(o, 'narrowestBandNm', 'Narrowest band', path, bands, strict) : optLimited(o, 'narrowestBandNm', path, strict),
     blocksUvIr: optBool(o, 'blocksUvIr', path),
+    needsUvIrCut: optBool(o, 'needsUvIrCut', path),
     ratedMinFRatio: optLimited(o, 'ratedMinFRatio', path, strict),
     maxIncidentAngleDeg: optLimited(o, 'maxIncidentAngleDeg', path, strict),
     aiFilled: optBool(o, 'aiFilled', path),

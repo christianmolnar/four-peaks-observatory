@@ -111,6 +111,8 @@ export interface ProfileFilter {
   narrowestBandNm?: number;
   /** The filter itself cuts UV and IR. */
   blocksUvIr?: boolean;
+  /** The filter only works with a UV/IR cut in the light path (the camera or another filter). Absent: not known to. */
+  needsUvIrCut?: boolean;
   /** Published slowest-allowed beam: the fastest focal ratio the maker rates it for. */
   ratedMinFRatio?: number;
   /** Published largest incident angle (degrees from the axis). */

@@ -4,6 +4,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ExposureResult, ExposureWarning } from '@/planner/exposure';
 import PlanRowExposure from './PlanRowExposure';
+import PlanRowMix from './PlanRowMix';
 import type { PlanRowExposureProps } from './PlanRowExposure';
 import type { RowExposure } from './rowExposure';
 
@@ -45,7 +46,7 @@ const result = (warnings: ExposureWarning[]): ExposureResult =>
   }) as unknown as ExposureResult;
 const view = (warnings: ExposureWarning[]): RowExposure => {
   const r = result(warnings);
-  return { kind: 'ok', chosen: r, presets: { quick: r, balanced: r, deep: r }, marginal: [], inputs: 'x', usableMinutes: 300, customUnusable: null, withNumber: () => r };
+  return { kind: 'ok', chosen: r, presets: { quick: r, balanced: r, deep: r }, marginal: [], inputs: 'x', usableMinutes: 300, customUnusable: null, withNumber: () => r, forFilter: () => ({ subs: 'Subs', warning: null }) };
 };
 const handlers = () => ({
   onPreset: jest.fn(),
@@ -122,5 +123,19 @@ describe('warnings on a row', () => {
     for (const b of buttons) expect(b.className).toMatch(/min-h-11/);
     for (const t of screen.getAllByRole('textbox')) expect(t.className).toMatch(/min-h-11/);
     expect(screen.getByRole('checkbox', { name: 'Save as favorite' }).closest('label')!.className).toMatch(/min-h-11/);
+  });
+});
+
+describe('the filter mix line of a row: subs and the UV/IR warning', () => {
+  it('shows the subs line with no gain, and the warning only when one is given', () => {
+    const mix = { kind: 'mix', availableMin: 90, lines: [{ filterId: 'nb3', name: 'NB3-PM', minutes: 90, verdict: 'adds', reason: 'r', adds: [], shared: [], coveredBy: [] }], headline: null, needed: [], uncovered: [], haMostlyNii: false, confidence: 'c', profileNote: null } as never;
+    const extra = (warning: string | null) => () => ({ subs: 'Subs: 180 s x 30, total 1 h 30 min', warning });
+    const { rerender } = render(<PlanRowMix id="a" mix={mix} extra={extra('This filter needs a UV/IR cut in the light path; your camera does not list one, so add one.')} />);
+    fireEvent.click(screen.getByRole('button', { name: /filter mix/i }));
+    expect(screen.getByTestId('plan-mix-subs').textContent).toBe('Subs: 180 s x 30, total 1 h 30 min');
+    expect(screen.getByTestId('plan-mix-subs').textContent).not.toMatch(/gain/i);
+    expect(screen.getByTestId('plan-mix-uvir').textContent).toMatch(/needs a UV\/IR cut/);
+    rerender(<PlanRowMix id="a" mix={mix} extra={extra(null)} />);
+    expect(screen.queryByTestId('plan-mix-uvir')).toBeNull();
   });
 });

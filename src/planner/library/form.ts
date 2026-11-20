@@ -17,7 +17,7 @@ export const libraryClassOf = (list: ListKey): LibraryClass | null => CLASSES[li
 interface Box { key: string; spec: string; kind: 'number' | 'choice' | 'tristate' }
 /** The boxes a correction can carry, in form order. */
 const BOXES: Record<LibraryList, Box[]> = {
-  filters: [{ key: 'kind', spec: 'type', kind: 'choice' }, { key: 'sizeMm', spec: 'sizeMm', kind: 'number' }],
+  filters: [{ key: 'kind', spec: 'type', kind: 'choice' }, { key: 'sizeMm', spec: 'sizeMm', kind: 'number' }, { key: 'needsUvIrCut', spec: 'needsUvIrCut', kind: 'tristate' }],
   cameras: [
     { key: 'pixelSizeUm', spec: 'pixelSizeUm', kind: 'number' },
     { key: 'sensorWidthPx', spec: 'sensorWidthPx', kind: 'number' },
@@ -27,7 +27,7 @@ const BOXES: Record<LibraryList, Box[]> = {
   ],
   scopes: [{ key: 'focalLengthMm', spec: 'focalLengthMm', kind: 'number' }, { key: 'apertureMm', spec: 'apertureMm', kind: 'number' }],
 }
-const LABELS: Record<string, string> = { kind: 'Kind', sizeMm: 'Size', pixelSizeUm: 'Pixel size', sensorWidthPx: 'Sensor width', sensorHeightPx: 'Sensor height', hasUvIrCut: 'Has its own UV/IR cut', readNoiseClass: 'Read noise', focalLengthMm: 'Focal length', apertureMm: 'Aperture', passbandWidthNm: 'Total passband width', narrowestBandNm: 'Narrowest band', bandpassNotes: 'Bandpass notes' }
+const LABELS: Record<string, string> = { kind: 'Kind', sizeMm: 'Size', pixelSizeUm: 'Pixel size', sensorWidthPx: 'Sensor width', sensorHeightPx: 'Sensor height', hasUvIrCut: 'Has its own UV/IR cut', needsUvIrCut: 'Needs a UV/IR cut in the light path', readNoiseClass: 'Read noise', focalLengthMm: 'Focal length', apertureMm: 'Aperture', passbandWidthNm: 'Total passband width', narrowestBandNm: 'Narrowest band', bandpassNotes: 'Bandpass notes' }
 export function labelOf(key: string): string {
   const band = /^band(\d)(Centre|Width)$/.exec(key)
   return band ? `Passband ${band[1]} ${band[2].toLowerCase()}` : (LABELS[key] ?? key)

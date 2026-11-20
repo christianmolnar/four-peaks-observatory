@@ -97,6 +97,7 @@ export function beamHalfAngleDeg(fRatio: number): number {
 export type WarningCode =
   | 'filter-rated-slower'
   | 'filter-uvir-missing'
+  | 'filter-needs-uvir'
   | 'filter-visual-colour'
   | 'filter-kind-unknown'
   | 'inputs-assumed'
@@ -166,7 +167,18 @@ export function filterWarnings(fRatio: number, filter: ProfileFilter | null, cam
         text: `${name} has no published f-ratio rating; its narrowest band is ${filter.narrowestBandNm} nm. ${shiftText} That is over half the band, so part of the beam falls outside it (calculated); the maker's rating is not in the profile, so check it before relying on this filter.`,
       });
     }
-    if (camera.hasUvIrCut === false && filter.blocksUvIr !== true) {
+    const needsCut = filter.needsUvIrCut === true && camera.hasUvIrCut !== true && filter.blocksUvIr !== true;
+    if (needsCut) {
+      out.push({
+        code: 'filter-needs-uvir',
+        severity: 'warning',
+        text:
+          camera.hasUvIrCut === false
+            ? 'This filter needs a UV/IR cut in the light path; your camera does not list one, so add one.'
+            : 'This filter needs a UV/IR cut in the light path; whether your camera has one is unknown, so add one unless it does.',
+      });
+    }
+    if (camera.hasUvIrCut === false && filter.blocksUvIr !== true && !needsCut) {
       out.push({
         code: 'filter-uvir-missing',
         severity: 'warning',
