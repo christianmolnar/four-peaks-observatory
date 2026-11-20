@@ -72,7 +72,6 @@ export const LIST_SPECS: Record<ListKey, ListSpec> = {
       { key: 'colour', label: 'Colour sensor', kind: 'tristate' },
       { key: 'hasUvIrCut', label: 'Has its own UV/IR cut', kind: 'tristate' },
       { key: 'readNoiseClass', label: 'Read noise', kind: 'choice', options: ['low', 'medium', 'high'] },
-      { key: 'recommendedGain', label: 'Recommended gain', kind: 'number', unit: 'the camera driver’s gain number' },
     ],
   },
   smartScopes: {

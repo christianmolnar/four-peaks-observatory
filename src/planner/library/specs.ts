@@ -20,7 +20,7 @@ export const MAX_NOTES_CHARS = 200
 
 export type { Passband }
 export interface FilterSpecs { type?: FilterKind; passbands?: Passband[]; sizeMm?: number; glassMm?: number; notes?: string }
-export interface CameraSpecs { sensorWidthPx?: number; sensorHeightPx?: number; pixelSizeUm?: number; readNoiseClass?: ReadNoiseClass; recommendedGain?: number; hasUvIrCut?: boolean; notes?: string }
+export interface CameraSpecs { sensorWidthPx?: number; sensorHeightPx?: number; pixelSizeUm?: number; readNoiseClass?: ReadNoiseClass; hasUvIrCut?: boolean; notes?: string }
 export interface ScopeSpecs { apertureMm?: number; focalLengthMm?: number; fNumber?: number; notes?: string }
 export type Specs = FilterSpecs | CameraSpecs | ScopeSpecs
 
@@ -124,7 +124,6 @@ export function validateSpecs(cls: LibraryClass, raw: unknown): { specs: Specs }
     c.num('sensorHeightPx')
     c.num('pixelSizeUm')
     c.choice('readNoiseClass', READ_NOISE_CLASSES, 'read noise class')
-    c.num('recommendedGain')
     c.bool('hasUvIrCut', 'UV/IR cut')
   } else {
     c.num('apertureMm')

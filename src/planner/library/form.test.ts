@@ -23,10 +23,6 @@ describe('specsToTexts', () => {
   it('camera: numbers, yes/no, class', () => {
     expect(specsToTexts('cameras', { pixelSizeUm: 3.76, sensorWidthPx: 6248, sensorHeightPx: 4176, hasUvIrCut: false, readNoiseClass: 'low' })).toEqual({ pixelSizeUm: '3.76', sensorWidthPx: '6248', sensorHeightPx: '4176', hasUvIrCut: 'no', readNoiseClass: 'low' })
   })
-  it('camera: the recommended gain is a box', () => {
-    expect(specsToTexts('cameras', { pixelSizeUm: 3, recommendedGain: 100 })).toEqual({ pixelSizeUm: '3', recommendedGain: '100' })
-    expect(correctableKeys('cameras')).toContain('recommendedGain')
-  })
   it('scope: aperture and focal length only (the f-number is derived)', () => {
     expect(specsToTexts('scopes', { apertureMm: 80, focalLengthMm: 480, fNumber: 6 })).toEqual({ apertureMm: '80', focalLengthMm: '480' })
   })
@@ -56,14 +52,6 @@ describe('correctable keys and isEdited', () => {
 })
 
 describe('textsToSpecs', () => {
-  it('camera gain: a whole number in range is carried; out of range or fractional is refused in plain words; empty removes it', () => {
-    expect(textsToSpecs('cameras', { pixelSizeUm: '3', recommendedGain: '120' }, {})).toEqual({ specs: { pixelSizeUm: 3, recommendedGain: 120 } })
-    expect(textsToSpecs('cameras', { pixelSizeUm: '3', recommendedGain: '' }, { pixelSizeUm: 3, recommendedGain: 120 })).toEqual({ specs: { pixelSizeUm: 3 } })
-    const high = textsToSpecs('cameras', { recommendedGain: '5000' }, {})
-    expect('problem' in high && high.problem).toMatch(/Recommended gain.*between 0 and 1,000/)
-    const frac = textsToSpecs('cameras', { recommendedGain: '10.5' }, {})
-    expect('problem' in frac && frac.problem).toMatch(/whole number/)
-  })
   it('carries what the form has no box for and takes the boxes', () => {
     const base = { type: 'dual-band' as const, passbands: [{ centreNm: 656.3, widthNm: 9.5 }], glassMm: 2, sizeMm: 36, notes: 'n' }
     const r = textsToSpecs('filters', { kind: 'narrowband', sizeMm: '50' }, base)

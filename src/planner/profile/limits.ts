@@ -27,8 +27,6 @@ export const GEAR_LIMITS = {
   pixelSizeUm: { min: 1, max: 25, unit: 'µm', noun: 'pixel size' },
   sensorWidthPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor width' },
   sensorHeightPx: { min: 100, max: 20000, whole: true, unit: 'px', noun: 'sensor height' },
-  /** The camera driver's own gain number (ZWO and QHY cameras use whole numbers from 0 up to a few hundred); not decibels, not ISO. */
-  recommendedGain: { min: 0, max: 1000, whole: true, unit: '', noun: 'recommended gain' },
   factor: { min: 0.2, max: 5, unit: '', noun: 'focal length factor' },
   effectiveFocalLengthMm: { ...FOCAL_LENGTH_MM, unit: 'mm', noun: 'whole-scope focal length' },
   sizeMm: { min: 10, max: 100, unit: 'mm', noun: 'filter size' },

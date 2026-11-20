@@ -11,7 +11,7 @@ export const LOOKUP_SYSTEM_PROMPT = `You fill in the published specifications of
 
 const FIELDS: Record<LibraryClass, string> = {
   filter: 'type (one of "broadband-LP","dual-band","tri-band","narrowband","UV-IR cut","visual-only"), passbands (a list of {"centreNm": number, "widthNm": number} in nm, one per transmitted band), sizeMm (cell or glass diameter, mm), glassMm (glass thickness, mm), notes',
-  camera: 'sensorWidthPx (whole number), sensorHeightPx (whole number), pixelSizeUm (micrometres), readNoiseClass ("low","medium" or "high"), recommendedGain (the recommended imaging gain as a whole number in the camera driver units, only if the maker publishes one), hasUvIrCut (true or false: the camera window itself cuts UV and IR), notes',
+  camera: 'sensorWidthPx (whole number), sensorHeightPx (whole number), pixelSizeUm (micrometres), readNoiseClass ("low","medium" or "high"), hasUvIrCut (true or false: the camera window itself cuts UV and IR), notes',
   scope: 'apertureMm (millimetres), focalLengthMm (millimetres), fNumber (focal ratio), notes',
 }
 

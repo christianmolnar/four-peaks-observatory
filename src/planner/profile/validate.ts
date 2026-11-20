@@ -225,7 +225,7 @@ const FILTER_KINDS: readonly FilterKind[] = ['broadband-LP', 'dual-band', 'tri-b
 
 function camera(v: unknown, path: string, strict: boolean): ProfileCamera {
   const o = obj(v, path);
-  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx', 'colour', 'hasUvIrCut', 'readNoiseClass', 'recommendedGain', 'aiFilled']);
+  onlyKeys(o, path, ['id', 'name', 'pixelSizeUm', 'sensorWidthPx', 'sensorHeightPx', 'colour', 'hasUvIrCut', 'readNoiseClass', 'aiFilled']);
   if (o.readNoiseClass !== undefined && !READ_NOISE_CLASSES.includes(o.readNoiseClass as ReadNoiseClass)) {
     throw new ProfileError(`${path}.readNoiseClass`, `expected one of ${READ_NOISE_CLASSES.join(', ')}, got ${JSON.stringify(o.readNoiseClass)}`);
   }
@@ -238,7 +238,6 @@ function camera(v: unknown, path: string, strict: boolean): ProfileCamera {
     colour: optBool(o, 'colour', path),
     hasUvIrCut: optBool(o, 'hasUvIrCut', path),
     readNoiseClass: o.readNoiseClass as ReadNoiseClass | undefined,
-    recommendedGain: optLimited(o, 'recommendedGain', path, strict),
     aiFilled: optBool(o, 'aiFilled', path),
   });
 }

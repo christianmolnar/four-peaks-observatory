@@ -77,8 +77,6 @@ describe('validateProfile', () => {
     failsAt((p) => { p.equipment.filters[1].id = 'f1'; }, '$.equipment.filters[1].id');
     failsAt((p) => { delete p.equipment.filters; }, '$.equipment.filters');
     failsAt((p) => { p.equipment.cameras[0].readNoiseClass = 'tiny'; }, '$.equipment.cameras[0].readNoiseClass');
-    failsAt((p) => { p.equipment.cameras[0].recommendedGain = 1001; }, '$.equipment.cameras[0].recommendedGain');
-    failsAt((p) => { p.equipment.cameras[0].recommendedGain = 10.5; }, '$.equipment.cameras[0].recommendedGain');
     failsAt((p) => { p.equipment.cameras[0].hasUvIrCut = 'no'; }, '$.equipment.cameras[0].hasUvIrCut');
     failsAt((p) => { p.trains[0].filterId = 'nope'; }, '$.trains[0].filterId');
     failsAt((p) => { p.trains[0].filterId = ''; }, '$.trains[0].filterId');
@@ -278,14 +276,6 @@ describe('filters and the v1 -> v2 migration', () => {
   it('keeps a filter with only an id and a name: unknown values stay absent', () => {
     const p = validateProfile(full());
     expect(p.equipment.filters[1]).toEqual({ id: 'f2', name: 'Bare filter' });
-  });
-
-  it('round-trips a camera recommended gain through JSON, zero included; a camera without one stays without', () => {
-    const raw = full() as unknown as { equipment: { cameras: Record<string, unknown>[] } };
-    raw.equipment.cameras[0].recommendedGain = 0;
-    expect(validateProfile(JSON.parse(JSON.stringify(raw))).equipment.cameras[0].recommendedGain).toBe(0);
-    delete raw.equipment.cameras[0].recommendedGain;
-    expect('recommendedGain' in validateProfile(JSON.parse(JSON.stringify(raw))).equipment.cameras[0]).toBe(false);
   });
 
   it('round-trips a train with a filter through JSON', () => {
