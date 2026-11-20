@@ -23,6 +23,10 @@ describe('validateSpecs accepts real values', () => {
     expect(ok('camera', { sensorWidthPx: 6248, sensorHeightPx: 4176, pixelSizeUm: 3.76, readNoiseClass: 'low', hasUvIrCut: false })).toEqual({ sensorWidthPx: 6248, sensorHeightPx: 4176, pixelSizeUm: 3.76, readNoiseClass: 'low', hasUvIrCut: false })
     expect(ok('scope', { apertureMm: 280, focalLengthMm: 2800, fNumber: 10 })).toEqual({ apertureMm: 280, focalLengthMm: 2800, fNumber: 10 })
   })
+  it('camera: a recommended gain, zero included', () => {
+    expect(ok('camera', { pixelSizeUm: 3.76, recommendedGain: 100 })).toEqual({ pixelSizeUm: 3.76, recommendedGain: 100 })
+    expect(ok('camera', { recommendedGain: 0 })).toEqual({ recommendedGain: 0 })
+  })
   it('null means unknown and is dropped; extra and prototype keys are dropped, never copied', () => {
     const raw = JSON.parse('{"apertureMm":80,"focalLengthMm":null,"colour":true,"__proto__":{"polluted":1},"constructor":{"x":1}}')
     const s = ok('scope', raw)
@@ -46,6 +50,9 @@ describe('validateSpecs refuses, with plain words and nothing kept', () => {
     ['a string number', 'scope', { apertureMm: '80' }, /aperture/i],
     ['a fractional pixel count', 'camera', { sensorWidthPx: 100.5 }, /sensor width/i],
     ['bad read noise class', 'camera', { readNoiseClass: 'huge' }, /read noise/i],
+    ['gain below the range', 'camera', { recommendedGain: -1 }, /recommended gain/i],
+    ['gain above the range', 'camera', { recommendedGain: 1001 }, /recommended gain/i],
+    ['a fractional gain', 'camera', { recommendedGain: 100.5 }, /recommended gain/i],
     ['a string for the UV/IR cut', 'camera', { hasUvIrCut: 'yes' }, /UV/],
     ['bad filter type', 'filter', { type: 'magic' }, /type/i],
     ['passband centre 999 nm of 5000', 'filter', { passbands: [{ centreNm: 5000, widthNm: 9 }] }, /passband centre/i],

@@ -50,6 +50,19 @@ describe.each(stores)('backup with %s', (_n, make) => {
   })
 })
 
+describe('backup keeps a camera recommended gain', () => {
+  it('exports it and imports it back unchanged, and refuses one out of range', async () => {
+    const a = new MemoryLibraryStore()
+    await applyCorrection({ store: a, cls: 'camera', name: 'Gain Cam', specs: { pixelSizeUm: 3.76, recommendedGain: 100 }, now: new Date('2026-11-17T10:00:00.000Z') })
+    const text = await exportBackup(a)
+    expect(JSON.parse(text).entries[0].specs.recommendedGain).toBe(100)
+    const b = new MemoryLibraryStore()
+    await importBackup(b, text)
+    expect((await b.list())[0].specs).toEqual({ pixelSizeUm: 3.76, recommendedGain: 100 })
+    expect(() => parseBackup(text.replace('"recommendedGain": 100', '"recommendedGain": 99999'))).toThrow(/recommended gain/i)
+  })
+})
+
 describe('parseBackup refuses a file it cannot trust, and imports nothing', () => {
   const entry = { cls: 'scope', nameKey: 'edge', name: 'Edge', specs: { apertureMm: 280 }, source: 'user', confirmed: true, updatedAt: '2026-11-17T10:00:00.000Z', previous: null }
   const file = (over: object) => JSON.stringify({ version: BACKUP_VERSION, entries: [entry], ...over })

@@ -81,6 +81,16 @@ describe('replaceItem', () => {
     expect(msg).toMatch(/^Latitude/);
     expect(msg).not.toMatch(/\$\./);
   });
+  it('a camera recommended gain: saved as typed, refused out of range or fractional with the box name, empty means not set', () => {
+    const p = sample();
+    const c = p.equipment.cameras[0];
+    const set = replaceItem(p, 'cameras', c.id, { ...textsOf('cameras', c), recommendedGain: '120' });
+    expect(set.equipment.cameras[0].recommendedGain).toBe(120);
+    expect(textsOf('cameras', set.equipment.cameras[0]).recommendedGain).toBe('120');
+    expect(() => replaceItem(p, 'cameras', c.id, { ...textsOf('cameras', c), recommendedGain: '2000' })).toThrow(/^Recommended gain.*between 0 and 1,000/);
+    expect(() => replaceItem(p, 'cameras', c.id, { ...textsOf('cameras', c), recommendedGain: '10.5' })).toThrow(/^Recommended gain.*whole number/);
+    expect('recommendedGain' in replaceItem(set, 'cameras', c.id, { ...textsOf('cameras', c), recommendedGain: '' }).equipment.cameras[0]).toBe(false);
+  });
   it('rejects an empty name', () => {
     const p = sample();
     const c = p.equipment.cameras[0];

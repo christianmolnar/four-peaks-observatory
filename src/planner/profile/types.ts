@@ -70,6 +70,8 @@ export interface ProfileCamera {
   /** The camera's own window cuts UV and IR. false: it does not (a filter must). Absent: unknown. */
   hasUvIrCut?: boolean;
   readNoiseClass?: ReadNoiseClass;
+  /** The gain setting the maker recommends for imaging, in the camera driver's own units (a whole number, GEAR_LIMITS.recommendedGain). One value per camera: the same for every filter. Absent: not set. */
+  recommendedGain?: number;
   /** Set when the boxes came from an AI lookup nobody has confirmed; cleared when the user confirms the library entry or edits a spec box. Absent: not AI-filled. */
   aiFilled?: boolean;
 }

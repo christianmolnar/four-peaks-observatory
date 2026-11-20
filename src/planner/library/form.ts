@@ -24,10 +24,11 @@ const BOXES: Record<LibraryList, Box[]> = {
     { key: 'sensorHeightPx', spec: 'sensorHeightPx', kind: 'number' },
     { key: 'hasUvIrCut', spec: 'hasUvIrCut', kind: 'tristate' },
     { key: 'readNoiseClass', spec: 'readNoiseClass', kind: 'choice' },
+    { key: 'recommendedGain', spec: 'recommendedGain', kind: 'number' },
   ],
   scopes: [{ key: 'focalLengthMm', spec: 'focalLengthMm', kind: 'number' }, { key: 'apertureMm', spec: 'apertureMm', kind: 'number' }],
 }
-const LABELS: Record<string, string> = { kind: 'Kind', sizeMm: 'Size', pixelSizeUm: 'Pixel size', sensorWidthPx: 'Sensor width', sensorHeightPx: 'Sensor height', hasUvIrCut: 'Has its own UV/IR cut', readNoiseClass: 'Read noise', focalLengthMm: 'Focal length', apertureMm: 'Aperture', passbandWidthNm: 'Total passband width', narrowestBandNm: 'Narrowest band', bandpassNotes: 'Bandpass notes' }
+const LABELS: Record<string, string> = { kind: 'Kind', sizeMm: 'Size', pixelSizeUm: 'Pixel size', sensorWidthPx: 'Sensor width', sensorHeightPx: 'Sensor height', hasUvIrCut: 'Has its own UV/IR cut', readNoiseClass: 'Read noise', recommendedGain: 'Recommended gain', focalLengthMm: 'Focal length', apertureMm: 'Aperture', passbandWidthNm: 'Total passband width', narrowestBandNm: 'Narrowest band', bandpassNotes: 'Bandpass notes' }
 export function labelOf(key: string): string {
   const band = /^band(\d)(Centre|Width)$/.exec(key)
   return band ? `Passband ${band[1]} ${band[2].toLowerCase()}` : (LABELS[key] ?? key)
