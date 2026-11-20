@@ -27,7 +27,7 @@ export type RowExposure =
       customUnusable: string | null;
       /** What the engine would give if the row's sub length or count were this number (the row's other own numbers kept); null when it cannot compute. */
       withNumber: (field: 'subSeconds' | 'subCount', value: number) => ExposureResult | null;
-      /** One filter's line of the plan row for the minutes the plan gives it (null: no filter; the result is null when the plan gives it no minutes): its sub length and count at its own bandwidth, and the UV/IR warning when it applies. */
+      /** One filter's line of the plan row for the minutes the plan gives it (null: the broadband line, behind the train's filter if it has one; the result is null when the plan gives it no minutes): its sub length and count at its own bandwidth, and the UV/IR warning when it applies. */
       forFilter: (filter: ProfileFilter | null, minutes: number) => { subs: string; warning: string | null } | null;
     };
 
@@ -177,7 +177,8 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   };
   const forFilter = (filter: ProfileFilter | null, minutes: number) => {
     if (!(minutes > 0)) return null;
-    const s = filterSub({ target: slot.exposureTarget, rig, filter, bortle, night, preset: baseOf(ref), minutes });
+    // The broadband line (null) is the row's own light: it sits behind the train's filter, as the row's exposure does.
+    const s = filterSub({ target: slot.exposureTarget, rig, filter: filter ?? slot.filter, bortle, night, preset: baseOf(ref), minutes });
     const warning = filter === null ? null : (filterWarnings(slot.optics?.focalRatio ?? 0, filter, cam).find((w) => w.code === 'filter-needs-uvir')?.text ?? null);
     return { subs: s.kind === 'ok' ? `Subs: ${s.subSeconds} s x ${s.subCount}, total ${minutesText(s.minutes)}` : `Subs: ${s.text}`, warning };
   };

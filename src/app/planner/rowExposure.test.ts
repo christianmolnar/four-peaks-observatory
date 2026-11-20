@@ -1,5 +1,8 @@
 import { MAX_SUBS, MAX_SUB_S } from '@/planner/exposure';
-import { checkNumber, choiceOf, differsText, exposureSummary, minutesText, splitWarnings, withNumber, withPreset } from './rowExposure';
+import { checkNumber, choiceOf, differsText, exposureSummary, minutesText, rowExposure, splitWarnings, withNumber, withPreset } from './rowExposure';
+import type { SlotInput } from '@/planner/itinerary';
+import type { PlanEntry } from '@/planner/plan';
+import type { ProfileFilter } from '@/planner/profile';
 import type { PlanTargetRef } from '@/planner/state/plans';
 import { PLANS_VERSION, validatePlans } from '@/planner/state/plans';
 import type { ExposureResult, ExposureWarning } from '@/planner/exposure';
@@ -84,5 +87,49 @@ describe('words', () => {
     expect([minutesText(45), minutesText(60), minutesText(80), minutesText(125)]).toEqual(['45 min', '1 h', '1 h 20 min', '2 h 5 min']);
     expect(exposureSummary({ preset: 'deep', subSeconds: 120, subCount: 30 })).toBe('Deep, 120 s × 30 (1 h)');
     expect(exposureSummary({ preset: 'custom', base: 'quick', subSeconds: 90, subCount: 20 })).toBe('Custom (from Quick), 90 s × 20 (30 min)');
+  });
+});
+
+describe('the broadband line of the filter mix', () => {
+  const lp: ProfileFilter = { id: 'lp', name: 'LPS-P2', kind: 'broadband-LP', passbandWidthNm: 120, blocksUvIr: true };
+  const slotWith = (filter: ProfileFilter | null): SlotInput =>
+    ({
+      item: {},
+      name: 'Rosette',
+      source: { kind: 'fixed', raHours: 6.5, decDeg: 5 },
+      exposureTarget: { id: 'rosette', type: 'nebula', surfaceBrightness: 'low' },
+      trainName: 'C11 f/10',
+      filterName: filter?.name ?? 'No filter',
+      optics: { focalRatio: 10, imageScale: 0.5 },
+      camera: { id: 'c', name: 'ASI533MC', pixelSizeUm: 3.76, colour: true, hasUvIrCut: true, readNoiseClass: 'low' },
+      filter,
+    }) as unknown as SlotInput;
+  const entry = {
+    windows: [{ start: new Date('2026-12-15T04:00:00Z'), end: new Date('2026-12-15T11:00:00Z') }],
+    usableMinutes: 420,
+    moonIllumination: 0,
+    moonSeparation: 90,
+    moonUp: false,
+  } as unknown as PlanEntry;
+  const site = { latitude: 33.5, longitude: -112, elevationM: 330 } as never;
+  const subSeconds = (s: string | undefined) => Number(/Subs: ([\d.]+) s x/.exec(s ?? '')?.[1]);
+
+  const view = (filter: ProfileFilter | null) => {
+    const v = rowExposure({ id: 'rosette', preset: 'balanced' }, slotWith(filter), entry, site, 7);
+    if (v.kind !== 'ok') throw new Error(`row exposure is ${v.kind}`);
+    return v;
+  };
+
+  it('uses the train\'s filter: its sub length equals the row\'s own for the same minutes', () => {
+    const v = view(lp);
+    const line = v.forFilter(null, v.chosen.integrationMin);
+    expect(subSeconds(line?.subs)).toBe(v.chosen.subSeconds);
+  });
+
+  it('with no filter in the train it stays at no filter, and still equals the row\'s own', () => {
+    const v = view(null);
+    const line = v.forFilter(null, v.chosen.integrationMin);
+    expect(subSeconds(line?.subs)).toBe(v.chosen.subSeconds);
+    expect(line?.warning).toBeNull();
   });
 });
