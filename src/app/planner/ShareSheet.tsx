@@ -178,7 +178,7 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
         </div>
         <label htmlFor="share-text" className="sr-only">Text to share</label>
         <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-p-line/30 bg-p-bg/60 p-2 font-mono text-sm font-normal text-p-t1" />
-        <p className="mb-4 text-sm font-normal text-p-t1/70">Text and Markdown are run sheets. JSON keeps everything and can be imported again below.</p>
+        <p className="mb-4 text-sm font-normal text-p-t1/70">Plain text and Markdown are run sheets. JSON keeps everything and can be imported again below.</p>
 
         <section aria-labelledby="share-print" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-print" className="mb-1 text-base font-normal text-p-t1">Print</h3>

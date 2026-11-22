@@ -110,6 +110,32 @@ describe('the Share sheet', () => {
   });
 });
 
+describe('a copy or download that fails says why and what to do', () => {
+  it('a browser with no clipboard: "Not copied", the cause, and the box to copy by hand; never "Copied"', async () => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    await app();
+    openSheet();
+    await act(async () => fireEvent.click(screen.getAllByRole('button', { name: 'Copy text' })[0]));
+    const said = screen.getByTestId('share-status').textContent!;
+    expect(said).toMatch(/^Not copied: .*does not let a page copy/);
+    expect(said).toContain('by hand');
+    expect(said).not.toMatch(/^Copied/);
+  });
+
+  it('a blocked download: "Not downloaded", the cause, and the box to copy by hand; never "Downloaded"', async () => {
+    await app();
+    openSheet();
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => {
+      throw new Error('downloads are blocked');
+    };
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download file' })[0]);
+    const said = screen.getByTestId('share-status').textContent!;
+    expect(said).toMatch(/^Not downloaded: downloads are blocked/);
+    expect(said).toContain('by hand');
+    expect(said).not.toMatch(/^Downloaded/);
+  });
+});
+
 describe('every scope and format downloads and copies the text on screen', () => {
   for (const what of WHATS) {
     for (const format of FORMATS) {

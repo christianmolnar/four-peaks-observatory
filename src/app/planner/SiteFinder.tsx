@@ -161,7 +161,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
       </div>
       <div className="mt-2">
         <button type="button" className={btn} disabled={busy} onClick={() => void fromCoordinates()}>
-          Look up elevation and time zone
+          Look up elevation and time zone for these coordinates
         </button>
       </div>
       <p ref={messageRef} tabIndex={-1} aria-live="polite" className="mt-2 text-p-info-text font-normal text-sm min-h-5 rounded">{busy ? 'Looking up…' : message}</p>
