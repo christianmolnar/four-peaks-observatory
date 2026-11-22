@@ -107,10 +107,7 @@ function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
   };
 }
 
-const CHECKED_TEXT =
-  'Every slot is above your minimum altitude and clear of your horizon at every minute, no slots overlap, and every target is either in the plan or left out. The AI decided the order, the times, how much light each target gets and the reasons you read here; the code only checks them. Sub length and count are worked out by code when you use the plan. Meridian crossings, if any, are listed below.';
-
-const FRAMES_NOTE = 'Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.';
+const CHECKED_TEXT = 'above minimum altitude, clear of horizon, no overlaps.';
 
 type StepState = 'done' | 'now' | 'waiting' | 'failed';
 const STEP_WORD: Record<StepState, string> = { done: 'done', now: 'now', waiting: 'waiting', failed: 'failed' };
@@ -302,9 +299,9 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
       : run === 'cancelled'
         ? 'Cancelled. Nothing was changed.'
         : run === 'superseded'
-          ? `You changed something while the AI was working, so its answer was dropped. Ask again to use your new choices.`
+          ? 'You changed something, so the answer was dropped. Ask again.'
           : done !== null
-            ? `Plan ready for ${nightWord}: ${done.result.plan.plan.length} ${done.result.plan.plan.length === 1 ? 'target' : 'targets'} planned, ${done.result.plan.cut.length} left out. ${done.result.status === 'verified' ? 'Checked by code.' : 'Not fully checked.'}`
+            ? `Plan ready: ${done.result.plan.plan.length} planned, ${done.result.plan.cut.length} left out. ${done.result.status === 'verified' ? 'Checked by code.' : 'Not fully checked.'}`
             : '';
   const canAsk = disabledReason === null && !loading;
   const showAskAgain = done !== null || run === 'cancelled' || run === 'superseded' || (run === 'error' && problem?.retry === true);
@@ -313,13 +310,13 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
     done === null
       ? null
       : done.result.status !== 'verified'
-        ? 'This plan was not fully checked, so it cannot be used as your plan.'
+        ? 'Not fully checked, so it cannot be used.'
         : train.kind !== 'optical'
-          ? 'Pick an optical setup at the top of the page: a smart scope plans its own exposures.'
+          ? 'Pick an optical setup; smart scopes plan their own exposures.'
           : done.result.plan.plan.length === 0
             ? 'This plan has no slots.'
             : done.result.plan.plan.length > MAX_SLOTS
-              ? `The night timeline schedules at most ${MAX_SLOTS} targets and this AI plan has ${done.result.plan.plan.length}. Remove a target from the plan and ask again.`
+              ? `The timeline holds at most ${MAX_SLOTS} targets and this plan has ${done.result.plan.plan.length}. Remove one and ask again.`
               : stale.length > 0
                 ? 'This plan is out of date. Ask again first.'
                 : null;
@@ -344,10 +341,10 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
           PLAN MY NIGHT WITH AI
         </h2>
         <p className="mb-3 text-sm font-normal text-p-t1/80">
-          The AI picks the order and the times for the targets in the open plan. Exposure (sub length, count) is worked out by code, not by the AI. Nothing in your plan changes until you press Use this plan.
+          Nothing in your plan changes until you press Use this plan.
         </p>
         <ol className="space-y-3" aria-label="Steps">
-          <Step n={1} title="Checking the night" state={step1}>
+          <Step n={1} title="Your night" state={step1}>
             {form !== null ? (
               <ul className="space-y-1 text-sm font-normal text-p-t1/90" data-testid="ai-inputs">
                 <li>Night: {nightText.trim()}</li>
@@ -384,7 +381,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
             {owner && (
               <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-normal text-p-t1/90">
                 <input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} className="h-5 w-5 shrink-0 accent-p-focus" />
-                <span>Also ask the AI to review the plan (owner only; takes longer)</span>
+                <span>Also ask the AI to review the plan (owner only)</span>
               </label>
             )}
             {done === null && run === 'idle' && (
@@ -394,7 +391,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
             )}
           </Step>
 
-          <Step n={2} title={`Asking the AI to order and time ${count} ${noun}`} state={step2}>
+          <Step n={2} title="AI plan" state={step2}>
             <p aria-live="polite" aria-busy={loading} className="min-h-6 text-sm font-normal text-p-t1" data-testid="ai-status">
               {status}
             </p>
@@ -410,12 +407,14 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
             )}
           </Step>
 
-          <Step n={3} title="Checking the plan against the sky" state={step3}>
+          <Step n={3} title="Check" state={step3}>
             {done !== null ? (
               <p className={`rounded border px-3 py-2 text-sm font-normal ${done.result.status === 'verified' ? 'border-p-accent/40 text-p-t1/90' : 'border-p-warn/40 bg-p-warn-fill/15 text-p-warn-text'}`} data-testid="ai-checked">
                 {done.result.status === 'verified'
-                  ? `${done.result.repairRounds === 0 ? 'Passed. ' : `Repaired: the first answer failed the code's checks, so it was sent back ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'time' : 'times'}; the plan below is the corrected one and passes now. `}${CHECKED_TEXT}`
-                  : `Not fully checked: after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'try' : 'tries'} to fix it, the code still found problems with this plan (listed below). Treat it as a rough draft. The AI decided the order, times and light per target; the code only checks.`}
+                  ? done.result.repairRounds === 0
+                    ? `Passed: ${CHECKED_TEXT}`
+                    : `Repaired after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'retry' : 'retries'}; the plan below passes.`
+                  : 'Not fully checked: treat as a rough draft.'}
               </p>
             ) : null}
           </Step>
@@ -439,7 +438,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
         )}
         {done !== null && (
           <p id="ai-apply-explain" className="mt-4 text-sm font-normal text-p-t1/70" data-testid="ai-apply-explain">
-            Use this plan sets the open plan’s order and first start time, replacing the earlier times. Each target keeps its own exposure (its preset, or its custom numbers). Targets the AI left out follow the others. The night timeline times each target again with its own estimate, so its times can differ from the AI’s. The code check covers the AI’s times, not the timeline’s: the timeline shows its own flip and window notes.
+            Sets order and start; timeline times may differ.
           </p>
         )}
       </div>
@@ -521,8 +520,8 @@ function Result({
   );
   const cutWhy = (id: string): string =>
     result.warnings.some((w) => w.kind === 'cut-fits-free-time' && w.id === id)
-      ? 'The AI left it out, but the checker found free time where it could still fit (see the notes below).'
-      : 'The AI judged it did not fit this night alongside the targets above.';
+      ? 'Left out by the AI, but it may fit (see notes).'
+      : 'The AI judged it did not fit tonight.';
   const last = result.lastTarget;
 
   return (
@@ -539,7 +538,8 @@ function Result({
         ) : (
           <ol className="space-y-2" aria-label="AI plan, in time order">
             {slots.map((s, i) => {
-              const exp = exposureOf(s.id);
+              // The slot's own minutes when the AI gave them, else the minutes it asked for this target.
+              const planned = s.exposureMinutes ?? exposureOf(s.id)?.minutes;
               const isLast = i === slots.length - 1 && last !== null && last.id === s.id;
               return (
                 <li key={`${s.id}-${s.start}`} className="rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90" data-testid={`ai-slot-${i}`}>
@@ -547,8 +547,7 @@ function Result({
                     {i + 1}. {nameOf(s.id)} <span className="tabular-nums">{clockOfIso(s.start)} to {clockOfIso(s.end)}</span> <span className="text-p-t1/70">({minutesBetween(s.start, s.end)} min, {presetLabels.get(s.id) ?? 'Balanced'})</span>
                   </p>
                   <p className="text-p-t1/80">
-                    {exp ? `The AI wants about ${Math.round(exp.minutes)} min of light for this target.` : 'No exposure was given for this target.'}
-                    {s.exposureMinutes !== undefined ? ` It plans ${Math.round(s.exposureMinutes)} min of light in this slot.` : ''}
+                    {planned === undefined ? 'No exposure was given.' : `AI plans about ${Math.round(planned)} min of light.`}
                   </p>
                   {isLast && last !== null && (
                     <p className="mt-1">
@@ -562,9 +561,6 @@ function Result({
             })}
           </ol>
         )}
-        <p className="mt-2 text-p-t1/70 font-normal text-sm" data-testid="ai-frames-note">
-          {FRAMES_NOTE}
-        </p>
         {result.plan.notes && (
           <p className="mt-2 text-p-t1/90 font-normal text-sm" data-testid="ai-notes">
             <span className="text-p-t1/70">The AI&apos;s notes: </span>
@@ -613,7 +609,7 @@ function Result({
           </ul>
         </div>
       )}
-      {result.repairError && <p className="text-p-t1/80 font-normal text-sm">The AI could not finish fixing the plan, so this is the best it came up with.</p>}
+      {result.repairError && <p className="text-p-t1/80 font-normal text-sm">The AI could not finish fixing the plan.</p>}
       {result.quality && (
         <p className="text-p-t1/90 font-normal text-sm" data-testid="ai-quality">
           <span className="text-p-t1/70">The AI&apos;s own review ({result.quality.good ? 'good' : 'has a concern'}): </span>
