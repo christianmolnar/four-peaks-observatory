@@ -6,7 +6,7 @@ import { minutesText } from './rowExposure';
 
 /**
  * The "Filter mix" part of a plan row, folded by default: the row's planned light split between the filters of the setup (hours per filter, one plain line each),
- * which filters add nothing and why, and how sure the target's emission numbers are. A row with no mix says why in one plain line; nothing is made up.
+ * which filters add nothing. The detail, the emission note and how sure the numbers are live in the row's one fold (RowHow). A row with no mix says why in one plain line; nothing is made up.
  */
 export type LineExtra = (filterId: string | null, minutes: number) => { subs: string; warning: string | null } | null;
 
@@ -31,8 +31,6 @@ export default function PlanRowMix({ id, mix, extra }: { id: string; mix: RowMix
                 This target needs {mix.uncovered.join(' and ')}, which none of the selected filters passes.
               </p>
             )}
-            {mix.profileNote !== null && <p className="break-words text-p-t1/70">{mix.profileNote}</p>}
-            <p className="break-words text-p-t1/70" data-testid={`plan-mix-confidence-${id}`}>{mix.confidence}</p>
           </div>
         )}
       </Fold>

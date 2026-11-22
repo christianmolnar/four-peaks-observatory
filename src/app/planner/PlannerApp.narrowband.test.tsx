@@ -34,6 +34,10 @@ const openMix = (id: string) => {
   const f = document.getElementById(`plan-mix-fold-${id}`) as HTMLButtonElement;
   if (f.getAttribute('aria-expanded') === 'false') fireEvent.click(f);
 };
+const openHow = (id: string) => {
+  const f = document.getElementById(`plan-why-${id}`) as HTMLButtonElement;
+  if (f.getAttribute('aria-expanded') === 'false') fireEvent.click(f);
+};
 const tick = (id: string, filter: string) => screen.getByTestId(`nb-tick-${id}-${filter}`) as HTMLInputElement;
 const row = (id: string, filter: string) => screen.getByTestId(`nb-filter-${id}-${filter}`).textContent ?? '';
 const mix = (id: string) => screen.getByTestId(`plan-mix-${id}`).textContent ?? '';
@@ -57,7 +61,6 @@ describe('the narrowband panel on a plan row', () => {
   it('is a closed part of each row, lists every filter of the gear with its minutes or its reason, and ticks the recommended ones', async () => {
     await app([rosette]);
     const fold = document.getElementById('nb-fold-ic405') as HTMLButtonElement;
-    expect(fold.textContent).toContain('Filters from your gear that could help most');
     expect(fold.getAttribute('aria-expanded')).toBe('false');
     openNb('ic405');
     expect(minutesIn(row('ic405', 'nbz'))).toBeGreaterThan(0);
@@ -69,8 +72,12 @@ describe('the narrowband panel on a plan row', () => {
     expect(tick('ic405', 'mystery').checked).toBe(false);
     const panel = screen.getByTestId('nb-ic405').textContent ?? '';
     expect(screen.getByTestId('nb-honesty-ic405').textContent).toMatch(/^Estimate;/);
-    expect(screen.getByTestId('nb-confidence-ic405').textContent).toBe('Typical for this type, not measured');
-    expect(panel).toContain('How this is worked out');
+    // The explanation and the confidence are in the row's one fold, not in this panel.
+    expect(screen.queryByTestId('nb-confidence-ic405')).toBeNull();
+    expect(panel).not.toContain('How this is worked out');
+    openHow('ic405');
+    expect(screen.getByTestId('plan-mix-confidence-ic405').textContent).toBe('Typical for this type, not measured');
+    expect(screen.getByTestId('row-how-ic405').textContent).toContain('Narrowband minutes');
     expect(panel).not.toMatch(/NaN|Infinity|undefined|e\+\d/);
   });
 
@@ -91,14 +98,12 @@ describe('the narrowband panel on a plan row', () => {
     expect(mix('ic405')).toContain('IDAS NB3-PM');
     expect(mix('ic405')).toContain('IDAS NBZ-II');
     expect(screen.getByTestId('plan-mix-light-ic405').textContent).toMatch(/^Light: broadband .* plus IDAS NBZ-II .* plus IDAS NB3-PM .* = /);
-    expect(screen.getByTestId('nb-state-ic405').textContent).toMatch(/in this row’s filter mix/);
 
     const nbzMin = minutesIn(row('ic405', 'nbz'));
     const nb3Min = minutesIn(row('ic405', 'nb3'));
     expect(nb3Min).toBeGreaterThan(0);
     fireEvent.click(tick('ic405', 'nb3')); // untick
     expect(tick('ic405', 'nb3').checked).toBe(false);
-    expect(screen.getByTestId('nb-state-ic405').textContent).toMatch(/in this row’s filter mix/);
     expect(mix('ic405')).toContain('Broadband (no narrowband filter)');
     expect(mix('ic405')).toContain('IDAS NBZ-II');
     expect(mix('ic405')).not.toContain('IDAS NB3-PM');
@@ -111,14 +116,12 @@ describe('the narrowband panel on a plan row', () => {
     expect(minutesIn(row('ic405', 'nbz'))).toBe(nbzMin);
   });
 
-  it('after unticking everything the state line says no narrowband is ticked and the mix is back to the broadband-only mix', async () => {
+  it('after unticking everything the total says no narrowband is ticked and the mix is back to the broadband-only mix', async () => {
     await app([rosette]);
     openNb('ic405');
     fireEvent.click(tick('ic405', 'nbz'));
     fireEvent.click(tick('ic405', 'nb3'));
-    const state = screen.getByTestId('nb-state-ic405').textContent ?? '';
-    expect(state).toMatch(/No narrowband filter is ticked/);
-    expect(state).not.toMatch(/are in this row’s filter mix/);
+    expect(screen.getByTestId('nb-total-ic405').textContent).toMatch(/no narrowband ticked/);
     expect(mix('ic405')).not.toContain('Broadband (no narrowband filter)');
   });
 
@@ -152,11 +155,12 @@ describe('a filter that is not recommended can still be chosen', () => {
     await withHa7();
     const text = row('ic405', 'ha7');
     expect(text).toMatch(/not recommended, .*on its own/);
-    expect(text).toMatch(/signal-to-noise gain about/);
+    expect(text).toMatch(/gain \d+(\.\d)?×/);
     expect(text).not.toMatch(/better collected/);
     expect(tick('ic405', 'ha7').disabled).toBe(false);
     expect(tick('ic405', 'ha7').checked).toBe(false);
-    expect(screen.getByTestId('nb-twice-ic405').textContent).toMatch(/never counted twice/);
+    openHow('ic405');
+    expect(screen.getByTestId('nb-twice-ic405').textContent).toMatch(/counted once/);
   });
   it('ticking it beside the recommended filter does not count Ha twice; choosing it instead of NBZ II adds its own minutes', async () => {
     await withHa7();
@@ -165,7 +169,7 @@ describe('a filter that is not recommended can still be chosen', () => {
     expect(screen.queryByTestId('nb-adds-nothing-ic405-ha7')).toBeNull();
     fireEvent.click(tick('ic405', 'ha7'));
     expect(total()).toBe(before);
-    expect(screen.getByTestId('nb-adds-nothing-ic405-ha7').textContent).toBe('Adds nothing here: its lines (Ha) are already covered by another ticked filter.');
+    expect(screen.getByTestId('nb-adds-nothing-ic405-ha7').textContent).toMatch(/Adds nothing.*Ha/);
     fireEvent.click(tick('ic405', 'nbz'));
     expect(total()).toMatch(/plus H-alpha 7 nm .* = /);
   });

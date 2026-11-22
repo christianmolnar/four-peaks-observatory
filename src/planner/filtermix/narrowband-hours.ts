@@ -39,6 +39,8 @@ const OIII_MAIN_NM = 500.7;
 const OIII_SECOND_NM = 495.9;
 
 export const HONESTY_LINE = 'Estimate; band centres not verified.';
+/** For the row's fold: what “does not help” does and does not say. */
+export const HONESTY_DETAIL = '“Does not help” means no signal-to-noise gain; colour contrast is not judged.';
 const BASIS_SNR_ONLY = 'Counts signal-to-noise only: it cannot see colour separation, real sky spectra or the filter’s true transmission, so “does not help” means no signal-to-noise gain, not no contrast gain.';
 const BASIS_PASSBANDS = 'Band widths from the vendor; centres and leakage not verified.';
 const BASIS_ESTIMATE = 'Estimated from sky and band width, not measured on your rig.';
@@ -115,6 +117,8 @@ export interface NbFilterResult {
   standaloneMin: number;
   /** What is unverified in this filter's numbers. */
   basis: string[];
+  /** Present when the train's beam edge shifts the band: the f-ratio and the share of the beam that still sees the line on the narrowest-margin band (0 to 1). */
+  beam?: { fRatio: number; share: number };
 }
 
 export interface NbResult {
@@ -344,8 +348,10 @@ export function narrowbandHours(input: NbInput): NbResult {
     const own = needed.filter((L) => taker.get(L)?.filter === f);
     const basis = [...baseBasis];
     const mine = bandsOf(f);
+    let beam: NbFilterResult['beam'];
     if (mine.some((b) => b.share < 1)) {
       const least = Math.min(...mine.filter((b) => b.passes.length > 0).map((b) => b.share));
+      beam = { fRatio, share: least };
       basis.push(`At f/${fRatio.toFixed(1)} the beam edge shifts the band toward blue (the planner’s own formula, the band taken as centred on its line at normal incidence): about ${Math.round(least * 100)}% of the beam still sees the line on the narrowest-margin band.`);
     }
     if (f.ratedMinFRatio !== undefined && fRatio >= f.ratedMinFRatio) basis.push(`The maker rates it for f/${f.ratedMinFRatio} and slower; its shift is taken as covered.`);
@@ -354,7 +360,7 @@ export function narrowbandHours(input: NbInput): NbResult {
     const standaloneMin = Math.max(0, ...standaloneLines.map((l) => l.minutes));
     const alone = { standaloneLines, standaloneMin };
     if (own.length === 0) {
-      if (passing.length === 0) return { ...none, verdict: 'no-help', reason: '', detail: `Passes no needed line (${list(needed)}).`, basis };
+      if (passing.length === 0) return { ...none, verdict: 'no-help', reason: '', detail: `Passes no needed line (${list(needed)}).`, basis, ...(beam ? { beam } : {}) };
       const mineNums = passing.map((L) => lineNumbers(L, bandFor(f, L) as BandCalc));
       const topGain = Math.max(...mineNums.map((l) => l.gain));
       const taken = (L: MixLineName): { filter: NbFilterInput; band: BandCalc } | undefined => taker.get(L);
@@ -378,7 +384,7 @@ export function narrowbandHours(input: NbInput): NbResult {
       }
       // A line this filter could earn minutes for always has a running taker (the assignment gives it to a filter that earns them), so a line left here earns none.
       for (const l of rest) parts.push(hurdleNote(l));
-      return { ...base, verdict: 'no-help', reason: '', detail: sentences(parts), basis };
+      return { ...base, verdict: 'no-help', reason: '', detail: sentences(parts), basis, ...(beam ? { beam } : {}) };
     }
     const lines = own.map((L) => lineNumbers(L, (taker.get(L) as { band: BandCalc }).band));
     const total = Math.max(...lines.map((l) => l.minutes));
@@ -400,10 +406,10 @@ export function narrowbandHours(input: NbInput): NbResult {
       const idle = others.filter((L) => !runsFor(L)).map((L) => hurdleNote(lineNumbers(L, bandFor(f, L) as BandCalc)));
       const gave = taken.length > 0 ? ` ${list(taken)} goes to ${list([...new Set(taken.map((L) => (taker.get(L) as { filter: NbFilterInput }).filter.name))])}, which runs for it.` : '';
       const idleText = idle.length > 0 ? ` ${sentences(idle)}` : '';
-      return { filterId: f.id, name: f.name, verdict: 'recommend', minutes: total, reason: first, detail: `${second}${dual}${gave}${idleText}`, gain: best.gain, lines, ...alone, basis };
+      return { filterId: f.id, name: f.name, verdict: 'recommend', minutes: total, reason: first, detail: `${second}${dual}${gave}${idleText}`, gain: best.gain, lines, ...alone, basis, ...(beam ? { beam } : {}) };
     }
     const notes = lines.map(hurdleNote);
-    return { filterId: f.id, name: f.name, verdict: 'no-help', minutes: 0, reason: '', detail: sentences(notes), gain: best.gain, lines, ...alone, basis };
+    return { filterId: f.id, name: f.name, verdict: 'no-help', minutes: 0, reason: '', detail: sentences(notes), gain: best.gain, lines, ...alone, basis, ...(beam ? { beam } : {}) };
   });
 
   return {

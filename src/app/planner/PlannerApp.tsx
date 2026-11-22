@@ -122,6 +122,7 @@ import PlanRowExposure from './PlanRowExposure';
 import PlanRowMix from './PlanRowMix';
 import type { AiSlotView } from './AiSlotMix';
 import NarrowbandPanel from './NarrowbandPanel';
+import RowHow from './RowHow';
 import type { PlanLine } from './projectDraft';
 import { nbRowView } from './nbRow';
 import type { NbGear, NbRowTarget, NbView } from './nbRow';
@@ -1673,6 +1674,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             preset={ref.preset}
             view={view}
             favorite={fav}
+            how={<RowHow id={id} mix={mixViews.get(id) as RowMix} nb={nbViews.get(id) as NbView} />}
             favoritesBlocked={favs.blocked}
             prompt={ref.favorite ?? null}
             onPreset={(p) => editTarget(id, (t) => withPreset(t, p))}

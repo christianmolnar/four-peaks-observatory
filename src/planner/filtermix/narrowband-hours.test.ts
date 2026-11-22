@@ -140,12 +140,17 @@ describe('the train: the ranking comes out of the maths, not a special case', ()
     const [plain, rated] = [at(LEX), at({ ...LEX, ratedMinFRatio: 2 })];
     expect(plain.basis.join(' ')).toMatch(/beam edge shifts/i);
     expect(rated.basis.join(' ')).not.toMatch(/beam edge shifts/i);
+    expect(plain.beam?.fRatio).toBe(2);
+    expect(plain.beam?.share).toBeGreaterThan(0);
+    expect(plain.beam?.share).toBeLessThan(1);
+    expect(rated.beam).toBeUndefined();
     expect(plain.lines[0].matchMin).toBeGreaterThan(rated.lines[0].matchMin);
     expect(plain.lines[0].gain).toBeLessThan(rated.lines[0].gain);
   });
   it('at f/7 nothing shifts, so the basis does not mention it', () => {
     const r = run(HA_HEAVY, 22, 4, [LEX], { train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1000 } }).filters[0];
     expect(r.basis.join(' ')).not.toMatch(/beam edge shifts/i);
+    expect(r.beam).toBeUndefined();
   });
 });
 

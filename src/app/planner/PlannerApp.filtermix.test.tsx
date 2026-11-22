@@ -66,6 +66,10 @@ describe('the Filter mix part of a plan row', () => {
     expect(text).toContain(`Light to split: ${light('ic405')}`);
     expect(text).toContain(`IDAS NBZ-II: ${light('ic405')}`);
     expect(text).toContain('Adds Ha and OIII.');
+    // The confidence is said once, in the row's one fold.
+    expect(screen.queryByTestId('plan-mix-confidence-ic405')).toBeNull();
+    fireEvent.click(document.getElementById('plan-why-ic405') as HTMLButtonElement);
+    expect(screen.getAllByTestId('plan-mix-confidence-ic405')).toHaveLength(1);
     expect(screen.getByTestId('plan-mix-confidence-ic405').textContent).toBe('Typical for this type, not measured');
     // Not every filter: the other filters are not in the mix until chosen.
     expect(text).not.toContain('IDAS NB3-PM');

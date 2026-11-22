@@ -1,7 +1,9 @@
 import { lineNote } from '@/planner/filtermix';
 import type { MixLine } from '@/planner/filtermix';
 import type { RowMix } from '@/planner/filtermix/row';
+import { Fold } from './PlanRowExposure';
 import NarrowbandPanel from './NarrowbandPanel';
+import RowHow from './RowHow';
 import type { NbView } from './nbRow';
 import { minutesText } from './rowExposure';
 import { mixLightText } from './PlanRowMix';
@@ -38,6 +40,13 @@ export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }
         </>
       )}
       <NarrowbandPanel idBase={`ai-${targetId}`} view={slot.nb} onHours={(t) => onNbHours(targetId, t)} onTick={(f, on) => onNbTick(targetId, f, on)} />
+      {(mix.kind === 'mix' || slot.nb.kind === 'panel') && (
+        <Fold id={`ai-how-${index}`} title="How this is worked out">
+          <div className="space-y-1 text-sm font-normal text-p-t1/90">
+            <RowHow id={`ai-${targetId}`} mix={mix} nb={slot.nb} />
+          </div>
+        </Fold>
+      )}
     </div>
   );
 }
