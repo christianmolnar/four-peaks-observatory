@@ -56,7 +56,7 @@ const type = (box: HTMLInputElement, text: string) => {
 };
 const unusable = (id: string) => screen.queryByTestId(`plan-custom-unusable-${id}`)?.textContent ?? null;
 const slotNumbers = (k: number) => {
-  const m = /Light: (\d+(?:\.\d+)?) s x (\d+) subs? =/.exec(timelineSlots()[k].textContent ?? '');
+  const m = /(\d+(?:\.\d+)?) s × (\d+) subs? =/.exec((timelineSlots()[k].querySelector('[data-testid^="slot-light-"]')?.textContent ?? ''));
   if (!m) throw new Error(`no light line: ${timelineSlots()[k].textContent}`);
   return { sub: Number(m[1]), subs: Number(m[2]) };
 };

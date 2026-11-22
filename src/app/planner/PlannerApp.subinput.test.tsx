@@ -201,9 +201,9 @@ describe('the Night timeline does not offer to drop custom numbers', () => {
     openPart('Night timeline');
     const slots = timelineSlots();
     expect(within(slots[0]).queryByRole('combobox')).toBeNull();
-    expect(slots[0].textContent).toMatch(/Exposure for Andromeda Galaxy: Custom \(started from Deep\)\. Change it on this target.s row in the plan\./);
+    expect(within(slots[0]).getByTestId('slot-preset-m31').textContent).toMatch(/Custom.*Deep/);
     expect(within(slots[1]).queryByRole('combobox')).toBeNull();
-    expect(slots[1].textContent).toMatch(/Exposure for Flaming Star Nebula: Balanced\. Change it on this target.s row in the plan\./);
+    expect(within(slots[1]).queryByTestId('slot-preset-ic405')).toBeNull(); // a preset is chosen on the row, so the slot says nothing
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } });
   });
 });

@@ -214,13 +214,13 @@ describe('the timeline schedules what was chosen', () => {
   it('a Custom target takes its own sub length and count in the night timeline, not Balanced', async () => {
     await app([m31]);
     openPart('Night timeline');
-    const balanced = /Light: (\d+) s x (\d+) subs = ([\d.]+) min/.exec(timelineSlots()[0].textContent ?? '')!;
+    const balanced = /(\d+) s × (\d+) subs = ([\d.]+) min/.exec((timelineSlots()[0].querySelector('[data-testid^="slot-light-"]')?.textContent ?? ''))!;
     expect(Number(balanced[1])).toBe(parse(numbers('m31')).sub);
     fireEvent.change(subBox('Andromeda Galaxy'), { target: { value: '60' } });
     fireEvent.blur(subBox('Andromeda Galaxy'));
     fireEvent.change(countBox('Andromeda Galaxy'), { target: { value: '20' } });
     fireEvent.blur(countBox('Andromeda Galaxy'));
-    expect(timelineSlots()[0].textContent).toMatch(/Light: 60 s x 20 subs = 20 min/);
+    expect(timelineSlots()[0].querySelector('[data-testid^="slot-light-"]')?.textContent).toMatch(/60 s × 20 subs = 20 min/);
     expect(timelineSlots()[0].textContent).not.toContain(balanced[0]);
     // Back to the preset: the preset's own light again.
     fireEvent.click(screen.getByRole('button', { name: 'Back to Balanced' }));
@@ -231,7 +231,7 @@ describe('the timeline schedules what was chosen', () => {
     await app([m31, ic405]);
     openPart('Night timeline');
     press('Flaming Star Nebula', 'Deep');
-    const slot = (i: number) => /Light: (\d+) s x (\d+) subs/.exec(timelineSlots()[i].textContent ?? '')!;
+    const slot = (i: number) => /(\d+) s × (\d+) subs/.exec((timelineSlots()[i].querySelector('[data-testid^="slot-light-"]')?.textContent ?? ''))!;
     expect(`${slot(1)[1]} s × ${slot(1)[2]}`).toBe(`${parse(numbers('ic405')).sub} s × ${parse(numbers('ic405')).subs}`);
     expect(storedPlan()!.targets.map((t) => t.preset)).toEqual(['balanced', 'deep']);
   });
