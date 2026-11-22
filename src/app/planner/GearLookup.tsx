@@ -179,7 +179,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
         <button type="button" className={btn} disabled={busy} aria-describedby={statusId} onClick={() => void lookup()}>
           Look up specs
         </button>
-        <span className="min-w-0 break-words text-p-t1/80 font-normal text-sm">Fills the boxes below from the shared library. Every value stays editable.</span>
+        <span className="min-w-0 break-words text-p-t1/70 font-normal text-sm">Fills the boxes below from the shared library. Every value stays editable.</span>
       </div>
       <div id={statusId} aria-live="polite" className="mt-2 min-w-0 break-words text-sm font-normal text-p-info-text">
         {message}
@@ -192,12 +192,12 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
       )}
       {status && (
         <div className="mt-2 min-w-0">
-          <p className={`break-words text-sm font-normal ${status.warn ? 'bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text' : 'text-p-t1/80'}`}>
+          <p className={`break-words text-sm font-normal ${status.warn ? 'bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text' : 'text-p-t1/70'}`}>
             {status.warn && <span aria-hidden="true">! </span>}
             {status.text}
           </p>
           {current && keptLabels.length > 0 && !edited && (
-            <p className="mt-2 break-words text-sm font-normal text-p-t1/80">
+            <p className="mt-2 break-words text-sm font-normal text-p-t1/70">
               Kept your {sentenceList(keptLabels)}.{' '}
               <button type="button" className={btn} onClick={apply}>Apply library values</button>
             </p>

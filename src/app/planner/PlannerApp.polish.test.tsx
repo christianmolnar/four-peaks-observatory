@@ -133,12 +133,11 @@ describe('dates in words and quick dates', () => {
 });
 
 describe('a bright Moon is said in words', () => {
-  it('above 80 percent: one line above the list, with the percent, advice and "estimate"', async () => {
+  it('above 80 percent: one line above the list, with the percent and the advice', async () => {
     await app(BRIGHT);
     const note = screen.getByTestId('bright-moon-note');
-    expect(note.textContent).toMatch(/Bright Moon \(\d+% lit at mid-night\)/);
+    expect(note.textContent).toMatch(/Bright Moon \(\d+% lit\)/);
     expect(note.textContent).toMatch(/faint nebulae and galaxies will wash out/);
-    expect(note.textContent).toMatch(/estimate/);
     expect(note.compareDocumentPosition(screen.getByTestId('target-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

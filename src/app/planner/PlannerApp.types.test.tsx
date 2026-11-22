@@ -392,7 +392,6 @@ describe('over the real catalog', () => {
     expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) });
-    expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\./);
   }, 120000);
 
   it('option counts equal a direct catalog count, and a type is ranked best to worst over all of the catalog, not the mixed top 100 filtered', async () => {

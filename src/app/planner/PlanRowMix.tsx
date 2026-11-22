@@ -15,14 +15,14 @@ export default function PlanRowMix({ id, mix, extra }: { id: string; mix: RowMix
     <div className="mt-1" data-testid={`plan-mix-${id}`}>
       <Fold id={`plan-mix-fold-${id}`} title="Filter mix">
         {mix.kind === 'message' ? (
-          <p className="break-words text-sm font-normal text-p-t1/90" data-testid={`plan-mix-message-${id}`}>{mix.text}</p>
+          <p className="break-words text-sm font-normal text-p-t1" data-testid={`plan-mix-message-${id}`}>{mix.text}</p>
         ) : mix.kind === 'none' ? (
-          <div className="space-y-2 text-sm font-normal text-p-t1/90">
+          <div className="space-y-2 text-sm font-normal text-p-t1">
             <p className="break-words" data-testid={`plan-mix-message-${id}`}>{mix.message}</p>
             <MixLines lines={mix.skipped} />
           </div>
         ) : (
-          <div className="space-y-2 text-sm font-normal text-p-t1/90">
+          <div className="space-y-2 text-sm font-normal text-p-t1">
             {mix.headline !== null && <p className="break-words font-medium text-p-t1" data-testid={`plan-mix-headline-${id}`}>{mix.headline}</p>}
             <p data-testid={`plan-mix-light-${id}`}>{mixLightText(mix)}</p>
             <MixLines lines={mix.lines} extra={extra} />
@@ -57,9 +57,9 @@ function MixLines({ lines, extra }: { lines: readonly { filterId: string | null;
             <span className="font-medium">{l.name}</span>
             {l.verdict !== 'skipped' && <>: {minutesText(l.minutes)}</>}
           </p>
-          {more !== null && <p className="break-words text-p-t1/90" data-testid="plan-mix-subs">{more.subs}</p>}
-          {more?.warning != null && <p className="break-words rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-p-t1/90" data-testid="plan-mix-uvir">{more.warning}</p>}
-          <p className="break-words text-p-t1/80">{l.reason}</p>
+          {more !== null && <p className="break-words text-p-t1" data-testid="plan-mix-subs">{more.subs}</p>}
+          {more?.warning != null && <p className="break-words rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-p-t1" data-testid="plan-mix-uvir">{more.warning}</p>}
+          <p className="break-words text-p-t1/70">{l.reason}</p>
         </li>
         );
       })}

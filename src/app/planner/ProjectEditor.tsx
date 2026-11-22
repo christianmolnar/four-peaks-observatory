@@ -125,19 +125,19 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
           <ul className="mt-1 list-disc pl-5">
             {review.map((l) => <li key={l} className="break-words text-sm font-normal text-p-t1">{l}</li>)}
           </ul>
-          <p className="mt-1 text-sm font-normal text-p-t1/80">Check them, then type how long you plan to shoot each target below. Nothing is saved until you press {saveLabel}.</p>
+          <p className="mt-1 text-sm font-normal text-p-t1/70">Check them, then type how long you plan to shoot each target below. Nothing is saved until you press {saveLabel}.</p>
         </div>
       )}
-      {editNote !== undefined && <p className="break-words text-sm font-normal text-p-t1/80">{editNote}</p>}
+      {editNote !== undefined && <p className="break-words text-sm font-normal text-p-t1/70">{editNote}</p>}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 [&>*]:min-w-0">
         <div>
-          <label htmlFor={`${uid}-name`} className="mb-1 block text-sm font-normal text-p-t1/90">Project name</label>
+          <label htmlFor={`${uid}-name`} className="mb-1 block text-sm font-normal text-p-t1">Project name</label>
           <input ref={nameBox} id={`${uid}-name`} type="text" maxLength={MAX_PROJECT_NAME + 20} autoComplete="off" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} className={field} aria-invalid={errors.name !== undefined} aria-describedby={errors.name === undefined ? undefined : `${uid}-name-err`} />
           {fe(`${uid}-name-err`, errors.name)}
         </div>
         <div>
-          <label htmlFor={`${uid}-status`} className="mb-1 block text-sm font-normal text-p-t1/90">Status</label>
+          <label htmlFor={`${uid}-status`} className="mb-1 block text-sm font-normal text-p-t1">Status</label>
           <WrapSelect id={`${uid}-status`} className="w-full" value={d.status} onChange={(e) => setD({ ...d, status: e.target.value as Draft['status'] })}>
             <option value="active">Active</option>
             <option value="paused">Paused</option>
@@ -150,7 +150,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
         <legend className="px-1 text-sm font-medium text-p-t1">Setup (starts as the open plan&rsquo;s setup)</legend>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>*]:min-w-0">
           <div>
-            <label htmlFor={`${uid}-scope`} className="mb-1 block text-sm font-normal text-p-t1/90">Scope</label>
+            <label htmlFor={`${uid}-scope`} className="mb-1 block text-sm font-normal text-p-t1">Scope</label>
             <WrapSelect id={`${uid}-scope`} className="w-full" value={d.scopeId ?? ''} onChange={(e) => setD({ ...d, scopeId: e.target.value === '' ? null : e.target.value })}>
               <option value="">Not set</option>
               {d.scopeId !== null && !scopes.some((s) => s.id === d.scopeId) && <option value={d.scopeId}>A scope that is no longer in your gear</option>}
@@ -158,7 +158,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
             </WrapSelect>
           </div>
           <div>
-            <label htmlFor={`${uid}-camera`} className="mb-1 block text-sm font-normal text-p-t1/90">Camera</label>
+            <label htmlFor={`${uid}-camera`} className="mb-1 block text-sm font-normal text-p-t1">Camera</label>
             <WrapSelect id={`${uid}-camera`} className="w-full" value={d.cameraId ?? ''} onChange={(e) => setD({ ...d, cameraId: e.target.value === '' ? null : e.target.value })}>
               <option value="">Not set</option>
               {d.cameraId !== null && !cameras.some((c) => c.id === d.cameraId) && <option value={d.cameraId}>A camera that is no longer in your gear</option>}
@@ -166,13 +166,13 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
             </WrapSelect>
           </div>
           <div>
-            <label htmlFor={`${uid}-sub`} className="mb-1 block text-sm font-normal text-p-t1/90">Sub length (seconds)</label>
+            <label htmlFor={`${uid}-sub`} className="mb-1 block text-sm font-normal text-p-t1">Sub length (seconds)</label>
             <input id={`${uid}-sub`} type="text" inputMode="decimal" autoComplete="off" value={d.subText} onChange={(e) => setD({ ...d, subText: e.target.value })} className={field} aria-invalid={errors.sub !== undefined} aria-describedby={errors.sub === undefined ? undefined : `${uid}-sub-err`} />
             {fe(`${uid}-sub-err`, errors.sub)}
           </div>
         </div>
         <fieldset className="min-w-0" aria-describedby={errors.filters === undefined ? undefined : `${uid}-filters-err`}>
-          <legend className="text-sm font-normal text-p-t1/90">Filters used</legend>
+          <legend className="text-sm font-normal text-p-t1">Filters used</legend>
           <div className="flex flex-wrap gap-x-4">
             {filterOrder.map((id) => (
               <label key={id} className="flex min-h-11 max-w-full items-center gap-2 break-words pr-2 text-sm font-normal text-p-t1">
@@ -189,7 +189,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
         <legend className="px-1 text-sm font-medium text-p-t1">Targets</legend>
         {planTargets.length > 0 && (
           <fieldset className="min-w-0">
-            <legend className="text-sm font-normal text-p-t1/90">From your open plan</legend>
+            <legend className="text-sm font-normal text-p-t1">From your open plan</legend>
             <div className="flex flex-wrap gap-x-4">
               {planTargets.map((t) => (
                 <label key={t.id} className="flex min-h-11 max-w-full items-center gap-2 break-words pr-2 text-sm font-normal text-p-t1">
@@ -204,7 +204,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
         <p aria-live="polite" role="status" className="min-h-5 break-words text-sm font-normal text-p-t1">{added}</p>
         {fe(`${uid}-targets-err`, errors.targets)}
 
-        <p id={`${uid}-optional`} className="text-sm font-normal text-p-t1/80">
+        <p id={`${uid}-optional`} className="text-sm font-normal text-p-t1/70">
           Planned minutes: type the minutes planned for each filter on each target; leave a box empty when a filter is not used on that target. A line ticked Optional is shown, but excluded from every total.
         </p>
         <ul className="space-y-3" aria-label="Targets of the project">

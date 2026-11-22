@@ -76,7 +76,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
         <span>Why</span>
         <span />
       </div>
-      <ul aria-label={label} className="text-sm leading-5 font-normal text-p-t1/90" data-testid={`${idPrefix}-list`}>
+      <ul aria-label={label} className="text-sm leading-5 font-normal text-p-t1" data-testid={`${idPrefix}-list`}>
         {visible.map((e, i) => {
           const d = describe(e);
           const isOpen = openId === e.id;
@@ -140,7 +140,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
         })}
       </ul>
       {total > FIRST_ROWS && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-normal text-p-t1/80">
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-normal text-p-t1/70">
           <span aria-live="polite">Showing {visible.length} of {total}</span>
           {visible.length < total && (
             <button

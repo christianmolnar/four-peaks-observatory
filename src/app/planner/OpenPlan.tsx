@@ -84,7 +84,7 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
         </div>
       </div>
       {pastDate !== null && (
-        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1/90 font-normal text-sm" data-testid="plan-past">
+        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1 font-normal text-sm" data-testid="plan-past">
           <span>This plan is for {pastDate}, which has passed.</span>
           <button
             type="button"
@@ -106,20 +106,20 @@ export default function OpenPlan({ name, rows, onRemove, trainNote, staleNotes, 
         </p>
       ))}
       {trainNote !== null && (
-        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1/90 font-normal text-sm" data-testid="plan-train-note">
+        <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1 font-normal text-sm" data-testid="plan-train-note">
           <span className="min-w-0 max-w-full break-words">{trainNote}</span>
           <button type="button" className={btn} onClick={onChangeTrain}>Change setup</button>
         </p>
       )}
       {rows.length === 0 ? (
-        <div data-testid="plan-empty" className="flex flex-wrap items-center gap-x-4 pb-3 text-sm text-p-t1/90">
+        <div data-testid="plan-empty" className="flex flex-wrap items-center gap-x-4 pb-3 text-sm text-p-t1">
           <p className="min-w-0">No targets yet. Search below or tap Add on a suggestion.</p>
           {emptyAction}
         </div>
       ) : (
         <ol className="space-y-2 pb-3" aria-label="Targets in this plan, in order">
           {rows.map((r, i) => (
-            <li key={r.id} id={`plan-row-${r.id}`} tabIndex={-1} className="scroll-mt-4 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
+            <li key={r.id} id={`plan-row-${r.id}`} tabIndex={-1} className="scroll-mt-4 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1">
               <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1 basis-40 break-words">
                 <p className="text-p-t1"><span className="text-p-t1/70">{i + 1}.</span> {r.name}</p>

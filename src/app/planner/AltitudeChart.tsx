@@ -111,7 +111,7 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         )}
       </svg>
       </div>
-      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-p-t1/80 font-normal text-sm mt-1" aria-label="Chart key">
+      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-p-t1/70 font-normal text-sm mt-1" aria-label="Chart key">
         <li><span aria-hidden="true" className="inline-block w-4 h-0.5 bg-p-accent align-middle mr-1" />Altitude</li>
         <li><span aria-hidden="true" className="p-usable-key inline-block w-4 h-1 bg-p-ok-fill align-middle mr-1" />Usable</li>
         <li>
@@ -120,10 +120,10 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         </li>
         <li><span aria-hidden="true" className="inline-block w-4 h-3 bg-p-night/40 align-middle mr-1" />Astronomical night</li>
       </ul>
-      <p className="text-p-t1/90 font-normal text-sm mt-2">{summary}</p>
+      <p className="text-p-t1 font-normal text-sm mt-2">{summary}</p>
       <details className="group mt-2">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1/90 font-normal text-sm"><DisclosureChevron />Altitude as a table</summary>
-        <table className="mt-2 text-sm font-normal text-p-t1/90">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1 font-normal text-sm"><DisclosureChevron />Altitude as a table</summary>
+        <table className="mt-2 text-sm font-normal text-p-t1">
           <caption className="sr-only">{`Altitude of ${entry.name} every 30 minutes`}</caption>
           <thead>
             <tr>

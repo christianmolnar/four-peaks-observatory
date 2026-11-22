@@ -115,12 +115,12 @@ function Detail({
   return (
     <div>
       <h3 className="text-p-t1 font-normal text-base mb-2">{heading}</h3>
-      {changeover.length > 0 && <p className="text-p-t1/90 font-normal text-sm">Before this slot: {changeover.map((p) => `${p.label} ${p.minutes} min`).join(', ')}.</p>}
-      <p className="text-p-t1/90 font-normal text-sm mt-1">{win}</p>
-      <p className="text-p-t1/90 font-normal text-sm mt-1" data-testid="slot-altitude">{altitude}</p>
+      {changeover.length > 0 && <p className="text-p-t1 font-normal text-sm">Before this slot: {changeover.map((p) => `${p.label} ${p.minutes} min`).join(', ')}.</p>}
+      <p className="text-p-t1 font-normal text-sm mt-1">{win}</p>
+      <p className="text-p-t1 font-normal text-sm mt-1" data-testid="slot-altitude">{altitude}</p>
       <ul className="mt-2 space-y-2">
         {warnings.map((w) => (
-          <li key={w.text} className="text-sm font-normal text-p-t1/90">
+          <li key={w.text} className="text-sm font-normal text-p-t1">
             <span className={`mr-2 rounded border px-1.5 py-0.5 text-sm font-medium ${w.severity === 'warning' ? 'border-p-warn/60 text-p-warn-strong' : 'border-p-accent/50 text-p-info-strong'}`}>
               {w.severity === 'warning' ? 'Warning' : 'Note'}
             </span>
@@ -193,7 +193,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
 
   if (night.kind !== 'normal' || plan === null) {
-    return <p className="text-p-t1/90 font-normal text-sm">No astronomical night on this date.</p>;
+    return <p className="text-p-t1 font-normal text-sm">No astronomical night on this date.</p>;
   }
 
   const shown: Slot[] = plan.slots;
@@ -204,21 +204,21 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
 
   return (
     <div>
-      <p className="text-p-t1/80 font-normal text-sm" data-testid="timeline-estimate">
+      <p className="text-p-t1/70 font-normal text-sm" data-testid="timeline-estimate">
         All times are estimates for {nightWord}. Setup ({SETUP_MIN} min) comes first and is not counted.
       </p>
       <Fold id="timeline-how" title="How this is worked out">
-        <p className="text-p-t1/80 font-normal text-sm">Each slot starts when the one before is done, or when its target clears your horizon, whichever is later.</p>
+        <p className="text-p-t1/70 font-normal text-sm">Each slot starts when the one before is done, or when its target clears your horizon, whichever is later.</p>
       </Fold>
 
       {unscheduled > 0 && (
-        <p className="mt-2 text-p-t1/90 font-normal text-sm" data-testid="timeline-unscheduled">
+        <p className="mt-2 text-p-t1 font-normal text-sm" data-testid="timeline-unscheduled">
           Only the first {MAX_SLOTS} targets are scheduled; {unscheduled} {unscheduled === 1 ? 'is' : 'are'} not.
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div>
-          <label htmlFor="it-start" className="block text-p-t1/90 font-normal text-sm mb-1">Imaging can start at</label>
+          <label htmlFor="it-start" className="block text-p-t1 font-normal text-sm mb-1">Imaging can start at</label>
           <input
             id="it-start"
             ref={startBox}
@@ -263,7 +263,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
           {plan.why}
         </p>
       )}
-      <p className="text-p-t1/80 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
+      <p className="text-p-t1/70 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
         {shown.length === 0
           ? 'No slots yet.'
           : `Light ${lightMinutes(plan)} min · changeover ${Math.round(totals.changeoverMin)} · waiting ${Math.round(totals.waitMin)} · ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}`}
@@ -276,7 +276,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
       </div>
 
       {shown.length === 0 ? (
-        <p className="mt-2 text-p-t1/90 font-normal text-sm">No targets in the plan yet. Add one from Find a target.</p>
+        <p className="mt-2 text-p-t1 font-normal text-sm">No targets in the plan yet. Add one from Find a target.</p>
       ) : (
         <ol className="mt-2 space-y-3" aria-label="Night timeline, in order">
           {shown.map((s, k) => {
@@ -294,7 +294,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                 </div>
                 {/* The preset is chosen on the target's row; the slot says so only when the numbers are Custom or do not work tonight. */}
                 {(presetUsed?.has(s.id) || it.overrides !== undefined) && (
-                  <p className="mt-2 text-p-t1/90 text-sm" data-testid={`slot-preset-${s.id}`}>
+                  <p className="mt-2 text-p-t1 text-sm" data-testid={`slot-preset-${s.id}`}>
                     {presetUsed?.has(s.id) ? (
                       // The Custom numbers do not work on this night: the reason names the number that fails.
                       <span className="text-p-warn-strong text-sm" data-testid={`it-preset-used-${s.id}`}>
@@ -305,7 +305,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                     )}
                   </p>
                 )}
-                <p className="mt-2 text-p-t1/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
+                <p className="mt-2 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
                   {s.subSeconds !== null && s.subCount !== null
                     ? `${s.subSeconds} s × ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min.`
                     : timed
@@ -314,7 +314,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                   {k > 0 && timed ? `Before it: ${s.changeover.minutes} min.` : ''}
                 </p>
                 {differsFromRow(s, rowNumbers?.get(s.id)) && (
-                  <p className="mt-1 text-p-t1/80 font-normal text-sm" data-testid={`slot-why-sub-${s.id}`}>
+                  <p className="mt-1 text-p-t1/70 font-normal text-sm" data-testid={`slot-why-sub-${s.id}`}>
                     {slotSubReason(s, rowNumbers!.get(s.id)!)}
                   </p>
                 )}

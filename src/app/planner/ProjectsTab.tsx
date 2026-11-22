@@ -269,7 +269,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
 
   const importBox = (
     <div className="space-y-2">
-      <label htmlFor={`${uid}-import`} className="block text-sm font-normal text-p-t1/90">Import projects file (JSON made by Share and export)</label>
+      <label htmlFor={`${uid}-import`} className="block text-sm font-normal text-p-t1">Import projects file (JSON made by Share and export)</label>
       <input
         id={`${uid}-import`}
         type="file"
@@ -315,7 +315,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
 
       {api.notes.length > 0 && (
         <div role="group" aria-label="About your saved projects" data-testid="projects-notes" className="flex items-start gap-3 rounded-lg border border-p-accent/50 bg-p-bg/80 p-3">
-          <p className="min-w-0 flex-1 break-words text-sm font-normal text-p-t1/90">{api.notes.join(' ')}</p>
+          <p className="min-w-0 flex-1 break-words text-sm font-normal text-p-t1">{api.notes.join(' ')}</p>
           <button type="button" className={`${btn} shrink-0`} onClick={api.clearNotes}>Dismiss</button>
         </div>
       )}
@@ -325,7 +325,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
       {problem !== '' && <p role="alert" className="break-words text-sm font-normal text-p-warn-text" data-testid="projects-problem">{problem}</p>}
 
       {!api.loaded ? (
-        <p className="text-sm font-normal text-p-t1/80">Loading your projects…</p>
+        <p className="text-sm font-normal text-p-t1/70">Loading your projects…</p>
       ) : view.kind === 'new' ? (
         <ProjectEditor
           {...editorCommon}
@@ -347,14 +347,14 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
             <button id="project-new" type="button" className={btn} onClick={() => startNew(false)}>New project</button>
             <button type="button" className={btn} onClick={() => startNew(true)}>Start from last night&rsquo;s hours</button>
           </div>
-          <p className="text-sm font-normal text-p-t1/80">Last night&rsquo;s hours: {seedSessions().map((s) => `${targetName(s.targetId)} ${s.minutes} min`).join(', ')}, all {BROADBAND_NAME.toLowerCase()}. You review them, and type the minutes you plan, before anything is saved.</p>
+          <p className="text-sm font-normal text-p-t1/70">Last night&rsquo;s hours: {seedSessions().map((s) => `${targetName(s.targetId)} ${s.minutes} min`).join(', ')}, all {BROADBAND_NAME.toLowerCase()}. You review them, and type the minutes you plan, before anything is saved.</p>
           {importBox}
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1 basis-56">
-              <label htmlFor="project-pick" className="mb-1 block text-sm font-normal text-p-t1/90">Project</label>
+              <label htmlFor="project-pick" className="mb-1 block text-sm font-normal text-p-t1">Project</label>
               <WrapSelect id="project-pick" className="w-full" value={project.id} onChange={(e) => { setSelected(e.target.value); setView({ kind: 'show' }); setProblem(''); setSaid(''); setCopyFallback(''); }}>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{planLine(p)}</option>
@@ -363,7 +363,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
             </div>
             <button id="project-new" type="button" className={btn} onClick={() => startNew(false)} disabled={projects.length >= MAX_PROJECTS}>New project</button>
           </div>
-          {projects.length >= MAX_PROJECTS && <p className="text-sm font-normal text-p-t1/80">Projects hold at most {MAX_PROJECTS} projects. Delete one to make another.</p>}
+          {projects.length >= MAX_PROJECTS && <p className="text-sm font-normal text-p-t1/70">Projects hold at most {MAX_PROJECTS} projects. Delete one to make another.</p>}
 
           <div className="flex flex-wrap gap-2" role="group" aria-label="This project">
             <button id="project-edit" type="button" className={btn} onClick={() => { setProblem(''); setSaid(''); setView({ kind: 'edit' }); }}>Edit plan</button>
@@ -382,7 +382,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
                 saveRename();
               }}
             >
-              <label htmlFor={`${uid}-rename`} className="block text-sm font-normal text-p-t1/90">New name</label>
+              <label htmlFor={`${uid}-rename`} className="block text-sm font-normal text-p-t1">New name</label>
               <input id={`${uid}-rename`} autoFocus type="text" maxLength={MAX_PROJECT_NAME + 20} autoComplete="off" value={renameText} onChange={(e) => setRenameText(e.target.value)} className={field} aria-invalid={renameError !== ''} aria-describedby={renameError === '' ? undefined : `${uid}-rename-err`} />
               {renameError !== '' && <p id={`${uid}-rename-err`} role="alert" className="break-words text-sm font-normal text-p-warn-text">{renameError}</p>}
               <div className="flex flex-wrap gap-2">
@@ -420,13 +420,13 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
             <>
               <h3 id="project-heading" tabIndex={-1} className="break-words text-xl font-normal text-p-t1 focus:outline-none">
                 {project.name}
-                {project.status !== 'active' && <span className="ml-2 text-sm font-normal text-p-t1/80">({project.status})</span>}
+                {project.status !== 'active' && <span className="ml-2 text-sm font-normal text-p-t1/70">({project.status})</span>}
               </h3>
               <ProjectProgress project={project} names={names!} />
               <ProjectSessions key={project.id} project={project} names={names!} today={today} onAdd={addSessionTo} onUpdate={updateSessionIn} onDelete={deleteSessionIn} onRefused={() => setSaid('')} />
               {copyFallback !== '' && (
                 <div>
-                  <label htmlFor={`${uid}-tracker`} className="mb-1 block text-sm font-normal text-p-t1/90">Tracker text</label>
+                  <label htmlFor={`${uid}-tracker`} className="mb-1 block text-sm font-normal text-p-t1">Tracker text</label>
                   <textarea id={`${uid}-tracker`} readOnly rows={8} value={copyFallback} className="block w-full min-w-0 rounded border border-p-line/30 bg-p-bg/60 p-2 font-mono text-sm font-normal text-p-t1" />
                 </div>
               )}

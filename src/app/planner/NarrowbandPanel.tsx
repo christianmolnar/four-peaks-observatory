@@ -22,9 +22,9 @@ export default function NarrowbandPanel({ idBase, view, onHours, onTick }: { idB
     <div className="mt-1" data-testid={`nb-${idBase}`}>
       <Fold id={`nb-fold-${idBase}`} title={TITLE}>
         {view.kind === 'message' ? (
-          <p className="break-words text-sm font-normal text-p-t1/90" data-testid={`nb-message-${idBase}`}>{view.text}</p>
+          <p className="break-words text-sm font-normal text-p-t1" data-testid={`nb-message-${idBase}`}>{view.text}</p>
         ) : (
-          <div className="space-y-2 text-sm font-normal text-p-t1/90">
+          <div className="space-y-2 text-sm font-normal text-p-t1">
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor={`${uid}-hours`} className="text-p-t1">Broadband hours</label>
               <input
@@ -84,9 +84,9 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
                   {f.gain !== null && f.verdict !== 'no-narrowband' && <span className="text-p-t1/70"> (gain {f.gain >= 10 ? Math.round(f.gain) : Math.round(f.gain * 10) / 10}×)</span>}
                 </span>
               </label>
-              {f.reason !== '' && <p className="break-words pl-7 text-p-t1/80">{f.reason}</p>}
+              {f.reason !== '' && <p className="break-words pl-7 text-p-t1/70">{f.reason}</p>}
               {view.ticked.has(f.filterId) && coveredOnly.has(f.filterId) && (
-                <p className="break-words pl-7 text-p-t1/80" data-testid={`nb-adds-nothing-${idBase}-${f.filterId}`}>
+                <p className="break-words pl-7 text-p-t1/70" data-testid={`nb-adds-nothing-${idBase}-${f.filterId}`}>
                   Adds nothing: {(coveredOnly.get(f.filterId) ?? []).join(' and ')} already covered.
                 </p>
               )}

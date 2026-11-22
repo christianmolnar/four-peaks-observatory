@@ -126,7 +126,7 @@ function SolarSystemPanel({
         </Row>
       </dl>
       {body === 'Moon' && card.mosaicPanelsPerSide !== null && (
-        <p className="text-p-t1/80 font-normal text-sm mt-2">Mosaic at this field: about {card.mosaicPanelsPerSide} by {card.mosaicPanelsPerSide} panels (computed).</p>
+        <p className="text-p-t1/70 font-normal text-sm mt-2">Mosaic at this field: about {card.mosaicPanelsPerSide} by {card.mosaicPanelsPerSide} panels (computed).</p>
       )}
 
       <h4 className="mt-6">
@@ -143,21 +143,21 @@ function SolarSystemPanel({
       </h4>
       <div id={listId} hidden={!listOpen}>
       {listOpen && (guide === null ? (
-        <p className="text-p-t1/90 font-normal text-sm">{info.missing ?? 'The guide needs an optical setup with a telescope aperture.'}</p>
+        <p className="text-p-t1 font-normal text-sm">{info.missing ?? 'The guide needs an optical setup with a telescope aperture.'}</p>
       ) : (
         guide.map((section) => (
           <fieldset key={section.id} className="mb-3">
-            <legend className="text-p-t1/90 font-normal text-sm mb-1">{section.title}</legend>
+            <legend className="text-p-t1 font-normal text-sm mb-1">{section.title}</legend>
             <ul className="space-y-2">
               {section.items.map((item) => {
                 const key = `${body}:${item.id}`;
                 return (
                   <li key={item.id}>
-                    <label className="flex min-h-11 items-center gap-2 text-sm font-normal text-p-t1/90">
+                    <label className="flex min-h-11 items-center gap-2 text-sm font-normal text-p-t1">
                       <input type="checkbox" className="mt-1 accent-p-focus shrink-0" checked={checked.has(key)} onChange={() => onToggle(key)} />
                       <span>
                         <span className="text-p-t1">{item.title}.</span> {item.text}{' '}
-                        <span className="ml-1 rounded border border-p-line/30 px-1.5 py-0.5 text-sm text-p-t1/80 whitespace-nowrap">{BASIS_WORD[item.basis]}</span>
+                        <span className="ml-1 rounded border border-p-line/30 px-1.5 py-0.5 text-sm text-p-t1/70 whitespace-nowrap">{BASIS_WORD[item.basis]}</span>
                       </span>
                     </label>
                   </li>
@@ -190,14 +190,14 @@ export default function SolarSystemDetail({ body, profile, train, site, night, h
     [body, site, night, info],
   );
   const card = useMemo(() => (sky ? clipPlanet(sky, horizon, minAltitude) : null), [sky, horizon, minAltitude]);
-  if (card === null) return <p className="text-p-t1/90 font-normal text-sm">There is no astronomical night on this date, so the detail (which uses it) is not shown.</p>;
+  if (card === null) return <p className="text-p-t1 font-normal text-sm">There is no astronomical night on this date, so the detail (which uses it) is not shown.</p>;
   return (
     <div data-testid={`solar-detail-${body}`}>
-      <p className="text-p-t1/80 font-normal text-sm mb-3">
+      <p className="text-p-t1/70 font-normal text-sm mb-3">
         Computed for {nightWord}, at the middle of the astronomical night, the same night as the target list (so Mercury, Venus and the early Moon, which are twilight objects, may show as not clear when they could be imaged earlier; that is not computed). Usable time counts your saved horizon and the minimum altitude. Jupiter&apos;s Great Red Spot transits are not shown: there is no verified longitude model.
       </p>
       <SolarSystemPanel card={card} info={info} formatTime={formatTime} nightWord={nightWord} checked={checked} onToggle={onToggle} />
-      <p className="text-p-t1/60 font-normal text-sm mt-4">
+      <p className="text-p-t1/70 font-normal text-sm mt-4">
         The checklist ticks are not saved. computed: from the ephemeris or a formula. sourced: a cited figure. assumption: a starting value chosen here, not measured. practice: common amateur practice, no source for this build. not verified: not checked.
       </p>
     </div>

@@ -34,7 +34,7 @@ export default function NumberSlider({ id, label, unit, min, max, text, sliderVa
   const msgId = `${id}-msg`;
   return (
     <div className="mb-3">
-      <label htmlFor={`${id}-number`} className="block text-p-t1/90 font-medium text-sm mb-1 leading-5">
+      <label htmlFor={`${id}-number`} className="block text-p-t1 font-medium text-sm mb-1 leading-5">
         {label} ({unit})
       </label>
       <div className={`flex items-center gap-3 ${stackedAtXl ? 'xl:flex-col xl:items-stretch xl:gap-0' : ''}`}>

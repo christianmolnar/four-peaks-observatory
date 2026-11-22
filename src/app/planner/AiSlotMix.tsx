@@ -21,7 +21,7 @@ export interface AiSlotView {
 export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }: { index: number; targetId: string; slot: AiSlotView; onNbHours: (id: string, text: string) => void; onNbTick: (id: string, filterId: string, on: boolean) => void }) {
   const mix = slot.mix;
   return (
-    <div className="mt-2 border-t border-p-line/15 pt-2 text-sm font-normal text-p-t1/90" data-testid={`ai-slot-mix-${index}`}>
+    <div className="mt-2 border-t border-p-line/15 pt-2 text-sm font-normal text-p-t1" data-testid={`ai-slot-mix-${index}`}>
       {mix.kind === 'message' ? (
         <p className="break-words">Filters: {mix.text}</p>
       ) : mix.kind === 'none' ? (
@@ -41,7 +41,7 @@ export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }
       <NarrowbandPanel idBase={`ai-${targetId}`} view={slot.nb} onHours={(t) => onNbHours(targetId, t)} onTick={(f, on) => onNbTick(targetId, f, on)} />
       {(mix.kind === 'mix' || slot.nb.kind === 'panel') && (
         <Fold id={`ai-how-${index}`} title="How this is worked out">
-          <div className="space-y-1 text-sm font-normal text-p-t1/90">
+          <div className="space-y-1 text-sm font-normal text-p-t1/70">
             <RowHow id={`ai-${targetId}`} mix={mix} nb={slot.nb} />
           </div>
         </Fold>
@@ -59,7 +59,7 @@ function Lines({ lines }: { lines: readonly MixLine[] }) {
           <li key={l.filterId ?? 'broadband'} data-verdict={l.verdict} className="break-words">
             <span className="text-p-t1">{l.name}</span>
             {l.verdict !== 'skipped' && <>: {minutesText(l.minutes)}</>}
-            {note !== null && <span className="text-p-t1/80"> ({note})</span>}
+            {note !== null && <span className="text-p-t1/70"> ({note})</span>}
           </li>
         );
       })}

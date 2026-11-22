@@ -124,7 +124,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
     const err = liveError[field];
     return (
       <div>
-        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-p-t1/80">{label}</label>
+        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-p-t1/70">{label}</label>
         <input
           id={`plan-${field}-${id}`}
           type="text"
@@ -179,7 +179,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
               clear();
               onPreset(p);
             }}
-            className={`min-h-11 rounded border px-0 text-sm font-normal ${preset === p ? 'border-p-accent bg-p-info-fill/20 text-p-t1' : 'border-p-line/30 text-p-t1/90 hover:bg-p-raised/10'}`}
+            className={`min-h-11 rounded border px-0 text-sm font-normal ${preset === p ? 'border-p-accent bg-p-info-fill/20 text-p-t1' : 'border-p-line/30 text-p-t1 hover:bg-p-raised/10'}`}
           >
             {p === 'custom' ? 'Custom' : presetLabel(p)}
           </button>
@@ -187,7 +187,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
       </div>
 
       {chosen === null ? (
-        <p className="break-words text-sm font-normal text-p-t1/80" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
+        <p className="break-words text-sm font-normal text-p-t1/70" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
@@ -203,12 +203,12 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
           {ok?.customUnusable != null && (
             <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
           )}
-          <p className="text-sm font-normal text-p-t1/90" data-testid={`plan-numbers-${id}`}>
-            <span data-testid="plan-figure" className="block font-medium text-p-t1/90">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
+          <p className="text-sm font-normal text-p-t1" data-testid={`plan-numbers-${id}`}>
+            <span data-testid="plan-figure" className="block font-medium text-p-t1">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
             <span className="sr-only"> · </span>{chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} light · {minutesText(chosen.elapsedMin)} total
           </p>
           {preset === 'custom' && base !== null && (
-            <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-custom-${id}`}>
+            <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-custom-${id}`}>
               <span>{unusable === null ? differsText(chosen) : 'Custom: not used tonight.'}</span>
               <button type="button" className={btn} onClick={() => { clear(); onBack(); requestAnimationFrame(() => document.getElementById(`plan-preset-${id}-${base}`)?.focus()); }}>
                 Back to {presetLabel(base)}
@@ -221,7 +221,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
       {split?.act.map((w) => {
         const to = ACT_ON[w.code];
         return (
-          <div key={w.code} className="rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-sm font-normal text-p-t1/90" data-testid={`plan-warning-${id}`}>
+          <div key={w.code} className="rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-sm font-normal text-p-t1" data-testid={`plan-warning-${id}`}>
             <p><span className="p-chip-plain mr-2 rounded bg-p-warn/30 px-1.5 py-0.5 text-sm text-p-t1">Warning</span>{w.text}</p>
             {to.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-2">
@@ -236,7 +236,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
 
       {chosen !== null && ok !== null && split !== null && (
         <Fold id={`plan-why-${id}`} title="How this is worked out">
-          <div className="space-y-1 text-sm font-normal text-p-t1/90">
+          <div className="space-y-1 text-sm font-normal text-p-t1/70">
             <p>Sub length set by {SUB_LIMIT[chosen.limitedBy.sub]}; light by {TOTAL_LIMIT[chosen.limitedBy.total]}.</p>
             <p>Range: subs {chosen.subSecondsRange[0]} to {chosen.subSecondsRange[1]} s; light {minutesText(chosen.modeRangeMin[0])} to {minutesText(chosen.modeRangeMin[1])}.</p>
             <p>
@@ -259,7 +259,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
               </Fold>
             )}
             <Fold id={`plan-compare-${id}`} title="Compare presets" level={1}>
-              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
+              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
                 <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
                 <thead>
                   <tr>
@@ -278,7 +278,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
               </table>
             </Fold>
             <Fold id={`plan-buys-${id}`} title="More time" level={1}>
-              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
+              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
                 <caption className="sr-only">What more light buys for {name}, sky-limited</caption>
                 <thead>
                   <tr><th scope="col">Light</th><th scope="col">Signal to noise</th><th scope="col">Gain</th><th scope="col">Tonight</th></tr>
@@ -306,7 +306,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
         </p>
       )}
       {prompt === 'ask' && favorite !== null && favoriteUnusable === null && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-ask-${id}`}>
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-favorite-ask-${id}`}>
           <span>Restore your favorite ({figure(favorite)})?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { onRestore(); dropFavoriteFocus(); }}>Restore</button>
@@ -315,13 +315,13 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
         </p>
       )}
       {prompt === 'restored' && favorite !== null && favoriteUnusable === null && (
-        <p className="text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-restored-${id}`}>
+        <p className="text-sm font-normal text-p-t1" data-testid={`plan-favorite-restored-${id}`}>
           Restored your favorite: {figure(favorite)}.
         </p>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4">
-        <label className="flex min-h-11 w-fit items-center gap-2 pr-2 text-sm font-normal text-p-t1/90">
+        <label className="flex min-h-11 w-fit items-center gap-2 pr-2 text-sm font-normal text-p-t1">
           <input
             id={`plan-fav-${id}`}
             type="checkbox"
@@ -354,7 +354,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
       )}
       {favoritesBlocked !== null && <p className="text-sm font-normal text-p-warn-text" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
       {confirmUpdate && favorite !== null && differsFromFavorite && prompt !== 'ask' && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-update-confirm-${id}`}>
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-favorite-update-confirm-${id}`}>
           <span>Replace the favorite with {figure({ subSeconds: chosen?.subSeconds ?? 0, subCount: chosen?.subCount ?? 0 })}?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { setConfirmUpdate(false); onSaveFavorite(); dropFavoriteFocus(); }}>Update favorite</button>
@@ -363,7 +363,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
         </p>
       )}
       {confirmRemove && favorite !== null && (
-        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-confirm-${id}`}>
+        <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-favorite-confirm-${id}`}>
           <span>Remove the favorite for {name}?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { setConfirmRemove(false); onRemoveFavorite(); dropFavoriteFocus(); }}>Remove favorite</button>

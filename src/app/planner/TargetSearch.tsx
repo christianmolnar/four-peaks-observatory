@@ -124,7 +124,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
         }}
       >
         <div className="min-w-0 flex-1 basis-56">
-          <label htmlFor={inputId} className="block text-p-t1/90 font-normal text-sm mb-1">Search the catalog by name or number</label>
+          <label htmlFor={inputId} className="block text-p-t1 font-normal text-sm mb-1">Search the catalog by name or number</label>
           <input
             id={inputId}
             type="search"
@@ -144,11 +144,11 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
           Search
         </button>
       </form>
-      <p id={hintId} className="mt-1 text-p-t1/60 font-normal text-sm">
+      <p id={hintId} className="mt-1 text-p-t1/70 font-normal text-sm">
         Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}{inProject ? '' : ', the solar system (Moon and planets)'} on this device, as you type. Nothing is sent anywhere.
       </p>
 
-      {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-p-t1/80 font-normal text-sm">Loading the catalog…</p>}
+      {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-p-t1/70 font-normal text-sm">Loading the catalog…</p>}
       {catalog.status === 'error' && (
         <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-p-warn-text font-normal text-sm">
           <span className="min-w-0 break-words">The catalog could not be loaded, so search is off: {catalog.message}</span>
@@ -159,11 +159,11 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
       )}
 
       {/* Always on the page, so a screen reader hears the count or the miss when the text in it changes. */}
-      <p aria-live="polite" className={`mt-3 min-h-4 font-normal ${notFound ? 'text-sm text-p-t1/90' : 'text-sm text-p-t1/70'}`}>{summary}</p>
+      <p aria-live="polite" className={`mt-3 min-h-4 font-normal ${notFound ? 'text-sm text-p-t1' : 'text-sm text-p-t1/70'}`}>{summary}</p>
       {(result !== null || bodies.length > 0) && (
         <div className="mt-1" data-testid="search-results">
           {notFound && renderNotFound !== undefined && (
-            <div className="rounded border border-p-line/15 p-3 text-p-t1/90 font-normal text-sm">
+            <div className="rounded border border-p-line/15 p-3 text-p-t1 font-normal text-sm">
               {renderNotFound?.(typed)}
             </div>
           )}
@@ -176,7 +176,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
                 const bodyOpen = body !== undefined && renderBodyDetail !== undefined && openBody === r.id;
                 const outside = !inProject && r.type !== null && place === undefined && r.entry !== null && r.entry.usableMinutes > 0 ? outsideTheList(r.type, r.entry) : '';
                 return (
-                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1/90">
+                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1">
                     <div className="min-w-0 flex-1 basis-56 break-words">
                       <p className="text-p-t1">
                         {r.name}

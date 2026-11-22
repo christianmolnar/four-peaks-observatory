@@ -256,14 +256,14 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
         </svg>
       </div>
 
-      <ul className="mt-2 space-y-1 text-p-t1/90 font-normal text-sm" aria-label="Chart key">
+      <ul className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Chart key">
         <li>Numbers and thick lines: your slots. Faint line: the rest of that target&apos;s night.</li>
         <li>Dotted white line: changeover or wait between slots. Dashed orange line: minimum altitude {minAltitude}°.</li>
         <li>Dotted orange on a curve: under your horizon or minimum there. Dashed white line: your start.</li>
       </ul>
 
       {plan.slots.length === 0 ? (
-        <p className="mt-2 text-p-t1/90 font-normal text-sm">Add a target to draw it on the night.</p>
+        <p className="mt-2 text-p-t1 font-normal text-sm">Add a target to draw it on the night.</p>
       ) : (
         <ol className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Slots on the graph">
           {plan.slots.map((s, i) => (
@@ -278,8 +278,8 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
       )}
 
       <details className="group mt-2" data-testid="timeline-numbers">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1/90 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
-        <table className="mt-1 w-full table-fixed text-left text-sm font-normal text-p-t1/90">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
+        <table className="mt-1 w-full table-fixed text-left text-sm font-normal text-p-t1">
           <caption className="sr-only">Altitude and compass direction at the start, middle and end of each slot</caption>
           <thead>
             <tr>
