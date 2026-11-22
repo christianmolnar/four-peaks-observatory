@@ -63,7 +63,7 @@ describe('the Filter mix part of a plan row', () => {
     open('ic405');
     const text = body('ic405');
     expect(text).toContain('IDAS NBZ-II');
-    expect(text).toContain(`Light to split: ${light('ic405')}`);
+    expect(text).toContain(`Light: ${light('ic405')}`);
     expect(text).toContain(`IDAS NBZ-II: ${light('ic405')}`);
     expect(text).toContain('Adds Ha and OIII.');
     // The confidence is said once, in the row's one fold.
@@ -84,7 +84,7 @@ describe('the Filter mix part of a plan row', () => {
     const text = body('ic405');
     expect(text).toContain('IDAS NB3-PM');
     expect(text).toMatch(/OIII shared, SII new/);
-    expect(text).toContain(`Light to split: ${light('ic405')}`);
+    expect(text).toContain(`Light: ${light('ic405')}`);
   });
 
   it('a target that gives off no emission shows the gate message with all the light on broadband', async () => {
@@ -131,12 +131,12 @@ describe('the light comes from the timeline, and a target it leaves out has none
     expect(timelineSlots().map((s) => /no time/.test(s.textContent ?? ''))).toEqual([false, false, true, false]);
     for (const [id, i] of [['m42', 0], ['m31', 1], ['m33', 3]] as const) {
       open(id);
-      expect(body(id)).toContain(`Light to split: ${fmt(slotMinutes(i))}`);
+      expect(body(id)).toContain(`Light: ${fmt(slotMinutes(i))}`);
     }
     // The row's own stand-alone light is longer than the slot's for Andromeda (the window closes): the mix follows the slot.
     open('ngc7000');
     expect(screen.getByTestId('plan-mix-message-ngc7000').textContent).toMatch(/Not up tonight/);
-    expect(body('ngc7000')).not.toMatch(/\d+ min|\d+ h|Light to split/);
+    expect(body('ngc7000')).not.toMatch(/\d+ min|\d+ h|Light:/);
   });
 
   it('the text export gives the same: slot light for scheduled targets, a plain line for the one left out', async () => {

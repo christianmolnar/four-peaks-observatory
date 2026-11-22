@@ -28,7 +28,7 @@ export default function PlanRowMix({ id, mix, extra }: { id: string; mix: RowMix
             <MixLines lines={mix.lines} extra={extra} />
             {mix.uncovered.length > 0 && (
               <p className="break-words" data-testid={`plan-mix-uncovered-${id}`}>
-                This target needs {mix.uncovered.join(' and ')}, which none of the selected filters passes.
+                No selected filter passes {mix.uncovered.join(' and ')}, which it needs.
               </p>
             )}
           </div>
@@ -40,7 +40,7 @@ export default function PlanRowMix({ id, mix, extra }: { id: string; mix: RowMix
 
 /** The line above the mix: the row's planned light, or (with narrowband ticked) the broadband time, each ticked filter's minutes and the total. */
 export function mixLightText(mix: Extract<RowMix, { kind: 'mix' }>): string {
-  if (mix.narrowbandAdded !== true) return `Light to split: ${minutesText(mix.availableMin)} (this row’s planned light).`;
+  if (mix.narrowbandAdded !== true) return `Light: ${minutesText(mix.availableMin)}.`;
   const broad = mix.lines.filter((l) => l.verdict === 'broadband');
   const adds = mix.lines.filter((l) => l.verdict !== 'broadband');
   return `Light: ${[...broad, ...adds].map((l) => `${l.filterId === null ? 'broadband' : l.name} ${minutesText(l.minutes)}`).join(' plus ')} = ${minutesText(mix.availableMin)}.`;
