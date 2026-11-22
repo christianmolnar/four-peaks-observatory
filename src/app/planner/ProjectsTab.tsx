@@ -320,7 +320,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         </div>
       )}
       {api.held !== null && <p role="alert" data-testid="projects-held" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">{api.held}</p>}
-      {api.unsaved && <p role="alert" data-testid="projects-unsaved" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">Not saved: the latest changes are on this page only. Export the project so nothing is lost.</p>}
+      {api.unsaved && <p role="alert" data-testid="projects-unsaved" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">Not saved: changes are on this page only. Export the project; the next change saves again.</p>}
       <p role="status" aria-live="polite" className="min-h-5 break-words text-sm font-normal text-p-t1" data-testid="projects-status">{said}</p>
       {problem !== '' && <p role="alert" className="break-words text-sm font-normal text-p-warn-text" data-testid="projects-problem">{problem}</p>}
 

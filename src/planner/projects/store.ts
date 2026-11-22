@@ -29,8 +29,8 @@ export interface LoadedProjects {
   unusable: { kind: 'newer' | 'damaged' | 'repaired'; text: string } | null;
 }
 
-export const NEWER_NOTICE = 'Your saved projects were made by a newer version of the planner.';
-export const DAMAGED_NOTICE = 'Your saved projects could not be read, so they start over with none.';
+export const NEWER_NOTICE = 'Saved projects are from a newer planner.';
+export const DAMAGED_NOTICE = 'Saved projects could not be read, so you start with none.';
 
 /**
  * Reads the stored projects. Nothing is removed or repaired in storage. A project with one bad field is left out alone, with a sentence saying
@@ -41,7 +41,7 @@ export function loadProjects(storage: Reader): LoadedProjects {
   try {
     text = storage.getItem(PROJECTS_KEY);
   } catch {
-    throw new Error(`Your projects could not be read (browser storage is blocked or unavailable).`);
+    throw new Error(`Projects could not be read: browser storage is blocked.`);
   }
   if (text === null) return { state: null, notices: [], unusable: null };
   const damaged: LoadedProjects = { state: null, notices: [DAMAGED_NOTICE], unusable: { kind: 'damaged', text } };
@@ -135,9 +135,9 @@ export type HeldWhy = 'newer' | 'nocopy' | 'othertab';
 
 /** Said when saving is off because stored text is held: the stored text is not touched. */
 export const HELD_TEXT: Record<HeldWhy, string> = {
-  newer: 'Your saved projects were made by a newer version of the planner, so saving projects is off here.',
-  nocopy: 'Your saved projects could not be read whole and no copy could be kept, so saving projects is off here. Free some browser storage and reload.',
-  othertab: 'Another tab saved projects this page cannot use, so saving projects is off here. Reload this tab.',
+  newer: 'Saved projects are from a newer planner. Saving is off.',
+  nocopy: 'Saved projects could not be read or copied. Saving is off. Free browser storage, then reload.',
+  othertab: 'Another tab saved projects this page cannot use. Saving is off. Reload.',
 };
 
 /** What a tab knows: the projects it shows, the stored text they were read from or written as, whether the last write failed (the state is ahead of storage), and a hold. */
@@ -177,9 +177,9 @@ export function openProjects(storage: Backer, now: number = Date.now()): OpenedP
 
 export type ChangeResult = { ok: true; handle: ProjectsHandle } | { ok: false; handle: ProjectsHandle; message: string };
 
-const FULL = 'Not saved: browser storage is full. Your change is on this page only; remove old backups or export the project.';
-const BLOCKED_READ = 'Not saved: browser storage is blocked or unavailable, so nothing was changed. Allow storage for this site, then try again.';
-const BLOCKED = 'Not saved: browser storage is blocked or unavailable. Your change is on this page only; export the project so nothing is lost.';
+const FULL = 'Not saved: browser storage is full. Remove old backups or export; the next change tries again.';
+const BLOCKED_READ = 'Not saved: browser storage is blocked, nothing changed. Allow storage, then retry.';
+const BLOCKED = 'Not saved: browser storage is blocked. Export the project; the next change tries again.';
 
 function writeProblem(e: unknown): string {
   const name = typeof e === 'object' && e !== null && 'name' in e ? String((e as { name: unknown }).name) : '';
@@ -222,7 +222,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
   } catch (e) {
     // The two copies together pass a limit: refuse, and keep this page's state (and its unsaved mark) so nothing is lost.
     if (!(e instanceof ProjectsError)) throw e;
-    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). This change was not made. Your earlier changes are kept on this page. Export the project, or remove sessions or projects in your other tab, then try again.`);
+    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). Export, or remove items in the other tab.`);
   }
   let next: ProjectsState;
   try {
@@ -235,7 +235,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
     // Stored text that is not what this version would write (older shape, fields it does not know) is copied first; if that fails, nothing is written over it.
     if (stored !== null && stored !== text && !isCanonical(stored)) keepProjectsCopy(storage, stored, now);
   } catch {
-    return refuse(`Not saved: a copy of the stored projects could not be kept first, so they are left as they are.`);
+    return refuse(`Not saved: the stored projects could not be copied first, so they are untouched.`);
   }
   try {
     storage.setItem(PROJECTS_KEY, text);

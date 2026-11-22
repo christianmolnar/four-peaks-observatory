@@ -75,7 +75,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
     }
     const r = fillFromPlan(addDraftTarget(d, id), id, held);
     setD(r.draft);
-    setAdded(`Added ${targetName(id)} to the project, with ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled from the minutes in your plan (broadband and the ticked narrowband filters).${r.left > 0 ? ` ${r.left} of the plan’s ${r.left === 1 ? 'filter is' : 'filters are'} not in this project, so ${r.left === 1 ? 'its minutes were' : 'their minutes were'} left out; tick ${r.left === 1 ? 'it' : 'them'} under Filters, then untick and tick the target again.` : ''}`);
+    setAdded(`Added ${targetName(id)}: ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled from your plan.${r.left > 0 ? ` ${r.left} plan ${r.left === 1 ? 'filter is' : 'filters are'} not in this project. Add ${r.left === 1 ? 'it' : 'them'} under Filters, then add the target again.` : ''}`);
   };
   const dropTarget = (id: string) => {
     setD(removeDraftTarget(d, id));
