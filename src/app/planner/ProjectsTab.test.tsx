@@ -149,6 +149,7 @@ describe('the progress view shows the engine\'s numbers', () => {
     expect(text(lines[2])).toContain('Broadband 2h 30m / 2h 125% · 30m over');
     expect(text(lines[3])).toContain('(optional, excluded from totals)');
     expect(text(screen.getByTestId('tile-planned'))).toBe('7h');
+    expect(text(screen.getByTestId('project-over-note'))).toContain('30m was shot beyond the plan'); // the over-plan warning stays
     expect(text(screen.getByTestId('optional-note'))).toContain('Orion Nebula Optolong H-alpha 7 nm 20m of 1h');
     const off = text(screen.getByTestId('not-in-plan'));
     expect(off).toContain('2 logged sessions are not in the plan (1h 5m in all)');
@@ -230,7 +231,7 @@ describe('seed offer', () => {
     expect(A.getByTestId('projects-status').textContent).toBe('Saved the project “Marathon”.');
     fireEvent.click(B.getByRole('button', { name: 'Save project' }));
     const refusal = B.getAllByRole('alert').map(text).join(' | ');
-    expect(refusal).toBe('Not saved: last night’s hours are already logged in the project “Marathon”. Open that project instead of starting another.');
+    expect(refusal).toBe('Not saved: last night’s hours are already logged in the project “Marathon”. Open it instead.');
     expect(B.queryByTestId('projects-problem')).toBeNull();
     expect(B.getByTestId('projects-status').textContent).toBe('');
     expect(stored()).toHaveLength(1);
@@ -460,10 +461,10 @@ describe('projects: switch, rename, duplicate, delete', () => {
     expect(document.activeElement?.id).toBe('project-rename');
     press('Duplicate');
     expect(stored().map((p) => [p.name, p.sessions.length])).toEqual([['Over and off', 5], ['Plain 2', 1], ['Plain 2 (copy)', 0]]);
-    expect(screen.getByTestId('projects-status').textContent).toContain('the plan was copied, the logged sessions were not');
+    expect(screen.getByTestId('projects-status').textContent).toContain('plan copied, sessions not');
     press('Delete');
     const ask = text(screen.getByTestId('project-delete-confirm'));
-    expect(ask).toBe('Delete the project “Plain 2 (copy)”? This removes the project, its 1 target, 2 planned lines and its 0 logged sessions (0h of light). It cannot be undone. Copy the tracker or export it first to keep a record.Keep the projectDelete the project');
+    expect(ask).toBe('Delete the project “Plain 2 (copy)”? This removes the project, its 1 target, 2 planned lines and its 0 logged sessions (0h of light). It cannot be undone. Export it first to keep a copy.Keep the projectDelete the project');
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep the project' }));
     press('Keep the project');
     expect(stored()).toHaveLength(3);
