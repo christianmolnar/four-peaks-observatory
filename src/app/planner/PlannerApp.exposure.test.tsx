@@ -30,9 +30,9 @@ const open = (id: string) => {
   const b = document.getElementById(id)!;
   if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b);
 };
-/** "45 s × 191 subs · 2 h 23 min of light · ..." as numbers. */
+/** "45 s × 191 subs · 2 h 23 min light · 2 h 55 min total" as numbers. */
 const parse = (text: string) => {
-  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs · (.+?) of light · (.+?) with setup and overhead/.exec(text);
+  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs · (.+?) light · (.+?) total$/.exec(text);
   if (!m) throw new Error(`not a numbers line: ${text}`);
   return { sub: Number(m[1]), subs: Number(m[2]), light: m[3], elapsed: m[4] };
 };
@@ -58,12 +58,12 @@ describe('a preset on each target', () => {
     expect(row(2).textContent).not.toMatch(/Balanced|Quick|Deep|Custom/);
   });
 
-  it('shows what the engine computes: sub length, subs, total light, elapsed time and a finish time', async () => {
+  it('shows what the engine computes: sub length, subs, total light and elapsed time, and no finish time (the timeline has the real times)', async () => {
     await app([m31]);
     const n = parse(numbers('m31'));
     expect(n.sub).toBeGreaterThan(0);
     expect(n.subs).toBeGreaterThan(0);
-    expect(numbers('m31')).toMatch(/finish about \d\d:\d\d if it starts when the target is up/);
+    expect(numbers('m31')).not.toMatch(/\d\d:\d\d|finish|ends/);
     expect(subBox('Andromeda Galaxy').value).toBe(String(n.sub));
     expect(countBox('Andromeda Galaxy').value).toBe(String(n.subs));
   });
@@ -87,14 +87,15 @@ describe('a preset on each target', () => {
     expect(col(0)[2]).not.toBe(col(2)[2]);
   });
 
-  it('"Why these numbers" holds the limits, the range, the stop point and the folded notes; the calculator and its inputs are one more fold, closed', async () => {
+  it('"How this is worked out" holds the limits, the range, the stop point and the folded notes; the calculator and its inputs are one more fold, closed', async () => {
     await app([m31]);
     const why = document.getElementById('plan-why-m31-body')!;
     expect(why.hasAttribute('hidden')).toBe(true);
     open('plan-why-m31');
-    expect(why.textContent).toMatch(/Sub length is held by .+ Total light is held by /);
-    expect(why.textContent).toMatch(/Range: subs of \d+ to \d+ s; total light/);
-    expect(why.textContent).toMatch(/Stop point .+ set by .+Surface brightness [\d.]+ mag per square arcsecond/);
+    expect(why.textContent).toMatch(/Sub length set by .+; light by /);
+    expect(why.textContent).toMatch(/Range: subs \d+ to \d+ s; light/);
+    expect(why.textContent).toMatch(/Stop point .+Surface brightness [\d.]+ \(/);
+    expect(why.textContent).toMatch(/All numbers are estimates\./);
     const notes = screen.getByRole('button', { name: /^Notes \(\d+\)$/ });
     expect(notes.getAttribute('aria-expanded')).toBe('false');
     expect(document.getElementById('plan-compare-m31-body')!.hasAttribute('hidden')).toBe(true);
@@ -107,7 +108,7 @@ describe('a preset on each target', () => {
   it('a warning to act on shows on the row with the word Warning, the one thing to change, and no note mixed in', async () => {
     await app([m31]);
     const w = screen.getByTestId('plan-warning-m31');
-    expect(w.textContent).toMatch(/^Warning.+What to change: Plan a pause to flip and re-centre at the crossing; its time is already counted\.$/);
+    expect(w.textContent).toMatch(/^WarningMeridian flip adds \d+ min; plan a pause at the crossing\.$/);
     expect(within(w).queryByRole('button')).toBeNull(); // the flip has no control that changes it
     open('plan-why-m31');
     open('plan-notes-m31');
@@ -120,7 +121,7 @@ describe('a preset on each target', () => {
     seedPlan([m31], () => ({ sites: sampleProfile().sites, trains: [smart] }));
     render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     await ready();
-    expect(numbers('m31')).toMatch(/smart scope controls its own exposures/);
+    expect(numbers('m31')).toMatch(/No exposure: this setup has no optics numbers/);
     expect(pressed('Andromeda Galaxy')).toEqual(['Balanced']);
   });
 });
@@ -135,7 +136,7 @@ describe('Custom', () => {
     fireEvent.blur(box);
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 20 } });
     expect(pressed('Andromeda Galaxy')).toEqual(['Custom']);
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom: differs from Balanced in sub length\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom\./);
     expect(parse(numbers('m31')).sub).toBe(20);
     expect(parse(numbers('m31')).subs).toBeGreaterThan(before.subs); // the same light in shorter subs
     fireEvent.click(screen.getByRole('button', { name: 'Back to Balanced' }));
@@ -150,12 +151,12 @@ describe('Custom', () => {
     await u.clear(countBox('Andromeda Galaxy'));
     await u.type(countBox('Andromeda Galaxy'), '12{Enter}');
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subCount: 12 } });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom: differs from Deep in number of subs\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom\./);
     await u.clear(subBox('Andromeda Galaxy'));
     await u.type(subBox('Andromeda Galaxy'), '50{Enter}');
     expect(storedPlan()!.targets[0].custom).toEqual({ subCount: 12, subSeconds: 50 });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom: differs from Deep in sub length and number of subs\./);
-    expect(numbers('m31')).toMatch(/^50 s × 12 subs · 10 min of light/);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom\./);
+    expect(numbers('m31')).toMatch(/^50 s × 12 subs · 10 min light/);
     expect(screen.getByRole('button', { name: 'Back to Deep' })).toBeTruthy();
   });
 
@@ -163,7 +164,7 @@ describe('Custom', () => {
     await app([m31]);
     press('Andromeda Galaxy', 'Custom');
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: {} });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom: same as Balanced so far\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom: same as Balanced\./);
   });
 
   it('invalid input (0, negative, text, absurd, empty) is rejected with a plain message and never stored', async () => {

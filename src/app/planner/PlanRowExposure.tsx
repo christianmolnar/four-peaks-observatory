@@ -7,26 +7,26 @@ import type { ExposureMode, ExposureResult } from '@/planner/exposure';
 import { favoriteProblem } from '@/planner/state/favorites';
 import type { Favorite } from '@/planner/state/favorites';
 import type { PlanPreset } from '@/planner/state/plans';
-import { ACT_ON, checkNumber, differsText, exposureSummary, minutesText, presetLabel, resultProblem, splitWarnings } from './rowExposure';
+import { ACT_ON, checkNumber, differsText, minutesText, presetLabel, resultProblem, splitWarnings } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 
 const btn = 'min-h-11 min-w-11 whitespace-nowrap rounded border border-p-line/30 px-3 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
 const input = 'min-h-11 w-24 rounded border border-p-line/30 bg-p-bg/60 px-2 text-sm font-normal text-p-t1';
 
 const SUB_LIMIT: Record<ExposureResult['limitedBy']['sub'], string> = {
-  'read-noise': 'the sky and read noise (long enough that the sky, not read noise, sets the noise)',
-  'risk-cap': 'the risk cap (a longer sub risks losing more to a trail or a cloud)',
-  saturation: 'star saturation (a longer sub would clip the stars)',
-  floor: 'the 15 s floor (overhead makes shorter subs wasteful)',
-  'count-cap': 'the limit on the number of subs (a longer sub keeps the count down)',
+  'read-noise': 'sky and read noise',
+  'risk-cap': 'the risk cap',
+  saturation: 'star saturation',
+  floor: 'the 15 s floor',
+  'count-cap': 'the limit on subs',
   user: 'your choice',
 };
 const TOTAL_LIMIT: Record<ExposureResult['limitedBy']['total'], string> = {
-  'snr-target': 'the preset’s signal-to-noise target',
-  'diminishing-returns': 'diminishing returns (another half hour adds too little)',
+  'snr-target': 'the signal-to-noise target',
+  'diminishing-returns': 'diminishing returns',
   'minimum-total': 'the 30 minute minimum',
-  'usable-window': 'the time the target is usable on this night',
-  'count-cap': `the limit of ${MAX_SUBS} subs (more light would need more subs than a plan holds)`,
+  'usable-window': 'the usable time tonight',
+  'count-cap': `the limit of ${MAX_SUBS} subs`,
   user: 'your choice',
 };
 const GO_LABEL = { date: 'Change the date', train: 'Change the setup', filter: 'Change the filter' } as const;
@@ -59,7 +59,6 @@ export interface PlanRowExposureProps {
   name: string;
   preset: PlanPreset;
   view: RowExposure;
-  formatTime: (d: Date) => string;
   /** This object's saved favorite, or null. */
   favorite: Favorite | null;
   /** Why saving favorites is off (a held store), or null. */
@@ -78,11 +77,11 @@ export interface PlanRowExposureProps {
 }
 
 /**
- * The exposure of one deep-sky row of the plan: the preset choice, what the engine computes for it (sub length, subs, light, elapsed, finish),
- * the Custom edit with its words and "Back to <preset>", the warnings to act on, the folds ("Why these numbers": limits, range, stop point,
+ * The exposure of one deep-sky row of the plan: the preset choice, what the engine computes for it (sub length, subs, light, elapsed),
+ * the Custom edit with "Back to <preset>", the warnings to act on, the fold ("How this is worked out": limits, range, stop point,
  * notes, a three-column preset comparison, what more time buys and the inputs), and the row's favorite.
  */
-export default function PlanRowExposure({ id, name, preset, view, formatTime, favorite, favoritesBlocked, prompt, onPreset, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow, onGoTo }: PlanRowExposureProps) {
+export default function PlanRowExposure({ id, name, preset, view, favorite, favoritesBlocked, prompt, onPreset, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow, onGoTo }: PlanRowExposureProps) {
   // What is typed in a box until it is applied (Enter or leaving the box); a box that is not being edited shows the stored number.
   const [draft, setDraft] = useState<{ subSeconds?: string; subCount?: string }>({});
   const [errors, setErrors] = useState<{ subSeconds?: string; subCount?: string }>({});
@@ -157,7 +156,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
   const refuse = unusable !== null || noSubs;
   const split = chosen === null ? null : splitWarnings(chosen.warnings);
   const dropFavoriteFocus = () => requestAnimationFrame(() => document.getElementById(`plan-fav-${id}`)?.focus());
-  const summary = favorite === null ? '' : exposureSummary(favorite);
+  const figure = (f: { subSeconds: number; subCount: number }) => `${f.subSeconds} s × ${f.subCount}`;
   // A favorite saved under older limits stays saved but is not offered: the row says why.
   const favoriteUnusable = favorite === null ? null : favoriteProblem(favorite);
   const differsFromFavorite =
@@ -204,12 +203,11 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
           )}
           <p className="text-sm font-normal text-p-t1/90" data-testid={`plan-numbers-${id}`}>
             <span data-testid="plan-figure" className="block font-medium text-p-t1/90">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
-            <span className="sr-only"> · </span>{chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} of light · {minutesText(chosen.elapsedMin)} with setup and overhead
-            {chosen.finish !== null && <> · finish about {formatTime(chosen.finish)} if it starts when the target is up</>}
+            <span className="sr-only"> · </span>{chosen.integrationMin === 0 && chosen.subCount > 0 ? 'under 1 min' : minutesText(chosen.integrationMin)} light · {minutesText(chosen.elapsedMin)} total
           </p>
           {preset === 'custom' && base !== null && (
             <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-custom-${id}`}>
-              <span>{unusable === null ? differsText(chosen) : 'Custom: not used on this night.'}</span>
+              <span>{unusable === null ? differsText(chosen) : 'Custom: not used tonight.'}</span>
               <button type="button" className={btn} onClick={() => { clear(); onBack(); requestAnimationFrame(() => document.getElementById(`plan-preset-${id}-${base}`)?.focus()); }}>
                 Back to {presetLabel(base)}
               </button>
@@ -219,14 +217,13 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       )}
 
       {split?.act.map((w) => {
-        const a = ACT_ON[w.code];
+        const to = ACT_ON[w.code];
         return (
           <div key={w.code} className="rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-sm font-normal text-p-t1/90" data-testid={`plan-warning-${id}`}>
             <p><span className="p-chip-plain mr-2 rounded bg-p-warn/30 px-1.5 py-0.5 text-sm text-p-t1">Warning</span>{w.text}</p>
-            <p className="mt-1">What to change: {a.change}</p>
-            {a.to.length > 0 && (
+            {to.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-2">
-                {a.to.map((c) => (
+                {to.map((c) => (
                   <button key={c} type="button" className={btn} onClick={() => onGoTo(c)}>{GO_LABEL[c]}</button>
                 ))}
               </div>
@@ -236,27 +233,28 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       })}
 
       {chosen !== null && ok !== null && split !== null && (
-        <Fold id={`plan-why-${id}`} title="Why these numbers">
+        <Fold id={`plan-why-${id}`} title="How this is worked out">
           <div className="space-y-1 text-sm font-normal text-p-t1/90">
-            <p>Sub length is held by {SUB_LIMIT[chosen.limitedBy.sub]}. Total light is held by {TOTAL_LIMIT[chosen.limitedBy.total]}.</p>
-            <p>Range: subs of {chosen.subSecondsRange[0]} to {chosen.subSecondsRange[1]} s; total light {minutesText(chosen.modeRangeMin[0])} to {minutesText(chosen.modeRangeMin[1])}; about {minutesText(chosen.usableIntegrationRangeMin[0])} to {minutesText(chosen.usableIntegrationRangeMin[1])} usable after clouds, trails and rejected frames.</p>
+            <p>Sub length set by {SUB_LIMIT[chosen.limitedBy.sub]}; light by {TOTAL_LIMIT[chosen.limitedBy.total]}.</p>
+            <p>Range: subs {chosen.subSecondsRange[0]} to {chosen.subSecondsRange[1]} s; light {minutesText(chosen.modeRangeMin[0])} to {minutesText(chosen.modeRangeMin[1])}.</p>
             <p>
-              Stop point {minutesText(chosen.knee.minutes)}, set by {chosen.knee.setBy === 'snr-target' ? 'the signal-to-noise target' : 'diminishing returns'}: the target needs {needText(chosen.knee.snrTimeMin)}, and another half hour adds too little after {minutesText(chosen.knee.marginalMin)}.
-              Surface brightness {chosen.knee.surfaceBrightnessMu.toFixed(1)} mag per square arcsecond ({chosen.knee.surfaceBrightnessFrom === 'catalog' ? 'the catalog’s number' : chosen.knee.surfaceBrightnessFrom === 'class' ? 'a stand-in for its class' : 'assumed medium'}).
+              Stop point {minutesText(chosen.knee.minutes)}; target needs {needText(chosen.knee.snrTimeMin)}.
+              Surface brightness {chosen.knee.surfaceBrightnessMu.toFixed(1)} ({chosen.knee.surfaceBrightnessFrom === 'catalog' ? 'catalog' : chosen.knee.surfaceBrightnessFrom === 'class' ? 'class stand-in' : 'assumed'}).
             </p>
-            <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}% to the noise at this sub length. Dither every {chosen.ditherEveryFrames} subs. {chosen.filterNote} {chosen.gain.note}</p>
-            <p className="text-sm text-p-t1/70">Every number is an estimate, computed by the planner from the sky, optics and camera.</p>
-            <Fold id={`plan-notes-${id}`} title={`Notes (${split.notes.length})`} level={1}>
-              {split.notes.length === 0 ? (
-                <p>No notes for this target.</p>
-              ) : (
+            <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}%. Dither every {chosen.ditherEveryFrames} subs.</p>
+            {chosen.warnings.filter((w) => w.detail !== undefined).map((w, i) => (
+              <p key={`${w.code}-${i}`} data-testid={`plan-warning-detail-${id}`}>{w.detail}</p>
+            ))}
+            <p className="text-sm text-p-t1/70">All numbers are estimates.</p>
+            {split.notes.length > 0 && (
+              <Fold id={`plan-notes-${id}`} title={`Notes (${split.notes.length})`} level={1}>
                 <ul className="list-disc space-y-1 pl-5">
                   {split.notes.map((n, i) => (
                     <li key={`${n.code}-${i}`}>{n.severity === 'warning' ? 'Warning: ' : ''}{n.text}</li>
                   ))}
                 </ul>
-              )}
-            </Fold>
+              </Fold>
+            )}
             <Fold id={`plan-compare-${id}`} title="Compare presets" level={1}>
               <table className="w-full table-fixed text-left text-sm font-normal text-p-t1/90 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
                 <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
@@ -276,7 +274,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
                 </tbody>
               </table>
             </Fold>
-            <Fold id={`plan-buys-${id}`} title="What more time buys and the inputs used" level={1}>
+            <Fold id={`plan-buys-${id}`} title="More time" level={1}>
               <table className="w-full table-fixed text-left text-sm font-normal text-p-t1/90 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
                 <caption className="sr-only">What more light buys for {name}, sky-limited</caption>
                 <thead>
@@ -301,12 +299,12 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
 
       {favorite !== null && favoriteUnusable !== null && (
         <p className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-unusable-${id}`}>
-          Your saved exposure for this object ({summary}) cannot be used: {favoriteUnusable}. It stays saved; save new numbers to replace it, or remove it.
+          Your favorite cannot be used: {favoriteUnusable}.
         </p>
       )}
       {prompt === 'ask' && favorite !== null && favoriteUnusable === null && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-ask-${id}`}>
-          <span>You saved an exposure for this object: {summary}. Restore favorite?</span>
+          <span>Restore your favorite ({figure(favorite)})?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { onRestore(); dropFavoriteFocus(); }}>Restore</button>
             <button type="button" className={btn} onClick={() => { onNotNow(); dropFavoriteFocus(); }}>Not now</button>
@@ -315,7 +313,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       )}
       {prompt === 'restored' && favorite !== null && favoriteUnusable === null && (
         <p className="text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-restored-${id}`}>
-          Your saved exposure for this object was restored automatically: {summary}.
+          Restored your favorite: {figure(favorite)}.
         </p>
       )}
 
@@ -340,7 +338,6 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
           />
           <span>Save as favorite</span>
         </label>
-        {favorite !== null && <span className="rounded border border-p-line/20 px-1.5 py-0.5 text-sm font-normal text-p-t1/80">Favorite saved</span>}
         {favorite !== null && differsFromFavorite && favoritesBlocked === null && prompt !== 'ask' && !confirmUpdate && (
           <button type="button" className={btn} onClick={() => { setConfirmRemove(false); if (refuse) setRefusedFavorite(true); else setConfirmUpdate(true); }}>Update favorite to these numbers</button>
         )}
@@ -348,14 +345,14 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       {refusedFavorite && refuse && (
         <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-refused-${id}`}>
           {unusable !== null
-            ? 'The favorite was not saved: your custom numbers do not work on this night. Change the sub length or the number of subs, or go back to the preset.'
-            : 'The favorite was not saved: this night gives no subs for this target. Pick another night or target.'}
+            ? 'Not saved: your custom numbers do not work tonight.'
+            : 'Not saved: no subs fit this target tonight.'}
         </p>
       )}
       {favoritesBlocked !== null && <p className="text-sm font-normal text-p-warn-text" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
       {confirmUpdate && favorite !== null && differsFromFavorite && prompt !== 'ask' && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-update-confirm-${id}`}>
-          <span>Replace the favorite for {name} ({summary}) with {exposureSummary({ preset, ...(base !== null && preset === 'custom' ? { base } : {}), subSeconds: chosen?.subSeconds ?? 0, subCount: chosen?.subCount ?? 0 })}?</span>
+          <span>Replace the favorite with {figure({ subSeconds: chosen?.subSeconds ?? 0, subCount: chosen?.subCount ?? 0 })}?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { setConfirmUpdate(false); onSaveFavorite(); dropFavoriteFocus(); }}>Update favorite</button>
             <button type="button" className={btn} onClick={() => { setConfirmUpdate(false); dropFavoriteFocus(); }}>Keep the old one</button>
@@ -364,7 +361,7 @@ export default function PlanRowExposure({ id, name, preset, view, formatTime, fa
       )}
       {confirmRemove && favorite !== null && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1/90" data-testid={`plan-favorite-confirm-${id}`}>
-          <span>Remove the favorite exposure for {name}? Only this favorite is removed.</span>
+          <span>Remove the favorite for {name}?</span>
           <span className="flex gap-2">
             <button type="button" className={btn} onClick={() => { setConfirmRemove(false); onRemoveFavorite(); dropFavoriteFocus(); }}>Remove favorite</button>
             <button type="button" className={btn} onClick={() => { setConfirmRemove(false); dropFavoriteFocus(); }}>Keep it</button>

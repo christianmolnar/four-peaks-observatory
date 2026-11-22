@@ -1,5 +1,5 @@
 import { MAX_SUBS, MAX_SUB_S } from '@/planner/exposure';
-import { checkNumber, choiceOf, differsText, exposureSummary, minutesText, rowExposure, splitWarnings, withNumber, withPreset } from './rowExposure';
+import { checkNumber, choiceOf, differsText, minutesText, rowExposure, splitWarnings, withNumber, withPreset } from './rowExposure';
 import type { SlotInput } from '@/planner/itinerary';
 import type { PlanEntry } from '@/planner/plan';
 import type { ProfileFilter } from '@/planner/profile';
@@ -69,11 +69,10 @@ describe('words', () => {
   const result = (mode: 'balanced' | 'deep', custom: boolean, fields: ('subSeconds' | 'subCount' | 'totalMin')[]) =>
     ({ mode, custom, differs: fields.map((field) => ({ field, preset: 1, chosen: 2 })) }) as unknown as ExposureResult;
 
-  it('says in words how Custom differs from its preset', () => {
-    expect(differsText(result('balanced', true, ['subSeconds']))).toBe('Custom: differs from Balanced in sub length.');
-    expect(differsText(result('deep', true, ['subSeconds', 'subCount']))).toBe('Custom: differs from Deep in sub length and number of subs.');
-    expect(differsText(result('balanced', true, ['subSeconds', 'subCount', 'totalMin']))).toBe('Custom: differs from Balanced in sub length, number of subs and total light.');
-    expect(differsText(result('balanced', false, []))).toBe('Custom: same as Balanced so far.');
+  it('says Custom, or that it is the same as the preset while no number differs', () => {
+    expect(differsText(result('balanced', true, ['subSeconds']))).toBe('Custom.');
+    expect(differsText(result('deep', true, ['subSeconds', 'subCount']))).toBe('Custom.');
+    expect(differsText(result('balanced', false, []))).toBe('Custom: same as Balanced.');
   });
 
   it('splits the nine act-on codes from the notes', () => {
@@ -83,10 +82,8 @@ describe('words', () => {
     expect(notes.map((x) => x.code)).toEqual(['inputs-assumed', 'sampling', 'short-of-target']);
   });
 
-  it('formats minutes and a saved exposure', () => {
+  it('formats minutes', () => {
     expect([minutesText(45), minutesText(60), minutesText(80), minutesText(125)]).toEqual(['45 min', '1 h', '1 h 20 min', '2 h 5 min']);
-    expect(exposureSummary({ preset: 'deep', subSeconds: 120, subCount: 30 })).toBe('Deep, 120 s × 30 (1 h)');
-    expect(exposureSummary({ preset: 'custom', base: 'quick', subSeconds: 90, subCount: 20 })).toBe('Custom (from Quick), 90 s × 20 (30 min)');
   });
 });
 

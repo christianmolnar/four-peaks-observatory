@@ -1672,7 +1672,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             name={name}
             preset={ref.preset}
             view={view}
-            formatTime={formatTime}
             favorite={fav}
             favoritesBlocked={favs.blocked}
             prompt={ref.favorite ?? null}

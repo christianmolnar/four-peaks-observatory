@@ -159,7 +159,7 @@ describe('a custom that is not used says why, in the open plan and in the shared
   it('the open plan\'s row warning is exported with the reason, and the sheet shows no 999 s number', async () => {
     await mount([{ id: 'm42', preset: 'custom', base: 'balanced', custom: { subSeconds: 999, subCount: 50 } }]);
     const onScreen = screen.getByTestId(/^plan-custom-unusable-/).textContent!;
-    expect(onScreen).toMatch(/do not work on this night/);
+    expect(onScreen).toMatch(/^Custom sub is over 300 s\. Balanced is used instead\./);
     openSheet();
     expect(text()).toContain('Balanced (custom not used)');
     expect(text()).toContain(onScreen);

@@ -30,7 +30,7 @@ const subBox = () => screen.getByLabelText(`Exposure per shot (seconds) for ${NA
 const countBox = () => screen.getByLabelText(`Number of shots for ${NAME}`) as HTMLInputElement;
 const numbers = () => screen.getByTestId('plan-numbers-m31').textContent ?? '';
 const parse = (text: string) => {
-  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) of light/.exec(text);
+  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) light/.exec(text);
   if (!m) throw new Error(`not a numbers line: ${text}`);
   return { sub: Number(m[1]), subs: Number(m[2]), light: m[3] };
 };
@@ -221,7 +221,7 @@ describe('favorites on the row', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update favorite to these numbers' }));
     expect(storedFavorites()[0]).toEqual(old); // not yet
     const ask = screen.getByTestId('plan-favorite-update-confirm-m31');
-    expect(ask.textContent).toMatch(/Replace the favorite for Andromeda Galaxy/);
+    expect(ask.textContent).toMatch(/^Replace the favorite with \d+ s × \d+\?/);
     fireEvent.click(within(ask).getByRole('button', { name: 'Keep the old one' }));
     expect(storedFavorites()[0]).toEqual(old);
     expect(screen.queryByTestId('plan-favorite-update-confirm-m31')).toBeNull();

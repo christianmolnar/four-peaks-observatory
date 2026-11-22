@@ -37,7 +37,7 @@ const open = (id: string) => {
   if (fold(id).getAttribute('aria-expanded') === 'false') fireEvent.click(fold(id));
 };
 const body = (id: string) => screen.getByTestId(`plan-mix-${id}`).textContent ?? '';
-const light = (id: string) => /· (.+?) of light ·/.exec(screen.getByTestId(`plan-numbers-${id}`).textContent ?? '')![1];
+const light = (id: string) => /· (.+?) light ·/.exec(screen.getByTestId(`plan-numbers-${id}`).textContent ?? '')![1];
 
 beforeAll(() => {
   const w = window as unknown as { CSS?: { escape?: (s: string) => string } };

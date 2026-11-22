@@ -220,6 +220,6 @@ describe('mode chips and the row figure', () => {
     expect(figure.textContent).toMatch(/^\d+ s × \d+ subs?$/);
     expect(figure.className).toContain('block');
     expect(numbers.firstElementChild).toBe(figure);
-    expect(numbers.textContent).toMatch(/of light · .* with setup and overhead/);
+    expect(numbers.textContent).toMatch(/ light · .* total$/);
   });
 });
