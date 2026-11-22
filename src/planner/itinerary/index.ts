@@ -194,8 +194,8 @@ export interface ItineraryPlan {
   /** Plain words when the time asked for was moved or leaves no night; null otherwise. */
   startNote: string | null;
   slots: Slot[];
-  /** One sentence on why the slots are in this order. */
-  why: string;
+  /** One sentence when the slots are in an order that opens a later target first; null otherwise. */
+  why: string | null;
   totals: { integrationMin: number; changeoverMin: number; waitMin: number; filterChanges: number; trainChanges: number; ends: Date | null };
 }
 
@@ -216,13 +216,8 @@ export interface BuildInput {
 /** The sentences of the slot warnings, in one place so the page can reserve room for the longest of each. */
 export const WARNING_TEXT = {
   waits: (name: string, waitMin: number, opens: string): string => `Waits ${waitMin} min for ${name} to clear the horizon (its window opens ${opens}).`,
-  overlap: (name: string, prevEnds: string, lateMin: number, opened: string, closes: string): string =>
-    `Overlaps its usable window: the slot before ends ${prevEnds}, ${lateMin} min after ${name}'s window opened (${opened}), and the window closes ${closes}.`,
-  cutShort: (closes: string, lightMin: number, aimLow: number, aimHigh: number, later?: { opens: string; closes: string; lightMin: number }): string =>
-    `The window closes ${closes}, so light is cut to ${lightMin} min (the mode aims for ${aimLow} to ${aimHigh}).` +
-    (later
-      ? ` A later window, ${later.opens} to ${later.closes}, would give ${later.lightMin} min${later.lightMin < aimLow ? `, still under the ${aimLow} the mode needs` : ''}; the slot keeps this one.`
-      : ''),
+  overlap: (name: string, lateMin: number, opened: string, closes: string): string => `Starts ${lateMin} min late; ${name}'s window opened ${opened}, closes ${closes}.`,
+  cutShort: (closes: string, lightMin: number, aimLow: number, aimHigh: number): string => `Window closes ${closes}: light cut to ${lightMin} min (aim ${aimLow} to ${aimHigh}).`,
   planetCut: (closes: string, minutes: number): string => {
     // 19.7 rounds to the planned 20: say "just under" then, so "cut to 20 (planned 20)" never appears.
     const shown = round(minutes) >= PLANET_SLOT_MIN ? `just under ${PLANET_SLOT_MIN}` : round(minutes);
@@ -230,22 +225,21 @@ export const WARNING_TEXT = {
   },
   flip: (name: string, flipMin: number): string => `${name} crosses the meridian during this slot: a flip adds ${flipMin} min.`,
   /** The slot sits in a later window because the planet is higher there, not because the earlier one was not clear. */
-  planetWaitsHigher: (name: string, waitMin: number, opens: string): string => `Waits ${waitMin} min for ${name}'s window that opens ${opens}: the planet is higher there than in the earlier window.`,
-  planetWaits: (name: string, waitMin: number, highest: string): string => `Waits ${waitMin} min so the slot is centred on ${name}'s highest point (${highest}), not on the moment its window opens.`,
+  planetWaitsHigher: (name: string, waitMin: number, opens: string): string => `Waits ${waitMin} min: ${name} is higher in the window that opens ${opens}.`,
+  planetWaits: (name: string, waitMin: number, highest: string): string => `Waits ${waitMin} min for ${name}'s highest point (${highest}).`,
   /** The slot is as high as it gets in its window, but the night's peak is not inside it. */
-  planetWaitsClamped: (name: string, waitMin: number, at: string): string => `Waits ${waitMin} min so the slot is at the highest ${name} reaches in this window (${at}), not on the moment its window opens.`,
-  laterWindow: (name: string, firstOpens: string, firstCloses: string, firstLightMin: number, waitMin: number, opens: string, closes: string): string =>
-    `Skips its short first window (${firstOpens} to ${firstCloses}, ${firstLightMin} min of light) and waits ${waitMin} min for the window ${opens} to ${closes}, which suits the mode better.`,
-  noTimeNever: (name: string): string => `No usable time left for ${name}: its window never opens.`,
+  planetWaitsClamped: (name: string, waitMin: number, at: string): string => `Waits ${waitMin} min for ${name}'s highest point in this window (${at}).`,
+  laterWindow: (waitMin: number, opens: string, closes: string): string => `Waits ${waitMin} min for the better window, ${opens} to ${closes}.`,
+  noTimeNever: (name: string): string => `No time left for ${name}: its window never opens.`,
   /** Nothing ran before: the window closes as the night starts. */
-  noTimeAtStart: (name: string, closedAt: string, nightStart: string): string => `No usable time left for ${name}: its window closes at ${closedAt}, as the night starts (${nightStart}).`,
+  noTimeAtStart: (name: string, closedAt: string, nightStart: string): string => `No time left for ${name}: its window closes ${closedAt}, as the night starts (${nightStart}).`,
   /** Nothing ran before, and the start time you gave is after the window closed. */
-  noTimeBeforeStart: (name: string, closedAt: string, startTime: string): string => `No usable time left for ${name}: its window closes at ${closedAt}, before your start time (${startTime}).`,
+  noTimeBeforeStart: (name: string, closedAt: string, startTime: string): string => `No time left for ${name}: its window closes ${closedAt}, before your start time (${startTime}).`,
   /** The slots before were still running when the window closed. */
-  noTimeSlots: (name: string, closedAt: string, slotsEnd: string): string => `No usable time left for ${name}: its window closed at ${closedAt}, and the slots before end ${slotsEnd}.`,
+  noTimeSlots: (name: string, closedAt: string, slotsEnd: string): string => `No time left for ${name}: its window closed ${closedAt}; earlier slots end ${slotsEnd}.`,
   /** The slots before ended in time; the changeover after them ran past the close. */
-  noTimeChangeover: (name: string, closedAt: string, slotsEnd: string, changeover: string, minutes: number, changeoverEnds: string): string =>
-    `No usable time left for ${name}: its window closed at ${closedAt}. The slots before end ${slotsEnd}, then the changeover (${changeover}; ${minutes} min in all) runs to ${changeoverEnds}, after the window closed.`,
+  noTimeChangeover: (name: string, closedAt: string, slotsEnd: string, changeoverEnds: string): string =>
+    `No time left for ${name}: its window closed ${closedAt}; earlier slots end ${slotsEnd}, then the changeover runs to ${changeoverEnds}.`,
   lowStart: (altitude: number, direction: string, limit: number): string => `Starts at ${altitude}° ${direction}, under the limit of ${limit}° there.`,
   lowEnd: (altitude: number, direction: string, limit: number): string => `Ends at ${altitude}° ${direction}, under the limit of ${limit}° there.`,
   startBeforeNight: (nightStart: string): string => `Your start time is before the night: imaging begins when the night starts, ${nightStart}.`,
@@ -255,11 +249,12 @@ export const WARNING_TEXT = {
 
 /** The longest each warning text can be for a target called `name` (times as 88:88, minutes as 888): what the page reserves. */
 export function worstCaseWarningTexts(name: string): { severity: 'warning' | 'note'; label: string; text: string }[] {
+  const longest = (texts: string[]): string => texts.reduce((a, b) => (b.length > a.length ? b : a));
   return [
-    { severity: 'warning', label: 'Overlaps window', text: WARNING_TEXT.overlap(name, '88:88', 888, '88:88', '88:88') },
-    { severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort('88:88', 888, 888, 888, { opens: '88:88', closes: '88:88', lightMin: 888 }) },
+    { severity: 'warning', label: 'Overlaps window', text: WARNING_TEXT.overlap(name, 888, '88:88', '88:88') },
+    { severity: 'note', label: 'Cut short', text: longest([WARNING_TEXT.cutShort('88:88', 888, 888, 888), WARNING_TEXT.planetCut('88:88', 888)]) },
     { severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(name, 88) },
-    { severity: 'note', label: 'Waits', text: WARNING_TEXT.laterWindow(name, '88:88', '88:88', 888, 888, '88:88', '88:88') },
+    { severity: 'note', label: 'Waits', text: longest([WARNING_TEXT.laterWindow(888, '88:88', '88:88'), WARNING_TEXT.waits(name, 888, '88:88'), WARNING_TEXT.planetWaits(name, 888, '88:88'), WARNING_TEXT.planetWaitsClamped(name, 888, '88:88'), WARNING_TEXT.planetWaitsHigher(name, 888, '88:88')]) },
     { severity: 'warning', label: 'Low start', text: WARNING_TEXT.lowStart(88, 'NW', 88) },
   ];
 }
@@ -537,7 +532,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
           code: 'waits',
           severity: 'note',
           label: 'Waits',
-          text: WARNING_TEXT.laterWindow(si.name, formatTime(skipped.w.start), formatTime(skipped.w.end), round(skipped.integrationMin), round(waitMin), formatTime(w.start), formatTime(w.end)),
+          text: WARNING_TEXT.laterWindow(round(waitMin), formatTime(w.start), formatTime(w.end)),
         });
       } else if (waitMin > EDGE_TOLERANCE_MIN) {
         warnings.push({
@@ -559,7 +554,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
           code: 'overlap',
           severity: 'warning',
           label: 'Overlaps window',
-          text: WARNING_TEXT.overlap(si.name, formatTime(cursor), round(delayedMin), formatTime(w.start), formatTime(w.end)),
+          text: WARNING_TEXT.overlap(si.name, round(delayedMin), formatTime(w.start), formatTime(w.end)),
         });
       }
       if (source.kind === 'planet') {
@@ -567,15 +562,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
       } else {
         if (chosen.subCount === 0) warnings.push({ code: 'no-time', severity: 'warning', label: 'No time', text: WARNING_TEXT.tooLittle(round(minutesBetween(chosen.start, w.end)), si.name) });
         if (chosen.cut && chosen.aim) {
-          // A later window that would give more light, taken or not, is named.
-          let better: Attempt | null = null;
-          for (const other of fitting) {
-            if (other.start.getTime() <= w.start.getTime()) continue;
-            const a = attemptIn(other);
-            if (!a.unplannable && a.integrationMin > chosen.integrationMin && (!better || a.integrationMin > better.integrationMin)) better = a;
-          }
-          const later = better ? { opens: formatTime(better.w.start), closes: formatTime(better.w.end), lightMin: round(better.integrationMin) } : undefined;
-          warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), chosen.integrationMin, chosen.aim[0], chosen.aim[1], later) });
+          warnings.push({ code: 'cut-short', severity: 'note', label: 'Cut short', text: WARNING_TEXT.cutShort(formatTime(w.end), chosen.integrationMin, chosen.aim[0], chosen.aim[1]) });
         }
       }
       if (chosen.flipMin > 0) warnings.push({ code: 'flip', severity: 'note', label: 'Meridian flip', text: WARNING_TEXT.flip(si.name, chosen.flipMin) });
@@ -655,19 +642,16 @@ function noTimeText(name: string, windows: readonly TimeWindow[], cursor: Date, 
   const closed = windows[windows.length - 1].end;
   if (nothingBefore) return (userStart ? WARNING_TEXT.noTimeBeforeStart : WARNING_TEXT.noTimeAtStart)(name, formatTime(closed), formatTime(cursor));
   if (cursor.getTime() + EDGE_TOLERANCE_MIN * 60000 >= closed.getTime()) return WARNING_TEXT.noTimeSlots(name, formatTime(closed), formatTime(cursor));
-  return WARNING_TEXT.noTimeChangeover(name, formatTime(closed), formatTime(cursor), change.parts.map((p) => `${p.label} ${p.minutes} min`).join(', '), change.minutes, formatTime(earliest));
+  return WARNING_TEXT.noTimeChangeover(name, formatTime(closed), formatTime(cursor), formatTime(earliest));
 }
 
-/** One short sentence on the order. The numbers of changes and waiting are in `totals`, not here, so this stays one line. */
-function whyThisOrder(opens: { name: string; at: Date | null }[], formatTime: (d: Date) => string): string {
-  if (opens.length === 0) return 'Add targets to build a schedule.';
+/** One short sentence when the order the user chose puts a target that opens later before one that opens earlier; null when the order has nothing to warn about. */
+function whyThisOrder(opens: { name: string; at: Date | null }[], formatTime: (d: Date) => string): string | null {
   const timed = opens.filter((o): o is { name: string; at: Date } => o.at !== null);
-  if (timed.length === 0) return opens.length === 1 ? 'The slot has no usable window.' : 'No slot has a usable window.';
-  if (timed.length < 2) return opens.length === 1 ? 'One slot to place.' : `Only ${timed[0].name} has a usable window.`;
   for (let i = 1; i < timed.length; i++) {
     if (timed[i].at.getTime() < timed[i - 1].at.getTime()) {
       return `Your order: ${timed[i].name} opens at ${formatTime(timed[i].at)}, before ${timed[i - 1].name} at ${formatTime(timed[i - 1].at)}.`;
     }
   }
-  return 'Ordered by when each target clears the horizon.';
+  return null;
 }

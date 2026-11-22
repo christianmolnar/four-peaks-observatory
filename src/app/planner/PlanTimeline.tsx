@@ -249,10 +249,12 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
           {plan.startNote}
         </p>
       )}
-      <p className="mt-4 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid="itinerary-why">
-        <span className="text-p-t1/70">Why this order: </span>
-        {plan.why}
-      </p>
+      {plan.why !== null && (
+        <p className="mt-4 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid="itinerary-why">
+          <span className="text-p-t1/70">Why this order: </span>
+          {plan.why}
+        </p>
+      )}
       <p className="text-p-t1/80 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
         {shown.length === 0
           ? 'No slots yet.'

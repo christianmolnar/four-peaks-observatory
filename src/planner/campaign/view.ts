@@ -105,7 +105,7 @@ export function timelinePlanOfNight(night: CampaignNight, items: readonly Itiner
     startsAt: slots[0]?.start ?? new Date(0),
     startNote: null,
     slots,
-    why: '',
+    why: null,
     totals: { integrationMin: slots.reduce((n, s) => n + s.integrationMin, 0), changeoverMin: 0, waitMin: 0, filterChanges: 0, trainChanges: 0, ends: slots.length > 0 ? slots[slots.length - 1].end : null },
   };
 }

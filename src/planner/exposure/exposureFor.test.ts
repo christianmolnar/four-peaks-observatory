@@ -97,7 +97,6 @@ describe('sub length: the clamps', () => {
     const quick = run(nebula(22), r, 6, night(), { preset: 'quick' });
     expect([quick.subSeconds, quick.limitedBy.sub]).toEqual([180, 'risk-cap']);
     expect(quick.readNoisePenalty).toBeCloseTo(0.11, 2);
-    expect(std.warnings.find((w) => w.code === 'sub-capped')!.text).toMatch(/about 419 s; capped at 300 s .* about 7% /);
   });
   it('the Moon shortens the sub-limited length (Bortle 6 broadband f/10: 70 s dark, 23 s with the Moon)', () => {
     const r = rig(TRAINS.f10);
@@ -132,7 +131,6 @@ describe('sub length: the clamps', () => {
     const b6 = at(6, 'balanced');
     expect([b6.subSeconds, b6.limitedBy.sub]).toEqual([15, 'read-noise']);
     expect(at(6, 'deep').subSeconds).toBe(30);
-    expect(codes(b4.warnings)).not.toContain('sub-capped');
   });
   it('HyperStar with an f/2-rated 7+7 nm filter: the 222 s the sky asks for at Bortle 4 is kept (saturation cap about 600 s)', () => {
     const f = { ...bandFilter(14), ratedMinFRatio: 2, narrowestBandNm: 7 };
@@ -371,7 +369,6 @@ describe('surface brightness reaches the exposure advice (review S2)', () => {
     expect(quick(24.6).warnings.find((w) => w.code === 'short-session-faint')!.severity).toBe('warning');
     expect(codes(quick(22.5).warnings)).not.toContain('short-session-faint');
     expect(codes(quick(20.5).warnings)).not.toContain('short-session-faint');
-    expect(codes(quick().warnings)).toContain('short-session-unknown');
     expect(codes(run(src(24.6), rig(TRAINS.f10), 6, night(), { preset: 'balanced' }).warnings)).not.toContain('short-session-faint');
   });
 });
@@ -389,12 +386,9 @@ describe('every warning code is reachable through exposureFor', () => {
     ['target-ou4', () => warnsOf({ id: 'ou4', name: 'Ou4', type: 'nebula', surfaceBrightnessMu: 25 }, rig(TRAINS.f63), night())],
     ['no-usable-time', () => warnsOf(nebula(22), rig(TRAINS.f63), night({ usableMinutes: 0 }))],
     ['limited-by-usable-time', () => warnsOf(nebula(22), rig(TRAINS.f63), night({ usableMinutes: 40 }), { preset: 'deep' })],
-    ['below-mode-range', () => warnsOf(nebula(24), rig(TRAINS.f63), night({ usableMinutes: 40 }), { preset: 'deep' })],
     ['short-session-faint', () => warnsOf(galaxy(24.5), rig(TRAINS.f63), night())],
-    ['short-session-unknown', () => warnsOf({ id: 'x', name: 'x', type: 'galaxy' }, rig(TRAINS.f63), night())],
     ['sb-assumed', () => warnsOf({ id: 'x', name: 'x', type: 'galaxy' }, rig(TRAINS.f63), night())],
     ['short-of-target', () => warnsOf(galaxy(24.5), rig(TRAINS.f63), night(), { preset: 'balanced' })],
-    ['sub-capped', () => warnsOf(nebula(22), rig(TRAINS.f10, bandFilter(50)), night(), { preset: 'balanced' })],
     ['meridian-flip', () => warnsOf(nebula(22), rig(TRAINS.f63), night({ transitTime: new Date(START.getTime() + 20 * 60000) }))],
   ];
   it.each(cases)('%s', (code, make) => expect(make()).toContain(code));
@@ -419,8 +413,8 @@ describe('the short-of-target note', () => {
     const w = note(r)!;
     expect(w.text).toContain('more than 10 hours, beyond one night');
     expect(w.text).not.toMatch(/\d{4}/);
-    expect(w.text).not.toMatch(/narrower filter or/);
-    expect(w.text).toMatch(/narrower filter would not help/);
+    expect(w.detail).not.toMatch(/narrower filter or/);
+    expect(w.detail).toMatch(/narrower filter would not help/);
   });
   it('a galaxy through a dual-band (worse: continuum loses light with the filter) also prints no raw thousands', () => {
     const w = note(run(galaxy(24.17), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' }))!;
@@ -433,19 +427,19 @@ describe('the short-of-target note', () => {
     expect(r.integrationMin).toBe(99);
     expect(r.knee.snrTimeMin).toBeCloseTo(105.4, 0);
     const w = note(r)!;
-    expect(w.text).toContain('would need about 105 minutes');
-    expect(w.text).not.toMatch(/darker sky|narrower filter|no filter/);
+    expect(w.text).toContain('needs about 105 minutes');
+    expect(w.detail).not.toMatch(/darker sky|narrower filter|no filter/);
     expect(codes(r.warnings)).toContain('limited-by-usable-time');
   });
   it('a galaxy through a dual-band is told "no filter", not that a narrower filter would not help', () => {
     const w = note(run(galaxy(24.17), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' }))!;
-    expect(w.text).toMatch(/no filter or a darker sky/);
-    expect(w.text).not.toMatch(/narrower filter/);
+    expect(w.detail).toMatch(/No filter or a darker sky/);
+    expect(w.detail).not.toMatch(/narrower filter/);
   });
   it('an emission nebula may be told a narrower filter helps', () => {
     const w = note(run(nebula(24.5), rig(TRAINS.f63), 6, night(), { preset: 'balanced' }))!;
-    expect(w.text).toMatch(/a narrower filter or a darker sky changes it more than time does/);
-    expect(w.text).not.toMatch(/would not help/);
+    expect(w.detail).toMatch(/A narrower filter or a darker sky helps more than time/);
+    expect(w.detail).not.toMatch(/would not help/);
   });
   it('a count in hours between 2 and 10 hours is printed in hours, one decimal; under 2 hours in minutes', () => {
     expect(needText(90)).toBe('about 90 minutes');
@@ -518,7 +512,7 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
     expect(['risk-cap', 'saturation']).toContain(r.limitedBy.sub); // the sky-limited length is far over the cap
     expect(r.subSeconds).toBeLessThanOrEqual(MAX_SUB_S);
     expect(r.subCount).toBeLessThanOrEqual(MAX_SUBS);
-    expect(codes(r.warnings)).toContain('sub-capped');
+    expect(r.limitedBy.sub).not.toBe('read-noise');
   });
 
   it('a user sub of 1 s with a long window is cut to MAX_SUBS subs and says so', () => {
@@ -551,8 +545,9 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
       expect(capped.text).toBe(`That would need 879 subs; the plan stops at ${MAX_SUBS}, which is 166.7 minutes of light at 20 s (the longest sub before stars or a bright core clip).`);
       expect(capped.text).not.toMatch(/longer subs/i);
       const short = r.warnings.find((w) => w.code === 'short-of-target')!;
-      expect(short.text).toContain(`the plan stops at 166.7 minutes, the most that ${MAX_SUBS} subs of 20 s give.`);
-      expect(short.text).not.toMatch(/pays little|night ends/);
+      expect(short.text).toContain('this stops at 166.7 min');
+      expect(short.detail).toContain(`Stops at the most that ${MAX_SUBS} subs of 20 s give.`);
+      expect(short.detail).not.toMatch(/pays little|night ends/);
       expect(r.warnings.map((w) => w.text).join(' ')).not.toMatch(/diminishing|Use longer subs/);
     }
   });
@@ -589,10 +584,10 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
     expect(r.subCount).toBe(111);
     expect(r.limitedBy).toEqual({ sub: 'read-noise', total: 'usable-window' });
     expect(codes(r.warnings)).not.toContain('count-capped');
-    expect(r.warnings.find((w) => w.code === 'limited-by-usable-time')!.text).toContain('minutes of light, not 293.');
+    expect(r.warnings.find((w) => w.code === 'limited-by-usable-time')!.text).toContain('stops at 55.5, not 293.');
     const short = r.warnings.find((w) => w.code === 'short-of-target')!;
-    expect(short.text).toContain('where the night ends');
-    expect(short.text).not.toMatch(/pays little/);
+    expect(short.detail).toContain('where the night ends');
+    expect(short.detail).not.toMatch(/pays little/);
   });
 
   it('through exposureFor the shorter-sub rule acts and never lengthens a sub past the nearest step to the sky-limited length', () => {

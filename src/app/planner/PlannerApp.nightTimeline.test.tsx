@@ -75,7 +75,7 @@ describe('Night timeline', () => {
     expect(li.textContent).toMatch(/\d\d:\d\d to \d\d:\d\d \(estimate\)/);
     expect(li.textContent).toMatch(/Light: \d+ s x \d+ subs = [\d.]+ min \(estimate\)\./);
     expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light \d+ min, changeover 0 min, waiting 0 min; 0 filter changes, 0 setup changes; ends \d\d:\d\d\. All estimates\.$/);
-    expect(screen.getByTestId('itinerary-why').textContent).toMatch(/Why this order: One slot to place\./);
+    expect(screen.queryByTestId('itinerary-why')).toBeNull();
   });
 
   it('has no Up or Down and no add box: the order is the plan\'s own', async () => {
@@ -101,7 +101,7 @@ describe('Night timeline', () => {
     expect(chips(second)).toMatch(/Note: cut short/);
     await user.click(within(second).getByRole('button', { name: 'Details for Triangulum Galaxy' }));
     const detail = screen.getByTestId('slot-detail');
-    expect(within(detail).getAllByText(/^Overlaps its usable window: the slot before ends \d\d:\d\d, \d+ min after Triangulum Galaxy's window opened \(\d\d:\d\d\), and the window closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
+    expect(within(detail).getAllByText(/^Starts \d+ min late; Triangulum Galaxy's window opened \d\d:\d\d, closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
     expect(detail.textContent).toMatch(/Warning/);
   });
 
@@ -115,7 +115,7 @@ describe('Night timeline', () => {
     expect(chips(second)).toMatch(/Note: waits/);
     expect(chips(second)).not.toMatch(/overlaps window/);
     await user.click(within(second).getByRole('button', { name: 'Details for Orion Nebula' }));
-    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 45 min of light\)/).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Waits \d+ min for the better window, \d\d:\d\d to \d\d:\d\d\./).length).toBeGreaterThan(0);
   });
 
   it('a slot that never runs shows "No imaging is planned" and no "Before it" line', async () => {
