@@ -165,7 +165,7 @@ describe('a stored profile this page cannot load is never written over (round 4)
     pickClass('Filters');
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
     expect(status()).not.toMatch(/Added/);
-    expect(status()).toMatch(/^Not saved: your saved gear is kept as it is/);
+    expect(status()).toMatch(/^Not saved: saved gear is held back/);
     expect(within(screen.getByRole('region', { name: 'GEAR' })).queryAllByRole('alert')).toHaveLength(0); // the page's notice is the one alert
     expect(window.localStorage.getItem(PROFILE_KEY)).toBe(before);
     expect(ownCameraStored()).toBe(true);
@@ -231,7 +231,7 @@ describe('odd stored types read in words (round 4)', () => {
       keep(raw);
       await mount();
       expect(document.body.textContent).not.toMatch(/\[object|NaN|undefined/);
-      expect(screen.getByText(/One saved gear value is not usable \(outside the allowed range or not a number\)/)).toBeTruthy();
+      expect(screen.getByText(/One saved gear value is not usable \(out of range or not a number\)/)).toBeTruthy();
       openGear();
       pickClass('Scopes');
       const flag = screen.getByTestId('gear-flag').textContent!;
@@ -432,7 +432,7 @@ describe('round 5: plain words for a held profile, no false Saved, one message',
       fireEvent.change(document.getElementById(`${id}-number`) as HTMLInputElement, { target: { value: v } });
     }
     fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
-    const said = document.body.textContent!.split('Another tab changed your gear since this page last looked').length - 1;
+    const said = document.body.textContent!.split('Another tab changed your gear, so your edit was not made').length - 1;
     expect(said).toBe(1);
   });
 

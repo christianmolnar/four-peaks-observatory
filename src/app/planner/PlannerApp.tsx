@@ -157,10 +157,10 @@ interface Held {
 }
 
 const HELD_TITLE: Record<Held['why'], string> = {
-  newer: 'Your saved plans were made by a newer version of the planner.',
-  nocopy: 'Your saved plans could not be read whole, and a copy of them could not be kept first.',
-  othertab: 'Another tab saved plans this page cannot use as they are.',
-  edited: 'Another tab saved plans, so what you changed here is not saved.',
+  newer: 'Saved plans are from a newer planner.',
+  nocopy: 'Saved plans could not be read or copied.',
+  othertab: 'Another tab saved plans this page cannot use.',
+  edited: 'This page keeps the other tab\u2019s saved plans, so your change here is not saved.',
 };
 
 /** Where the copies are, in words: the name of the one just kept and how many are in this browser. */
@@ -182,10 +182,10 @@ function readPlansText(): string | null {
 class StaleGearError extends Error {}
 
 /** Why a gear edit is refused while the saved gear could not be loaded. */
-const HELD_REFUSAL = 'Not saved: your saved gear is kept as it is (see the notice at the top).';
+const HELD_REFUSAL = 'Not saved: saved gear is held back (see the top notice).';
 
 /** What the page says when another tab has reset the saved data. */
-const RESET_ELSEWHERE = 'The plans were reset in another tab; this page starts fresh too.';
+const RESET_ELSEWHERE = 'Plans were reset in another tab; this page starts fresh.';
 
 /** Above this share of the Moon lit at mid-night, the list says so in words. */
 const BRIGHT_MOON = 0.8;
@@ -493,7 +493,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const flagged = gearProblems(r.profile).length;
       const sites = siteProblems(r.profile);
       const said = [
-        flagged > 0 ? `${flagged === 1 ? 'One saved gear value is' : `${flagged} saved gear values are`} not usable (outside the allowed range or not a number), so the planner does not use ${flagged === 1 ? 'it' : 'them'}. Open Gear to change ${flagged === 1 ? 'it' : 'them'}.` : '',
+        flagged > 0 ? `${flagged === 1 ? 'One saved gear value is' : `${flagged} saved gear values are`} not usable (out of range or not a number), so the planner ignores ${flagged === 1 ? 'it' : 'them'}. Open Gear to change ${flagged === 1 ? 'it' : 'them'}.` : '',
         ...sites.map((x) => `Site "${x.siteName}": ${problemText(x, 'this site')} Open Gear, Sites to change it.`),
       ].filter((x) => x !== '');
       if (said.length > 0) setNotice(said.join(' '));
@@ -529,7 +529,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           // cannot be made (the write fails), the text is held like a newer version's: not written over until the user chooses.
           try {
             const key = keepCopy(window.localStorage, r.unusable.text);
-            copySaid = `A copy of the saved plans as they were is kept ${backupWhere(key)}.`;
+            copySaid = `A copy of the saved plans is kept ${backupWhere(key)}.`;
           } catch (e) {
             held = { text: r.unusable.text, why: 'nocopy', detail: (e as Error).message };
           }
@@ -564,13 +564,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             if (migrated !== null) savePlans(window.localStorage, state);
             saved = true;
           } catch (e) {
-            said.push(`Your plan was carried over but could not be saved: ${(e as Error).message}. It stays in this browser and is carried over again next time.`);
+            said.push(`Your plan was carried over but not saved: ${(e as Error).message}. It is carried over again next time.`);
           }
           if (saved) {
             try {
               clearOldPlanKeys(window.localStorage, clear);
             } catch (e) {
-              said.push(`Your plan was saved, but ${(e as Error).message}. The saved plan is used from now on.`);
+              said.push(`Your plan was saved, but ${(e as Error).message}.`);
             }
           }
         }
@@ -650,7 +650,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return true;
     } catch (e) {
       if (!(e instanceof ProfileError)) throw e;
-      setNotice('Another tab saved gear this page cannot read. This page keeps what it has and will not save over it. Reload to see it.');
+      setNotice('Another tab saved gear this page cannot read. Reload to see it.');
       return false;
     }
   };
@@ -660,7 +660,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const stored = readProfileText();
     if (stored !== null && stored !== profileText.current) {
       if (adoptProfile(stored)) {
-        throw new StaleGearError('Another tab changed your gear since this page last looked, so your last edit was not made. Make it again.');
+        throw new StaleGearError('Another tab changed your gear, so your edit was not made. Make it again.');
       }
       throw new StaleGearError('Not saved: another tab saved gear this page cannot read. Reload the page.');
     }
@@ -701,7 +701,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const text = readPlansText();
       if (text === null && savedText.current !== null) {
         loadAll(RESET_ELSEWHERE);
-        sayPlans(['Your last change was not made: the plans on this page were gone from this browser.']);
+        sayPlans(['Not saved: the plans were removed from this browser. Reload.']);
         return false;
       }
       if (text !== null && text !== savedText.current) {
@@ -727,7 +727,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (to && siteOf(prev)?.id !== to.id) loadForm(to.blockedArcs, false);
     if (heldRef.current !== null) {
       heldEdited.current = true;
-      setNotice('Not saved: the saved plans are left untouched. Use "Replace the saved plans" to save from here.');
+      setNotice('Not saved: saved plans are held back. Use "Replace the saved plans".');
       return true;
     }
     try {
@@ -767,7 +767,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (wasHeld) {
       heldRef.current = null;
       setHeldPlans(null);
-      sayPlans(['Another tab saved plans. This page now shows them and saves again.']);
+      sayPlans(['Another tab saved plans. This page shows them.']);
     }
   };
   // Another tab saved plans: this tab shows them (its own open plan stays open). Kept in a ref so the one listener reads this render's profile.
@@ -827,7 +827,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       if (m.cut.length > 0) cutNames(m.cut);
       if (m.plan !== null) {
         target = withMigratedPlan(st, m.plan);
-        said.push('Your old plan and night timeline from before plans were carried over as one more plan.');
+        said.push('Your old plan and night timeline are now one more plan.');
       }
       clear = m.clear;
       savePlans(window.localStorage, target);
@@ -1207,7 +1207,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     try {
       saveSelection(window.localStorage, { siteId: nextSiteId, trainId: nextTrainId, typeId: nextType, alwaysRestore: nextAlways });
     } catch (e) {
-      setNotice(`Site, train, type and settings choice not saved, so it is lost on reload: ${(e as Error).message}`);
+      setNotice(`Choice not saved, so reload loses it: ${(e as Error).message}`);
     }
   };
 
@@ -1324,7 +1324,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     heldRef.current = null;
     heldEdited.current = false;
     setHeldPlans(null);
-    setPlanMessages(failed.length > 0 ? [`Reset did not finish: could not clear ${failed.join(', ')}. It is still stored in this browser.`] : []);
+    setPlanMessages(failed.length > 0 ? [`Reset did not finish: could not clear ${failed.join(', ')}. Try again.`] : []);
     setPlans(fresh);
     setType('all');
     setAlwaysRestore(false);
@@ -1379,7 +1379,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const addToPlan = (id: string) => {
     if (planIds.includes(id)) return;
     if (planIds.length >= MAX_PLAN_TARGETS) {
-      setNotice(`The plan holds at most ${MAX_PLAN_TARGETS} targets. Remove one to add another.`);
+      setNotice(`The plan is full (${MAX_PLAN_TARGETS} targets). Remove one to add more.`);
       return;
     }
     if (!editOpen({ targets: [...planTargets, newRef(id)] })) return;
@@ -1429,7 +1429,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     // The favorites store accepts the engine's limits (MIN_CUSTOM_SUB_S to MAX_SUB_S, 1 to MAX_SUBS whole subs); a row outside that is refused here, so the store's own check is never reached.
     const { subSeconds, subCount } = view.chosen;
     if (!(subSeconds >= MIN_CUSTOM_SUB_S && subSeconds <= MAX_SUB_S) || !Number.isInteger(subCount) || subCount < 1 || subCount > MAX_SUBS) {
-      setNotice(`The favorite was not saved: a sub is ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} subs.`);
+      setNotice(`The favorite was not saved: a sub must be ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, subs 1 to ${MAX_SUBS}.`);
       return;
     }
     const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';
@@ -1604,7 +1604,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (first && firstTrain) {
       const evening = defaultDateForProfile(new Date(), next);
       if (editOpen({ date: evening, siteId: first.id, trainId: firstTrain.id })) {
-        moved = ` The open plan${open ? ` "${open.name}"` : ''} moved to ${first.name}, ${firstTrain.name}, ${nightDateText(evening)}.${(plans?.plans.length ?? 1) > 1 ? ' Other plans whose site or train is missing use its first.' : ''}`;
+        moved = ` The open plan${open ? ` "${open.name}"` : ''} moved to ${first.name}, ${firstTrain.name}, ${nightDateText(evening)}.${(plans?.plans.length ?? 1) > 1 ? ' Plans missing a site or train use its first.' : ''}`;
       }
     }
     loadForm(next.sites[0]?.blockedArcs ?? [], true);
@@ -1762,7 +1762,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       startsAt: report && report.plan.slots.length > 0 ? formatTime(report.plan.startsAt) : (open?.startTime ?? ''),
       notes: open?.notes ?? '',
       warnings: staleNotes.map((n) => n.text),
-      caveat: planTargets.length > 0 && report === null ? 'The times were not worked out (the night or the catalog has not loaded).' : '',
+      caveat: planTargets.length > 0 && report === null ? 'No times yet: the night or catalog has not loaded.' : '',
       rows,
       totalLightMin: report !== null && rows.some((r) => r.state === 'scheduled') ? lightMinutes(report.plan) : null,
       // The plain-text file carries each scheduled target's filter mix: the row's own numbers (the same mix the row shows).
@@ -1781,17 +1781,17 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const otherSheet = (p: Plan): PlanSheet => {
     const m = missingOf(profile, p);
     const sheet = storedSheet(p, profile, factsOf, dateWithYear, favoriteText);
-    return { ...sheet, warnings: [...(m.train ? ['This plan was made with a train that is no longer in your gear.'] : []), ...(m.site ? ['This plan was made for a site that is no longer in your gear or whose saved numbers cannot be used.'] : [])] };
+    return { ...sheet, warnings: [...(m.train ? ['The plan\'s train is no longer in your gear.'] : []), ...(m.site ? ['The plan\'s site is no longer in your gear or cannot be used.'] : [])] };
   };
   const sheetsFor = (what: ShareWhat, withMix = false): PlanSheet[] => (what === 'plan' ? [openSheet(withMix)] : what === 'all' || what === 'everything' ? (plans?.plans ?? []).map((p) => (p.id === plans?.openId ? openSheet(withMix) : otherSheet(p))) : []);
   /** Why a choice is off: saved gear that could not be loaded is never shared as if it were the sample on screen. */
   const shareBlocked: Partial<Record<ShareWhat, string>> =
     {
-      ...(profileHeld !== null ? { gear: 'Saved gear could not be loaded, so it is not shared. Export profile (JSON) under Gear and site keeps it as stored.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {}),
+      ...(profileHeld !== null ? { gear: 'Saved gear could not be loaded, so it is not shared. Export it under Gear and site.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {}),
       ...(projectsApi.state.projects.length === 0 ? { projects: 'You have no projects yet. Make one under Projects.' } : {}),
     };
   const shareNow: ShareWhat = shareBlocked[shareWhat] !== undefined ? 'plan' : shareWhat;
-  const heldNote = heldPlans !== null ? 'Saved plans are held back (see the notice at the top), so these are this page\u2019s plans.' : null;
+  const heldNote = heldPlans !== null ? 'Saved plans are held back (see the top notice); these are this page\u2019s plans.' : null;
   /** The page's one way to name a target id (a project's targets, in its tab and in every file). */
   const targetName = useCallback(
     (id: string): string => {
@@ -1837,7 +1837,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   })();
   const solarInPlan = planItems.filter((p) => p.body !== undefined).length;
   const asiairLeft = [
-    solarInPlan > 0 ? `${solarInPlan} solar-system ${solarInPlan === 1 ? 'body is' : 'bodies are'} left out: they move, so they have no fixed position.` : '',
+    solarInPlan > 0 ? `${solarInPlan} solar-system ${solarInPlan === 1 ? 'body is' : 'bodies are'} left out: no fixed position.` : '',
     planItems.length - solarInPlan - asiairTargets.length > 0 ? `${planItems.length - solarInPlan - asiairTargets.length} not in the bundled catalog, so left out.` : '',
   ].filter((x) => x !== '').join(' ');
   const asiairMake = (letter: boolean) => ({ text: asiairCsv(asiairTargets, asiairFov, letter), file: `fpo-asiair-positions-${slug(open?.name ?? '')}-${date}.csv` });
@@ -1847,11 +1847,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (!file) return;
     pendingImport.current = null;
     const refuse = (text: string) => setImportPanel({ kind: 'error', text });
-    if (heldPlans !== null) return refuse('Saved plans are held back (see the notice at the top), so nothing can be added until you decide there.');
+    if (heldPlans !== null) return refuse('Saved plans are held back. Decide in the top notice first.');
     const have = plansRef.current;
     if (have === null) return refuse('The plans have not loaded yet.');
     try {
-      if (file.size > MAX_PLANS_FILE_CHARS) throw new PlansFileError('This file is not a planner plans file. The file is too large.');
+      if (file.size > MAX_PLANS_FILE_CHARS) throw new PlansFileError('This file is not a planner plans file: too large.');
       const read = readPlansFile(await file.text(), tonightDate || date, nightDateText);
       pendingImport.current = { plans: read.plans, notices: read.notices };
       const names = read.plans.slice(0, 5).map((p) => `"${p.name}"`);
@@ -1873,7 +1873,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const stored = readPlansText();
       if (stored !== null) keepCopy(window.localStorage, stored);
     } catch (e) {
-      setImportPanel({ kind: 'error', text: `No backup of your saved plans could be made (${(e as Error).message}), so they were left as they are.` });
+      setImportPanel({ kind: 'error', text: `Not added: no backup could be made (${(e as Error).message}). Saved plans are untouched.` });
       return;
     }
     let result: ImportResult | null = null;
@@ -1885,7 +1885,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     });
     const r = result as ImportResult | null;
     if (!ok || r === null) {
-      setImportPanel({ kind: 'error', text: 'The plans could not be added (see the notice at the top).' });
+      setImportPanel({ kind: 'error', text: 'Plans not added: saved plans are held back (see the top notice).' });
       return;
     }
     const noGear = r.state.plans.slice(before).filter((p) => missingOf(profile, p).train || missingOf(profile, p).site).length;
@@ -1915,15 +1915,15 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const unresolved = planItems.length - planets - aiTargets.length;
   const aiBlocked =
     staleNotes.length > 0
-      ? 'This plan was made with a setup or site that is no longer in your gear. Keep the one shown or change it first.'
+      ? 'The plan\'s train or site is no longer in your gear. Keep the one shown or change it.'
       : planIds.length === 0
       ? 'Add at least one target to the plan first.'
       : !hasNight
-        ? 'There is no astronomical night on this date, so there is nothing to plan.'
+        ? 'No astronomical night on this date, so nothing to plan.'
         : catalog.status === 'loading'
           ? 'The catalog is still loading.'
           : aiTargets.length === 0
-            ? 'The AI plans fixed objects, not the Moon and planets.'
+            ? 'The AI plans fixed objects only.'
             : aiBase === null
               ? 'The site or train is not ready.'
               : null;
@@ -1970,7 +1970,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </div>
         ) : (
           <p className="text-p-t1 font-normal mt-4">
-            The profile needs one site and one train. Import a profile below, or reset all.
+            Needs one site and one train. Import a profile below, or reset all.
           </p>
         )}
         {importError && (
@@ -2015,8 +2015,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       : night.kind === 'normal'
         ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${nightHours} h), Moon ${((midMoon ?? 0) * 100).toFixed(0)}% lit at mid-night. `
         : night.kind === 'none'
-          ? 'The Sun does not get below -18 deg at this site on this date: no astronomical night. '
-          : 'The Sun stays below -18 deg for the whole day, or the night ends in polar night: no usable night. ';
+          ? 'The Sun stays above -18 deg here on this date: no astronomical night. '
+          : 'The Sun stays below -18 deg all day (polar night): no usable night. ';
   const planetary = train.kind === 'optical' && train.tag === 'planetary';
   // The Solar system group: open on a planetary train, and for the Solar system view only; closed otherwise. A hand-made open or close wins.
   const groupOpen = planetsOpen ?? (planetary || isSolar);
@@ -2252,7 +2252,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <p id="held-plans-title" className="text-sm font-normal text-p-t1">{HELD_TITLE[heldPlans.why]}</p>
               <p className="mt-1 text-sm font-normal text-p-t1">
                 {heldPlans.detail ? `The copy failed: ${heldPlans.detail}. ` : ''}
-                Nothing is saved until you replace them. A backup is kept first.
+                Saved only when you replace them, after a backup.
               </p>
               <button type="button" className={`${btn} mt-3 min-h-11`} onClick={replaceHeldPlans}>Replace the saved plans</button>
             </div>
@@ -2612,7 +2612,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               onPlan={setTimelinePlan}
             />
           ) : (
-            <p className="text-p-t1 font-normal text-sm">The timeline appears once the date and the catalog have loaded.</p>
+            <p className="text-p-t1 font-normal text-sm">The timeline appears when the date and catalog load.</p>
           )}
         </Collapsible>
       </OpenPlan>
