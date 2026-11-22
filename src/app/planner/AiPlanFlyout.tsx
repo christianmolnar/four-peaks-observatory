@@ -445,7 +445,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
 
       <div className="border-t border-p-line/20 bg-p-bg p-3" data-testid="ai-footer">
         {done !== null && footerNote !== null && (
-          <p id="ai-apply-note" className="mb-2 text-sm font-normal text-p-t1/70" data-testid="ai-apply-note">
+          <p id="ai-apply-note" className={`mb-2 text-sm font-normal ${applyBlock !== null ? 'text-p-t1' : 'text-p-t1/70'}`} data-testid="ai-apply-note">
             {footerNote}
           </p>
         )}
