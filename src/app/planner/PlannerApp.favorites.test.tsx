@@ -10,7 +10,7 @@ import PlannerApp from './PlannerApp';
 import { RESET_LOSES } from './ResetAll';
 import { openGear, openPlanTab, pageProps, planRowItems, ready, resetAll, seedPlan, storedPlan } from './testkit';
 
-// Favorites: "Save as favorite" on a deep-sky row, "Restore favorite?" when the object is added again, "Always use my saved exposure" in the
+// Favorites: "Save as favorite" on a deep-sky row, "Restore favorite?" when the object is added again, "Always use my favorite exposure" in the
 // Gear and site tab, and a store that never loses what it holds (damaged, newer, failed copy, quota, two tabs).
 
 const NAME = 'Andromeda Galaxy';
@@ -203,12 +203,12 @@ describe('Restore favorite?', () => {
   });
 });
 
-describe('Always use my saved exposure', () => {
+describe('Always use my favorite exposure', () => {
   it('is a labelled checkbox under "Planner settings" in the Gear and site tab, off by default, kept with the site and train choice', async () => {
     await app();
     openGear();
     const heading = screen.getByRole('heading', { name: 'Planner settings' });
-    const box = within(heading.closest('section')!).getByRole('checkbox', { name: 'Always use my saved exposure' }) as HTMLInputElement;
+    const box = within(heading.closest('section')!).getByRole('checkbox', { name: 'Always use my favorite exposure' }) as HTMLInputElement;
     expect(box.checked).toBe(false);
     expect(box.closest('label')!.className).toMatch(/min-h-11/);
     fireEvent.click(box);
@@ -220,7 +220,7 @@ describe('Always use my saved exposure', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: sampleProfile().sites[0].id, trainId: sampleProfile().trains[0].id, alwaysRestore: true }));
     await app();
     openGear();
-    const box = screen.getByRole('checkbox', { name: 'Always use my saved exposure' }) as HTMLInputElement;
+    const box = screen.getByRole('checkbox', { name: 'Always use my favorite exposure' }) as HTMLInputElement;
     expect(box.checked).toBe(true);
     fireEvent.click(box);
     expect(JSON.parse(window.localStorage.getItem(SELECTION_KEY)!).alwaysRestore).toBeUndefined();

@@ -97,7 +97,7 @@ describe('the Type selector', () => {
     expect(optionText('galaxy-groups')).toBe(`Galaxy groups and pairs · none up ${WORD}`);
     const none = screen.getByRole('option', { name: /^Galaxy groups and pairs/ }) as HTMLOptionElement;
     expect(none.disabled).toBe(true);
-    expect(none.title).toMatch(/nothing of this kind is up long enough/i);
+    expect(none.title).toBe(''); // the option text already says "none up"
     expect((screen.getByRole('option', { name: /^Open clusters/ }) as HTMLOptionElement).disabled).toBe(false);
     expect(optionCount('all')).toBeGreaterThanOrEqual(optionCount('open-clusters') + optionCount('planetary-nebulae'));
   });
@@ -107,11 +107,10 @@ describe('the Type selector', () => {
     await ready();
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this camera view are up ${WORD}: 1 too big for your camera view.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
     expect(typeSelect().value).toBe('supernova-remnants');
     fireEvent.click(screen.getByLabelText(/show targets that do not fit/i));
     await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
-    expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\.$/);
   });
 
   it('the counts follow the night: another date counts again, and none is shown stale while it is worked out', async () => {
@@ -139,7 +138,7 @@ describe('the list for a type', () => {
     await choose('solar-system');
     expect(heading()).toBe(`Best Moon and planets for ${WORD}`);
     await choose('nebulae');
-    expect(screen.getByTestId('type-note').textContent).toMatch(/emission, reflection, HII and dark nebulae, and clusters with nebulae/i);
+    expect(screen.queryByTestId('type-note')).toBeNull();
   });
 
   it('ranks the type best to worst with the same score, why line and fit as the mixed list, and nothing of another type', async () => {
@@ -181,11 +180,10 @@ describe('the list for a type', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'deep-c11-reducer-533', typeId: 'supernova-remnants' }));
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
-    expect(empty.textContent).toBe(`No supernova remnants that fit this camera view are up ${WORD}: 1 too big for your camera view.`);
-    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Big Remnant does not fit your camera view/);
+    expect(empty.textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
+    expect(screen.getByTestId('hidden-note').textContent).toMatch(/1 target is too big for your camera view/);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
-    expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\.$/);
     expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing 1 targets that do not fit/);
   });
 
@@ -193,7 +191,7 @@ describe('the list for a type', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'deep-c11-reducer-533', typeId: 'galaxy-groups' }));
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
-    expect(empty.textContent).toBe(`No galaxy groups and pairs are up long enough ${WORD}, above your horizon and minimum altitude.`);
+    expect(empty.textContent).toBe(`No galaxy groups and pairs are up ${WORD} above your horizon.`);
     expect(typeSelect().value).toBe('galaxy-groups'); // the chosen one stays pickable and chosen
   });
 });
@@ -391,7 +389,7 @@ describe('over the real catalog', () => {
     expect(direct(targets, ['supernova-remnant'], trainId)).toHaveLength(0);
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants that fit this camera view are up ${WORD}: ${snr} too big for your camera view.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) });
     expect(screen.getByTestId('list-empty').textContent).toMatch(/They are listed below\./);

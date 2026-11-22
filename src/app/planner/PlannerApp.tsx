@@ -61,7 +61,6 @@ import {
   MAX_PLAN_TARGETS,
   PLANS_KEY,
   EXPOSURE_NOTICE_KEY,
-  MAX_BACKUPS,
   DAMAGED_NOTICE,
   NEWER_NOTICE,
   clearOldPlanKeys,
@@ -118,7 +117,7 @@ import PlansBar from './PlansBar';
 import ProjectsTab from './ProjectsTab';
 import { sheetNames } from './projectNames';
 import { useProjects } from './useProjects';
-import PlanRowExposure from './PlanRowExposure';
+import PlanRowExposure, { Fold } from './PlanRowExposure';
 import PlanRowMix from './PlanRowMix';
 import type { AiSlotView } from './AiSlotMix';
 import NarrowbandPanel from './NarrowbandPanel';
@@ -214,10 +213,9 @@ function detailText(e: RankedEntry, formatTime: (d: Date) => string) {
  * What the size screen left out of the list, said with names instead of a silent disappearance. The one control for them is
  * the "Show targets that do not fit" box: off, this says what is left out; on, it says where they went.
  */
-function NoFitNote({ counts, hidden, showNoFit, listed, nightWord }: { counts: RankResult['counts']; hidden: RankResult['hidden']; showNoFit: boolean; listed: number; nightWord: string }) {
+function NoFitNote({ counts, showNoFit, listed, nightWord }: { counts: RankResult['counts']; showNoFit: boolean; listed: number; nightWord: string }) {
   const total = counts.tooLarge + counts.tooSmall;
   if (total === 0) return null;
-  const sample = (list: RankResult['hidden']['tooLarge'], n: number) => nameList(list.map((h) => h.name), n > list.length ? n - list.length : 0);
   return (
     <div className="mb-3 space-y-1 text-p-t1/80 font-normal text-sm" data-testid="hidden-note">
       {showNoFit ? (
@@ -227,17 +225,9 @@ function NoFitNote({ counts, hidden, showNoFit, listed, nightWord }: { counts: R
         </p>
       ) : (
         <>
-          {counts.tooLarge > 0 && (
-            <p>
-              {sample(hidden.tooLarge, counts.tooLarge)} {counts.tooLarge === 1 ? 'does' : 'do'} not fit your camera view: too big for it ({counts.tooLarge}).
-            </p>
-          )}
-          {counts.tooSmall > 0 && (
-            <p>
-              {sample(hidden.tooSmall, counts.tooSmall)} {counts.tooSmall === 1 ? 'does' : 'do'} not fit your camera view: too small for it ({counts.tooSmall}).
-            </p>
-          )}
-          <p>Tick “Show targets that do not fit” to list them.</p>
+          {counts.tooLarge > 0 && <p>{counts.tooLarge} {counts.tooLarge === 1 ? 'target is' : 'targets are'} too big for your camera view.</p>}
+          {counts.tooSmall > 0 && <p>{counts.tooSmall} {counts.tooSmall === 1 ? 'target is' : 'targets are'} too small for your camera view.</p>}
+          <p>Tick “Show targets that do not fit”.</p>
         </>
       )}
     </div>
@@ -2035,9 +2025,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The plan mixes kinds when the train is for one and the open plan holds the other (adding is never blocked, the train never switches by itself).
   const trainNote =
     planetary && planItems.some((p) => p.body === undefined)
-      ? 'The plan mixes a solar-system setup and deep-sky targets.'
+      ? 'Setup suits solar system, plan has deep sky.'
       : !planetary && planets > 0
-        ? 'The plan mixes a deep-sky setup and solar-system bodies.'
+        ? 'Setup suits deep sky, plan has solar system.'
         : reducedFocalNote(profile, train);
   // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
   const deepTrain = planetary ? (profile.trains.find((t) => t.kind === 'optical' && t.tag !== 'planetary') ?? profile.trains.find((t) => t.kind === 'smart')) : undefined;
@@ -2115,9 +2105,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const what = group.id === 'all' ? 'targets' : group.noun;
     // Only what is up is said: a type's catalog-wide too-large count would claim objects that never rise.
     const up = groupNotFit(group, notFit);
-    const wrongSize = [up.tooLarge > 0 ? `${up.tooLarge} too big for your camera view` : '', up.tooSmall > 0 ? `${up.tooSmall} too small for your camera view` : ''].filter((x) => x !== '');
-    if (wrongSize.length > 0) return `No ${what} that fit this camera view are up ${nightWord}: ${wrongSize.join(' and ')}.${showNoFit ? ' They are listed below.' : ''}`;
-    return `No ${what} are up long enough ${nightWord}, above your horizon and minimum altitude.`;
+    const wrongSize = up.tooLarge + up.tooSmall;
+    if (wrongSize > 0) return `No ${what} fit this camera view ${nightWord}.`;
+    return `No ${what} are up ${nightWord} above your horizon.`;
   };
   /** The Add top 3 row above a ranked list: the button, and in words what it did or why it cannot. */
   const topThree = (list: readonly PlanEntry[]) => {
@@ -2262,7 +2252,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <p id="held-plans-title" className="text-sm font-normal text-p-t1">{HELD_TITLE[heldPlans.why]}</p>
               <p className="mt-1 text-sm font-normal text-p-t1/90">
                 {heldPlans.detail ? `The copy failed: ${heldPlans.detail}. ` : ''}
-                They are left untouched, and what you do here is not saved until you replace them. Replacing keeps a copy of what is stored now first, under a dated backup name; no copy is ever overwritten, and the newest {MAX_BACKUPS} are kept.
+                Nothing is saved until you replace them. A backup is kept first.
               </p>
               <button type="button" className={`${btn} mt-3 min-h-11`} onClick={replaceHeldPlans}>Replace the saved plans</button>
             </div>
@@ -2474,7 +2464,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
                       key={g.id}
                       value={g.id}
                       disabled={empty && g.id !== group.id}
-                      title={empty ? `Nothing of this kind is up long enough ${nightWord}, above your horizon and minimum altitude.` : undefined}
                     >
                       {countText === '' ? g.label : `${g.label} · ${countText}`}
                     </option>
@@ -2490,17 +2479,19 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         </div>
 
         <p className="mb-3 text-p-t1/70 font-normal text-sm" data-testid="score-note">
-          Score is out of 100 for {nightWord} at this site, with this train and minimum altitude: 100 is the best a target can do. It compares targets on one night, not across nights.{group.id === 'all' ? ' The list mixes types, so it is not strictly in score order.' : isSolar ? '' : ' This type is ranked over the whole catalog, best first.'} Asterisms are in All only, and double stars are not ranked; search finds both.
+          Score is out of 100, best first.{group.id === 'all' ? ' Types are mixed, so not strictly in score order.' : ''}
         </p>
-        {group.note !== undefined && <p className="mb-3 text-p-t1/70 font-normal text-sm" data-testid="type-note">{group.note}</p>}
+        <Fold id="score-fold" title="Not ranked">
+          <p className="mb-3 text-p-t1/70 font-normal text-sm">Asterisms and double stars are not ranked; search finds both.</p>
+        </Fold>
         {hasNight && midMoon !== null && midMoon > BRIGHT_MOON && (
           <p className="mb-3 text-p-t1/90 font-normal text-sm" data-testid="bright-moon-note">
-            Bright Moon ({(midMoon * 100).toFixed(0)}% lit at mid-night): faint nebulae and galaxies will wash out; clusters and bright objects hold up best. This is an estimate from the Moon&apos;s phase, not a sky reading.
+            Bright Moon ({(midMoon * 100).toFixed(0)}% lit): faint nebulae and galaxies will wash out.
           </p>
         )}
         {planetary && (
           <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1/90 font-normal text-sm" data-testid="planetary-note">
-            <span>This setup is for the solar system, so most deep-sky targets are too large or too small for its frame.</span>
+            <span>Solar-system setup: most deep-sky targets will not fit.</span>
             {deepTrain && (
               <button type="button" className={`${btn} min-h-11`} onClick={() => chooseTrain(deepTrain.id)}>
                 Use {deepTrain.name}
@@ -2524,7 +2515,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           )
         ) : (
           <>
-            {!isSolar && <NoFitNote counts={ranked!.counts} hidden={ranked!.hidden} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
+            {!isSolar && <NoFitNote counts={ranked!.counts} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
             {(planetGroup.length > 0 || notUpGroup.length > 0) && (
               <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={groupOpen} onToggle={() => setPlanetsOpen(!groupOpen)}>
                 {planetGroup.length > 0 && <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" fitText={bodyFit} />}
@@ -2666,7 +2657,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           blocked={shareBlocked}
           note={heldNote}
           make={makeShare}
-          asiair={{ count: asiairTargets.length, panes: asiairPanes(asiairTargets), left: asiairLeft, fovNote: asiairFov === null && train ? 'The size of the train\u2019s field is not known (a pixel size, sensor size or focal length is not set), so each position is written with a 60 arcminute pane.' : null, make: asiairMake }}
+          asiair={{ count: asiairTargets.length, panes: asiairPanes(asiairTargets), left: asiairLeft, fovNote: asiairFov === null && train ? 'Field size unknown, so each position uses a 60 arcminute pane.' : null, make: asiairMake }}
           onPrint={() => window.print()}
           onPickFile={(f) => void pickPlansFile(f)}
           importPanel={importPanel}
@@ -2714,9 +2705,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         <h2 id="planner-settings-heading" className="mb-2 text-base font-medium uppercase tracking-[0.1em] text-p-t1">Planner settings</h2>
         <label className="flex min-h-11 w-fit items-center gap-2 text-sm font-normal text-p-t1/90">
           <input type="checkbox" className="h-5 w-5 shrink-0 accent-p-focus" checked={alwaysRestore} onChange={(e) => chooseAlwaysRestore(e.target.checked)} />
-          <span>Always use my saved exposure</span>
+          <span>Always use my favorite exposure</span>
         </label>
-        <p className="mt-1 text-sm font-normal text-p-t1/70">When a target you saved a favorite exposure for is added to a plan, its saved exposure is applied at once instead of asking.</p>
         {favs.blocked !== null && <p className="mt-2 text-sm font-normal text-p-warn-text" data-testid="favorites-blocked">{favs.blocked}</p>}
       </section>
 
@@ -2767,7 +2757,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <ResetAll onConfirm={resetAll} />
         </div>
         <p className="text-p-t1/60 font-normal text-sm mt-3">
-          Your profile, plans and captured list stay in this browser. Export your profile to keep a copy of the gear; plans are shared and imported from the plan’s More menu, Share and export (which can also carry the gear). Imports are checked field by field; a rejected file changes nothing and the error names the field.
+          Your profile and plans stay in this browser.
         </p>
       </section>
       </div>

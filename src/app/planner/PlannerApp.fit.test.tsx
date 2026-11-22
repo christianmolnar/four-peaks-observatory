@@ -31,19 +31,17 @@ describe('targets that do not fit the chosen train', () => {
     expect(toggle().checked).toBe(false);
     expect(screen.queryByRole('button', { name: /^Does not fit this camera view/ })).toBeNull();
     const note = screen.getByTestId('hidden-note').textContent as string;
-    expect(note).toMatch(/do not fit your camera view: too big for it \(\d+\)/);
-    expect(note).toContain('Tick “Show targets that do not fit” to list them.');
+    expect(note).toMatch(/\d+ targets? (is|are) too big for your camera view/);
+    expect(note).toContain('Tick “Show targets that do not fit”');
     expect(note).not.toMatch(/show anyway/i);
     expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
-    // The list names are joined once: "A, B, C and 12 more", never "A and B and 12 more"; no name twice.
-    expect(note).not.toMatch(/ and [^,]+ and \d+ more/);
   });
 
   it('ticking the box adds a closed group below the list, with the count, and the note says where they went', async () => {
     await app();
     const before = screen.getByTestId('hidden-note').textContent as string;
-    const tooLarge = Number(/too big for it \((\d+)\)/.exec(before)![1]);
-    const tooSmall = Number(/too small for it \((\d+)\)/.exec(before)?.[1] ?? 0);
+    const tooLarge = Number(/(\d+) targets? (?:is|are) too big/.exec(before)![1]);
+    const tooSmall = Number(/(\d+) targets? (?:is|are) too small/.exec(before)?.[1] ?? 0);
     fireEvent.click(toggle());
     await ready();
     const header = group();

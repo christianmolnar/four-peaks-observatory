@@ -176,11 +176,11 @@ describe('plain labels', () => {
     expect(screen.queryByLabelText(/^Sub length \(s\) for /)).toBeNull();
   });
 
-  it('the setting says "Always use my saved exposure"', async () => {
+  it('the setting says "Always use my favorite exposure"', async () => {
     mount(TARGETS);
     await listReady();
     openGear();
-    expect(screen.getByRole('checkbox', { name: 'Always use my saved exposure' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Always use my favorite exposure' })).toBeTruthy();
   });
 
   it('the horizon boxes say what they block, in compass degrees', async () => {
