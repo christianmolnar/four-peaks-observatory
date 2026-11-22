@@ -272,7 +272,7 @@ describe('a held favorites store says the next step', () => {
     await app([{ id: 'm31', preset: 'balanced' }]);
     const text = screen.getByTestId('plan-favorite-blocked-m31').textContent ?? '';
     setItem.mockRestore();
-    expect(text).toMatch(/free some browser storage and reload this page/);
+    expect(text).toMatch(/free some browser storage and reload/i);
     expect(text).toMatch(/Reset all/);
   });
 });

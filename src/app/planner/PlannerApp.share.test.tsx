@@ -110,6 +110,32 @@ describe('the Share sheet', () => {
   });
 });
 
+describe('a copy or download that fails says why and what to do', () => {
+  it('a browser with no clipboard: "Not copied", the cause, and the box to copy by hand; never "Copied"', async () => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    await app();
+    openSheet();
+    await act(async () => fireEvent.click(screen.getAllByRole('button', { name: 'Copy text' })[0]));
+    const said = screen.getByTestId('share-status').textContent!;
+    expect(said).toMatch(/^Not copied: .*does not let a page copy/);
+    expect(said).toContain('by hand');
+    expect(said).not.toMatch(/^Copied/);
+  });
+
+  it('a blocked download: "Not downloaded", the cause, and the box to copy by hand; never "Downloaded"', async () => {
+    await app();
+    openSheet();
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => {
+      throw new Error('downloads are blocked');
+    };
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download file' })[0]);
+    const said = screen.getByTestId('share-status').textContent!;
+    expect(said).toMatch(/^Not downloaded: downloads are blocked/);
+    expect(said).toContain('by hand');
+    expect(said).not.toMatch(/^Downloaded/);
+  });
+});
+
 describe('every scope and format downloads and copies the text on screen', () => {
   for (const what of WHATS) {
     for (const format of FORMATS) {
@@ -171,7 +197,7 @@ describe('the run sheet carries the numbers the rows show', () => {
     await ready();
     openPlanTab();
     openSheet();
-    expect(text()).toMatch(/Warning: This plan was made with a train that is no longer in your gear/);
+    expect(text()).toMatch(/Warning: The plan's train is no longer in your gear/);
   });
 
   it('other plans are shared as they are stored, and say their numbers were not worked out', async () => {
@@ -229,7 +255,7 @@ describe('Export for ASIAir', () => {
     // The file has no name column, so the sheet lists which pane is which object.
     expect(screen.getByTestId('asiair-panes').textContent).toBe('Pane 1: M31Pane 2: IC 405');
     expect(note).toMatch(/no column for a name/);
-    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).toMatch(/The one test to run: .*each pane arrives at the right RA and Dec/);
+    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).toMatch(/Not yet tested on a real ASIAir/);
     expect(lines[1]).toMatch(/^Pane 1, \d\dhr \d\d' \d\d", \+\d\d\u00ba \d\d' \d\d", 0\.00, [\d.]+, [\d.]+, 20%, 1, 1$/);
     fireEvent.click(within(section).getByRole('checkbox'));
     fireEvent.click(within(section).getByRole('button', { name: 'Copy text' }));

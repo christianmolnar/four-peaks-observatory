@@ -903,7 +903,7 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     warnings.push({
       code: 'limited-by-usable-time',
       severity: 'note',
-      text: `Only ${Math.round(night.usableMinutes)} usable min: stops at ${integrationMin}, not ${aimMin}.`,
+      text: `Only ${Math.round(night.usableMinutes)} usable min: stops at ${integrationMin} min of light, not ${aimMin}.`,
     });
   }
   if (count > 0 && !reachesSnrTarget && o.subCount === undefined && o.totalMin === undefined) {

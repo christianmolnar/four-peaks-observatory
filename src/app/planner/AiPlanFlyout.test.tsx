@@ -59,6 +59,7 @@ it('a verified plan with more slots than the night timeline holds cannot be appl
   expect(within(result).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-'))).toHaveLength(MAX_SLOTS + 1);
   expect((screen.getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByTestId('ai-apply-note').textContent).toMatch(new RegExp(`${MAX_SLOTS} targets.*${MAX_SLOTS + 1}`));
+  expect(screen.getByTestId('ai-apply-note').className).not.toMatch(/text-p-t1\/\d/); // a reason the button is disabled keeps full colour
   expect(props.onApply).not.toHaveBeenCalled();
 });
 

@@ -133,7 +133,7 @@ describe('empty plan', () => {
     mount(f.fn, { plan: ['planet-jupiter'] });
     await readyOpen();
     expect(go().disabled).toBe(true);
-    expect(screen.getByTestId('ai-plan-reason').textContent).toMatch(/not the Moon and planets/);
+    expect(screen.getByTestId('ai-plan-reason').textContent).toMatch(/AI plans fixed objects only/);
   });
 });
 

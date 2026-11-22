@@ -231,6 +231,7 @@ describe('total light: the knee comes from the object, not the mode', () => {
     const r = run(galaxy(24), rig(TRAINS.f10), 6, night({ usableMinutes: 60 }), { preset: 'balanced' });
     expect(r.limitedBy.total).toBe('usable-window');
     expect(codes(r.warnings)).toContain('limited-by-usable-time');
+    expect(r.warnings.find((w) => w.code === 'limited-by-usable-time')?.text).toMatch(/Only 60 usable min: stops at \d+ min of light, not \d+\./);
   });
   it('unknown surface brightness assumes the medium row and says so; a class stands for its row; the number wins', () => {
     const unknown = run({ id: 'x', name: 'x', type: 'galaxy' }, rig(TRAINS.f10), 6, night(), { preset: 'quick' });
@@ -584,7 +585,7 @@ describe('one set of exposure limits: sub length 1 to MAX_SUB_S, at most MAX_SUB
     expect(r.subCount).toBe(111);
     expect(r.limitedBy).toEqual({ sub: 'read-noise', total: 'usable-window' });
     expect(codes(r.warnings)).not.toContain('count-capped');
-    expect(r.warnings.find((w) => w.code === 'limited-by-usable-time')!.text).toContain('stops at 55.5, not 293.');
+    expect(r.warnings.find((w) => w.code === 'limited-by-usable-time')!.text).toContain('stops at 55.5 min of light, not 293.');
     const short = r.warnings.find((w) => w.code === 'short-of-target')!;
     expect(short.detail).toContain('where the night ends');
     expect(short.detail).not.toMatch(/pays little/);

@@ -185,14 +185,14 @@ describe('My plans', () => {
     await app();
     await user.type(screen.getByLabelText('Search the catalog by name or number'), 'm31');
     await user.click(within(screen.getByRole('list', { name: 'Search results' })).getByRole('button', { name: 'Add Andromeda Galaxy to the plan' }));
-    expect((await screen.findByRole('status')).textContent).toBe('The plan holds at most 50 targets. Remove one to add another.');
+    expect((await screen.findByRole('status')).textContent).toMatch(/plan is full \(50 targets\)/);
     expect(storedPlan()!.targets).toHaveLength(50);
   });
 
   it('a damaged saved set of plans is reported, copied to the backup, and one empty plan starts; the text is not removed', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     await app();
-    expect((await screen.findByTestId('plans-messages')).textContent).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans as they were is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 1 backup is kept in this browser\./);
+    expect((await screen.findByTestId('plans-messages')).textContent).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 1 backup is kept in this browser\./);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
     expect(listBackups(window.localStorage).map((b) => b.text)).toEqual(['{nope']);
     expect(heading()).toBe('PLAN: My plan (0 targets)');

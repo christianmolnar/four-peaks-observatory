@@ -111,7 +111,7 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
       download(file, text, mime, bom);
       setSaid(`Downloaded ${file}.`);
     } catch (e) {
-      setSaid(`Not downloaded: ${(e as Error).message}. Select the text in the box and copy it by hand.`);
+      setSaid(`Not downloaded: ${(e as Error).message}. Copy it from the box by hand.`);
     }
   };
   const copy = async (text: string, label: string) => {
@@ -120,7 +120,7 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
       await navigator.clipboard.writeText(text);
       setSaid(`Copied ${label}.`);
     } catch (e) {
-      setSaid(`Not copied: ${(e as Error).message}. Select the text in the box and copy it by hand.`);
+      setSaid(`Not copied: ${(e as Error).message}. Copy it from the box by hand.`);
     }
   };
 
@@ -178,19 +178,19 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
         </div>
         <label htmlFor="share-text" className="sr-only">Text to share</label>
         <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-p-line/30 bg-p-bg/60 p-2 font-mono text-sm font-normal text-p-t1" />
-        <p className="mb-4 text-sm font-normal text-p-t1/70">Plain text and Markdown are run sheets: order, time, name, position, subs, filter. JSON keeps everything and can be imported again below.</p>
+        <p className="mb-4 text-sm font-normal text-p-t1/70">Plain text and Markdown are run sheets. JSON keeps everything and can be imported again below.</p>
 
         <section aria-labelledby="share-print" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-print" className="mb-1 text-base font-normal text-p-t1">Print</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/70">Prints the run sheet for what is chosen above, black on white, one column, A4 or Letter. In the print dialog choose Save as PDF for a PDF.</p>
-          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/70" data-testid="print-projects-note">Projects have no run sheet to print. Choose a plan above to print it, or download the projects as text or Markdown.</p>}
+          <p className="mb-2 text-sm font-normal text-p-t1/70">Prints the run sheet, black on white. For a PDF, choose Save as PDF in the print dialog.</p>
+          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/70" data-testid="print-projects-note">Projects have no run sheet. Choose a plan above to print it.</p>}
           <button type="button" className={btn} disabled={what === 'projects'} onClick={onPrint}>Print run sheet</button>
         </section>
 
         <section aria-labelledby="share-asiair" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-asiair" className="mb-1 text-base font-normal text-p-t1">Export for ASIAir (CSV)</h3>
           <p className="mb-2 text-sm font-normal text-p-t1/70" data-testid="asiair-note">
-            Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, one pane each (Pane 1, Pane 2 and so on) with its RA and Dec. The file has no column for a name, so the panes are listed below in the order of the plan. Exposure, gain, filter and times do not import into the ASIAir; read those from the run sheet.{asiair.left === '' ? '' : ` ${asiair.left}`}
+            Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, one pane each with its RA and Dec. The file has no column for a name; panes are listed below in plan order. Exposure, filter and times do not import.{asiair.left === '' ? '' : ` ${asiair.left}`}
           </p>
           {asiair.panes.length > 0 && (
             <ul className="mb-2 list-none break-words text-sm font-normal text-p-t1" data-testid="asiair-panes">
@@ -202,20 +202,20 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
           {asiair.fovNote !== null && <p className="mb-2 break-words text-sm font-normal text-p-warn-text">{asiair.fovNote}</p>}
           <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-p-t1">
             <input type="checkbox" checked={letter} onChange={(e) => setLetter(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-p-focus" />
-            <span>Write the degree sign as the letter d (try this if the ASIAir refuses the file)</span>
+            <span>Write the degree sign as the letter d (if the ASIAir refuses the file)</span>
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => save(asi.file, asi.text, 'text/csv;charset=utf-8', false)}>Download file</button>
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => void copy(asi.text, 'the ASIAir CSV')}>Copy text</button>
           </div>
           <p className="mt-2 text-sm font-normal text-p-t1/70">
-            Not yet tested on a real ASIAir. The format is copied from a real Telescopius export, and the ASIAir may not take unrelated targets as panes. The one test to run: in the ASIAir app open Plan, Add, Import, load the downloaded file (download works better than paste), and check that each pane arrives at the right RA and Dec. If it refuses the file, tick the box above and try again.
+            Not yet tested on a real ASIAir. After importing, check each pane's RA and Dec. If the file is refused, tick the box above.
           </p>
         </section>
 
         <section aria-labelledby="share-import" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-import" className="mb-1 text-base font-normal text-p-t1">Import plans</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/70">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped, and a plan that has the id of a different plan here is skipped or added as a copy.</p>
+          <p className="mb-2 text-sm font-normal text-p-t1/70">Adds plans from a JSON file made here. Your plans are never replaced.</p>
           <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-p-t1">Plans file (JSON)</label>
           <input
             id="plans-import"

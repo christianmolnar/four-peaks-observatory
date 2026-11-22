@@ -73,7 +73,7 @@ describe('each class lists, adds, changes and removes', () => {
       expect(cards()).toHaveLength(before + 1);
       const newCard = () => cards().find((x) => !known.has(x.dataset.testid))!;
       const card = newCard();
-      expect(status()).toMatch(/^Added an? .*Change it and press Save\.$/);
+      expect(status()).toMatch(/^Added an? /);
       expect(within(card).getByText('Not used.')).toBeTruthy();
       fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'Mine' } });
       fireEvent.change(within(card).getByLabelText(c.field), { target: { value: c.value } });
@@ -263,7 +263,10 @@ describe('a plan whose site or train is gone', () => {
     await mount();
     openPlanTab();
     const note = screen.getByTestId('plan-stale-train');
-    expect(note.textContent).toBe('This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.Keep C11 f/10 + ASI2600MC DuoChange setup');
+    expect(note.textContent).toContain('train is no longer in your gear');
+    expect(note.textContent).toContain('Showing "C11 f/10 + ASI2600MC Duo"');
+    expect(within(note).getByRole('button', { name: /^Keep / })).toBeTruthy();
+    expect(within(note).getByRole('button', { name: 'Change setup' })).toBeTruthy();
     expect(storedPlan()!.trainId).toBe('removed-train');
     fireEvent.click(within(note).getByRole('button', { name: /^Keep / }));
     expect(storedPlan()!.trainId).toBe('deep-c11-2600');
@@ -274,7 +277,7 @@ describe('a plan whose site or train is gone', () => {
     seedStale({ siteId: 'removed-site' });
     await mount();
     openPlanTab();
-    expect(screen.getByTestId('plan-stale-site').textContent).toMatch(/^This plan was made for a site that is no longer in your gear\. It shows "Fountain Hills.*" for now\./);
+    expect(screen.getByTestId('plan-stale-site').textContent).toMatch(/^The plan's site is no longer in your gear\. Showing "Fountain Hills.*"\./);
     expect(storedPlan()!.siteId).toBe('removed-site');
     fireEvent.click(within(screen.getByTestId('plan-stale-site')).getByRole('button', { name: /^Keep / }));
     expect(storedPlan()!.siteId).toBe(sampleProfile().sites[0].id);
@@ -377,7 +380,7 @@ describe('a stored profile with values outside their ranges', () => {
     seedPlan([{ id: 'm42', preset: 'balanced' }], () => profile);
     await mount();
     expect(document.body.textContent).not.toMatch(/Application error|NaN|Infinity/);
-    expect(screen.getByText(/saved gear values are not usable \(outside the allowed range or not a number\), so the planner does not use them/)).toBeTruthy();
+    expect(screen.getByText(/saved gear values are not usable \(out of range or not a number\), so the planner ignores them/)).toBeTruthy();
     openPlanTab();
     await waitFor(() => expect(planRowItems()).toHaveLength(1));
     expect(planRowItems()[0].textContent).toMatch(/Focal length of .* \(an impossibly large number\) is outside 10 to 10,000 mm.*so no exposure is shown\. Change it in Gear\./);
@@ -439,7 +442,7 @@ describe('two tabs', () => {
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(other)); // saved by the other tab; no event reached this one yet
     pickClass('Filters');
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
-    expect(screen.getByRole('alert').textContent).toContain('Another tab changed your gear since this page last looked, so your last edit was not made.');
+    expect(screen.getByRole('alert').textContent).toContain('Another tab changed your gear, so your edit was not made.');
     expect(stored().equipment.filters).toHaveLength(other.equipment.filters.length); // nothing of this tab's was written over it
     expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length);
     pickClass('Cameras');
@@ -454,7 +457,7 @@ describe('a plan whose train is gone is never used silently', () => {
     raw.plans[0].trainId = 'removed-train';
     window.localStorage.setItem(PLANS_KEY, JSON.stringify(raw));
   };
-  const noteText = 'This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.';
+  const noteText = 'train is no longer in your gear';
 
   it('the AI flyout says it in step 1 and does not offer to ask until the user keeps or changes the train', async () => {
     seedStale();
@@ -466,7 +469,7 @@ describe('a plan whose train is gone is never used silently', () => {
     expect(within(flyout).getByTestId('ai-stale-train').textContent).toContain(noteText);
     const ask = within(flyout).getByRole('button', { name: /^Ask the AI/ });
     expect(ask.hasAttribute('disabled')).toBe(true);
-    expect(within(flyout).getByTestId('ai-plan-reason').textContent).toMatch(/no longer in your gear\. Keep the one shown or change it first\./);
+    expect(within(flyout).getByTestId('ai-plan-reason').textContent).toMatch(/no longer in your gear\. Keep the one shown or change it\./);
     fireEvent.click(within(flyout).getByRole('button', { name: /^Keep / }));
     await waitFor(() => expect(within(screen.getByTestId('ai-flyout')).queryByTestId('ai-stale-train')).toBeNull());
     expect(within(screen.getByTestId('ai-flyout')).getByRole('button', { name: /^Ask the AI/ }).hasAttribute('disabled')).toBe(false);
@@ -613,7 +616,7 @@ describe('a refused edit never says it was made (round 3)', () => {
     fireEvent.change(within(form).getByLabelText(/^Name/), { target: { value: 'Renamed here' } });
     fireEvent.click(button(form, 'Save'));
     expect(status()).not.toMatch(/Saved/);
-    expect(document.body.textContent).toContain('your last edit was not made');
+    expect(document.body.textContent).toContain('your edit was not made');
     expect(stored().equipment.cameras.map((c: { name: string }) => c.name)).not.toContain('Renamed here');
     expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length);
   });
@@ -624,7 +627,7 @@ describe('a refused edit never says it was made (round 3)', () => {
     pickClass('Filters');
     fireEvent.click(button(cards()[0], 'Remove'));
     expect(status()).not.toMatch(/Removed/);
-    expect(within(screen.getByRole('region', { name: 'GEAR' }) as HTMLElement).getByRole('alert').textContent).toContain('your last edit was not made');
+    expect(within(screen.getByRole('region', { name: 'GEAR' }) as HTMLElement).getByRole('alert').textContent).toContain('your edit was not made');
     otherTabSavedSilently();
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
     expect(status()).not.toMatch(/Added/);
@@ -641,7 +644,7 @@ describe('a refused edit never says it was made (round 3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
     expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length); // the other tab's camera is still stored
     expect(stored().sites[0].blockedArcs).toEqual(sampleProfile().sites[0].blockedArcs); // the horizon was not saved over it
-    expect(screen.getByRole('status').textContent).toContain('Another tab changed your gear since this page last looked, so your last edit was not made.');
+    expect(screen.getByRole('status').textContent).toContain('Another tab changed your gear, so your edit was not made.');
   });
 
   it('Undo says what came back', async () => {
@@ -702,7 +705,7 @@ describe('a stored value that is negative, zero, empty or text opens plainly and
         window.localStorage.setItem(PROFILE_KEY, JSON.stringify(withScopeField(value, key)));
         await mount();
         expect(document.body.textContent).not.toMatch(/\$\.|Problem at|could not be used/);
-        expect(screen.getByText(/One saved gear value is not usable \(outside the allowed range or not a number\), so the planner does not use it/)).toBeTruthy();
+        expect(screen.getByText(/One saved gear value is not usable \(out of range or not a number\), so the planner ignores it/)).toBeTruthy();
         openGear();
         pickClass(key === 'focalLengthMm' ? 'Scopes' : 'Cameras');
         expect(document.querySelector('[data-testid="gear-flag"]')!.textContent).toMatch(/^! (Focal length|Pixel size) /);

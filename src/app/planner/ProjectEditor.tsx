@@ -75,7 +75,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
     }
     const r = fillFromPlan(addDraftTarget(d, id), id, held);
     setD(r.draft);
-    setAdded(`Added ${targetName(id)} to the project, with ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled from the minutes in your plan (broadband and the ticked narrowband filters).${r.left > 0 ? ` ${r.left} of the plan’s ${r.left === 1 ? 'filter is' : 'filters are'} not in this project, so ${r.left === 1 ? 'its minutes were' : 'their minutes were'} left out; tick ${r.left === 1 ? 'it' : 'them'} under Filters, then untick and tick the target again.` : ''}`);
+    setAdded(`Added ${targetName(id)}: ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled from your plan.${r.left > 0 ? ` ${r.left} plan ${r.left === 1 ? 'filter is' : 'filters are'} not in this project. Add ${r.left === 1 ? 'it' : 'them'} under Filters, then add the target again.` : ''}`);
   };
   const dropTarget = (id: string) => {
     setD(removeDraftTarget(d, id));
@@ -125,7 +125,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
           <ul className="mt-1 list-disc pl-5">
             {review.map((l) => <li key={l} className="break-words text-sm font-normal text-p-t1">{l}</li>)}
           </ul>
-          <p className="mt-1 text-sm font-normal text-p-t1/70">Check them, then type how long you plan to shoot each target below. Nothing is saved until you press {saveLabel}.</p>
+          <p className="mt-1 text-sm font-normal text-p-t1/70">Type the minutes you plan for each target below. Nothing is saved until you press {saveLabel}.</p>
         </div>
       )}
       {editNote !== undefined && <p className="break-words text-sm font-normal text-p-t1/70">{editNote}</p>}
@@ -153,7 +153,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
             <label htmlFor={`${uid}-scope`} className="mb-1 block text-sm font-normal text-p-t1">Scope</label>
             <WrapSelect id={`${uid}-scope`} className="w-full" value={d.scopeId ?? ''} onChange={(e) => setD({ ...d, scopeId: e.target.value === '' ? null : e.target.value })}>
               <option value="">Not set</option>
-              {d.scopeId !== null && !scopes.some((s) => s.id === d.scopeId) && <option value={d.scopeId}>A scope that is no longer in your gear</option>}
+              {d.scopeId !== null && !scopes.some((s) => s.id === d.scopeId) && <option value={d.scopeId}>A scope no longer in your gear</option>}
               {scopes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </WrapSelect>
           </div>
@@ -161,7 +161,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
             <label htmlFor={`${uid}-camera`} className="mb-1 block text-sm font-normal text-p-t1">Camera</label>
             <WrapSelect id={`${uid}-camera`} className="w-full" value={d.cameraId ?? ''} onChange={(e) => setD({ ...d, cameraId: e.target.value === '' ? null : e.target.value })}>
               <option value="">Not set</option>
-              {d.cameraId !== null && !cameras.some((c) => c.id === d.cameraId) && <option value={d.cameraId}>A camera that is no longer in your gear</option>}
+              {d.cameraId !== null && !cameras.some((c) => c.id === d.cameraId) && <option value={d.cameraId}>A camera no longer in your gear</option>}
               {cameras.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </WrapSelect>
           </div>
@@ -205,7 +205,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
         {fe(`${uid}-targets-err`, errors.targets)}
 
         <p id={`${uid}-optional`} className="text-sm font-normal text-p-t1/70">
-          Planned minutes: type the minutes planned for each filter on each target; leave a box empty when a filter is not used on that target. A line ticked Optional is shown, but excluded from every total.
+          Planned minutes per filter and target; leave a box empty if unused. Optional lines are left out of every total.
         </p>
         <ul className="space-y-3" aria-label="Targets of the project">
           {d.targets.map((t) => (

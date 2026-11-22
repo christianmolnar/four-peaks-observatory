@@ -292,6 +292,16 @@ describe('a filter that is not recommended', () => {
   });
 });
 
+describe('a better filter that is not recommended', () => {
+  it('says the filter that runs already covers the line, so the note is not read as "pick this one"', () => {
+    const HA3: NbFilterInput = { id: 'ha3', name: 'Ha 3 nm', bands: [{ centreNm: 656.3, widthNm: 3 }] };
+    const r = run(ROSETTE, 22, 2, [NBZ, HA3], { bortle: 4, train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 } });
+    const f = r.filters.find((x) => x.filterId === 'ha3');
+    expect(f?.minutes).toBe(0);
+    expect(f?.detail).toMatch(/A little better than NBZ II for Ha \(1\.\d+×\); NBZ II already runs for it/);
+  });
+});
+
 describe('the plan of the ticked filters', () => {
   const r = run(ROSETTE, 22, 2, [NBZ, HA7], { bortle: 4, train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1960 } });
   it('a line two ticked filters pass is counted once: the recommended one keeps it', () => {

@@ -125,7 +125,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
     const r = api.change((s, now) => {
       // The latest stored projects, not this page's: another tab may have saved the same offer, and its hours must not be logged twice.
       const held = seed ? seedHeldBy(s) : null;
-      if (held !== null) throw new Error(`last night’s hours are already logged in the project “${held}”. Open that project instead of starting another.`);
+      if (held !== null) throw new Error(`last night’s hours are already logged in the project “${held}”. Open it instead.`);
       const a = addProject(s, value, now);
       made = a.id;
       // The seed's sessions have fixed ids: adding them twice to one project adds nothing.
@@ -171,7 +171,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
       made = a.id;
       return a.state;
     });
-    if (finish(r, `Duplicated the project as “${copyName}”: the plan was copied, the logged sessions were not.`) && made !== '') setSelected(made);
+    if (finish(r, `Duplicated the project as “${copyName}”: plan copied, sessions not.`) && made !== '') setSelected(made);
   };
   const confirmDelete = () => {
     if (project === null) return;
@@ -218,7 +218,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
       setSaid(`Copied the tracker of “${project.name}”.`);
     } catch (e) {
       setSaid('');
-      setProblem(`Not copied: ${(e as Error).message}. Select the text in the box below and copy it by hand.`);
+      setProblem(`Not copied: ${(e as Error).message}. Copy it from the box by hand.`);
       setCopyFallback(text);
     }
   };
@@ -320,7 +320,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         </div>
       )}
       {api.held !== null && <p role="alert" data-testid="projects-held" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">{api.held}</p>}
-      {api.unsaved && <p role="alert" data-testid="projects-unsaved" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">Not saved: the latest changes are on this page only, because browser storage did not take them. Copy the tracker or export the project so nothing is lost; the next change tries to save again.</p>}
+      {api.unsaved && <p role="alert" data-testid="projects-unsaved" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">Not saved: changes are on this page only. Export the project; the next change saves again.</p>}
       <p role="status" aria-live="polite" className="min-h-5 break-words text-sm font-normal text-p-t1" data-testid="projects-status">{said}</p>
       {problem !== '' && <p role="alert" className="break-words text-sm font-normal text-p-warn-text" data-testid="projects-problem">{problem}</p>}
 
@@ -342,12 +342,12 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         />
       ) : project === null ? (
         <div className="space-y-3 rounded-lg border border-p-line/20 p-4" data-testid="projects-empty">
-          <p className="text-sm font-normal text-p-t1">No projects yet. A project is a list of targets with the minutes you plan for each filter; you log each night&rsquo;s light and the bars show how far you are.</p>
+          <p className="text-sm font-normal text-p-t1">No projects yet. A project is a list of targets with planned minutes per filter; log each night&rsquo;s light to see progress.</p>
           <div className="flex flex-wrap gap-2">
             <button id="project-new" type="button" className={btn} onClick={() => startNew(false)}>New project</button>
             <button type="button" className={btn} onClick={() => startNew(true)}>Start from last night&rsquo;s hours</button>
           </div>
-          <p className="text-sm font-normal text-p-t1/70">Last night&rsquo;s hours: {seedSessions().map((s) => `${targetName(s.targetId)} ${s.minutes} min`).join(', ')}, all {BROADBAND_NAME.toLowerCase()}. You review them, and type the minutes you plan, before anything is saved.</p>
+          <p className="text-sm font-normal text-p-t1/70">Last night&rsquo;s hours: {seedSessions().map((s) => `${targetName(s.targetId)} ${s.minutes} min`).join(', ')}, all {BROADBAND_NAME.toLowerCase()}. Nothing is saved until you review them.</p>
           {importBox}
         </div>
       ) : (
@@ -395,7 +395,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
           {view.kind === 'delete' && (
             <div role="group" aria-labelledby={`${uid}-del`} className="space-y-2 rounded-lg border border-p-warn/50 p-3" data-testid="project-delete-confirm">
               <p id={`${uid}-del`} className="break-words text-sm font-normal text-p-t1">
-                Delete the project “{project.name}”? This removes the project, its {project.targets.length} {project.targets.length === 1 ? 'target' : 'targets'}, {project.targets.reduce((n, t) => n + t.lines.length, 0)} planned {project.targets.reduce((n, t) => n + t.lines.length, 0) === 1 ? 'line' : 'lines'} and its {project.sessions.length} logged {project.sessions.length === 1 ? 'session' : 'sessions'} ({durationText(loggedMinutes(project))} of light). It cannot be undone. Copy the tracker or export it first to keep a record.
+                Delete the project “{project.name}”? This removes the project, its {project.targets.length} {project.targets.length === 1 ? 'target' : 'targets'}, {project.targets.reduce((n, t) => n + t.lines.length, 0)} planned {project.targets.reduce((n, t) => n + t.lines.length, 0) === 1 ? 'line' : 'lines'} and its {project.sessions.length} logged {project.sessions.length === 1 ? 'session' : 'sessions'} ({durationText(loggedMinutes(project))} of light). It cannot be undone. Export it first to keep a copy.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" autoFocus className={btn} onClick={() => { setView({ kind: 'show' }); refocus.current = 'project-delete'; }}>Keep the project</button>

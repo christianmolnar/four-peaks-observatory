@@ -156,7 +156,7 @@ describe('the old night timeline keeps its order', () => {
     });
     await app();
     expect(heading()).toBe('PLAN: My plan (from before) (2 targets)');
-    expect(status()).toMatch(/carried over but could not be saved: quota\. Your old plan stays in this browser and is carried over again the next time the page opens\./);
+    expect(status()).toMatch(/carried over but not saved: quota\. It is carried over again next time\./);
     expect(status()).not.toMatch(/lost on reload/);
     jest.restoreAllMocks();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).not.toBeNull();
@@ -170,7 +170,7 @@ describe('the old night timeline keeps its order', () => {
       remove.call(this, k);
     });
     await app();
-    expect(status()).toMatch(/Your plan was saved, but its old copy could not be removed: denied\. The saved plan is used from now on/);
+    expect(status()).toMatch(/Your plan was saved, but its old copy could not be removed: denied/);
     expect(status()).not.toMatch(/lost on reload|carried over again/);
     expect(storedPlans()!.plans).toHaveLength(1);
   });
@@ -188,8 +188,8 @@ describe('stored plans that cannot be used whole are never removed', () => {
     window.localStorage.setItem(PLANS_KEY, v2);
     const u = userEvent.setup();
     await app();
-    expect(status()).not.toMatch(/newer version/); // the held box says it, the line does not repeat it
-    expect(screen.getByTestId('plans-held').textContent).toMatch(/newer version of the planner/);
+    expect(status()).not.toMatch(/newer planner/); // the held box says it, the line does not repeat it
+    expect(screen.getByTestId('plans-held').textContent).toMatch(/from a newer planner/);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(v2);
     await u.click(within(bar()).getByRole('button', { name: 'New' })); // an edit
     expect(switchNames()).toEqual(['My plan (0)', 'Plan 2 (0)']);
@@ -241,7 +241,7 @@ describe('stored plans that cannot be used whole are never removed', () => {
   it('M3: damaged text starts one empty plan, is said, is copied to the backup, and stays until the next save', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     const first = await app();
-    expect(status()).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans as they were is kept under the backup name/);
+    expect(status()).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans is kept under the backup name/);
     expect(backups()).toEqual(['{nope']);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
     expect(heading()).toBe('PLAN: My plan (0 targets)');

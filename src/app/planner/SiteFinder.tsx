@@ -86,7 +86,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
       const list = await lookupPlace(query, fetchImpl);
       setFound(list);
       setCredits(creditsFor(list));
-      setMessage(list.length === 0 ? 'Nothing found. Try the city and state, or a postal code.' : 'Choose the place that is your site.');
+      setMessage(list.length === 0 ? 'Nothing found. Try the city and state, or a postal code.' : 'Choose your place.');
     } catch (e) {
       setFound(null);
       setError((e as Error).message);
@@ -110,7 +110,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
       setCredits(creditsFor([]));
       const now = getTexts();
       if ((now.latitude ?? '') !== latText || (now.longitude ?? '') !== lonText) {
-        setMessage('The latitude or longitude changed while looking up, so nothing was filled in. Press the button again.');
+        setMessage('The coordinates changed during the lookup, so nothing was filled in. Try again.');
         return;
       }
       const values = detailValues(d);
@@ -161,7 +161,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
       </div>
       <div className="mt-2">
         <button type="button" className={btn} disabled={busy} onClick={() => void fromCoordinates()}>
-          Look up elevation and time zone for the latitude and longitude below
+          Look up elevation and time zone for these coordinates
         </button>
       </div>
       <p ref={messageRef} tabIndex={-1} aria-live="polite" className="mt-2 text-p-info-text font-normal text-sm min-h-5 rounded">{busy ? 'Looking up…' : message}</p>
@@ -231,7 +231,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
         </ul>
       )}
       {credits.length > 0 && <p className="mt-2 text-p-t1/70 font-normal text-sm">{credits.join(' ')}</p>}
-      <p className="mt-2 text-p-t1/70 font-normal text-sm">Sky darkness (Bortle class) is not looked up. Set it in the box below.</p>
+      <p className="mt-2 text-p-t1/70 font-normal text-sm">Bortle class is not looked up: set it below.</p>
     </div>
   );
 }

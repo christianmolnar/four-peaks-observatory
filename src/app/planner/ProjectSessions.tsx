@@ -157,7 +157,7 @@ function SessionForm({ project, names, initial, submitLabel, title, onSubmit, on
           {errors.note !== undefined && <p id={`${uid}-note-err`} role="alert" className="mt-1 break-words text-sm font-normal text-p-warn-text">{errors.note}</p>}
         </div>
       </div>
-      {noPlan && <p className="break-words text-sm font-normal text-p-warn-text">{names.target(f.targetId)} has no hours planned for {names.filter(f.filterId)}, so this light will be kept but counted as not in the plan.</p>}
+      {noPlan && <p className="break-words text-sm font-normal text-p-warn-text">{names.target(f.targetId)} has no hours planned for {names.filter(f.filterId)}, so this light is kept but not counted in the plan.</p>}
       {failure !== '' && <p role="alert" className="break-words text-sm font-normal text-p-warn-text">{failure}</p>}
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={btn}>{submitLabel}</button>
@@ -237,7 +237,7 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
         />
       )}
       {log.length === 0 ? (
-        <p className="text-sm font-normal text-p-t1/70">No sessions yet. Add one for each night you shoot; the bars above are worked out from this log.</p>
+        <p className="text-sm font-normal text-p-t1/70">No sessions yet. Add one for each night you shoot.</p>
       ) : (
         <>
           <p className="text-sm font-normal text-p-t1/70" data-testid="log-count">
@@ -275,7 +275,7 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
                     </p>
                     {asking === s.id ? (
                       <div role="group" aria-label={`Delete this session?`} className="mt-1 space-y-2">
-                        <p className="break-words text-sm font-normal text-p-t1">Delete this session ({describe(s, names)})? Its light leaves the bars. This cannot be undone.</p>
+                        <p className="break-words text-sm font-normal text-p-t1">Delete this session ({describe(s, names)})? Its light leaves the bars. It cannot be undone.</p>
                         <div className="flex flex-wrap gap-2">
                           <button ref={keepButton} type="button" className={btn} onClick={() => { setAsking(null); setTimeout(() => document.getElementById(`delete-${s.id}`)?.focus(), 0); }}>Keep it</button>
                           <button

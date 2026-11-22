@@ -258,7 +258,7 @@ describe('Find my site', () => {
     await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
     await u.type(box(/^Latitude/), '1');
     answer(reply({ elevationM: 40 }));
-    expect(await screen.findByText(/changed while looking up, so nothing was filled in/)).toBeTruthy();
+    expect(await screen.findByText(/changed during the lookup, so nothing was filled in/)).toBeTruthy();
     expect(box(/^Elevation/).value).toBe('');
   });
 
@@ -393,7 +393,7 @@ describe('Find my site', () => {
 
   it('Bortle stays the editable box, with a note that it is not looked up', () => {
     open();
-    expect(screen.getByText(/Bortle class\) is not looked up/)).toBeTruthy();
+    expect(screen.getByText(/Bortle class is not looked up/)).toBeTruthy();
     expect(screen.getByRole('combobox', { name: /Sky darkness, Bortle class/ })).toBeTruthy();
   });
 });

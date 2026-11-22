@@ -378,7 +378,7 @@ export function narrowbandHours(input: NbInput): NbResult {
           const r = Math.round((l.gain / t.band.gain) * 100) / 100;
           if (r === 1) return `Same as ${t.filter.name} for ${l.line}`;
           const how = l.gain / t.band.gain >= 1.05 ? 'A little better than' : l.gain / t.band.gain > 0.95 ? 'Same as' : 'Weaker than';
-          return `${how} ${t.filter.name} for ${l.line} (${r}×)`;
+          return `${how} ${t.filter.name} for ${l.line} (${r}×)${how === 'A little better than' ? `; ${t.filter.name} already runs for it` : ''}`;
         });
         parts.push(...compare);
       }

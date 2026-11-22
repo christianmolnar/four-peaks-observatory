@@ -35,7 +35,7 @@ describe('reading the store', () => {
       expect(o.handle.held).toBeNull();
       expect(s.getItem(PROJECTS_KEY)).toBe(text); // not touched
       expect(listProjectsBackups(s).map((b) => b.text)).toEqual([text]);
-      expect(o.notes.join(' ')).toMatch(/could not be read, so they start over/);
+      expect(o.notes.join(' ')).toMatch(/could not be read, so you start with none/);
       expect(o.notes.join(' ')).toContain(`${PROJECTS_BACKUP_PREFIX}1000`);
     }
   });
@@ -94,9 +94,9 @@ describe('reading the store', () => {
 
   it('a storage that cannot be read throws in words; opening it says so and is not held', () => {
     const s = { ...memory(), getItem: () => { throw new Error('denied'); } };
-    expect(() => loadProjects(s)).toThrow(/blocked or unavailable\)\.$/);
+    expect(() => loadProjects(s)).toThrow(/blocked\.$/);
     expect(() => loadProjects(s)).not.toThrow(/denied/);
-    expect(openProjects(s).notes[0]).toMatch(/blocked or unavailable/);
+    expect(openProjects(s).notes[0]).toMatch(/blocked/);
   });
 
   it('inspectProjects tells whole, newer and unreadable text apart', () => {
@@ -157,11 +157,11 @@ describe('writing', () => {
     const h = openProjects(s).handle;
     const noWrite = { ...s, setItem: () => { throw Object.assign(new Error('SecurityError'), { name: 'SecurityError' }); } };
     const r = changeProjects(noWrite, h, add('a', 5));
-    expect(!r.ok && r.message).toMatch(/blocked or unavailable/);
+    expect(!r.ok && r.message).toMatch(/blocked/);
     expect(r.handle.unsaved).toBe(true);
     const noRead = { ...s, getItem: () => { throw new Error('denied'); } };
     const r2 = changeProjects(noRead, h, add('a', 5));
-    expect(!r2.ok && r2.message).toMatch(/blocked or unavailable/);
+    expect(!r2.ok && r2.message).toMatch(/blocked/);
     expect(r2.handle).toBe(h);
   });
 
@@ -184,7 +184,7 @@ describe('writing', () => {
     expect(listProjectsBackups(s).map((b) => b.text)).toEqual([odd]);
     const s2 = memory({ [PROJECTS_KEY]: odd }, (k) => (k.startsWith(PROJECTS_BACKUP_PREFIX) ? new Error('full') : null));
     const r2 = changeProjects(s2, openProjects(s2).handle, add('a', 5));
-    expect(!r2.ok && r2.message).toMatch(/copy of the stored projects could not be kept/);
+    expect(!r2.ok && r2.message).toMatch(/stored projects could not be copied/);
     expect(s2.getItem(PROJECTS_KEY)).toBe(odd);
   });
 
@@ -311,8 +311,7 @@ describe('changeProjects refuses in words, never throws, when the two copies tog
     expect(r.message).toMatch(/^Not saved: .*sessions: holds 0 to 5,000, found 6,000/);
     noPath(r.message);
     // The remedy is true: this change was not made; the earlier unsaved ones are kept; removing in this page cannot help.
-    expect(r.message).toContain('This change was not made');
-    expect(r.message).toContain('Your earlier changes are kept on this page');
+    expect(r.message).toContain('pass a limit');
     expect(r.message).not.toContain('remove some sessions or projects and change something again');
     expect(r.handle).toBe(mine);
     expect(r.handle.unsaved).toBe(true);

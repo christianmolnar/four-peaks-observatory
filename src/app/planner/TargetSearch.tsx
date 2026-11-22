@@ -29,7 +29,7 @@ interface Row {
 function outsideTheList(type: string, entry: PlanEntry): string {
   if (NON_IMAGING_TYPES.includes(type)) return 'Double stars are not ranked, so it is not in the list.';
   if (entry.fit === 'too-large') return 'Tick “Show targets that do not fit” to list it.';
-  if (entry.percentOfFrame !== null && entry.percentOfFrame < DEFAULT_MIN_FRAME_PERCENT) return `Under ${DEFAULT_MIN_FRAME_PERCENT}% of the camera view, so it is not in the list unless you tick “Show targets that do not fit”.`;
+  if (entry.percentOfFrame !== null && entry.percentOfFrame < DEFAULT_MIN_FRAME_PERCENT) return `Under ${DEFAULT_MIN_FRAME_PERCENT}% of the camera view; tick “Show targets that do not fit” to list it.`;
   return 'Below the best 100, so it is not in the list.';
 }
 
@@ -145,7 +145,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
         </button>
       </form>
       <p id={hintId} className="mt-1 text-p-t1/70 font-normal text-sm">
-        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}{inProject ? '' : ', the solar system (Moon and planets)'} on this device, as you type. Nothing is sent anywhere.
+        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}{inProject ? '' : ', the solar system (Moon and planets)'} on this device.
       </p>
 
       {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-p-t1/70 font-normal text-sm">Loading the catalog…</p>}

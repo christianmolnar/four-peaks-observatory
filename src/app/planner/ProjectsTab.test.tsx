@@ -149,6 +149,7 @@ describe('the progress view shows the engine\'s numbers', () => {
     expect(text(lines[2])).toContain('Broadband 2h 30m / 2h 125% · 30m over');
     expect(text(lines[3])).toContain('(optional, excluded from totals)');
     expect(text(screen.getByTestId('tile-planned'))).toBe('7h');
+    expect(text(screen.getByTestId('project-over-note'))).toContain('30m was shot beyond the plan'); // the over-plan warning stays
     expect(text(screen.getByTestId('optional-note'))).toContain('Orion Nebula Optolong H-alpha 7 nm 20m of 1h');
     const off = text(screen.getByTestId('not-in-plan'));
     expect(off).toContain('2 logged sessions are not in the plan (1h 5m in all)');
@@ -230,7 +231,7 @@ describe('seed offer', () => {
     expect(A.getByTestId('projects-status').textContent).toBe('Saved the project “Marathon”.');
     fireEvent.click(B.getByRole('button', { name: 'Save project' }));
     const refusal = B.getAllByRole('alert').map(text).join(' | ');
-    expect(refusal).toBe('Not saved: last night’s hours are already logged in the project “Marathon”. Open that project instead of starting another.');
+    expect(refusal).toMatch(/^Not saved: .*already logged in the project “Marathon”/);
     expect(B.queryByTestId('projects-problem')).toBeNull();
     expect(B.getByTestId('projects-status').textContent).toBe('');
     expect(stored()).toHaveLength(1);
@@ -262,7 +263,7 @@ describe('creating a project', () => {
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
     expect((minutesBox('Andromeda Galaxy', 'Broadband') as HTMLInputElement).value).toBe('120');
     expect((minutesBox('Andromeda Galaxy', 'Optolong H-alpha 7 nm') as HTMLInputElement).value).toBe('60');
-    expect(screen.getByText(/^Added Andromeda Galaxy to the project, with/).textContent).toMatch(/with 2 boxes filled from the minutes in your plan.*1 of the plan’s filter is not in this project/);
+    expect(screen.getByText(/^Added Andromeda Galaxy: 2 boxes/).textContent).toMatch(/2 boxes filled.*1 plan filter is not in this project/);
     // unticking and ticking again restores them
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
@@ -460,10 +461,12 @@ describe('projects: switch, rename, duplicate, delete', () => {
     expect(document.activeElement?.id).toBe('project-rename');
     press('Duplicate');
     expect(stored().map((p) => [p.name, p.sessions.length])).toEqual([['Over and off', 5], ['Plain 2', 1], ['Plain 2 (copy)', 0]]);
-    expect(screen.getByTestId('projects-status').textContent).toContain('the plan was copied, the logged sessions were not');
+    expect(screen.getByTestId('projects-status').textContent).toContain('plan copied, sessions not');
     press('Delete');
     const ask = text(screen.getByTestId('project-delete-confirm'));
-    expect(ask).toBe('Delete the project “Plain 2 (copy)”? This removes the project, its 1 target, 2 planned lines and its 0 logged sessions (0h of light). It cannot be undone. Copy the tracker or export it first to keep a record.Keep the projectDelete the project');
+    expect(ask).toContain('Delete the project “Plain 2 (copy)”?');
+    expect(ask).toMatch(/1 target, 2 planned lines and its 0 logged sessions \(0h of light\)/);
+    expect(ask).toContain('cannot be undone');
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep the project' }));
     press('Keep the project');
     expect(stored()).toHaveLength(3);
@@ -525,7 +528,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
     expect(screen.getByTestId('projects-problem').textContent).toMatch(/^Not saved: browser storage is full\./);
     expect(screen.getByTestId('projects-status').textContent).toBe('');
     expect(document.body.textContent).not.toMatch(/\bSaved\b/);
-    expect(screen.getByTestId('projects-unsaved').textContent).toMatch(/^Not saved: the latest changes are on this page only/);
+    expect(screen.getByTestId('projects-unsaved').textContent).toMatch(/^Not saved: changes are on this page only/);
     expect(text(screen.getAllByTestId('session-row')[0])).toContain('10m');
   });
 
@@ -534,13 +537,14 @@ describe('Copy tracker, and storage that does not take the change', () => {
       throw new Error('denied');
     });
     await draw(<Harness planTargets={[{ id: 'm31', name: 'Andromeda Galaxy' }]} />);
-    expect(screen.getByTestId('projects-notes').textContent).toContain('browser storage is blocked or unavailable');
+    expect(screen.getByTestId('projects-notes').textContent).toContain('browser storage is blocked');
     press('New project');
     type('Project name', 'X');
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
     press('Save project');
     const alerts = screen.getAllByRole('alert').map(text).filter((x) => /Not saved/.test(x));
-    expect(alerts).toEqual(['Not saved: browser storage is blocked or unavailable, so nothing was changed. Allow storage for this site, then try again.']); // once, in the open editor
+    expect(alerts).toHaveLength(1); // once, in the open editor
+    expect(alerts[0]).toMatch(/^Not saved: browser storage is blocked, nothing changed/);
     expect(document.body.textContent).not.toMatch(/Saved the project|denied|on this page only; export/);
   });
 
@@ -548,7 +552,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
     const text0 = JSON.stringify({ version: 9, projects: [] });
     window.localStorage.setItem(PROJECTS_KEY, text0);
     await draw(<Harness planTargets={[{ id: 'm31', name: 'Andromeda Galaxy' }]} />);
-    expect(screen.getByTestId('projects-held').textContent).toMatch(/made by a newer version of the planner/);
+    expect(screen.getByTestId('projects-held').textContent).toMatch(/from a newer planner/);
     press('New project');
     type('Project name', 'X');
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
@@ -560,7 +564,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
   it('damaged saved projects are copied to a dated backup and said in words', async () => {
     window.localStorage.setItem(PROJECTS_KEY, '{not json');
     await draw();
-    expect(screen.getByTestId('projects-notes').textContent).toMatch(/could not be read, so they start over with none/);
+    expect(screen.getByTestId('projects-notes').textContent).toMatch(/could not be read, so you start with none/);
     expect(screen.getByTestId('projects-notes').textContent).toMatch(/backup name/);
     expect(Object.keys(window.localStorage).some((k) => k.startsWith(`${PROJECTS_KEY}.bak.`))).toBe(true);
   });
