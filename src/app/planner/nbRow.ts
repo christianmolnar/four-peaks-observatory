@@ -11,7 +11,7 @@ import type { PlanTargetRef } from '@/planner/state/plans';
 /** The panel's most and least broadband hours a person may type. */
 export const NB_HOURS_MIN = 0.25;
 export const NB_HOURS_MAX = 48;
-export const NB_HOURS_TEXT = `Broadband hours must be a number from ${NB_HOURS_MIN} to ${NB_HOURS_MAX}, for example 2 or 3.5.`;
+export const NB_HOURS_TEXT = `Enter hours from ${NB_HOURS_MIN} to ${NB_HOURS_MAX}, such as 3.5.`;
 
 /** What the train and camera of the open plan give the engine; a field absent is a number the gear does not hold. */
 export interface NbGear {
@@ -90,10 +90,10 @@ export function nbRowView(input: NbRowInput): NbView {
   if (profile === null) return { kind: 'hidden' };
   if ('problem' in input.gear) return { kind: 'message', text: input.gear.problem };
   const g = input.gear;
-  if (g.colour === false) return { kind: 'message', text: 'This camera is mono. The panel works out minutes for a colour (one-shot colour) camera only, so it gives none.' };
-  const missing = [pos(g.fRatio) ? null : 'the focal ratio', pos(g.focalLengthMm) ? null : 'the focal length', pos(g.pixelUm) ? null : 'the pixel size'].filter((x): x is string => x !== null);
-  if (missing.length > 0) return { kind: 'message', text: `Gear numbers are missing (${missing.join(', ')}), so no narrowband minutes are worked out. Add them in Gear.` };
-  if (input.filters.length === 0) return { kind: 'message', text: 'There are no filters in your gear yet, so there is nothing to recommend. Add them in Gear.' };
+  if (g.colour === false) return { kind: 'message', text: 'Mono camera: narrowband minutes are for colour cameras only.' };
+  const missing = [pos(g.fRatio) ? null : 'focal ratio', pos(g.focalLengthMm) ? null : 'focal length', pos(g.pixelUm) ? null : 'pixel size'].filter((x): x is string => x !== null);
+  if (missing.length > 0) return { kind: 'message', text: `Missing ${missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}` : missing[0]}. Add them in Gear.` };
+  if (input.filters.length === 0) return { kind: 'message', text: 'No filters in your gear. Add them in Gear.' };
 
   const defaultText = hoursOf(input.light.minutes);
   const hoursText = input.hoursText ?? defaultText;
@@ -109,7 +109,7 @@ export function nbRowView(input: NbRowInput): NbView {
     knots
       ? (() => {
           const faint = Math.max(SB_CLASS_MU.low, sb ?? SB_CLASS_MU.low);
-          assumptions.push(`The knots are small and faint against the disk, so their brightness is taken as ${faint} mag per square arcsecond (the faint class, a stand-in, not measured), not the whole galaxy's mean.`);
+          assumptions.push(`Knot brightness assumed: ${faint} mag per square arcsecond.`);
           return faint;
         })()
       : sb !== undefined
@@ -117,12 +117,12 @@ export function nbRowView(input: NbRowInput): NbView {
       : (() => {
           const cls = surfaceBrightnessOf({ type: input.target?.type });
           const used = cls === 'unknown' ? UNKNOWN_SB_CLASS : cls;
-          assumptions.push(`The catalog has no surface brightness for this target; the ${used} class (${SB_CLASS_MU[used]} mag per square arcsecond) is assumed.`);
+          assumptions.push(`Brightness assumed: ${SB_CLASS_MU[used]} mag per square arcsecond.`);
           return SB_CLASS_MU[used];
         })();
   const rnClass = g.readNoiseClass ?? DEFAULT_READ_NOISE_CLASS;
-  if (g.readNoiseClass === undefined) assumptions.push(`The camera's read noise is not set; ${rnClass} (${READ_NOISE_E[rnClass]} e) is assumed.`);
-  if (input.bortleAssumed) assumptions.push(`The site has no Bortle class set; class ${input.bortle} is assumed.`);
+  if (g.readNoiseClass === undefined) assumptions.push(`Read noise assumed: ${rnClass} (${READ_NOISE_E[rnClass]} e).`);
+  if (input.bortleAssumed) assumptions.push(`Bortle assumed: ${input.bortle}.`);
 
   const result = narrowbandHours({
     profile,

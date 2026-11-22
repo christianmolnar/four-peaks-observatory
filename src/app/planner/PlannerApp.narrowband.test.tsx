@@ -68,7 +68,7 @@ describe('the narrowband panel on a plan row', () => {
     expect(tick('ic405', 'mystery').disabled).toBe(true);
     expect(tick('ic405', 'mystery').checked).toBe(false);
     const panel = screen.getByTestId('nb-ic405').textContent ?? '';
-    expect(panel).toContain('Counts signal-to-noise only; band widths from the vendor, centres and leakage not verified; estimated from sky and band width, not measured on your rig.');
+    expect(screen.getByTestId('nb-honesty-ic405').textContent).toMatch(/^Estimate;/);
     expect(screen.getByTestId('nb-confidence-ic405').textContent).toBe('Typical for this type, not measured');
     expect(panel).toContain('How this is worked out');
     expect(panel).not.toMatch(/NaN|Infinity|undefined|e\+\d/);
@@ -154,7 +154,6 @@ describe('a filter that is not recommended can still be chosen', () => {
     expect(text).toMatch(/not recommended, .*on its own/);
     expect(text).toMatch(/signal-to-noise gain about/);
     expect(text).not.toMatch(/better collected/);
-    expect(text).toMatch(/NBZ-II already runs for Ha/);
     expect(tick('ic405', 'ha7').disabled).toBe(false);
     expect(tick('ic405', 'ha7').checked).toBe(false);
     expect(screen.getByTestId('nb-twice-ic405').textContent).toMatch(/never counted twice/);

@@ -86,7 +86,7 @@ describe('the Filter mix part of a plan row', () => {
   it('a target that gives off no emission shows the gate message with all the light on broadband', async () => {
     await app([leo], profileWith('nbz'));
     open('leo-triplet');
-    expect(screen.getByTestId('plan-mix-headline-leo-triplet').textContent).toMatch(/almost no emission light, so narrowband filters add nothing/);
+    expect(screen.getByTestId('plan-mix-headline-leo-triplet').textContent).toMatch(/Almost no emission light/);
     expect(body('leo-triplet')).toContain(`Broadband (no narrowband filter): ${light('leo-triplet')}`);
   });
 
@@ -102,7 +102,7 @@ describe('the Filter mix part of a plan row', () => {
     await app([ic405, jupiter], profileWith(undefined));
     open('ic405');
     open('planet-jupiter');
-    expect(screen.getByTestId('plan-mix-message-ic405').textContent).toMatch(/No filter is selected in the setup/);
+    expect(screen.getByTestId('plan-mix-message-ic405').textContent).toMatch(/No filter in this setup/);
     expect(screen.getByTestId('plan-mix-message-planet-jupiter').textContent).toMatch(/No filter mix for solar-system bodies/);
     expect(body('ic405')).not.toMatch(/\d+ min|\d+ h/);
   });
@@ -131,7 +131,7 @@ describe('the light comes from the timeline, and a target it leaves out has none
     }
     // The row's own stand-alone light is longer than the slot's for Andromeda (the window closes): the mix follows the slot.
     open('ngc7000');
-    expect(screen.getByTestId('plan-mix-message-ngc7000').textContent).toMatch(/not scheduled tonight/);
+    expect(screen.getByTestId('plan-mix-message-ngc7000').textContent).toMatch(/Not up tonight/);
     expect(body('ngc7000')).not.toMatch(/\d+ min|\d+ h|Light to split/);
   });
 

@@ -118,7 +118,7 @@ describe('the Filters line under each slot of the AI result', () => {
     mount(fetchWith(), ['ic405'], profileWith(undefined));
     await planned();
     untickNarrowband();
-    expect(slotMix(0)).toMatch(/No filter is selected in the setup/);
+    expect(slotMix(0)).toMatch(/No filter in this setup/);
     expect(slotMix(0)).not.toMatch(/\d+ min|\d+ h/);
   });
 
