@@ -10,14 +10,12 @@ export interface TypeGroup {
   noun: string;
   /** Catalog types the choice lists; undefined for the two choices the ranker is not asked to narrow (All, Solar system). */
   types?: readonly string[];
-  /** What a person might not guess is in the choice; said under the heading while it is chosen. */
-  note?: string;
 }
 
 export const TYPE_GROUPS: readonly TypeGroup[] = [
   { id: 'all', label: 'All', noun: 'targets' },
   { id: 'galaxies', label: 'Galaxies', noun: 'galaxies', types: ['galaxy'] },
-  { id: 'nebulae', label: 'Nebulae', noun: 'nebulae', types: ['nebula', 'dark-nebula'], note: 'Emission, reflection, HII and dark nebulae, and clusters with nebulae (the Christmas Tree Cluster is here, not in Open clusters).' },
+  { id: 'nebulae', label: 'Nebulae', noun: 'nebulae', types: ['nebula', 'dark-nebula'] },
   { id: 'planetary-nebulae', label: 'Planetary nebulae', noun: 'planetary nebulae', types: ['planetary-nebula'] },
   { id: 'globular-clusters', label: 'Globular clusters', noun: 'globular clusters', types: ['globular-cluster'] },
   { id: 'open-clusters', label: 'Open clusters', noun: 'open clusters', types: ['open-cluster'] },

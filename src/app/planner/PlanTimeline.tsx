@@ -5,7 +5,7 @@ import type { MutableRefObject } from 'react';
 import type { AstronomicalNight, Site } from '@/planner/astro';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { presetLabel } from './rowExposure';
-import { MAX_SUBS } from '@/planner/exposure/constants';
+import { MAX_SUBS, SETUP_MIN } from '@/planner/exposure/constants';
 import type { HorizonPoint } from '@/planner/horizon';
 import {
   MAX_NOTE_CHARS,
@@ -25,6 +25,7 @@ import { slotInputFor } from '@/planner/itinerary/resolve';
 import type { Profile } from '@/planner/profile';
 import NightTimeline from './NightTimeline';
 import Collapsible from './Collapsible';
+import { Fold } from './PlanRowExposure';
 import WrapText from './WrapText';
 import { download } from './download';
 
@@ -74,14 +75,20 @@ const btn44 = 'min-h-11 min-w-11 px-3 py-1.5 rounded border border-p-line/30 tex
 /** A slot whose sub length differs from what the target's own row plans for the whole night. */
 const differsFromRow = (s: Slot, row: { subSeconds: number } | undefined): boolean => row !== undefined && s.subSeconds !== null && s.subSeconds !== row.subSeconds;
 
-/** Why a slot's sub differs from its row's. The cause is named only when it is known: the row's sub was lengthened to stay within MAX_SUBS for the whole night and this slot's minutes need no such stretch. Any other cause (the Moon at the slot's start, its altitude) gets a neutral line. */
+/** Why a slot's sub differs from its row's, in one line: the numbers of both, and the 500-sub cap only when that is the cause. Any other cause (the Moon at the slot's start, its altitude) gets no cause. */
 export function slotSubReason(s: Slot, row: { subSeconds: number; subCount: number; lengthenedForCap: boolean }): string {
-  const rowText = `The target's row plans ${row.subSeconds} s x ${row.subCount} subs for the night.`;
-  const slotText = `${s.subSeconds} s x ${s.subCount}`;
-  if (row.lengthenedForCap && s.subSeconds !== null && s.subSeconds < row.subSeconds) {
-    return `${rowText} The row is held to ${MAX_SUBS} subs for the whole night; this slot has ${Math.round((s.end.getTime() - s.start.getTime()) / 60000)} minutes, which need no such limit: ${slotText}.`;
-  }
-  return `${rowText} This slot is planned for the sky during its own time: ${slotText}.`;
+  const rowText = `Row plans ${row.subSeconds} s × ${row.subCount}`;
+  const slotText = `this slot ${s.subSeconds} s × ${s.subCount}`;
+  // The cause is named only when it is known (the row was held to MAX_SUBS for the whole night and this slot needs no such stretch).
+  if (row.lengthenedForCap && s.subSeconds !== null && s.subSeconds < row.subSeconds) return `${rowText}, held to ${MAX_SUBS} subs; ${slotText}.`;
+  return `${rowText}; ${slotText}.`;
+}
+
+/** The slot's altitude and compass direction at its start, middle and end, and the trend; said in Details, not on every slot. */
+function altitudeText(s: Slot): string {
+  if (!s.altitudes) return 'Altitude: none, the slot has no time.';
+  const { start, middle, end, trend } = s.altitudes;
+  return `Altitude ${Math.round(start.altitude)}° ${start.direction}, ${Math.round(middle.altitude)}° ${middle.direction}, ${Math.round(end.altitude)}° ${end.direction}; ${TREND_TEXT[trend]}.`;
 }
 
 function Chip({ severity, label }: { severity: 'warning' | 'note'; label: string }) {
@@ -96,25 +103,24 @@ function Detail({
   heading,
   changeover,
   window: win,
+  altitude,
   warnings,
 }: {
   heading: string;
   changeover: { label: string; minutes: number }[];
   window: string;
+  altitude: string;
   warnings: { severity: 'warning' | 'note'; text: string }[];
 }) {
-  const total = changeover.reduce((s, p) => s + p.minutes, 0);
   return (
     <div>
       <h3 className="text-p-t1 font-normal text-base mb-2">{heading}</h3>
-      <p className="text-p-t1/90 font-normal text-sm">
-        {changeover.length === 0 ? 'Before this slot: nothing (setup happens before the first slot and is not counted).' : `Before this slot: ${changeover.map((p) => `${p.label} ${p.minutes} min`).join(', ')}; ${total} min in all (estimate).`}
-      </p>
-      <p className="text-p-t1/90 font-normal text-sm mt-1">{win}</p>
+      {changeover.length > 0 && <p className="text-p-t1 font-normal text-sm">Before this slot: {changeover.map((p) => `${p.label} ${p.minutes} min`).join(', ')}.</p>}
+      <p className="text-p-t1 font-normal text-sm mt-1">{win}</p>
+      <p className="text-p-t1 font-normal text-sm mt-1" data-testid="slot-altitude">{altitude}</p>
       <ul className="mt-2 space-y-2">
-        {warnings.length === 0 && <li className="text-sm font-normal text-p-t1/70">No warnings for this slot.</li>}
         {warnings.map((w) => (
-          <li key={w.text} className="text-sm font-normal text-p-t1/90">
+          <li key={w.text} className="text-sm font-normal text-p-t1">
             <span className={`mr-2 rounded border px-1.5 py-0.5 text-sm font-medium ${w.severity === 'warning' ? 'border-p-warn/60 text-p-warn-strong' : 'border-p-accent/50 text-p-info-strong'}`}>
               {w.severity === 'warning' ? 'Warning' : 'Note'}
             </span>
@@ -130,7 +136,7 @@ function Detail({
  * The open plan's night timeline: its targets in the plan's order, scheduled one after the other with the changeover between them.
  * The slots, their order, their presets and the start time belong to the plan (a preset is chosen on the target's row, the order by the
  * AI plan); this shows the times and takes the two edits that live here (a note, the start time) back to it. Subs and counts come from
- * the exposure module; every time and number here is an estimate.
+ * the exposure module; every time and number here is an estimate (said once, above the slots).
  */
 export default function PlanTimeline({ profile, items, startTime, presetUsed, rowNumbers, unscheduled, onChange, catalog, site, night, horizon, minAltitude, bortle, formatTime, nightWord, timeZone, report, onPlan }: PlanTimelineProps) {
   // What is being typed in the start box; null: show the plan's start time.
@@ -187,7 +193,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
   const update = (id: string, patch: Partial<ItineraryItem>) => commit(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
 
   if (night.kind !== 'normal' || plan === null) {
-    return <p className="text-p-t1/90 font-normal text-sm">There is no astronomical night on this date, so there is nothing to schedule.</p>;
+    return <p className="text-p-t1 font-normal text-sm">No astronomical night on this date.</p>;
   }
 
   const shown: Slot[] = plan.slots;
@@ -198,18 +204,21 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
 
   return (
     <div>
-      <p className="text-p-t1/80 font-normal text-sm">
-        Slots run in the order below, one after the other. Each starts when the one before is done and the changeover is over, or when its target clears your horizon, whichever is later. Times, subs and overhead are estimates for {nightWord}, not predictions. Setup (30 minutes) happens before the first slot and is not counted.
+      <p className="text-p-t1/70 font-normal text-sm" data-testid="timeline-estimate">
+        All times are estimates for {nightWord}. Setup ({SETUP_MIN} min) comes first and is not counted.
       </p>
+      <Fold id="timeline-how" title="How this is worked out">
+        <p className="text-p-t1/70 font-normal text-sm">Each slot starts when the one before is done, or when its target clears your horizon, whichever is later.</p>
+      </Fold>
 
       {unscheduled > 0 && (
-        <p className="mt-2 text-p-t1/90 font-normal text-sm" data-testid="timeline-unscheduled">
-          The timeline schedules the first {MAX_SLOTS} targets of the plan; {unscheduled} more {unscheduled === 1 ? 'is' : 'are'} not scheduled.
+        <p className="mt-2 text-p-t1 font-normal text-sm" data-testid="timeline-unscheduled">
+          Only the first {MAX_SLOTS} targets are scheduled; {unscheduled} {unscheduled === 1 ? 'is' : 'are'} not.
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div>
-          <label htmlFor="it-start" className="block text-p-t1/90 font-normal text-sm mb-1">Imaging can start at</label>
+          <label htmlFor="it-start" className="block text-p-t1 font-normal text-sm mb-1">Imaging can start at</label>
           <input
             id="it-start"
             ref={startBox}
@@ -237,11 +246,11 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
         </button>
       </div>
       <p id="it-start-hint" className="mt-1 text-p-t1/70 font-normal text-sm" data-testid="itinerary-start-hint">
-        24-hour time, such as 2130 or 21:30. Setup (30 min) is done before this time. Default: when the astronomical night starts, {formatTime(night.start as Date)}. Times are in the site&apos;s time zone.
+        24-hour time, such as 21:30. Default: night start, {formatTime(night.start as Date)}.
       </p>
       {startError && (
         <p role="status" className="mt-2 bg-p-warn-fill/15 border border-p-warn/40 rounded px-3 py-2 text-p-warn-text font-normal text-sm" data-testid="itinerary-start-error">
-          Type the start as 24-hour hours and minutes, such as 2130 or 21:30. The plan keeps the last time that worked.
+          Use 24-hour time, such as 21:30. The last good time is kept.
         </p>
       )}
       {plan.startNote && (
@@ -249,14 +258,15 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
           {plan.startNote}
         </p>
       )}
-      <p className="mt-4 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid="itinerary-why">
-        <span className="text-p-t1/70">Why this order: </span>
-        {plan.why}
-      </p>
-      <p className="text-p-t1/80 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
+      {plan.why !== null && (
+        <p className="mt-4 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid="itinerary-why">
+          {plan.why}
+        </p>
+      )}
+      <p className="text-p-t1/70 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
         {shown.length === 0
           ? 'No slots yet.'
-          : `Light ${lightMinutes(plan)} min, changeover ${Math.round(totals.changeoverMin)} min, waiting ${Math.round(totals.waitMin)} min; ${totals.filterChanges} filter ${totals.filterChanges === 1 ? 'change' : 'changes'}, ${totals.trainChanges} setup ${totals.trainChanges === 1 ? 'change' : 'changes'}; ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}. All estimates.`}
+          : `Light ${lightMinutes(plan)} min · changeover ${Math.round(totals.changeoverMin)} · waiting ${Math.round(totals.waitMin)} · ${totals.ends ? `ends ${formatTime(totals.ends)}` : 'nothing scheduled'}`}
       </p>
 
       <div className="mt-4">
@@ -266,7 +276,7 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
       </div>
 
       {shown.length === 0 ? (
-        <p className="mt-2 text-p-t1/90 font-normal text-sm">No targets in the plan yet. Add one from Find a target.</p>
+        <p className="mt-2 text-p-t1 font-normal text-sm">No targets in the plan yet. Add one from Find a target.</p>
       ) : (
         <ol className="mt-2 space-y-3" aria-label="Night timeline, in order">
           {shown.map((s, k) => {
@@ -279,39 +289,35 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                     {k + 1}. {s.name}
                   </h3>
                   <p className="text-p-t1 text-sm tabular-nums" data-testid={`slot-time-${k}`}>
-                    {timed ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'} <span className="text-p-t1/70 text-sm">(estimate)</span>
+                    {timed ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time'}
                   </p>
                 </div>
-                <p className="mt-2 text-p-t1/90 text-sm" data-testid={`slot-preset-${s.id}`}>
-                  {presetUsed?.has(s.id) ? (
-                    // The Custom numbers do not work on this night: the reason names the number that fails; the slot says nothing more about a preset.
-                    <span className="text-p-warn-strong text-sm" data-testid={`it-preset-used-${s.id}`}>
-                      {presetUsed.get(s.id)}
-                    </span>
-                  ) : it.overrides !== undefined ? (
-                    <>Exposure for {s.name}: Custom (started from {presetLabel(it.mode)}). Change it on this target&apos;s row in the plan.</>
-                  ) : (
-                    <>Exposure for {s.name}: {presetLabel(it.mode)}. Change it on this target&apos;s row in the plan.</>
-                  )}
-                </p>
-                <p className="mt-2 text-p-t1/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
+                {/* The preset is chosen on the target's row; the slot says so only when the numbers are Custom or do not work tonight. */}
+                {(presetUsed?.has(s.id) || it.overrides !== undefined) && (
+                  <p className="mt-2 text-p-t1 text-sm" data-testid={`slot-preset-${s.id}`}>
+                    {presetUsed?.has(s.id) ? (
+                      // The Custom numbers do not work on this night: the reason names the number that fails.
+                      <span className="text-p-warn-strong text-sm" data-testid={`it-preset-used-${s.id}`}>
+                        {presetUsed.get(s.id)}
+                      </span>
+                    ) : (
+                      <>Custom exposure (from {presetLabel(it.mode)}).</>
+                    )}
+                  </p>
+                )}
+                <p className="mt-2 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-light-${k}`}>
                   {s.subSeconds !== null && s.subCount !== null
-                    ? `Light: ${s.subSeconds} s x ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min (estimate).`
+                    ? `${s.subSeconds} s × ${s.subCount} subs = ${Math.round(s.integrationMin * 10) / 10} min.`
                     : timed
-                      ? `${s.name === 'Moon' ? 'Moon' : 'Solar system'}: short video clips, about ${Math.round(s.integrationMin)} min (estimate). See the checklist in the Solar system row of the list.`
+                      ? `Short video clips, about ${Math.round(s.integrationMin)} min. See the Solar system checklist.`
                       : 'No imaging is planned for this slot.'}{' '}
-                  {k > 0 && timed ? `Before it: ${s.changeover.minutes} min (estimate).` : ''}
+                  {k > 0 && timed ? `Before it: ${s.changeover.minutes} min.` : ''}
                 </p>
                 {differsFromRow(s, rowNumbers?.get(s.id)) && (
-                  <p className="mt-1 text-p-t1/80 font-normal text-sm" data-testid={`slot-why-sub-${s.id}`}>
+                  <p className="mt-1 text-p-t1/70 font-normal text-sm" data-testid={`slot-why-sub-${s.id}`}>
                     {slotSubReason(s, rowNumbers!.get(s.id)!)}
                   </p>
                 )}
-                <p className="mt-1 text-p-t1/90 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid={`slot-altitude-${k}`}>
-                  {s.altitudes
-                    ? `Altitude: ${Math.round(s.altitudes.start.altitude)}° ${s.altitudes.start.direction} at the start, ${Math.round(s.altitudes.middle.altitude)}° ${s.altitudes.middle.direction} in the middle, ${Math.round(s.altitudes.end.altitude)}° ${s.altitudes.end.direction} at the end; ${TREND_TEXT[s.altitudes.trend]}.`
-                    : 'Altitude: none, the slot has no time.'}
-                </p>
                 {/* The chips for the most that can appear together (three) are reserved invisibly, so a change of order or filter moves nothing. */}
                 <div className="mt-1 grid">
                   <div className="[grid-area:1/1] flex flex-wrap items-start gap-2" data-testid={`slot-chips-${k}`}>
@@ -363,7 +369,8 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
             <Detail
               heading={`Slot ${shown.indexOf(detailSlot) + 1} details: ${detailSlot.name}`}
               changeover={shown.indexOf(detailSlot) === 0 ? [] : detailSlot.changeover.parts}
-              window={detailSlot.window ? `Usable window ${formatTime(detailSlot.window.start)} to ${formatTime(detailSlot.window.end)} (computed).` : 'This target has no usable window left for this slot (computed).'}
+              window={detailSlot.window ? `Usable window ${formatTime(detailSlot.window.start)} to ${formatTime(detailSlot.window.end)}.` : 'No usable window left for this slot.'}
+              altitude={altitudeText(detailSlot)}
               warnings={detailSlot.warnings}
             />
           </div>
@@ -376,7 +383,8 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                 { label: 'filter change', minutes: 88 },
                 { label: 'refocus', minutes: 88 },
               ]}
-              window="Usable window 88:88 to 88:88 (computed)."
+              window="Usable window 88:88 to 88:88."
+              altitude="Altitude 88° SSW, 88° SSW, 88° SSW; past peak, falling."
               warnings={worst}
             />
           </div>

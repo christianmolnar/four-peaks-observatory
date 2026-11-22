@@ -60,18 +60,18 @@ describe('the research note’s worked examples (within 5 minutes per filter)', 
     const f = run(M42, 20, 2, both).filters.find((x) => x.filterId === 'nb3');
     expect(f?.verdict).toBe('no-help');
     expect(f?.minutes).toBe(0);
-    expect(f?.reason).toMatch(/nbz ii|NBZ II/);
+    expect(f?.detail).toMatch(/NBZ II/);
   });
 });
 
 describe('a galaxy', () => {
-  it.each([2, 4])('gets no minutes at B = %i h, and the reason says no narrowband', (h) => {
+  it.each([2, 4])('gets no minutes at B = %i h, and the detail says almost no emission', (h) => {
     const r = run(GALAXY, 23, h, [NBZ, NB3, HA7]);
     expect(r.gate).toBe(true);
     for (const f of r.filters) {
       expect(f.minutes).toBe(0);
       expect(f.verdict).toBe('no-narrowband');
-      expect(f.reason).toMatch(/no narrowband/i);
+      expect(f.detail).toMatch(/almost no emission/i);
     }
   });
   it('works out the same through the catalog profile of an elliptical', () => {
@@ -140,12 +140,17 @@ describe('the train: the ranking comes out of the maths, not a special case', ()
     const [plain, rated] = [at(LEX), at({ ...LEX, ratedMinFRatio: 2 })];
     expect(plain.basis.join(' ')).toMatch(/beam edge shifts/i);
     expect(rated.basis.join(' ')).not.toMatch(/beam edge shifts/i);
+    expect(plain.beam?.fRatio).toBe(2);
+    expect(plain.beam?.share).toBeGreaterThan(0);
+    expect(plain.beam?.share).toBeLessThan(1);
+    expect(rated.beam).toBeUndefined();
     expect(plain.lines[0].matchMin).toBeGreaterThan(rated.lines[0].matchMin);
     expect(plain.lines[0].gain).toBeLessThan(rated.lines[0].gain);
   });
   it('at f/7 nothing shifts, so the basis does not mention it', () => {
     const r = run(HA_HEAVY, 22, 4, [LEX], { train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1000 } }).filters[0];
     expect(r.basis.join(' ')).not.toMatch(/beam edge shifts/i);
+    expect(r.beam).toBeUndefined();
   });
 });
 
@@ -158,7 +163,7 @@ describe('single-band and dual-band filters share the lines', () => {
     expect(m.ha7).toBeGreaterThan(0);
     expect(m.nbz).toBeGreaterThan(0);
     expect(r.filters.find((f) => f.filterId === 'ha7')?.reason).toMatch(/Ha/);
-    expect(r.filters.find((f) => f.filterId === 'nbz')?.reason).toMatch(/Ha goes to Ha 3 nm/);
+    expect(r.filters.find((f) => f.filterId === 'nbz')?.detail).toMatch(/Ha goes to Ha 3 nm/);
   });
   it('a 7 nm Ha band is not worth a second filter beside NBZ II on Rosette: the gain is under the hurdle', () => {
     const r = run(ROSETTE, 22, 2, [NBZ, HA7], { train: { fRatio: 7, pixelUm: 3.76, focalLengthMm: 1000 } });
@@ -167,7 +172,8 @@ describe('single-band and dual-band filters share the lines', () => {
   });
   it('every recommended filter says why and what is unverified', () => {
     for (const f of run(ROSETTE, 22, 2, [NBZ, NB3]).filters.filter((x) => x.minutes > 0)) {
-      expect(f.reason.length).toBeGreaterThan(10);
+      expect(f.reason).toMatch(/^Adds /);
+      expect(f.detail?.length).toBeGreaterThan(10);
       expect(f.basis.join(' ')).toMatch(/centres and leakage not verified/);
       expect(f.basis.join(' ')).toMatch(/not measured/);
     }
@@ -207,7 +213,7 @@ describe('a not-recommended filter’s reason is true for every line it passes',
           if (f.verdict === 'recommend') continue;
           checked += 1;
           for (const l of f.standaloneLines.filter((x) => x.minutes >= 30)) {
-            const sentence = f.reason.split(/[;.]/).filter((part) => part.trim().replace(/^Does not help: /, '').startsWith(`${l.line} would need under 30 min`));
+            const sentence = (f.detail ?? '').split(/[;.]/).filter((part) => part.trim().startsWith(`${l.line} would need under 30 min`));
             expect(sentence).toEqual([]);
           }
         }
@@ -220,7 +226,7 @@ describe('a not-recommended filter’s reason is true for every line it passes',
     const nbz = r.filters.find((f) => f.filterId === 'nbz');
     expect(nbz?.minutes).toBe(35);
     expect(nbz?.lines.map((l) => `${l.line}:${l.minutes}`)).toEqual(['Ha:35']);
-    expect(nbz?.reason).toMatch(/OIII goes to Optolong L-eXtreme, which runs for it/);
+    expect(nbz?.detail).toMatch(/OIII goes to Optolong L-eXtreme, which runs for it/);
   });
   it('every recommended row says "which runs for it" only of lines whose taker earns minutes, and gives the hurdle note for the rest', () => {
     let said = 0;
@@ -229,19 +235,19 @@ describe('a not-recommended filter’s reason is true for every line it passes',
       const r = run(target, mu, hours, [NBZ, NB3, HA7, LEX], { bortle, train: { fRatio: f, pixelUm: 3.76, focalLengthMm: f * 280 } });
       const lineMin = (L: string): number => Math.max(0, ...r.filters.flatMap((x) => x.lines.filter((l) => l.line === L).map((l) => l.minutes)));
       for (const x of r.filters.filter((y) => y.verdict === 'recommend')) {
-        const m = /(\w[\w, and]*) goes to [^.]*, which runs for it/.exec(x.reason);
+        const m = /(\w[\w, and]*) goes to [^.]*, which runs for it/.exec(x.detail ?? '');
         if (m === null) continue;
         said += 1;
         for (const L of m[1].split(/, | and /)) expect([f, mu, bortle, hours, L, lineMin(L) > 0]).toEqual([f, mu, bortle, hours, L, true]);
       }
       for (const x of r.filters.filter((y) => y.verdict !== 'recommend')) {
-        for (const l of x.standaloneLines.filter((y) => y.minutes >= 30)) expect(x.reason).not.toMatch(new RegExp(`(^|[;.] )(Does not help: )?${l.line} would need under 30 min`));
+        for (const l of x.standaloneLines.filter((y) => y.minutes >= 30)) expect(x.detail ?? '').not.toMatch(new RegExp(`(^|[;.] )${l.line} would need under 30 min`));
       }
     }
     expect(said).toBeGreaterThan(0);
   });
   it('a tie reads "the same as", not "1 times"', () => {
-    for (const mu of [22, 23, 24]) for (const hours of [2, 2.38, 3]) for (const f of run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 }).filters) expect(f.reason).not.toMatch(/\(1 times\)/);
+    for (const mu of [22, 23, 24]) for (const hours of [2, 2.38, 3]) for (const f of run(ROSETTE, mu, hours, [NBZ, NB3, HA7, LEX], { bortle: 6, train: f7 }).filters) expect(f.detail ?? '').not.toMatch(/\(1×\)/);
   });
 });
 
@@ -281,9 +287,8 @@ describe('a filter that is not recommended', () => {
     expect(ha7?.standaloneLines.map((l) => l.line)).toEqual(['Ha']);
   });
   it('says what the engine decided and never calls a weaker or equal filter better', () => {
-    expect(ha7?.reason).toMatch(/About the same as NBZ II for Ha \(1\.\d+ times\)/);
-    expect(ha7?.reason).toMatch(/NBZ II already runs/);
-    expect(ha7?.reason).not.toMatch(/better collected/);
+    expect(ha7?.detail).toMatch(/Same as NBZ II for Ha \(1\.\d+×\)/);
+    expect(ha7?.detail).not.toMatch(/better collected/);
   });
 });
 

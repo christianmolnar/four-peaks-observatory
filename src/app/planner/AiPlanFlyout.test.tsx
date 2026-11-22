@@ -58,7 +58,7 @@ it('a verified plan with more slots than the night timeline holds cannot be appl
   const result = await screen.findByTestId('ai-result');
   expect(within(result).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-'))).toHaveLength(MAX_SLOTS + 1);
   expect((screen.getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByTestId('ai-apply-note').textContent).toBe(`The night timeline schedules at most ${MAX_SLOTS} targets and this AI plan has ${MAX_SLOTS + 1}. Remove a target from the plan and ask again.`);
+  expect(screen.getByTestId('ai-apply-note').textContent).toMatch(new RegExp(`${MAX_SLOTS} targets.*${MAX_SLOTS + 1}`));
   expect(props.onApply).not.toHaveBeenCalled();
 });
 
@@ -86,9 +86,9 @@ describe('step 1, checking the night', () => {
     expect(stateOf(1)).toBe('now');
     expect(stateOf(2)).toBe('waiting');
     expect(stateOf(3)).toBe('waiting');
-    expect(screen.getByRole('heading', { name: '1. Checking the night (now)', level: 3 })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 3, name: '2. Asking the AI to order and time 2 targets (waiting)' })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 3, name: '3. Checking the plan against the sky (waiting)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '1. Your night (now)', level: 3 })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: '2. AI plan (waiting)' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: '3. Check (waiting)' })).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2 }));
     expect(f).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Use this plan' })).toBeNull();
@@ -133,7 +133,7 @@ describe('step 3 and the result', () => {
     await screen.findByTestId('ai-result');
     expect(stateOf(2)).toBe('done');
     expect(stateOf(3)).toBe('done');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed\. Every slot is above your minimum altitude/);
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed/);
     const rows = [0, 1].map((i) => screen.getByTestId(`ai-slot-${i}`).textContent ?? '');
     expect(rows[0]).toMatch(new RegExp(`^1\\. ${two[0].name} 19:00 to 20:30 \\(90 min, Balanced\\)`));
     expect(rows[1]).toMatch(new RegExp(`^2\\. ${two[1].name} 20:40 to 21:40 \\(60 min, Deep\\)`));
@@ -147,8 +147,8 @@ describe('step 3 and the result', () => {
     render(<AiPlanFlyout {...propsFor(fetching(reply(200, twoAnswer({ repairRounds: 2 }))))} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired: the first answer failed the code's checks, so it was sent back 2 times; the plan below is the corrected one and passes now\./);
-    expect((screen.getByTestId('ai-checked').textContent ?? '').split('passes now.')[0]).not.toMatch(/altitude|horizon|overlap|neither planned/); // names no cause
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired after 2 retries/);
+    expect(screen.getByTestId('ai-checked').textContent ?? '').not.toMatch(/altitude|horizon|overlap|neither planned/); // names no cause
   });
 
   it('targets left out are listed with why, and the checker\'s warnings are shown', async () => {
@@ -157,9 +157,9 @@ describe('step 3 and the result', () => {
     render(<AiPlanFlyout {...propsFor(fetching(reply(200, a)), { targets: starterTargets.slice(0, 3).map((t) => ({ id: t.id, name: t.name, raHours: t.raHours, decDeg: t.decDeg })) })} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(screen.getByTestId('ai-cut').textContent).toMatch(new RegExp(`^${out.name}\\. The AI judged it did not fit this night`));
+    expect(screen.getByTestId('ai-cut').textContent).toMatch(new RegExp(`^${out.name}\\. The AI judged it did not fit`));
     expect(screen.getByTestId('ai-checker').textContent).toMatch(/1 slot crosses the meridian/);
-    expect(screen.getByTestId('ai-status').textContent).toMatch(/2 targets planned, 1 left out\. Checked by code\./);
+    expect(screen.getByTestId('ai-status').textContent).toMatch(/2 planned, 1 left out\. Checked by code\./);
   });
 
   it('a plan the checker could not clear cannot be used', async () => {
@@ -182,7 +182,7 @@ describe('Use this plan, Ask again, Close', () => {
       await screen.findByTestId('ai-result');
       return u;
     })();
-    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Use this plan sets the open plan.s order and first start time, replacing the earlier times\./);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Sets order and start/);
     expect(screen.queryByTestId('ai-apply-note')).toBeNull(); // nothing to warn about before it is used
     await user.click(screen.getByRole('button', { name: 'Use this plan' }));
     expect(props.onApply).toHaveBeenCalledTimes(1);
@@ -239,7 +239,7 @@ describe('Use this plan, Ask again, Close', () => {
     await user.click(ask());
     await screen.findByTestId('ai-result');
     await user.click(screen.getByRole('button', { name: 'Ask again' }));
-    await waitFor(() => expect(screen.getByTestId('ai-status').textContent).toMatch(/1 target planned, 1 left out/));
+    await waitFor(() => expect(screen.getByTestId('ai-status').textContent).toMatch(/1 planned, 1 left out/));
     expect(f).toHaveBeenCalledTimes(2);
   });
 

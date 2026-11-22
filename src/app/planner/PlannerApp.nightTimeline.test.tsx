@@ -65,17 +65,19 @@ describe('Night timeline', () => {
     expect(part().hasAttribute('hidden')).toBe(false);
   });
 
-  it('a target added to the plan becomes a slot, with times labelled estimate', async () => {
+  it('a target added to the plan becomes a slot; one line above the slots says every time is an estimate', async () => {
     const user = userEvent.setup();
     await app();
     await user.type(screen.getByLabelText('Search the catalog by name or number'), 'm31');
     await user.click(within(screen.getByRole('list', { name: 'Search results' })).getAllByRole('button', { name: /^Add .+ to the plan$/ })[0]);
     expect(names()).toEqual(['Andromeda Galaxy']);
     const li = slots()[0];
-    expect(li.textContent).toMatch(/\d\d:\d\d to \d\d:\d\d \(estimate\)/);
-    expect(li.textContent).toMatch(/Light: \d+ s x \d+ subs = [\d.]+ min \(estimate\)\./);
-    expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light \d+ min, changeover 0 min, waiting 0 min; 0 filter changes, 0 setup changes; ends \d\d:\d\d\. All estimates\.$/);
-    expect(screen.getByTestId('itinerary-why').textContent).toMatch(/Why this order: One slot to place\./);
+    expect(li.textContent).toMatch(/\d\d:\d\d to \d\d:\d\d/);
+    expect(li.textContent).not.toMatch(/estimate/i);
+    expect(li.textContent).toMatch(/\d+ s × \d+ subs = [\d.]+ min\./);
+    expect(screen.getByTestId('timeline-estimate').textContent).toMatch(/estimates/);
+    expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light \d+ min · changeover 0 · waiting 0 · ends \d\d:\d\d$/);
+    expect(screen.queryByTestId('itinerary-why')).toBeNull();
   });
 
   it('has no Up or Down and no add box: the order is the plan\'s own', async () => {
@@ -101,7 +103,7 @@ describe('Night timeline', () => {
     expect(chips(second)).toMatch(/Note: cut short/);
     await user.click(within(second).getByRole('button', { name: 'Details for Triangulum Galaxy' }));
     const detail = screen.getByTestId('slot-detail');
-    expect(within(detail).getAllByText(/^Overlaps its usable window: the slot before ends \d\d:\d\d, \d+ min after Triangulum Galaxy's window opened \(\d\d:\d\d\), and the window closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
+    expect(within(detail).getAllByText(/^Starts \d+ min late; Triangulum Galaxy's window opened \d\d:\d\d, closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
     expect(detail.textContent).toMatch(/Warning/);
   });
 
@@ -115,7 +117,7 @@ describe('Night timeline', () => {
     expect(chips(second)).toMatch(/Note: waits/);
     expect(chips(second)).not.toMatch(/overlaps window/);
     await user.click(within(second).getByRole('button', { name: 'Details for Orion Nebula' }));
-    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Skips its short first window \(\d\d:\d\d to \d\d:\d\d, 45 min of light\)/).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Waits \d+ min for the better window, \d\d:\d\d to \d\d:\d\d\./).length).toBeGreaterThan(0);
   });
 
   it('a slot that never runs shows "No imaging is planned" and no "Before it" line', async () => {
@@ -133,7 +135,7 @@ describe('Night timeline', () => {
     const { unmount } = await app();
     expect(within(slots()[0]).queryByRole('combobox')).toBeNull(); // the preset is chosen on the row only
     fireEvent.click(within(screen.getByRole('group', { name: 'Exposure preset for Andromeda Galaxy' })).getByRole('button', { name: 'Deep' }));
-    expect(slots()[0].textContent).toContain('Exposure for Andromeda Galaxy: Deep. Change it on this target\'s row in the plan.');
+    expect(within(slots()[0]).queryByTestId('slot-preset-m31')).toBeNull(); // a preset is chosen on the row; the slot says nothing
     fireEvent.change(within(slots()[0]).getByLabelText('Note for Andromeda Galaxy'), { target: { value: 'frame wide' } });
     const plan = storedPlan()!;
     expect(plan.targets).toEqual([
@@ -145,7 +147,7 @@ describe('Night timeline', () => {
     await app();
     expect(names()).toEqual(['Andromeda Galaxy', 'Flaming Star Nebula']);
     expect((within(slots()[0]).getByLabelText('Note for Andromeda Galaxy') as HTMLInputElement).value).toBe('frame wide');
-    expect(slots()[0].textContent).toContain('Exposure for Andromeda Galaxy: Deep.');
+    expect(within(slots()[0]).queryByTestId('slot-preset-m31')).toBeNull();
   });
 
   it('the start time is the plan\'s: it is saved in the plan and survives a reload', async () => {
@@ -187,7 +189,7 @@ describe('Night timeline', () => {
     );
     await app();
     expect(chips(slots()[0])).toMatch(/Warning: problem/);
-    expect(slots()[1].textContent).toMatch(/Light: \d+ s x \d+ subs/);
+    expect(slots()[1].textContent).toMatch(/\d+ s × \d+ subs/);
   });
 
   it('the timeline has no Remove: a target is removed on its row in the plan, and its slot goes with it', async () => {
@@ -204,14 +206,14 @@ describe('Night timeline', () => {
     seed('m31');
     await app(withTrain('smart-seestar-s50'));
     expect(names()).toEqual(['Andromeda Galaxy']);
-    expect(slots()[0].textContent).not.toMatch(/Light: \d+ s x/);
+    expect(slots()[0].textContent).not.toMatch(/\d+ s × \d+ subs/);
   });
 
   it('schedules the first eight targets of the plan and says how many are not scheduled; all stay in the plan', async () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['m31', 'm42', 'm13', 'm45', 'ngc7000', 'ic405', 'ngc1499', 'm33', 'm51', 'm81'] }));
     await app();
     expect(names()).toHaveLength(8);
-    expect(screen.getByTestId('timeline-unscheduled').textContent).toBe('The timeline schedules the first 8 targets of the plan; 2 more are not scheduled.');
+    expect(screen.getByTestId('timeline-unscheduled').textContent).toBe('Only the first 8 targets are scheduled; 2 are not.');
     expect(storedPlan()!.targets).toHaveLength(10);
   });
 
@@ -223,7 +225,7 @@ describe('Night timeline', () => {
     expect(chips(li)).toMatch(/Note: meridian flip/);
     const [start, end] = times()[0]!;
     expect(toMin(end) - toMin(start)).toBe(30); // 20 min of clips and the 10 min flip
-    expect(li.textContent).toMatch(/Solar system: short video clips, about 20 min/);
+    expect(li.textContent).toMatch(/Short video clips, about 20 min/);
     await user.click(within(li).getByRole('button', { name: 'Details for Neptune' }));
     expect(within(screen.getByTestId('slot-detail')).getAllByText('Neptune crosses the meridian during this slot: a flip adds 10 min.').length).toBeGreaterThan(0);
   });
@@ -232,13 +234,13 @@ describe('Night timeline', () => {
     seed('planet-moon');
     await app();
     expect(names()).toEqual(['Moon']);
-    expect(slots()[0].textContent).toMatch(/Moon: short video clips, about 20 min/);
+    expect(slots()[0].textContent).toMatch(/Short video clips, about 20 min/);
     expect(chips(slots()[0])).not.toMatch(/flip/);
   });
 
   it('a planet slot is a short block with no subs', async () => {
     seed('planet-saturn');
     await app();
-    expect(slots()[0].textContent).toMatch(/Solar system: short video clips, about 20 min \(estimate\)\. See the checklist in the Solar system row of the list\./);
+    expect(slots()[0].textContent).toMatch(/Short video clips, about 20 min\. See the Solar system checklist\./);
   });
 });

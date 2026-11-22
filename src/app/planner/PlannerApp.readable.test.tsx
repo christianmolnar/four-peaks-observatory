@@ -176,11 +176,11 @@ describe('plain labels', () => {
     expect(screen.queryByLabelText(/^Sub length \(s\) for /)).toBeNull();
   });
 
-  it('the setting says "Always use my saved exposure"', async () => {
+  it('the setting says "Always use my favorite exposure"', async () => {
     mount(TARGETS);
     await listReady();
     openGear();
-    expect(screen.getByRole('checkbox', { name: 'Always use my saved exposure' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Always use my favorite exposure' })).toBeTruthy();
   });
 
   it('the horizon boxes say what they block, in compass degrees', async () => {
@@ -220,6 +220,6 @@ describe('mode chips and the row figure', () => {
     expect(figure.textContent).toMatch(/^\d+ s × \d+ subs?$/);
     expect(figure.className).toContain('block');
     expect(numbers.firstElementChild).toBe(figure);
-    expect(numbers.textContent).toMatch(/of light · .* with setup and overhead/);
+    expect(numbers.textContent).toMatch(/ light · .* total$/);
   });
 });

@@ -3,7 +3,7 @@ import { useLayoutEffect, useState } from 'react';
 import { THEME_KEY } from './themeScript';
 
 const btn =
-  'inline-flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] rounded border border-p-line/30 text-p-t1/90 text-sm font-normal hover:bg-p-raised/10 px-0 min-[390px]:px-3 sm:px-4';
+  'inline-flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] rounded border border-p-line/30 text-p-t1 text-sm font-normal hover:bg-p-raised/10 px-0 min-[390px]:px-3 sm:px-4';
 
 const setTheme = (red: boolean) => {
   if (red) document.documentElement.setAttribute('data-theme', 'red');

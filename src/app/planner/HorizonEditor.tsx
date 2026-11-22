@@ -183,7 +183,7 @@ export default function HorizonEditor({
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             {fields.length === 0 && (
-              <p className="text-p-t1/80 font-normal text-sm mb-3">
+              <p className="text-p-t1/70 font-normal text-sm mb-3">
                 No obstruction is entered, so the planner uses the flat minimum altitude only. It does not guess a horizon.
               </p>
             )}
@@ -199,7 +199,7 @@ export default function HorizonEditor({
                     type="button"
                     onClick={() => remove(n)}
                     aria-label={`Remove zone ${n + 1}`}
-                    className="h-11 px-3 text-sm font-normal text-p-t1/90 underline underline-offset-2 hover:text-p-t1 rounded"
+                    className="h-11 px-3 text-sm font-normal text-p-t1 underline underline-offset-2 hover:text-p-t1 rounded"
                   >
                     Remove zone
                   </button>
@@ -283,7 +283,7 @@ export default function HorizonEditor({
               <button ref={addRef} type="button" className={btn} onClick={add} disabled={fields.length >= MAX_ZONES}>
                 {fields.length === 0 ? 'Add a zone' : 'Add another zone'}
               </button>
-              {fields.length >= MAX_ZONES && <p className="text-p-t1/80 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
+              {fields.length >= MAX_ZONES && <p className="text-p-t1/70 font-normal text-sm mt-2">{MAX_ZONES} zones is the most.</p>}
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <button type="submit" className={btn} disabled={!canSave}>
                   Save horizon
@@ -295,8 +295,8 @@ export default function HorizonEditor({
                   Use sample horizon
                 </button>
               </div>
-              <p className="text-p-t1/80 font-normal text-sm leading-5 mt-3">{summary}</p>
-              <p className="text-p-t1/75 font-normal text-sm leading-5 mt-3">
+              <p className="text-p-t1/70 font-normal text-sm leading-5 mt-3">{summary}</p>
+              <p className="text-p-t1/70 font-normal text-sm leading-5 mt-3">
                 Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone is blocked from its first number clockwise to its second, and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
               </p>
             </div>
@@ -310,15 +310,15 @@ export default function HorizonEditor({
         type="button"
         onClick={onClear}
         disabled={fields.length === 0}
-        className="col-start-2 row-start-1 self-start h-11 px-1 text-sm font-normal text-p-t1/90 underline underline-offset-2 hover:text-p-t1 rounded disabled:opacity-40 disabled:no-underline"
+        className="col-start-2 row-start-1 self-start h-11 px-1 text-sm font-normal text-p-t1 underline underline-offset-2 hover:text-p-t1 rounded disabled:opacity-40 disabled:no-underline"
       >
         Clear horizon
       </button>
 
       <details className="col-span-2 mt-4">
-        <summary className="cursor-pointer py-3 text-p-t1/90 font-normal text-sm">Horizon as a table</summary>
-        <p className="mt-2 text-sm font-normal text-p-t1/90">{describeOverlaps(drawn) || 'No zones overlap.'} Where zones overlap the table shows the highest height.</p>
-        <table className="mt-2 text-sm font-normal text-p-t1/90">
+        <summary className="cursor-pointer py-3 text-p-t1 font-normal text-sm">Horizon as a table</summary>
+        <p className="mt-2 text-sm font-normal text-p-t1">{describeOverlaps(drawn) || 'No zones overlap.'} Where zones overlap the table shows the highest height.</p>
+        <table className="mt-2 text-sm font-normal text-p-t1">
           <caption className="sr-only">Obstruction height by compass direction</caption>
           <thead>
             <tr>

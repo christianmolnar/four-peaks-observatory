@@ -179,7 +179,7 @@ describe('the train line in the plan', () => {
     const row = listRows('planet-list').find((r) => rowName(r) === 'Jupiter') as HTMLElement;
     await u.click(within(row).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
-    expect(note()!.textContent).toContain('The plan mixes a deep-sky setup and solar-system bodies.');
+    expect(note()!.textContent).toContain('Setup suits deep sky, plan has solar system.');
     expect((screen.getByLabelText('Setup') as HTMLSelectElement).value).not.toMatch(/^planet-/); // not auto-switched
     await u.click(within(myPlan()).getByRole('button', { name: 'Change setup' }));
     expect(document.activeElement).toBe(screen.getByLabelText('Setup'));
@@ -198,7 +198,7 @@ describe('the train line in the plan', () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['planet-jupiter', 'm31'] }));
     mount('planet-c11-676');
     await ready();
-    expect(note()!.textContent).toContain('The plan mixes a solar-system setup and deep-sky targets.');
+    expect(note()!.textContent).toContain('Setup suits solar system, plan has deep sky.');
     expect(within(myPlan()).getByRole('button', { name: 'Change setup' })).toBeTruthy();
   });
 

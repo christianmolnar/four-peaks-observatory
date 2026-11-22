@@ -90,12 +90,12 @@ export default function PlanRail({ name, rows, lightMin, nightHours, warnings, o
     >
       <h2 className="break-words text-base font-normal tracking-[0.1em] text-p-t1" data-testid="rail-title">
         {name}
-        <span className="block text-sm tracking-normal text-p-t1/80">
+        <span className="block text-sm tracking-normal text-p-t1/70">
           {rows.length} {rows.length === 1 ? 'target' : 'targets'}
         </span>
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-3 text-p-t1/90" data-testid="rail-empty">No targets yet.</p>
+        <p className="mt-3 text-p-t1" data-testid="rail-empty">No targets yet.</p>
       ) : (
         <ol className="mt-3 space-y-1" aria-label="Targets, in order">
           {rows.map((r, i) => (
@@ -109,7 +109,7 @@ export default function PlanRail({ name, rows, lightMin, nightHours, warnings, o
                 <span aria-hidden="true" className="w-5 shrink-0 text-p-t1/70">{i + 1}.</span>
                 <span className="min-w-0 break-words">
                   <span className="block text-p-t1">{r.name}</span>
-                  <span className="block text-p-t1/80">
+                  <span className="block text-p-t1/70">
                     {r.mode}
                     {r.window !== null && <> · {r.window}</>}
                   </span>
@@ -119,13 +119,13 @@ export default function PlanRail({ name, rows, lightMin, nightHours, warnings, o
           ))}
         </ol>
       )}
-      <p className="mt-3 text-p-t1/90" data-testid="rail-light">
+      <p className="mt-3 text-p-t1" data-testid="rail-light">
         {lightMin === null ? 'Light: not worked out yet' : `Light ${hoursMinutes(lightMin)}`}
         {nightHours !== null && <>, night {nightHours} h</>}
       </p>
       <p className="mt-1" data-testid="rail-warnings">
         {warnings === 0 ? (
-          <span className="text-p-t1/80">No warnings</span>
+          <span className="text-p-t1/70">No warnings</span>
         ) : (
           <button type="button" onClick={onGoToWarnings} className="min-h-11 rounded text-left text-p-warn-text underline underline-offset-2">
             {warnings} {warnings === 1 ? 'warning' : 'warnings'}

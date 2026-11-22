@@ -63,8 +63,8 @@ describe('M1: another tab saves a newer or damaged text while this page is open'
     await newPlan(u);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(V2);
     expect(held()!.textContent).toMatch(/made by a newer version of the planner/);
-    expect(held()!.textContent).toMatch(/not saved until you replace them/);
-    expect(held()!.textContent).toMatch(/a copy of what is stored now first, under a dated backup name/);
+    expect(held()!.textContent).toMatch(/Nothing is saved until you replace them/);
+    expect(held()!.textContent).toMatch(/A backup is kept first/);
     expect(planSwitch().options).toHaveLength(2); // the edit shows on screen, unsaved
   });
 
@@ -402,7 +402,7 @@ describe('R4: a backup is never overwritten and a held page follows the other ta
     window.localStorage.setItem(PLANS_KEY, V2);
     const u = userEvent.setup();
     await app();
-    expect(held()!.textContent).toMatch(/Replacing keeps a copy of what is stored now first, under a dated backup name/);
+    expect(held()!.textContent).toMatch(/A backup is kept first/);
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
     expect(messages().match(/The saved plans were replaced/g)).toHaveLength(1);
     expect(held()).toBeNull();

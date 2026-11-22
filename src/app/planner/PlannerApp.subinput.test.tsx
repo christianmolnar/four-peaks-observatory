@@ -30,7 +30,7 @@ const subBox = () => screen.getByLabelText(`Exposure per shot (seconds) for ${NA
 const countBox = () => screen.getByLabelText(`Number of shots for ${NAME}`) as HTMLInputElement;
 const numbers = () => screen.getByTestId('plan-numbers-m31').textContent ?? '';
 const parse = (text: string) => {
-  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) of light/.exec(text);
+  const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) light/.exec(text);
   if (!m) throw new Error(`not a numbers line: ${text}`);
   return { sub: Number(m[1]), subs: Number(m[2]), light: m[3] };
 };
@@ -201,9 +201,9 @@ describe('the Night timeline does not offer to drop custom numbers', () => {
     openPart('Night timeline');
     const slots = timelineSlots();
     expect(within(slots[0]).queryByRole('combobox')).toBeNull();
-    expect(slots[0].textContent).toMatch(/Exposure for Andromeda Galaxy: Custom \(started from Deep\)\. Change it on this target.s row in the plan\./);
+    expect(within(slots[0]).getByTestId('slot-preset-m31').textContent).toMatch(/Custom.*Deep/);
     expect(within(slots[1]).queryByRole('combobox')).toBeNull();
-    expect(slots[1].textContent).toMatch(/Exposure for Flaming Star Nebula: Balanced\. Change it on this target.s row in the plan\./);
+    expect(within(slots[1]).queryByTestId('slot-preset-ic405')).toBeNull(); // a preset is chosen on the row, so the slot says nothing
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } });
   });
 });
@@ -221,7 +221,7 @@ describe('favorites on the row', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update favorite to these numbers' }));
     expect(storedFavorites()[0]).toEqual(old); // not yet
     const ask = screen.getByTestId('plan-favorite-update-confirm-m31');
-    expect(ask.textContent).toMatch(/Replace the favorite for Andromeda Galaxy/);
+    expect(ask.textContent).toMatch(/^Replace the favorite with \d+ s × \d+\?/);
     fireEvent.click(within(ask).getByRole('button', { name: 'Keep the old one' }));
     expect(storedFavorites()[0]).toEqual(old);
     expect(screen.queryByTestId('plan-favorite-update-confirm-m31')).toBeNull();

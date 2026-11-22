@@ -108,12 +108,12 @@ function SessionForm({ project, names, initial, submitLabel, title, onSubmit, on
       <h5 id={`${uid}-title`} className="text-base font-medium text-p-t1">{title}</h5>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>*]:min-w-0">
         <div>
-          <label htmlFor={`${uid}-date`} className="mb-1 block text-sm font-normal text-p-t1/90">Date (the evening of the night)</label>
+          <label htmlFor={`${uid}-date`} className="mb-1 block text-sm font-normal text-p-t1">Date (the evening of the night)</label>
           <input ref={first} id={`${uid}-date`} type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={field} aria-invalid={bad('date')} aria-describedby={err('date', `${uid}-date-err`)} />
           {errors.date !== undefined && <p id={`${uid}-date-err`} role="alert" className="mt-1 break-words text-sm font-normal text-p-warn-text">{errors.date}</p>}
         </div>
         <div>
-          <label htmlFor={`${uid}-target`} className="mb-1 block text-sm font-normal text-p-t1/90">Target</label>
+          <label htmlFor={`${uid}-target`} className="mb-1 block text-sm font-normal text-p-t1">Target</label>
           <WrapSelect id={`${uid}-target`} className="w-full" value={f.targetId} onChange={(e) => set({ targetId: e.target.value })}>
             {project.targets.map((t) => (
               <option key={t.id} value={t.id}>{names.target(t.id)}</option>
@@ -121,7 +121,7 @@ function SessionForm({ project, names, initial, submitLabel, title, onSubmit, on
           </WrapSelect>
         </div>
         <div>
-          <label htmlFor={`${uid}-filter`} className="mb-1 block text-sm font-normal text-p-t1/90">Filter</label>
+          <label htmlFor={`${uid}-filter`} className="mb-1 block text-sm font-normal text-p-t1">Filter</label>
           <WrapSelect id={`${uid}-filter`} className="w-full" value={f.filterId} onChange={(e) => set({ filterId: e.target.value })}>
             {project.setup.filterIds.map((id) => (
               <option key={id} value={id}>{names.filter(id)}</option>
@@ -129,7 +129,7 @@ function SessionForm({ project, names, initial, submitLabel, title, onSubmit, on
           </WrapSelect>
         </div>
         <fieldset className="min-w-0">
-          <legend className="mb-1 text-sm font-normal text-p-t1/90">Enter the light as</legend>
+          <legend className="mb-1 text-sm font-normal text-p-t1">Enter the light as</legend>
           <div className="flex flex-wrap gap-x-4">
             {(['minutes', 'exposures'] as const).map((m) => (
               <label key={m} className="flex min-h-11 items-center gap-2 text-sm font-normal text-p-t1">
@@ -140,19 +140,19 @@ function SessionForm({ project, names, initial, submitLabel, title, onSubmit, on
           </div>
         </fieldset>
         <div>
-          <label htmlFor={`${uid}-amount`} className="mb-1 block text-sm font-normal text-p-t1/90">{f.mode === 'minutes' ? 'Minutes of light' : 'Number of exposures'}</label>
+          <label htmlFor={`${uid}-amount`} className="mb-1 block text-sm font-normal text-p-t1">{f.mode === 'minutes' ? 'Minutes of light' : 'Number of exposures'}</label>
           <input ref={amountRef} id={`${uid}-amount`} type="text" inputMode="numeric" autoComplete="off" value={f.amount} onChange={(e) => set({ amount: e.target.value })} className={field} aria-invalid={bad('amount')} aria-describedby={err('amount', `${uid}-amount-err`)} />
           {errors.amount !== undefined && <p id={`${uid}-amount-err`} role="alert" className="mt-1 break-words text-sm font-normal text-p-warn-text">{errors.amount}</p>}
         </div>
         {f.mode === 'exposures' && (
           <div>
-            <label htmlFor={`${uid}-sub`} className="mb-1 block text-sm font-normal text-p-t1/90">Sub length of these exposures (seconds)</label>
+            <label htmlFor={`${uid}-sub`} className="mb-1 block text-sm font-normal text-p-t1">Sub length of these exposures (seconds)</label>
             <input id={`${uid}-sub`} type="text" inputMode="decimal" autoComplete="off" value={f.subText} onChange={(e) => set({ subText: e.target.value })} className={field} aria-invalid={bad('sub')} aria-describedby={err('sub', `${uid}-sub-err`)} />
             {errors.sub !== undefined && <p id={`${uid}-sub-err`} role="alert" className="mt-1 break-words text-sm font-normal text-p-warn-text">{errors.sub}</p>}
           </div>
         )}
         <div className="sm:col-span-2">
-          <label htmlFor={`${uid}-note`} className="mb-1 block text-sm font-normal text-p-t1/90">Note (optional)</label>
+          <label htmlFor={`${uid}-note`} className="mb-1 block text-sm font-normal text-p-t1">Note (optional)</label>
           <input id={`${uid}-note`} type="text" maxLength={MAX_SESSION_NOTE} autoComplete="off" value={f.note} onChange={(e) => set({ note: e.target.value })} className={field} aria-invalid={bad('note')} aria-describedby={err('note', `${uid}-note-err`)} />
           {errors.note !== undefined && <p id={`${uid}-note-err`} role="alert" className="mt-1 break-words text-sm font-normal text-p-warn-text">{errors.note}</p>}
         </div>
@@ -237,10 +237,10 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
         />
       )}
       {log.length === 0 ? (
-        <p className="text-sm font-normal text-p-t1/80">No sessions yet. Add one for each night you shoot; the bars above are worked out from this log.</p>
+        <p className="text-sm font-normal text-p-t1/70">No sessions yet. Add one for each night you shoot; the bars above are worked out from this log.</p>
       ) : (
         <>
-          <p className="text-sm font-normal text-p-t1/80" data-testid="log-count">
+          <p className="text-sm font-normal text-p-t1/70" data-testid="log-count">
             {log.length} {log.length === 1 ? 'session' : 'sessions'}, newest first{!all && log.length > FIRST_SHOWN ? `; showing the first ${FIRST_SHOWN}` : ''}.
           </p>
           <ul className="space-y-2">
@@ -270,8 +270,8 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
                   <>
                     <p className="break-words text-sm font-normal text-p-t1">
                       {describe(s, names)}
-                      {s.exposures !== undefined && <span className="text-p-t1/80"> ({s.exposures.toLocaleString('en-US')} exposures of {s.subSeconds} s)</span>}
-                      {s.note !== '' && <span className="text-p-t1/80"> &ndash; {s.note}</span>}
+                      {s.exposures !== undefined && <span className="text-p-t1/70"> ({s.exposures.toLocaleString('en-US')} exposures of {s.subSeconds} s)</span>}
+                      {s.note !== '' && <span className="text-p-t1/70"> &ndash; {s.note}</span>}
                     </p>
                     {asking === s.id ? (
                       <div role="group" aria-label={`Delete this session?`} className="mt-1 space-y-2">

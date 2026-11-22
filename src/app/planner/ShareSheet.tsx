@@ -53,7 +53,7 @@ export interface ShareSheetProps {
 
 const btn =
   'inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-p-line/30 px-3 py-1.5 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
-const radio = 'flex min-h-11 items-start gap-2 py-2 text-sm font-normal text-p-t1/90';
+const radio = 'flex min-h-11 items-start gap-2 py-2 text-sm font-normal text-p-t1';
 
 /**
  * The Share sheet: what to share (this plan, all plans, gear, everything) and in what format, each as a file or as text to copy; Print; the ASIAir
@@ -182,25 +182,25 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
 
         <section aria-labelledby="share-print" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-print" className="mb-1 text-base font-normal text-p-t1">Print</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/80">Prints the run sheet for what is chosen above, black on white, one column, A4 or Letter. In the print dialog choose Save as PDF for a PDF.</p>
-          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/80" data-testid="print-projects-note">Projects have no run sheet to print. Choose a plan above to print it, or download the projects as text or Markdown.</p>}
+          <p className="mb-2 text-sm font-normal text-p-t1/70">Prints the run sheet for what is chosen above, black on white, one column, A4 or Letter. In the print dialog choose Save as PDF for a PDF.</p>
+          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/70" data-testid="print-projects-note">Projects have no run sheet to print. Choose a plan above to print it, or download the projects as text or Markdown.</p>}
           <button type="button" className={btn} disabled={what === 'projects'} onClick={onPrint}>Print run sheet</button>
         </section>
 
         <section aria-labelledby="share-asiair" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-asiair" className="mb-1 text-base font-normal text-p-t1">Export for ASIAir (CSV)</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/80" data-testid="asiair-note">
+          <p className="mb-2 text-sm font-normal text-p-t1/70" data-testid="asiair-note">
             Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, one pane each (Pane 1, Pane 2 and so on) with its RA and Dec. The file has no column for a name, so the panes are listed below in the order of the plan. Exposure, gain, filter and times do not import into the ASIAir; read those from the run sheet.{asiair.left === '' ? '' : ` ${asiair.left}`}
           </p>
           {asiair.panes.length > 0 && (
-            <ul className="mb-2 list-none break-words text-sm font-normal text-p-t1/90" data-testid="asiair-panes">
+            <ul className="mb-2 list-none break-words text-sm font-normal text-p-t1" data-testid="asiair-panes">
               {asiair.panes.map((p) => (
                 <li key={p} className="break-words [overflow-wrap:anywhere]">{p}</li>
               ))}
             </ul>
           )}
           {asiair.fovNote !== null && <p className="mb-2 break-words text-sm font-normal text-p-warn-text">{asiair.fovNote}</p>}
-          <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-p-t1/90">
+          <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-p-t1">
             <input type="checkbox" checked={letter} onChange={(e) => setLetter(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-p-focus" />
             <span>Write the degree sign as the letter d (try this if the ASIAir refuses the file)</span>
           </label>
@@ -215,8 +215,8 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
 
         <section aria-labelledby="share-import" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-import" className="mb-1 text-base font-normal text-p-t1">Import plans</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/80">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped, and a plan that has the id of a different plan here is skipped or added as a copy.</p>
-          <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-p-t1/90">Plans file (JSON)</label>
+          <p className="mb-2 text-sm font-normal text-p-t1/70">Adds plans from a JSON file made here. Your plans are never replaced: a plan that is already here is skipped, and a plan that has the id of a different plan here is skipped or added as a copy.</p>
+          <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-p-t1">Plans file (JSON)</label>
           <input
             id="plans-import"
             type="file"
@@ -239,7 +239,7 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
               {importPanel.notices.map((n) => (
                 <p key={n} className="mt-1 break-words text-sm font-normal text-p-warn-text">{n}</p>
               ))}
-              {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-p-t1/80">The file also holds gear. Import it under Gear and site, Import profile.</p>}
+              {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-p-t1/70">The file also holds gear. Import it under Gear and site, Import profile.</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 {importPanel.clash > 0 ? (
                   <>

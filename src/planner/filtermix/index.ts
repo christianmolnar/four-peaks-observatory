@@ -44,8 +44,10 @@ export interface MixLine {
   /** Whole minutes of the light given to it; 0 when it earns none. */
   minutes: number;
   verdict: MixVerdict;
-  /** One plain sentence or two. */
+  /** One short plain sentence. */
   reason: string;
+  /** What the reason leaves out, for the row's fold. Absent when there is nothing more to say. */
+  detail?: string;
   /** Needed lines this filter brings that no filter before it passes. */
   adds: MixLineName[];
   /** Lines of Ha, OIII and SII that it passes and an earlier filter passes too. */
@@ -87,6 +89,11 @@ export interface MixInput {
 const round = (n: number): number => Math.round(n * 1e6) / 1e6;
 const wide = (n: number): string => String(Math.round(n * 10) / 10);
 const list = (xs: readonly string[]): string => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+/** A line's `detail` from the sentences the reason leaves out: nothing at all when there are none. */
+const detailOf = (parts: readonly string[]): { detail?: string } => {
+  const text = parts.filter((s) => s !== '').join(' ');
+  return text === '' ? {} : { detail: text };
+};
 
 export function confidenceLabel(p: Pick<EmissionProfile, 'confidence' | 'source'>): string {
   if (p.confidence === 'type-default') return 'Typical for this type, not measured';
@@ -176,7 +183,7 @@ export function filterMix(input: MixInput): MixResult {
   const pct = (L: MixLineName): string => `${Math.round(weight(L) * 100)}%`;
 
   const lineOf = (a: Analysed, rest: Omit<MixLine, 'filterId' | 'name'>): MixLine => ({ filterId: a.filter.id, name: a.filter.name, ...rest });
-  const extraBroad = (): MixLine[] => broad.slice(1).map((a) => lineOf(a, { minutes: 0, verdict: 'covered', reason: `Adds nothing, covered by ${slotName}: both are broadband.`, adds: [], shared: [], coveredBy: [slotName] }));
+  const extraBroad = (): MixLine[] => broad.slice(1).map((a) => lineOf(a, { minutes: 0, verdict: 'covered', reason: 'Adds nothing: also broadband.', adds: [], shared: [], coveredBy: [slotName] }));
   const slotLine = (minutes: number, reason: string): MixLine => ({ filterId: slotFilter?.id ?? null, name: slotName, minutes, verdict: 'broadband', reason, adds: [], shared: [], coveredBy: [] });
   const inOrder = (lines: MixLine[]): MixLine[] => {
     const rank = new Map(input.filters.map((f, i) => [f.id, i] as const));
@@ -195,11 +202,11 @@ export function filterMix(input: MixInput): MixResult {
 
   // 1. Gate: almost no emission, so narrowband adds nothing.
   if (weight('Ha') + weight('OIII') + weight('SII') < GATE_SUM) {
-    const headline = 'This target gives off almost no emission light, so narrowband filters add nothing. Shoot it broadband.';
+    const headline = 'Almost no emission light: shoot it broadband.';
     const lines = [
-      slotLine(total, 'All of the light goes here: almost all of this target’s light is continuum.'),
+      slotLine(total, 'All light here: almost all continuum.'),
       ...extraBroad(),
-      ...narrow.map((a) => lineOf(a, { minutes: 0, verdict: 'gate', reason: 'Adds nothing: this target gives off almost no emission light for it to isolate.', adds: [], shared: [], coveredBy: [] })),
+      ...narrow.map((a) => lineOf(a, { minutes: 0, verdict: 'gate', reason: 'Adds nothing: almost no emission light.', adds: [], shared: [], coveredBy: [] })),
     ];
     return finish(lines, { headline, needed: [], uncovered: [], haMostlyNii: false });
   }
@@ -225,18 +232,19 @@ export function filterMix(input: MixInput): MixResult {
     const fresh = mine.filter((L) => coverOf(L).length === 0);
     const shared = passesAll.filter((L) => coverOf(L).length > 0);
     const weak = passesAll.filter((L) => !needed.includes(L) && !shared.includes(L));
-    const weakText = weak.map((L) => (L === 'Ha' && haMostlyNii ? '' : `${L} is too weak here to need a filter (${pct(L)} of the strongest line, the cut is ${Math.round(W_MIN * 100)}%).`)).filter((s) => s !== '');
+    const weakText = weak.map((L) => (L === 'Ha' && haMostlyNii ? '' : `${L} is ${pct(L)} of the strongest line; the cut is ${Math.round(W_MIN * 100)}%.`)).filter((s) => s !== '');
     const nii = a.at.Ha !== undefined && haMostlyNii ? [niiWords] : [];
     if (fresh.length > 0) {
       const names = [...new Set(shared.flatMap((L) => coverOf(L).map((m) => m.filter.name)))];
-      const head = shared.length === 0 ? `Adds ${list(fresh)}.` : `${list(shared)} shared, ${list(fresh)} new. ${list(names)} already ${names.length > 1 ? 'pass' : 'passes'} the ${list(shared)}.`;
+      const head = shared.length === 0 ? `Adds ${list(fresh)}.` : `${list(shared)} shared, ${list(fresh)} new.`;
+      const detail = shared.length === 0 ? [] : [`${list(names)} already ${names.length > 1 ? 'pass' : 'passes'} the ${list(shared)}.`];
       mixed.push(a);
-      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'adds', reason: [head, ...weakText, ...nii].join(' '), adds: fresh, shared, coveredBy: [] }));
+      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'adds', reason: head, ...detailOf([...detail, ...weakText, ...nii]), adds: fresh, shared, coveredBy: [] }));
       continue;
     }
     if (mine.length === 0) {
       const why = passesAll.length === 0 ? 'It passes none of Ha, OIII or SII.' : weakText.length > 0 || haMostlyNii ? [...weakText, ...nii].join(' ') : `${list(passesAll)} ${passesAll.length > 1 ? 'are' : 'is'} already covered.`;
-      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'no-need', reason: `Adds nothing: it passes no line this target needs. ${why}`, adds: [], shared, coveredBy: [...new Set(shared.flatMap((L) => coverOf(L).map((m) => m.filter.name)))] }));
+      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'no-need', reason: 'Adds nothing: passes no needed line.', ...detailOf([why]), adds: [], shared, coveredBy: [...new Set(shared.flatMap((L) => coverOf(L).map((m) => m.filter.name)))] }));
       continue;
     }
     // Every needed line it passes is already in the mix: better contrast, or nothing.
@@ -246,13 +254,13 @@ export function filterMix(input: MixInput): MixResult {
     });
     const covering = [...new Set(mine.flatMap((L) => coverOf(L).map((m) => m.filter.name)))];
     if (better.length === 0) {
-      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'covered', reason: `Adds nothing, covered by ${list(covering)} (${list(mine)}). ${[...weakText, ...nii].join(' ')}`.trim(), adds: [], shared, coveredBy: covering }));
+      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'covered', reason: `Adds nothing: covered by ${list(covering)}.`, ...detailOf([...weakText, ...nii]), adds: [], shared, coveredBy: covering }));
       continue;
     }
     const clearly = better.some((L) => (a.at[L] as number) <= CONTRAST_SHARE * Math.min(...coverOf(L).map((m) => m.at[L] as number)));
-    const widths = better.map((L) => `${L} band ${wide(a.at[L] as number)} nm against ${wide(Math.min(...coverOf(L).map((m) => m.at[L] as number)))} nm`);
+    const widths = better.map((L) => `${L} ${wide(a.at[L] as number)} vs ${wide(Math.min(...coverOf(L).map((m) => m.at[L] as number)))} nm`);
     mixed.push(a);
-    verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'contrast', reason: `Same lines as ${list(covering)}, ${clearly ? 'better' : 'a little better'} contrast per hour (${list(widths)}). ${nii.join(' ')}`.trim(), adds: [], shared, coveredBy: covering }));
+    verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'contrast', reason: `Same lines as ${list(covering)}, ${clearly ? 'narrower' : 'slightly narrower'} bands (${list(widths)}).`, ...detailOf(nii), adds: [], shared, coveredBy: covering }));
   }
 
   const uncovered = needed.filter((L) => coverOf(L).length === 0);
@@ -260,7 +268,7 @@ export function filterMix(input: MixInput): MixResult {
 
   // 3. Hours. Broadband first (a continuum target keeps its slot), then the rest over the filters that earn.
   if (mixed.length === 0) {
-    const reason = needed.length === 0 ? 'All of the light goes here: no line of this target is strong enough to need a filter.' : 'All of the light goes here: no selected filter passes a line this target needs.';
+    const reason = needed.length === 0 ? 'All light here: no line strong enough for a filter.' : 'All light here: no selected filter passes a needed line.';
     const lines = [slotLine(total, reason), ...extraBroad(), ...ranked.map((a) => verdicts.get(a) as MixLine)];
     return finish(lines, result);
   }
@@ -285,8 +293,8 @@ export function filterMix(input: MixInput): MixResult {
     v.minutes = parts[i];
   });
   const lines: MixLine[] = [];
-  if (broadMin > 0) lines.push(slotLine(broadMin, `A broadband slot stays: ${Math.round(continuum * 100)}% of this target’s light is continuum, which narrowband does not carry.`));
-  else if (slotFilter !== null) lines.push(slotLine(0, `Earns no hours here: only ${Math.round(continuum * 100)}% of this target’s light is continuum, so the narrowband filters take all of it.`));
+  if (broadMin > 0) lines.push(slotLine(broadMin, `Broadband stays: ${Math.round(continuum * 100)}% of its light is continuum.`));
+  else if (slotFilter !== null) lines.push(slotLine(0, `Narrowband takes all the light (only ${Math.round(continuum * 100)}% is continuum).`));
   lines.push(...extraBroad(), ...ranked.map((a) => verdicts.get(a) as MixLine));
   return finish(lines, result);
 }

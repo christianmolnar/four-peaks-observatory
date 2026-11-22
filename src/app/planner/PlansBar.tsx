@@ -58,7 +58,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
     <section aria-labelledby="plans-heading" data-testid="plans-bar" className="rounded-lg border border-p-line/10 bg-p-bg/70 px-4 py-3 sm:px-6">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <div className="min-w-0 basis-full sm:basis-72">
-          <h2 id="plans-heading" className="mb-1 text-sm font-normal text-p-t1/90">
+          <h2 id="plans-heading" className="mb-1 text-sm font-normal text-p-t1">
             <label htmlFor="plan-switch">My plans ({plans.length})</label>
           </h2>
           <WrapSelect id="plan-switch" className="w-full" value={open.id} onChange={(e) => onOpen(e.target.value)}>
@@ -96,7 +96,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
           }}
         >
           <div className="min-w-0 basis-72">
-            <label htmlFor="plan-name" className="mb-1 block text-sm font-normal text-p-t1/90">Plan name</label>
+            <label htmlFor="plan-name" className="mb-1 block text-sm font-normal text-p-t1">Plan name</label>
             <input
               ref={nameBox}
               id="plan-name"
@@ -120,7 +120,7 @@ export default function PlansBar({ plans, openId, onOpen, onNew, onRename, onDup
           <p id="plan-delete-title" className="break-words text-sm font-normal text-p-t1">
             Delete the plan “{open.name}”?
           </p>
-          <p className="mt-1 text-sm font-normal text-p-t1/90">
+          <p className="mt-1 text-sm font-normal text-p-t1">
             Its {open.targets} {open.targets === 1 ? 'target' : 'targets'}, times and notes are removed from this browser. This cannot be undone.
           </p>
           <div className="mt-3 flex flex-wrap gap-3">

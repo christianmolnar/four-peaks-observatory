@@ -33,10 +33,10 @@ function Bar({ label, t, index, extra }: { label: string; t: SheetTotals; index:
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <span className="min-w-0 break-words text-sm font-normal text-p-t1">
           {label}
-          {extra !== undefined && <span className="text-p-t1/80"> ({extra})</span>}
+          {extra !== undefined && <span className="text-p-t1/70"> ({extra})</span>}
         </span>{' '}
         <span className="text-sm font-normal text-p-t1">
-          {ratio(t)} <span className="text-p-t1/80">{percentText(t.percent)}</span>
+          {ratio(t)} <span className="text-p-t1/70">{percentText(t.percent)}</span>
           {t.over > 0 && <span className="text-p-warn-text"> · {overText(t)}</span>}
         </span>
       </div>
@@ -69,7 +69,7 @@ export default function ProjectProgress({ project, names }: { project: Project; 
   const o = sheet.overall;
   return (
     <div className="space-y-4" data-testid="project-progress">
-      <p className="break-words text-sm font-normal text-p-t1/90" data-testid="project-setup">{setup}</p>
+      <p className="break-words text-sm font-normal text-p-t1" data-testid="project-setup">{setup}</p>
 
       <dl className="grid grid-cols-3 gap-2" data-testid="project-tiles">
         {[
@@ -78,7 +78,7 @@ export default function ProjectProgress({ project, names }: { project: Project; 
           ['Remaining', durationText(o.remaining)],
         ].map(([k, v]) => (
           <div key={k} className="min-w-0 rounded-lg border border-p-line/20 p-2">
-            <dt className="text-sm font-normal text-p-t1/80">{k}</dt>
+            <dt className="text-sm font-normal text-p-t1/70">{k}</dt>
             <dd className="break-words text-lg font-normal text-p-t1" data-testid={`tile-${k.toLowerCase()}`}>{v}</dd>
           </div>
         ))}
@@ -90,7 +90,7 @@ export default function ProjectProgress({ project, names }: { project: Project; 
         <p className="mt-2 text-sm font-normal text-p-t1" data-testid="project-exposures">
           {count(o.doneExposures)} of {count(o.plannedExposures)} planned {sheet.subSeconds}-second exposures
         </p>
-        <p className="mt-1 text-sm font-normal text-p-t1/80">Exposures are counted at the project&rsquo;s sub length: time logged at another sub length is converted to it.</p>
+        <p className="mt-1 text-sm font-normal text-p-t1/70">Exposures are counted at the project&rsquo;s sub length: time logged at another sub length is converted to it.</p>
         {o.over > 0 && <p className="mt-1 text-sm font-normal text-p-warn-text">{durationText(o.over)} was shot beyond the plan on some lines. It does not reduce what is remaining on other lines.</p>}
       </div>
 
@@ -110,12 +110,12 @@ export default function ProjectProgress({ project, names }: { project: Project; 
             <h4 id={`pt-${project.id}-${ti}`} className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-base font-medium text-p-t1">
               <span className="min-w-0 break-words">{t.target}</span>{' '}
               <span className="text-sm font-normal" data-testid="target-total">
-                {ratio(t.total)} <span className="text-p-t1/80">{percentText(t.total.percent)}</span>
+                {ratio(t.total)} <span className="text-p-t1/70">{percentText(t.total.percent)}</span>
                 {t.total.over > 0 && <span className="text-p-warn-text"> · {overText(t.total)}</span>}
               </span>
             </h4>
             {t.lines.length === 0 ? (
-              <p className="text-sm font-normal text-p-t1/80">No filter is planned for this target.</p>
+              <p className="text-sm font-normal text-p-t1/70">No filter is planned for this target.</p>
             ) : (
               <ul className="space-y-2">
                 {t.lines.map((l, li) => (
@@ -141,7 +141,7 @@ export default function ProjectProgress({ project, names }: { project: Project; 
       </section>
 
       {sheet.optional.lines.length > 0 && (
-        <p className="break-words text-sm font-normal text-p-t1/90" data-testid="optional-note">
+        <p className="break-words text-sm font-normal text-p-t1" data-testid="optional-note">
           Optional time is excluded from every total above:{' '}
           {sheet.optional.lines.map((l) => `${l.target} ${l.filter} ${durationText(l.done)} of ${durationText(l.planned)}`).join('; ')}.
         </p>

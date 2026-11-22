@@ -53,7 +53,7 @@ describe('"tonight" in every section follows the date', () => {
     expect(pageText()).not.toMatch(/tonight/i);
     expect(pageText()).toMatch(/Tue 15 Dec/i);
     expect(screen.getByRole('heading', { name: 'TUE 15 DEC' })).toBeTruthy();
-    expect(pageText()).toMatch(/estimates for Tue 15 Dec, not predictions/);
+    expect(pageText()).toMatch(/All times are estimates for Tue 15 Dec/);
     expect(openFirstBody().textContent).toMatch(/: Tue 15 Dec/);
   });
 
@@ -61,7 +61,7 @@ describe('"tonight" in every section follows the date', () => {
     const s = site();
     await app(defaultTonightDate(new Date(), s.longitude, s.timeZone));
     expect(screen.getByRole('heading', { name: 'TONIGHT' })).toBeTruthy();
-    expect(pageText()).toMatch(/estimates for tonight, not predictions/);
+    expect(pageText()).toMatch(/All times are estimates for tonight/);
     expect(openFirstBody().textContent).toMatch(/: tonight/);
   });
 });

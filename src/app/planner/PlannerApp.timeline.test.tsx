@@ -111,7 +111,7 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '25:00' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull(); // could still be typed over; not yet
     fireEvent.blur(input);
-    expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour hours and minutes, such as 2130 or 21:30/);
+    expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour time, such as 21:30/);
     expect(startInput().value).toBe('25:00'); // the text stays in the box with its message
     expect(storedPlan()!.startTime).toBe('09:05'); // the last good time stays
     fireEvent.change(input, { target: { value: 'ab' } });
@@ -143,7 +143,7 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '２２：１５' } });
     expect(stored()).toBe('22:15');
     expect(input.maxLength).toBeGreaterThanOrEqual(7);
-    expect(screen.getByTestId('itinerary-start-hint').textContent).toMatch(/2130 or 21:30/);
+    expect(screen.getByTestId('itinerary-start-hint').textContent).toMatch(/21:30/);
     // A time that is only half typed: the message waits for Enter or for leaving the box.
     fireEvent.change(input, { target: { value: '9:' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
@@ -351,12 +351,15 @@ describe('start time', () => {
   });
 });
 
-describe('altitude in each slot', () => {
-  it('shows altitude with direction at the start, in the middle and at the end, and the trend', async () => {
+describe('altitude in a slot\'s details', () => {
+  it('shows altitude with direction at the start, in the middle and at the end, and the trend, for the slot whose Details are open', async () => {
     seed(2, ['m31', 'planet-jupiter']);
     await app();
-    for (let k = 0; k < 2; k++) {
-      expect(screen.getByTestId(`slot-altitude-${k}`).textContent).toMatch(/^Altitude: \d+° [NSEW]{1,2} at the start, \d+° [NSEW]{1,2} in the middle, \d+° [NSEW]{1,2} at the end; (rising|peaks in this slot|past peak, falling)\.$/);
+    expect(document.querySelector('[data-testid^="slot-altitude-"]')).toBeNull(); // not on every slot
+    for (const name of ['Andromeda Galaxy', 'Jupiter']) {
+      fireEvent.click(within(section()).getByRole('button', { name: `Details for ${name}` }));
+      // The second copy in the region only reserves room, hidden from everyone.
+      expect(screen.getAllByTestId('slot-altitude')[0].textContent).toMatch(/^Altitude \d+° [NSEW]{1,2}, \d+° [NSEW]{1,2}, \d+° [NSEW]{1,2}; (rising|peaks in this slot|past peak, falling)\.$/);
     }
   });
 });
@@ -385,8 +388,8 @@ describe('no suggested order', () => {
 });
 
 describe('a slot whose sub differs from its row', () => {
-  const CAP = /^The target's row plans \d+ s x \d+ subs for the night\. The row is held to 500 subs for the whole night; this slot has \d+ minutes, which need no such limit: \d+ s x \d+\.$/;
-  const NEUTRAL = /^The target's row plans \d+ s x \d+ subs for the night\. This slot is planned for the sky during its own time: \d+ s x \d+\.$/;
+  const CAP = /^Row plans \d+ s × \d+, held to 500 subs; this slot \d+ s × \d+\.$/;
+  const NEUTRAL = /^Row plans \d+ s × \d+; this slot \d+ s × \d+\.$/;
 
   it('every line is either the cap reason (only when the row was lengthened for it) or the neutral line, never the share', async () => {
     seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101'], null, 'deep');
@@ -404,7 +407,7 @@ describe('a slot whose sub differs from its row', () => {
     await app('2026-12-27', 'deep-c11-reducer-533');
     const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
     expect(said.length).toBeGreaterThan(0);
-    for (const t of said) expect(t).toMatch(/^The target's row plans \d+ s x \d+ subs for the night\. (This slot is planned for the sky during its own time|The row is held to 500 subs)/);
+    for (const t of said) expect(t).toMatch(new RegExp(`${CAP.source}|${NEUTRAL.source}`));
     expect(document.body.textContent).not.toMatch(/\(its share\)|sized to that share/);
     expect(said.some((t) => NEUTRAL.test(t))).toBe(true);
   });
@@ -417,6 +420,6 @@ describe('a slot whose sub differs from its row', () => {
     openPart('Night timeline');
     await within(section()).findByLabelText('Imaging can start at');
     const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
-    expect(said.some((t) => CAP.test(t) && /plans 20 s x 500 subs/.test(t))).toBe(true);
+    expect(said.some((t) => CAP.test(t) && /plans 20 s × 500/.test(t))).toBe(true);
   });
 });

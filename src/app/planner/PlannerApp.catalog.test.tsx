@@ -113,12 +113,11 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('names what the size screen left out, with a count; the one box lists them below the list, and no "show anyway" control exists', async () => {
+  it('says how many the size screen left out; the one box lists them below the list, and no "show anyway" control exists', async () => {
     mount({ trainId: 'deep-c11-2600' });
     await ready();
     const note = screen.getByTestId('hidden-note');
-    expect(note.textContent).toMatch(/do not fit your camera view: too big for it \(\d+\)/);
-    expect(note.textContent).toMatch(/Andromeda Galaxy/);
+    expect(note.textContent).toMatch(/\d+ targets? (is|are) too big for your camera view/);
     expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
     expect(listNames()).not.toContain('Andromeda Galaxy');
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));

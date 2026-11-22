@@ -1,7 +1,9 @@
 import { lineNote } from '@/planner/filtermix';
 import type { MixLine } from '@/planner/filtermix';
 import type { RowMix } from '@/planner/filtermix/row';
+import { Fold } from './PlanRowExposure';
 import NarrowbandPanel from './NarrowbandPanel';
+import RowHow from './RowHow';
 import type { NbView } from './nbRow';
 import { minutesText } from './rowExposure';
 import { mixLightText } from './PlanRowMix';
@@ -19,7 +21,7 @@ export interface AiSlotView {
 export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }: { index: number; targetId: string; slot: AiSlotView; onNbHours: (id: string, text: string) => void; onNbTick: (id: string, filterId: string, on: boolean) => void }) {
   const mix = slot.mix;
   return (
-    <div className="mt-2 border-t border-p-line/15 pt-2 text-sm font-normal text-p-t1/90" data-testid={`ai-slot-mix-${index}`}>
+    <div className="mt-2 border-t border-p-line/15 pt-2 text-sm font-normal text-p-t1" data-testid={`ai-slot-mix-${index}`}>
       {mix.kind === 'message' ? (
         <p className="break-words">Filters: {mix.text}</p>
       ) : mix.kind === 'none' ? (
@@ -30,14 +32,20 @@ export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }
       ) : (
         <>
           <p className="text-p-t1">Filters (light after Use this plan: {minutesText(mix.availableMin)})</p>
-          {mix.narrowbandAdded === true && <p className="mt-1 break-words">{mixLightText(mix)} The narrowband filters ticked below are added to the broadband time.</p>}
+          {mix.narrowbandAdded === true && <p className="mt-1 break-words">{mixLightText(mix)}</p>}
           {mix.headline !== null && <p className="mt-1 break-words">{mix.headline}</p>}
           <Lines lines={mix.lines} />
-          {mix.uncovered.length > 0 && <p className="mt-1 break-words">This target needs {mix.uncovered.join(' and ')}, which none of the selected filters passes.</p>}
-          <p className="mt-1 break-words text-p-t1/70">{mix.confidence}</p>
+          {mix.uncovered.length > 0 && <p className="mt-1 break-words">No selected filter passes {mix.uncovered.join(' and ')}, which it needs.</p>}
         </>
       )}
       <NarrowbandPanel idBase={`ai-${targetId}`} view={slot.nb} onHours={(t) => onNbHours(targetId, t)} onTick={(f, on) => onNbTick(targetId, f, on)} />
+      {(mix.kind === 'mix' || slot.nb.kind === 'panel') && (
+        <Fold id={`ai-how-${index}`} title="How this is worked out">
+          <div className="space-y-1 text-sm font-normal text-p-t1/70">
+            <RowHow id={`ai-${targetId}`} mix={mix} nb={slot.nb} />
+          </div>
+        </Fold>
+      )}
     </div>
   );
 }
@@ -51,7 +59,7 @@ function Lines({ lines }: { lines: readonly MixLine[] }) {
           <li key={l.filterId ?? 'broadband'} data-verdict={l.verdict} className="break-words">
             <span className="text-p-t1">{l.name}</span>
             {l.verdict !== 'skipped' && <>: {minutesText(l.minutes)}</>}
-            {note !== null && <span className="text-p-t1/80"> ({note})</span>}
+            {note !== null && <span className="text-p-t1/70"> ({note})</span>}
           </li>
         );
       })}

@@ -10,7 +10,7 @@ import PlannerApp from './PlannerApp';
 import { RESET_LOSES } from './ResetAll';
 import { openGear, openPlanTab, pageProps, planRowItems, ready, resetAll, seedPlan, storedPlan } from './testkit';
 
-// Favorites: "Save as favorite" on a deep-sky row, "Restore favorite?" when the object is added again, "Always use my saved exposure" in the
+// Favorites: "Save as favorite" on a deep-sky row, "Restore favorite?" when the object is added again, "Always use my favorite exposure" in the
 // Gear and site tab, and a store that never loses what it holds (damaged, newer, failed copy, quota, two tabs).
 
 const NAME = 'Andromeda Galaxy';
@@ -38,7 +38,11 @@ const app = async (targets?: readonly object[]) => {
   return r;
 };
 const saveBox = (id: string) => document.getElementById(`plan-fav-${id}`) as HTMLInputElement;
-const tag = (li: HTMLElement) => within(li).queryByText('Favorite saved');
+/** The row's "Save as favorite" box when it is ticked (a favorite is saved for the row), else null. */
+const tag = (li: HTMLElement) => {
+  const box = within(li).getByRole('checkbox', { name: /Save as favorite/ }) as HTMLInputElement;
+  return box.checked ? box : null;
+};
 const numbers = (id: string) => screen.getByTestId(`plan-numbers-${id}`).textContent ?? '';
 const group = (name: string) => screen.getByRole('group', { name: `Exposure preset for ${name}` });
 const press = (name: string, preset: string) => fireEvent.click(within(group(name)).getByRole('button', { name: preset }));
@@ -68,7 +72,7 @@ afterEach(() => {
 });
 
 describe('Save as favorite', () => {
-  it('saves the row\'s exposure with the filter and train names, shows "Favorite saved", and writes only a valid store', async () => {
+  it('saves the row\'s exposure with the filter and train names, ticks the box, and writes only a valid store', async () => {
     await app([{ id: 'm31', preset: 'deep' }, ic405]);
     const before = numbers('m31');
     expect(saveBox('m31').checked).toBe(false);
@@ -137,12 +141,12 @@ describe('Restore favorite?', () => {
     window.localStorage.setItem(FAVORITES_KEY, store(fav('m31')));
     await app();
     await addFromList(NAME);
-    expect(askLine('m31')!.textContent).toBe('You saved an exposure for this object: Custom (from Deep), 90 s × 20 (30 min). Restore favorite?RestoreNot now');
+    expect(askLine('m31')!.textContent).toBe('Restore your favorite (90 s × 20)?RestoreNot now');
     expect(within(askLine('m31')!).getByRole('button', { name: 'Restore' })).toBeTruthy();
     expect(within(askLine('m31')!).getByRole('button', { name: 'Not now' })).toBeTruthy();
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'balanced', favorite: 'ask' });
     expect(numbers('m31')).not.toMatch(/^90 s × 20 subs/);
-    expect(screen.getAllByText(/Restore favorite\?/)).toHaveLength(1);
+    expect(screen.getAllByText(/^Restore your favorite \(/)).toHaveLength(1);
   });
 
   it('Restore applies it as Custom with the saved numbers, says nothing more, and puts the keyboard on the favorite box', async () => {
@@ -151,7 +155,7 @@ describe('Restore favorite?', () => {
     await addFromList(NAME);
     fireEvent.click(within(askLine('m31')!).getByRole('button', { name: 'Restore' }));
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90, subCount: 20 } });
-    expect(numbers('m31')).toMatch(/^90 s × 20 subs · 30 min of light/);
+    expect(numbers('m31')).toMatch(/^90 s × 20 subs · 30 min light/);
     expect(askLine('m31')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(saveBox('m31')));
   });
@@ -199,12 +203,12 @@ describe('Restore favorite?', () => {
   });
 });
 
-describe('Always use my saved exposure', () => {
+describe('Always use my favorite exposure', () => {
   it('is a labelled checkbox under "Planner settings" in the Gear and site tab, off by default, kept with the site and train choice', async () => {
     await app();
     openGear();
     const heading = screen.getByRole('heading', { name: 'Planner settings' });
-    const box = within(heading.closest('section')!).getByRole('checkbox', { name: 'Always use my saved exposure' }) as HTMLInputElement;
+    const box = within(heading.closest('section')!).getByRole('checkbox', { name: 'Always use my favorite exposure' }) as HTMLInputElement;
     expect(box.checked).toBe(false);
     expect(box.closest('label')!.className).toMatch(/min-h-11/);
     fireEvent.click(box);
@@ -216,7 +220,7 @@ describe('Always use my saved exposure', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: sampleProfile().sites[0].id, trainId: sampleProfile().trains[0].id, alwaysRestore: true }));
     await app();
     openGear();
-    const box = screen.getByRole('checkbox', { name: 'Always use my saved exposure' }) as HTMLInputElement;
+    const box = screen.getByRole('checkbox', { name: 'Always use my favorite exposure' }) as HTMLInputElement;
     expect(box.checked).toBe(true);
     fireEvent.click(box);
     expect(JSON.parse(window.localStorage.getItem(SELECTION_KEY)!).alwaysRestore).toBeUndefined();
@@ -228,7 +232,7 @@ describe('Always use my saved exposure', () => {
     await app();
     await addFromList(NAME);
     expect(askLine('m31')).toBeNull();
-    expect(screen.getByTestId('plan-favorite-restored-m31').textContent).toBe('Your saved exposure for this object was restored automatically: Custom (from Deep), 90 s × 20 (30 min).');
+    expect(screen.getByTestId('plan-favorite-restored-m31').textContent).toBe('Restored your favorite: 90 s × 20.');
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90, subCount: 20 }, favorite: 'restored' });
     expect(numbers('m31')).toMatch(/^90 s × 20 subs/);
     press(NAME, 'Quick');

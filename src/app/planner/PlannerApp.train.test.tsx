@@ -40,7 +40,7 @@ describe('default train', () => {
     mount({ initialProfile: sampleProfile() });
     await ready();
     expect(train().value).toBe('planet-c11-676');
-    expect(screen.getByTestId('planetary-note').textContent).toMatch(/^This setup is for the solar system/);
+    expect(screen.getByTestId('planetary-note').textContent).toMatch(/^Solar-system setup/);
   });
 });
 
@@ -83,7 +83,6 @@ describe('what the list says about itself', () => {
     await ready();
     const note = screen.getByTestId('score-note').textContent as string;
     expect(note).toMatch(/Score is out of 100/);
-    expect(note).toMatch(/100 is the best a target can do/);
     const rows = [...screen.getByTestId('target-list').querySelectorAll(':scope > li')];
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) expect(r.querySelector('[data-testid="row-fit-score"]')!.textContent).toMatch(/Score \d+$/);

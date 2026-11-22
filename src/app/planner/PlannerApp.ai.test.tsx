@@ -233,19 +233,18 @@ describe('the result', () => {
     const rows = slotsText();
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatch(/^1\. Andromeda Galaxy \d\d:\d\d to \d\d:\d\d \(60 min, Balanced\)/);
-    expect(rows[0]).toMatch(/The AI wants about 60 min of light for this target\./);
+    expect(rows[0]).toMatch(/AI plans about 60 min of light\./);
     expect(rows[1]).toMatch(/Last slot, worth shooting: Enough frames to stack\./);
     expect(screen.getByTestId('ai-notes').textContent).toMatch(/the nebula goes first/);
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed\. Every slot is above your minimum altitude/);
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/The AI decided the order, the times, how much light each target gets and the reasons/);
-    expect(status().textContent).toBe('Plan ready for Tue 15 Dec: 2 targets planned, 0 left out. Checked by code.');
+    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed/);
+    expect(status().textContent).toBe('Plan ready: 2 planned, 0 left out. Checked by code.');
     expect(status().getAttribute('aria-live')).toBe('polite');
     // The page's own night graph, drawn for these slots.
     expect(within(result()).getByRole('img', { name: /Altitude through the night/ })).toBeTruthy();
     expect(within(result()).getByText('Left out (0)')).toBeTruthy();
   });
 
-  it('shows no frame count, sub length or preset total on the card, and says where they come from', async () => {
+  it('shows no frame count, sub length or preset total on the card', async () => {
     const f = fakeFetch((s) => engine(okInput(s), (i) => planOf(i, validSlots(i))));
     mount(f.fn);
     await readyOpen();
@@ -256,7 +255,7 @@ describe('the result', () => {
     expect(text).not.toMatch(/\d+ s\b/);
     expect(text).not.toMatch(/the itinerary uses|itinerary/i);
     expect(within(result()).queryByTestId('ai-slot-calc-0')).toBeNull();
-    expect(within(result()).getByTestId('ai-frames-note').textContent).toBe('Frame counts and sub lengths come from the exposure rules when you use this plan; they are not shown here.');
+    expect(within(result()).queryByTestId('ai-frames-note')).toBeNull();
   });
 
   it('after apply the plan\'s slots hold the AI plan\'s order and every target keeps the preset it had', async () => {
@@ -284,12 +283,12 @@ describe('the result', () => {
     await planned();
     const cut = screen.getByTestId('ai-cut').textContent ?? '';
     expect(cut).toMatch(/^Andromeda Galaxy\./);
-    expect(cut).toMatch(/The AI (left it out|judged it did not fit)/);
+    expect(cut).toMatch(/Left out by the AI|The AI judged it did not fit/);
     const checker = screen.getByTestId('ai-checker').textContent ?? '';
     expect(checker).toMatch(/NoteAndromeda Galaxy is cut, but it is usable for \d+ min in free night time \(\d\d:\d\d-\d\d:\d\d\)/);
     expect(checker).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     expect(checker).not.toMatch(/\bm31\b/);
-    expect(status().textContent).toMatch(/1 target planned, 1 left out/);
+    expect(status().textContent).toMatch(/1 planned, 1 left out/);
   });
 
   it('says in plain words when a slot crosses the meridian (a flip)', async () => {
@@ -319,7 +318,7 @@ describe('the result', () => {
     expect(screen.getByTestId('ai-checker').textContent).toMatch(/Problem/);
     expect(status().textContent).toMatch(/Not fully checked/);
     expect(apply().disabled).toBe(true);
-    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/not fully checked/);
+    expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/Not fully checked/);
   });
 });
 
@@ -356,7 +355,7 @@ describe('states', () => {
     await user.click(go());
     expect(status().textContent).toMatch(/^Planning/);
     fireEvent.click(within(myPlan()).getByRole('button', { name: 'Remove Flaming Star Nebula from the plan' }));
-    await waitFor(() => expect(status().textContent).toMatch(/You changed something while the AI was working, so its answer was dropped/));
+    await waitFor(() => expect(status().textContent).toMatch(/You changed something, so the answer was dropped/));
     expect(f.sent[0].signal.aborted).toBe(true);
     await act(async () => {
       late(await engine(okInput(f.sent[0])));
@@ -617,7 +616,7 @@ describe('Use this plan', () => {
     await readyOpen();
     const user = await planned();
     expect(apply().disabled).toBe(false);
-    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Use this plan sets the open plan.s order and first start time, replacing the earlier times\. Each target keeps its own exposure/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Sets order and start/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(2));
     expect(itinerarySlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy', '2. Flaming Star Nebula']);
@@ -655,8 +654,7 @@ describe('Use this plan', () => {
     const aiSlots = slotsText();
     expect(aiSlots).toHaveLength(plan.length);
     const aiTimes = aiSlots.map((t) => t.match(/(\d\d:\d\d) to (\d\d:\d\d)/)!.slice(1, 3));
-    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/its times can differ from the AI.s/);
-    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/code check covers the AI.s times, not the timeline.s: the timeline shows its own flip and window notes/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/timeline times may differ/);
     await user.click(apply());
     await waitFor(() => expect(itinerarySlots()).toHaveLength(plan.length));
     // The order and the first start are the AI's.
@@ -665,9 +663,9 @@ describe('Use this plan', () => {
     expect(saved.startTime).toBe(aiTimes[0][0]);
     // The timeline shows its own estimated times; where they differ from the AI's, no target note carries the AI's.
     const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
-    expect(shown.every((t) => /\(estimate\)/.test(t))).toBe(true);
+    expect(shown.every((t) => /\d\d:\d\d to \d\d:\d\d/.test(t))).toBe(true);
     for (const t of saved.targets) expect(t.note ?? '').not.toMatch(/\d\d:\d\d|\d min/);
-    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/its times can differ from the AI.s/);
+    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/timeline times may differ/);
     // The print sheet prints what the timeline shows.
     act(() => {
       window.dispatchEvent(new Event('beforeprint'));

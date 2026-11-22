@@ -50,7 +50,7 @@ describe('a scheduled row carries the timeline slot\'s own numbers', () => {
     await mount([{ id: 'm42', preset: 'deep' }]);
     // The row plans 120 s x 120 subs for the whole night; the slot has less time (its window closes), so it plans 105 subs.
     expect(document.querySelector('[data-testid^="plan-numbers-"]')!.textContent).toMatch(/^120 s × 120 subs/);
-    expect(timelineSlots()[0].textContent).toContain('Light: 120 s x 105 subs = 210 min');
+    expect(timelineSlots()[0].textContent).toContain('120 s × 105 subs = 210 min');
     expect(timelineLight()).toBe(210);
     openSheet();
     expect(text()).toContain('105 x 120 s = 210 min');
@@ -77,7 +77,7 @@ describe('a scheduled row carries the timeline slot\'s own numbers', () => {
     render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={profile} />);
     await ready();
     openPlanTab();
-    expect(timelineSlots()[0].textContent).toContain('Light: 120 s x 105 subs = 210 min');
+    expect(timelineSlots()[0].textContent).toContain('120 s × 105 subs = 210 min');
     openSheet();
     expect(text()).toContain('105 x 120 s = 210 min');
     expect(text()).toContain('Warning: This plan was made for a site that is no longer in your gear');
@@ -88,8 +88,8 @@ describe('a scheduled row carries the timeline slot\'s own numbers', () => {
   it('two scheduled targets: each row has its slot\'s numbers (not the row\'s) and the total is the timeline\'s Light', async () => {
     await mount([{ id: 'm31', preset: 'deep' }, { id: 'm42', preset: 'deep' }]);
     expect(timelineSlots().map((s) => s.querySelector('[data-testid^="slot-light-"]')!.textContent)).toEqual([
-      'Light: 90 s x 169 subs = 253.5 min (estimate). ',
-      'Light: 120 s x 72 subs = 144 min (estimate). Before it: 3 min (estimate).',
+      '90 s × 169 subs = 253.5 min. ',
+      '120 s × 72 subs = 144 min. Before it: 3 min.',
     ]);
     openSheet();
     expect(text()).toContain('169 x 90 s = 253.5 min');
@@ -159,7 +159,7 @@ describe('a custom that is not used says why, in the open plan and in the shared
   it('the open plan\'s row warning is exported with the reason, and the sheet shows no 999 s number', async () => {
     await mount([{ id: 'm42', preset: 'custom', base: 'balanced', custom: { subSeconds: 999, subCount: 50 } }]);
     const onScreen = screen.getByTestId(/^plan-custom-unusable-/).textContent!;
-    expect(onScreen).toMatch(/do not work on this night/);
+    expect(onScreen).toMatch(/^Custom sub is over 300 s\. Balanced is used instead\./);
     openSheet();
     expect(text()).toContain('Balanced (custom not used)');
     expect(text()).toContain(onScreen);

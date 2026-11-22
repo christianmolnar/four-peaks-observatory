@@ -37,7 +37,7 @@ const open = (id: string) => {
   if (fold(id).getAttribute('aria-expanded') === 'false') fireEvent.click(fold(id));
 };
 const body = (id: string) => screen.getByTestId(`plan-mix-${id}`).textContent ?? '';
-const light = (id: string) => /· (.+?) of light ·/.exec(screen.getByTestId(`plan-numbers-${id}`).textContent ?? '')![1];
+const light = (id: string) => /· (.+?) light ·/.exec(screen.getByTestId(`plan-numbers-${id}`).textContent ?? '')![1];
 
 beforeAll(() => {
   const w = window as unknown as { CSS?: { escape?: (s: string) => string } };
@@ -63,9 +63,13 @@ describe('the Filter mix part of a plan row', () => {
     open('ic405');
     const text = body('ic405');
     expect(text).toContain('IDAS NBZ-II');
-    expect(text).toContain(`Light to split: ${light('ic405')}`);
+    expect(text).toContain(`Light: ${light('ic405')}`);
     expect(text).toContain(`IDAS NBZ-II: ${light('ic405')}`);
     expect(text).toContain('Adds Ha and OIII.');
+    // The confidence is said once, in the row's one fold.
+    expect(screen.queryByTestId('plan-mix-confidence-ic405')).toBeNull();
+    fireEvent.click(document.getElementById('plan-why-ic405') as HTMLButtonElement);
+    expect(screen.getAllByTestId('plan-mix-confidence-ic405')).toHaveLength(1);
     expect(screen.getByTestId('plan-mix-confidence-ic405').textContent).toBe('Typical for this type, not measured');
     // Not every filter: the other filters are not in the mix until chosen.
     expect(text).not.toContain('IDAS NB3-PM');
@@ -80,13 +84,13 @@ describe('the Filter mix part of a plan row', () => {
     const text = body('ic405');
     expect(text).toContain('IDAS NB3-PM');
     expect(text).toMatch(/OIII shared, SII new/);
-    expect(text).toContain(`Light to split: ${light('ic405')}`);
+    expect(text).toContain(`Light: ${light('ic405')}`);
   });
 
   it('a target that gives off no emission shows the gate message with all the light on broadband', async () => {
     await app([leo], profileWith('nbz'));
     open('leo-triplet');
-    expect(screen.getByTestId('plan-mix-headline-leo-triplet').textContent).toMatch(/almost no emission light, so narrowband filters add nothing/);
+    expect(screen.getByTestId('plan-mix-headline-leo-triplet').textContent).toMatch(/Almost no emission light/);
     expect(body('leo-triplet')).toContain(`Broadband (no narrowband filter): ${light('leo-triplet')}`);
   });
 
@@ -102,7 +106,7 @@ describe('the Filter mix part of a plan row', () => {
     await app([ic405, jupiter], profileWith(undefined));
     open('ic405');
     open('planet-jupiter');
-    expect(screen.getByTestId('plan-mix-message-ic405').textContent).toMatch(/No filter is selected in the setup/);
+    expect(screen.getByTestId('plan-mix-message-ic405').textContent).toMatch(/No filter in this setup/);
     expect(screen.getByTestId('plan-mix-message-planet-jupiter').textContent).toMatch(/No filter mix for solar-system bodies/);
     expect(body('ic405')).not.toMatch(/\d+ min|\d+ h/);
   });
@@ -127,12 +131,12 @@ describe('the light comes from the timeline, and a target it leaves out has none
     expect(timelineSlots().map((s) => /no time/.test(s.textContent ?? ''))).toEqual([false, false, true, false]);
     for (const [id, i] of [['m42', 0], ['m31', 1], ['m33', 3]] as const) {
       open(id);
-      expect(body(id)).toContain(`Light to split: ${fmt(slotMinutes(i))}`);
+      expect(body(id)).toContain(`Light: ${fmt(slotMinutes(i))}`);
     }
     // The row's own stand-alone light is longer than the slot's for Andromeda (the window closes): the mix follows the slot.
     open('ngc7000');
-    expect(screen.getByTestId('plan-mix-message-ngc7000').textContent).toMatch(/not scheduled tonight/);
-    expect(body('ngc7000')).not.toMatch(/\d+ min|\d+ h|Light to split/);
+    expect(screen.getByTestId('plan-mix-message-ngc7000').textContent).toMatch(/Not up tonight/);
+    expect(body('ngc7000')).not.toMatch(/\d+ min|\d+ h|Light:/);
   });
 
   it('the text export gives the same: slot light for scheduled targets, a plain line for the one left out', async () => {

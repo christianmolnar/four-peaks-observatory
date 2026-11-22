@@ -96,12 +96,12 @@ describe('filter warnings', () => {
   it('L-eXtreme (standard) at the HyperStar f-ratio raises the rated-slower warning, calculated', () => {
     const w = filterWarnings(N, filter('optolong-lextreme'), duo);
     expect(codes(w)).toEqual(['filter-rated-slower']);
-    expect(w[0].text).toMatch(/no published f-ratio rating/);
+    expect(w[0].text).toMatch(/No published rating/);
     // The research (filter-choice, fast-dualband) ranks fit by the share of the beam inside the band and says the model cannot name a rating.
-    expect(w[0].text).toMatch(/part of the beam falls outside it \(calculated\); the maker's rating is not in the profile/);
+    expect(w[0].text).toMatch(/Check the maker's rating/);
     expect(w[0].text).not.toMatch(/probably rated/);
     // the sample HyperStar train is f/1.93, a little slower than the f/1.9 figures above
-    expect(w[0].text).toMatch(/about 5\.2 nm at Ha and 3\.9 nm at OIII/);
+    expect(w[0].detail).toMatch(/about 5\.2 nm at Ha, 3\.9 nm at OIII/);
     expect(w[0].severity).toBe('warning');
   });
   it('the CLS CCD at the HyperStar f-ratio raises neither the rating nor the IR warning, on either camera', () => {
@@ -118,10 +118,10 @@ describe('filter warnings', () => {
   it('the Duo-Band is flagged by its published 8 degree limit, not by the calculation', () => {
     const w = filterWarnings(N, filter('zwo-duo-band'), duo);
     expect(codes(w)).toEqual(['filter-rated-slower']);
-    expect(w[0].text).toMatch(/up to 8 degrees \(published\)/);
-    // The bands exceed the shift, and the text says so with the calculated figure.
-    expect(w[0].text).toMatch(/narrowest band is 15 nm, so half of it \(7\.5 nm\) is wider than the 5\.2 nm shift at Ha \(calculated\): the bands still cover the line/);
-    expect(w[0].text).toMatch(/At f\/1\.93 the beam edge/);
+    expect(w[0].text).toMatch(/Rated up to 8 degrees/);
+    // The bands exceed the shift, and the detail says so with the calculated figure.
+    expect(w[0].detail).toMatch(/Band still covers Ha \(5\.2 nm shift, 7\.5 nm room\)/);
+    expect(w[0].detail).toMatch(/Beam edge shifts the band/);
     // Its 15 nm band would pass the calculated rule at this speed (5.3 < 7.5): the published limit decides.
     expect(edgeShiftNm(N, 656.3)).toBeLessThan(15 * 0.5);
     expect(filterWarnings(3.7, filter('zwo-duo-band'), duo)).toEqual([]); // 3.7 -> 7.7 degrees, inside 8
@@ -131,17 +131,17 @@ describe('filter warnings', () => {
     const narrow: ProfileFilter = { id: 'n', name: 'Narrow angle-rated', narrowestBandNm: 6, maxIncidentAngleDeg: 8 };
     const w = filterWarnings(N, narrow, duo);
     expect(codes(w)).toEqual(['filter-rated-slower']);
-    expect(w[0].text).toMatch(/up to 8 degrees \(published\)/);
-    expect(w[0].text).not.toMatch(/bands still cover the line/);
+    expect(w[0].text).toMatch(/Rated up to 8 degrees/);
+    expect(w[0].detail).not.toMatch(/Band still covers/);
     // 12 nm band: half is 6, over the 5.2 nm shift, so the note appears with the half-band figure.
     const wide: ProfileFilter = { id: 'w', name: 'Wide angle-rated', narrowestBandNm: 12, maxIncidentAngleDeg: 8 };
-    expect(filterWarnings(N, wide, duo)[0].text).toMatch(/half of it \(6\.0 nm\) is wider than the 5\.2 nm shift/);
+    expect(filterWarnings(N, wide, duo)[0].detail).toMatch(/\(5\.2 nm shift, 6\.0 nm room\)/);
   });
   it('Orion Sky Glow, kind not set, gets a conditional note on a colour camera only', () => {
     const w = filterWarnings(7, filter('orion-sky-glow'), duo);
     expect(codes(w)).toEqual(['filter-kind-unknown']);
     expect(w[0].severity).toBe('note');
-    expect(w[0].text).toMatch(/visual and an imaging version/);
+    expect(w[0].text).toMatch(/kind not set/);
     expect(filterWarnings(7, filter('orion-sky-glow'), { colour: false, hasUvIrCut: true })).toEqual([]);
     // a filter with a kind, or another unnamed one (ICE), gets no such note
     expect(codes(filterWarnings(7, filter('apertura-moon-skyglow'), duo))).toEqual(['filter-visual-colour']);
@@ -151,7 +151,7 @@ describe('filter warnings', () => {
     const f: ProfileFilter = { id: 'x', name: 'Rated 3', ratedMinFRatio: 3, narrowestBandNm: 100 };
     const w = filterWarnings(1.9, f, duo);
     expect(codes(w)).toEqual(['filter-rated-slower']);
-    expect(w[0].text).toMatch(/rated for f\/3 and slower \(published\)/);
+    expect(w[0].text).toMatch(/Rated f\/3 and slower/);
     expect(filterWarnings(3, f, duo)).toEqual([]);
     expect(filterWarnings(5, f, duo)).toEqual([]);
   });
@@ -167,9 +167,9 @@ describe('filter warnings', () => {
   it('ASI533MC with a filter that lacks UV/IR cut raises the IR warning', () => {
     const w = filterWarnings(7, filter('idas-lps-p2'), c533); // blocksUvIr unknown
     expect(codes(w)).toEqual(['filter-uvir-missing']);
-    expect(w[0].text).toMatch(/not known that IDAS LPS-P2 blocks UV\/IR/);
+    expect(w[0].text).toMatch(/may not block UV\/IR/);
     const explicit = filterWarnings(7, { id: 'x', name: 'Plain', blocksUvIr: false }, c533);
-    expect(explicit[0].text).toMatch(/does not block UV\/IR/);
+    expect(explicit[0].text).toMatch(/^No UV\/IR cut: expect bloated stars and colour casts\. Add one\.$/);
   });
   describe('a filter that needs a UV/IR cut in the light path', () => {
     const nb3 = { id: 'nb3', name: 'IDAS NB3-PM', needsUvIrCut: true };
@@ -180,7 +180,7 @@ describe('filter warnings', () => {
     it('camera has none: one plain warning, and the generic missing-cut line is not repeated', () => {
       const w = filterWarnings(7, nb3, { hasUvIrCut: false });
       expect(codes(w)).toEqual(['filter-needs-uvir']);
-      expect(w[0].text).toBe('This filter needs a UV/IR cut in the light path; your camera does not list one, so add one.');
+      expect(w[0].text).toBe('Filter needs a UV/IR cut; your camera lists none. Add one.');
     });
     it('camera unknown: a warning that says unknown', () => {
       const w = needs(nb3, {});
@@ -461,7 +461,7 @@ describe('planExposure with fixed inputs', () => {
   });
   it('a filter without a stated width is assumed from its kind and says so', () => {
     const w = plan({ filter: filter('idas-lps-p2') }).warnings.find((x) => x.code === 'inputs-assumed')!;
-    expect(w.text).toMatch(/passband width \(assumed 150 nm\)/);
+    expect(w.text).toMatch(/passband width 150 nm/);
   });
   it('without a start time no clock times are given', () => {
     const m = plan({ acquisitionStart: null }).modes.quick;
@@ -474,9 +474,8 @@ describe('planExposure with fixed inputs', () => {
     expect(m.quick.subSeconds).toBe(180); // quick's risk cap
     expect(m.balanced.subSeconds).toBe(300);
     expect(m.deep.subSeconds).toBe(300);
-    expect(codes(m.quick.warnings)).toContain('sub-capped');
     expect(m.quick.limitedBy.sub).toBe('risk-cap');
-    expect(m.quick.warnings.find((w) => w.code === 'sub-capped')!.text).toMatch(/capped at 180 s \(guiding, wind and satellite-trail risk\)\. Read noise adds about \d+% /);
+    expect(m.quick.readNoisePenalty).toBeGreaterThan(0);
   });
 });
 
@@ -492,10 +491,10 @@ describe('usable time limits the plan', () => {
   it('a roomy night leaves the plan alone and adds no limit note', () => {
     expect(codes(plan({ usableMinutes: 1000 }).modes.deep.warnings)).not.toContain('limited-by-usable-time');
   });
-  it('below the plan\'s range (half to all of the total the stop point asks for), say so', () => {
+  it('below the plan\'s range (half to all of the total the stop point asks for), the usable-time note says so', () => {
     const m = plan({ usableMinutes: 30 }).modes.balanced; // aim [33, 66] min; 30 usable minutes leave about 27 of light
     expect(m.integrationMin).toBeLessThan(m.modeRangeMin[0]);
-    expect(codes(m.warnings)).toEqual(expect.arrayContaining(['limited-by-usable-time', 'below-mode-range']));
+    expect(codes(m.warnings)).toContain('limited-by-usable-time');
   });
   it('no usable time: zero frames, no finish, one clear warning, no range note', () => {
     const r0 = plan({ usableMinutes: 0 });
@@ -504,7 +503,6 @@ describe('usable time limits the plan', () => {
       expect(m.integrationMin).toBe(0);
       expect(m.finish).toBeNull();
       expect(m.finishRange).toBeNull();
-      expect(codes(m.warnings)).not.toContain('below-mode-range');
       expect(codes(m.warnings)).not.toContain('limited-by-usable-time');
     }
     expect(codes(r0.warnings)).toContain('no-usable-time');
@@ -561,21 +559,17 @@ describe('warnings from the target and the sky', () => {
     expect(shortSessionPriority({ surfaceBrightness: 'low' })).toBe('low');
     expect(shortSessionPriority({ type: 'nebula' })).toBe('unknown');
   });
-  it('short session: a faint target warns in Quick only; unknown brightness says it cannot rank; bright is silent', () => {
+  it('short session: a faint target warns in Quick only; bright is silent', () => {
     const faint = plan({ target: { type: 'nebula', surfaceBrightness: 'low' } }).modes;
     expect(codes(faint.quick.warnings)).toContain('short-session-faint');
     expect(codes(faint.balanced.warnings)).not.toContain('short-session-faint');
     expect(codes(faint.deep.warnings)).not.toContain('short-session-faint');
-    const unknown = plan({ target: { type: 'nebula' } }).modes;
-    expect(codes(unknown.quick.warnings)).toContain('short-session-unknown');
-    expect(codes(unknown.balanced.warnings)).not.toContain('short-session-unknown');
     const bright = plan({ target: { type: 'globular-cluster' } }).modes.quick;
     expect(codes(bright.warnings)).not.toEqual(expect.arrayContaining(['short-session-faint']));
-    expect(codes(bright.warnings)).not.toContain('short-session-unknown');
     expect(codes(plan({ target: { type: 'galaxy', surfaceBrightness: 'medium' } }).modes.quick.warnings)).not.toContain('short-session-faint');
   });
   it('image scale notes: oversampled, undersampled, silent in between', () => {
-    expect(plan({ train: F10 }).warnings.find((w) => w.code === 'sampling')!.text).toMatch(/finer than typical seeing/);
+    expect(plan({ train: F10 }).warnings.find((w) => w.code === 'sampling')!.text).toMatch(/finer than seeing allows/);
     expect(plan({ train: { focalRatio: 10, imageScale: 2.5 } }).warnings.find((w) => w.code === 'sampling')!.text).toMatch(/coarse/);
     expect(codes(plan({ train: { focalRatio: 10, imageScale: 1.4 } }).warnings)).not.toContain('sampling');
     expect(codes(plan({ train: { focalRatio: 10, imageScale: 0.5 } }).warnings)).not.toContain('sampling'); // 0.5 is the edge, not below

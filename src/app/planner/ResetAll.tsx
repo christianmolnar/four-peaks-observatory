@@ -49,8 +49,8 @@ export default function ResetAll({ onConfirm }: { onConfirm: () => void }) {
           className="mt-3 max-w-xl rounded-lg border border-p-warn/50 bg-p-bg/80 p-4"
         >
           <p id="reset-all-title" className="text-p-t1 font-normal text-sm">Reset everything to the starting point?</p>
-          <p className="mt-1 text-p-t1/90 font-normal text-sm">This clears, in this browser, and cannot be undone:</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-p-t1/90 font-normal text-sm">
+          <p className="mt-1 text-p-t1 font-normal text-sm">This clears, in this browser, and cannot be undone:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-p-t1 font-normal text-sm">
             {RESET_LOSES.map((t) => (
               <li key={t}>{t}</li>
             ))}

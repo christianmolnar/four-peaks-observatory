@@ -118,7 +118,7 @@ describe('the Filters line under each slot of the AI result', () => {
     mount(fetchWith(), ['ic405'], profileWith(undefined));
     await planned();
     untickNarrowband();
-    expect(slotMix(0)).toMatch(/No filter is selected in the setup/);
+    expect(slotMix(0)).toMatch(/No filter in this setup/);
     expect(slotMix(0)).not.toMatch(/\d+ min|\d+ h/);
   });
 
@@ -145,7 +145,7 @@ describe('one source: the flyout and the plan row after Use this plan', () => {
     await afterUse(user);
     for (const s of shown) {
       const row = rowMix(s.id);
-      expect(row).toContain(`Light to split: ${s.light}`);
+      expect(row).toContain(`Light: ${s.light}`);
       expect(pairs(row)).toEqual(s.pairs);
     }
   });
@@ -167,7 +167,7 @@ describe('one source: the flyout and the plan row after Use this plan', () => {
     await afterUse(user);
     ids.forEach((id, i) => {
       const row = rowMix(id);
-      expect(row).toContain(`Light to split: ${shown[i].light}`);
+      expect(row).toContain(`Light: ${shown[i].light}`);
       expect(pairs(row)).toEqual(shown[i].pairs);
     });
   });
@@ -180,14 +180,14 @@ describe('the narrowband panel in the AI result', () => {
   it('is under the slot; a tick changed there changes that slot’s mix, and the plan row after Use this plan says the same', async () => {
     mount(fetchWith(), ['ic405', 'm31'], profileWith('nbz'));
     const user = await planned();
-    expect(slotOf('ic405').textContent).toMatch(/ticked below/);
+    expect(slotOf('ic405').textContent).toMatch(/Light: broadband/);
     expect(pairs(mixText('ic405')).some((p) => p.startsWith('IDAS NB3-PM'))).toBe(true);
     fireEvent.click(document.getElementById('nb-fold-ai-ic405') as HTMLButtonElement);
-    expect(screen.getByTestId('nb-ai-ic405').textContent).toContain('Filters from your gear that could help most');
+    expect(document.getElementById('nb-fold-ai-ic405')).not.toBeNull();
     const nb3 = screen.getByTestId('nb-tick-ai-ic405-nb3') as HTMLInputElement;
     expect(nb3.checked).toBe(true);
     fireEvent.click(nb3); // untick: the plan keeps broadband and NBZ II only
-    expect(slotOf('ic405').textContent).toMatch(/ticked below/);
+    expect(slotOf('ic405').textContent).toMatch(/Light: broadband/);
     expect(slotOf('ic405').textContent).toMatch(/Broadband \(no narrowband filter\): \d/);
     expect((screen.getByTestId('nb-tick-ai-ic405-nb3') as HTMLInputElement).checked).toBe(false);
     const flyout = pairs(mixText('ic405'));
