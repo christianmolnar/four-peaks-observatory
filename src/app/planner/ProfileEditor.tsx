@@ -123,7 +123,7 @@ function BandRows({ idBase, texts, rows, onEdit, onAdd, onRemove }: { idBase: st
   return (
     <div className="sm:col-span-2 xl:col-span-3 min-w-0">
       <p className="mb-2 break-words text-sm font-normal text-p-t1/70" id={`${idBase}-bands-help`}>
-        Passbands: the wavelengths the filter lets through. Centre {rangeText(GEAR_LIMITS.passbandCentreNm)}, width {rangeText(GEAR_LIMITS.bandWidthNm)}, at most {MAX_PASSBANDS} bands that do not overlap. Leave them out when you do not know them.
+        Passbands: centre {rangeText(GEAR_LIMITS.passbandCentreNm)}, width {rangeText(GEAR_LIMITS.bandWidthNm)}, at most {MAX_PASSBANDS} bands that do not overlap.
       </p>
       <div className="space-y-3 [&>*]:min-w-0">
         {Array.from({ length: rows }, (_, i) => i + 1).map((row) => (
@@ -584,21 +584,21 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   const addButtons: { label: string; run: () => void }[] =
     cls === 'trains'
       ? [
-          { label: 'Add setup', run: () => tryAdd(() => addTrain(profile, 'optical'), 'Added a setup. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
-          { label: 'Add smart-scope setup', run: () => tryAdd(() => addTrain(profile, 'smart'), 'Added a smart-scope setup. Change it and press Save.', (p) => `trains:${lastOf(p.trains)}`) },
+          { label: 'Add setup', run: () => tryAdd(() => addTrain(profile, 'optical'), 'Added a setup.', (p) => `trains:${lastOf(p.trains)}`) },
+          { label: 'Add smart-scope setup', run: () => tryAdd(() => addTrain(profile, 'smart'), 'Added a smart-scope setup.', (p) => `trains:${lastOf(p.trains)}`) },
         ]
       : cls === 'scopes'
         ? [
-            { label: 'Add scope', run: () => tryAdd(() => addItem(profile, 'scopes'), 'Added a scope. Change it and press Save.', (p) => `scopes:${lastOf(p.equipment.scopes)}`) },
-            { label: 'Add smart scope', run: () => tryAdd(() => addItem(profile, 'smartScopes'), 'Added a smart scope. Change it and press Save.', (p) => `smartScopes:${lastOf(p.equipment.smartScopes)}`) },
+            { label: 'Add scope', run: () => tryAdd(() => addItem(profile, 'scopes'), 'Added a scope.', (p) => `scopes:${lastOf(p.equipment.scopes)}`) },
+            { label: 'Add smart scope', run: () => tryAdd(() => addItem(profile, 'smartScopes'), 'Added a smart scope.', (p) => `smartScopes:${lastOf(p.equipment.smartScopes)}`) },
           ]
-        : [{ label: `Add ${LIST_SPECS[cls].noun}`, run: () => tryAdd(() => addItem(profile, cls), `Added a ${LIST_SPECS[cls].noun}. Change it and press Save.`, (p) => `${cls}:${lastOf(itemsOf(p, cls))}`) }];
+        : [{ label: `Add ${LIST_SPECS[cls].noun}`, run: () => tryAdd(() => addItem(profile, cls), `Added a ${LIST_SPECS[cls].noun}.`, (p) => `${cls}:${lastOf(itemsOf(p, cls))}`) }];
 
   return (
     <section aria-labelledby="gear-heading" className="bg-p-bg/70 rounded-lg border border-p-line/10 p-4 sm:p-6">
       <h2 id="gear-heading" className="text-xl font-light text-p-t1 tracking-[0.15em] mb-2">GEAR</h2>
       <p data-testid="setup-help" className="text-p-t1/70 font-normal text-sm mb-3">
-        A setup (also called a train) is one scope with its camera, filter and accessories, the combination you image with. Pick a class, then add, change or remove its items. Leave an optional box empty when you do not know it: the planner then says the value is missing instead of guessing.
+        A setup (train) is one scope with its camera, filter and accessories. Leave an optional box empty when you do not know it.
       </p>
       <div role="group" aria-label="Gear class" className="flex flex-wrap gap-2">
         {GEAR_CLASSES.map((c) => (
@@ -724,7 +724,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
       {flagged.length > 0 && (
         <p className="mt-3 break-words text-sm font-normal text-p-warn-text" data-testid="gear-flagged">
           <span aria-hidden="true">! </span>
-          {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} not usable (outside the allowed range or not a number). They are marked on their cards.
+          {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} not usable (outside the allowed range or not a number).
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-3">

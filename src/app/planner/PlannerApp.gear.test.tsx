@@ -73,7 +73,7 @@ describe('each class lists, adds, changes and removes', () => {
       expect(cards()).toHaveLength(before + 1);
       const newCard = () => cards().find((x) => !known.has(x.dataset.testid))!;
       const card = newCard();
-      expect(status()).toMatch(/^Added an? .*Change it and press Save\.$/);
+      expect(status()).toMatch(/^Added an? /);
       expect(within(card).getByText('Not used.')).toBeTruthy();
       fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'Mine' } });
       fireEvent.change(within(card).getByLabelText(c.field), { target: { value: c.value } });
@@ -263,7 +263,7 @@ describe('a plan whose site or train is gone', () => {
     await mount();
     openPlanTab();
     const note = screen.getByTestId('plan-stale-train');
-    expect(note.textContent).toBe('This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.Keep C11 f/10 + ASI2600MC DuoChange setup');
+    expect(note.textContent).toBe('The plan\'s train is no longer in your gear. Showing "C11 f/10 + ASI2600MC Duo".Keep C11 f/10 + ASI2600MC DuoChange setup');
     expect(storedPlan()!.trainId).toBe('removed-train');
     fireEvent.click(within(note).getByRole('button', { name: /^Keep / }));
     expect(storedPlan()!.trainId).toBe('deep-c11-2600');
@@ -274,7 +274,7 @@ describe('a plan whose site or train is gone', () => {
     seedStale({ siteId: 'removed-site' });
     await mount();
     openPlanTab();
-    expect(screen.getByTestId('plan-stale-site').textContent).toMatch(/^This plan was made for a site that is no longer in your gear\. It shows "Fountain Hills.*" for now\./);
+    expect(screen.getByTestId('plan-stale-site').textContent).toMatch(/^The plan's site is no longer in your gear\. Showing "Fountain Hills.*"\./);
     expect(storedPlan()!.siteId).toBe('removed-site');
     fireEvent.click(within(screen.getByTestId('plan-stale-site')).getByRole('button', { name: /^Keep / }));
     expect(storedPlan()!.siteId).toBe(sampleProfile().sites[0].id);
@@ -454,7 +454,7 @@ describe('a plan whose train is gone is never used silently', () => {
     raw.plans[0].trainId = 'removed-train';
     window.localStorage.setItem(PLANS_KEY, JSON.stringify(raw));
   };
-  const noteText = 'This plan was made with a train that is no longer in your gear. It shows "C11 f/10 + ASI2600MC Duo" for now.';
+  const noteText = 'The plan\'s train is no longer in your gear. Showing "C11 f/10 + ASI2600MC Duo".';
 
   it('the AI flyout says it in step 1 and does not offer to ask until the user keeps or changes the train', async () => {
     seedStale();

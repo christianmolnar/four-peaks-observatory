@@ -48,7 +48,7 @@ export function describeOverlaps(arcs: readonly BlockedArc[]): string {
 }
 
 export function describeArcs(arcs: readonly BlockedArc[]): string {
-  if (arcs.length === 0) return 'Horizon not set: nothing is blocked and only the flat minimum altitude applies.';
+  if (arcs.length === 0) return 'Horizon not set: only the flat minimum altitude applies.';
   const one = (a: BlockedArc) => `from ${a.startAz} deg (${compass(a.startAz)}) clockwise to ${a.endAz} deg (${compass(a.endAz)}), up to ${a.heightDeg} deg high`;
   const overlaps = describeOverlaps(arcs);
   // Every direction is covered when the stretches add up to the full circle: then there is no "elsewhere".
@@ -182,11 +182,6 @@ export default function HorizonEditor({
               so the whole chart stays in view while any card is edited (at xl the whole 2 by 2 fits beside it in one screen). Tab order is the document order: cards, Add, Save, Discard, Use sample, Clear horizon. */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-            {fields.length === 0 && (
-              <p className="text-p-t1/70 font-normal text-sm mb-3">
-                No obstruction is entered, so the planner uses the flat minimum altitude only. It does not guess a horizon.
-              </p>
-            )}
             {/* At most 2 columns by 2 rows (MAX_ZONES = 4); one column on a phone. */}
             <div data-testid="zone-grid" className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             {fields.map((zone, n) => (
@@ -297,7 +292,7 @@ export default function HorizonEditor({
               </div>
               <p className="text-p-t1/70 font-normal text-sm leading-5 mt-3">{summary}</p>
               <p className="text-p-t1/70 font-normal text-sm leading-5 mt-3">
-                Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). Each zone is blocked from its first number clockwise to its second, and may cross north. Zones may overlap: the blocked area is all of them together, and where they overlap the highest one applies. Every azimuth runs 0 to 360 (360 is north, the same as 0). Whole degrees only. Nothing is stored until you press Save horizon.
+                Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). A zone is blocked clockwise from its first number to its second, and may cross north. Whole degrees, 0 to 360.
               </p>
             </div>
           </div>
@@ -317,7 +312,7 @@ export default function HorizonEditor({
 
       <details className="col-span-2 mt-4">
         <summary className="cursor-pointer py-3 text-p-t1 font-normal text-sm">Horizon as a table</summary>
-        <p className="mt-2 text-sm font-normal text-p-t1">{describeOverlaps(drawn) || 'No zones overlap.'} Where zones overlap the table shows the highest height.</p>
+        <p className="mt-2 text-sm font-normal text-p-t1">{describeOverlaps(drawn) || 'No zones overlap.'}</p>
         <table className="mt-2 text-sm font-normal text-p-t1">
           <caption className="sr-only">Obstruction height by compass direction</caption>
           <thead>

@@ -179,7 +179,7 @@ export default function GearLookup({ list, texts, getTexts, overwritable, onAppl
         <button type="button" className={btn} disabled={busy} aria-describedby={statusId} onClick={() => void lookup()}>
           Look up specs
         </button>
-        <span className="min-w-0 break-words text-p-t1/70 font-normal text-sm">Fills the boxes below from the shared library. Every value stays editable.</span>
+        <span className="min-w-0 break-words text-p-t1/70 font-normal text-sm">Fills the boxes below from the library.</span>
       </div>
       <div id={statusId} aria-live="polite" className="mt-2 min-w-0 break-words text-sm font-normal text-p-info-text">
         {message}
