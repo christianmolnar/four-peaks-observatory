@@ -257,14 +257,12 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
       </div>
 
       <ul className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Chart key">
-        <li>Numbers and thick lines: your slots. Faint line: the rest of that target&apos;s night.</li>
-        <li>Dotted white line: changeover or wait between slots. Dashed orange line: minimum altitude {minAltitude}°.</li>
-        <li>Dotted orange on a curve: under your horizon or minimum there. Dashed white line: your start.</li>
+        <li>Thick lines and numbers: your slots. Faint: the rest of that night.</li>
+        <li>Dotted white: changeover or wait. Dashed orange: minimum altitude {minAltitude}°.</li>
+        <li>Dotted orange: under your horizon or minimum. Dashed white: your start.</li>
       </ul>
 
-      {plan.slots.length === 0 ? (
-        <p className="mt-2 text-p-t1 font-normal text-sm">Add a target to draw it on the night.</p>
-      ) : (
+      {plan.slots.length > 0 && (
         <ol className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Slots on the graph">
           {plan.slots.map((s, i) => (
             <li key={s.id} className="flex items-baseline gap-2">

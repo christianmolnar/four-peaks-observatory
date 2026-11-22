@@ -160,7 +160,7 @@ const HELD_TITLE: Record<Held['why'], string> = {
   newer: 'Your saved plans were made by a newer version of the planner.',
   nocopy: 'Your saved plans could not be read whole, and a copy of them could not be kept first.',
   othertab: 'Another tab saved plans this page cannot use as they are.',
-  edited: 'Another tab saved plans after this page held the saved ones back, and what you changed here is not saved.',
+  edited: 'Another tab saved plans, so what you changed here is not saved.',
 };
 
 /** Where the copies are, in words: the name of the one just kept and how many are in this browser. */
@@ -182,10 +182,10 @@ function readPlansText(): string | null {
 class StaleGearError extends Error {}
 
 /** Why a gear edit is refused while the saved gear could not be loaded. */
-const HELD_REFUSAL = 'Not saved. Your saved gear is kept as it is (the notice at the top of the page says why and what to do).';
+const HELD_REFUSAL = 'Not saved: your saved gear is kept as it is (see the notice at the top).';
 
 /** What the page says when another tab has reset the saved data. */
-const RESET_ELSEWHERE = 'The plans were reset in another tab, so this page starts fresh too.';
+const RESET_ELSEWHERE = 'The plans were reset in another tab; this page starts fresh too.';
 
 /** Above this share of the Moon lit at mid-night, the list says so in words. */
 const BRIGHT_MOON = 0.8;
@@ -564,13 +564,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             if (migrated !== null) savePlans(window.localStorage, state);
             saved = true;
           } catch (e) {
-            said.push(`Your plan was carried over but could not be saved: ${(e as Error).message}. Your old plan stays in this browser and is carried over again the next time the page opens.`);
+            said.push(`Your plan was carried over but could not be saved: ${(e as Error).message}. It stays in this browser and is carried over again next time.`);
           }
           if (saved) {
             try {
               clearOldPlanKeys(window.localStorage, clear);
             } catch (e) {
-              said.push(`Your plan was saved, but ${(e as Error).message}. The saved plan is used from now on, so nothing you see changes.`);
+              said.push(`Your plan was saved, but ${(e as Error).message}. The saved plan is used from now on.`);
             }
           }
         }
@@ -650,7 +650,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return true;
     } catch (e) {
       if (!(e instanceof ProfileError)) throw e;
-      setNotice('Another tab saved gear this page cannot read. This page keeps what it has and will not save over it. Reload the page to see the saved gear.');
+      setNotice('Another tab saved gear this page cannot read. This page keeps what it has and will not save over it. Reload to see it.');
       return false;
     }
   };
@@ -660,7 +660,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const stored = readProfileText();
     if (stored !== null && stored !== profileText.current) {
       if (adoptProfile(stored)) {
-        throw new StaleGearError('Another tab changed your gear since this page last looked, so your last edit was not made. This page now shows the other tab\u2019s gear. Make the edit again.');
+        throw new StaleGearError('Another tab changed your gear since this page last looked, so your last edit was not made. Make it again.');
       }
       throw new StaleGearError('Not saved: another tab saved gear this page cannot read. Reload the page.');
     }
@@ -767,7 +767,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (wasHeld) {
       heldRef.current = null;
       setHeldPlans(null);
-      sayPlans(['Another tab saved plans while this page held the saved ones back. This page now shows them and saves again.']);
+      sayPlans(['Another tab saved plans. This page now shows them and saves again.']);
     }
   };
   // Another tab saved plans: this tab shows them (its own open plan stays open). Kept in a ref so the one listener reads this render's profile.
@@ -1234,7 +1234,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (m.train && train) {
       notes.push({
         key: 'train',
-        text: `This plan was made with a train that is no longer in your gear. It shows "${train.name}" for now.`,
+        text: `The plan's train is no longer in your gear. Showing "${train.name}".`,
         keepLabel: `Keep ${train.name}`,
         onKeep: () => chooseTrain(train.id),
       });
@@ -1243,8 +1243,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       notes.push({
         key: 'site',
         text: m.siteKept
-          ? `This plan was made for a site whose saved numbers cannot be used (Gear, Sites says which). It shows "${site.name}" for now.`
-          : `This plan was made for a site that is no longer in your gear. It shows "${site.name}" for now.`,
+          ? `The plan's site cannot be used (Gear, Sites says why). Showing "${site.name}".`
+          : `The plan's site is no longer in your gear. Showing "${site.name}".`,
         keepLabel: `Keep ${site.name}`,
         onKeep: () => void editOpen({ siteId: site.id }),
       });
@@ -1324,7 +1324,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     heldRef.current = null;
     heldEdited.current = false;
     setHeldPlans(null);
-    setPlanMessages(failed.length > 0 ? [`Reset did not finish: could not clear ${failed.join(', ')}. What could not be cleared is still stored in this browser.`] : []);
+    setPlanMessages(failed.length > 0 ? [`Reset did not finish: could not clear ${failed.join(', ')}. It is still stored in this browser.`] : []);
     setPlans(fresh);
     setType('all');
     setAlwaysRestore(false);
@@ -1429,7 +1429,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     // The favorites store accepts the engine's limits (MIN_CUSTOM_SUB_S to MAX_SUB_S, 1 to MAX_SUBS whole subs); a row outside that is refused here, so the store's own check is never reached.
     const { subSeconds, subCount } = view.chosen;
     if (!(subSeconds >= MIN_CUSTOM_SUB_S && subSeconds <= MAX_SUB_S) || !Number.isInteger(subCount) || subCount < 1 || subCount > MAX_SUBS) {
-      setNotice(`The favorite was not saved: these numbers are outside what a favorite can hold (a sub of ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} subs).`);
+      setNotice(`The favorite was not saved: a sub is ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} subs.`);
       return;
     }
     const filterName = train?.kind === 'optical' && train.filterId ? (profile.equipment.filters.find((f) => f.id === train.filterId)?.name ?? '') : '';
@@ -1604,7 +1604,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (first && firstTrain) {
       const evening = defaultDateForProfile(new Date(), next);
       if (editOpen({ date: evening, siteId: first.id, trainId: firstTrain.id })) {
-        moved = ` The open plan${open ? ` "${open.name}"` : ''} moved to ${first.name}, ${firstTrain.name}, ${nightDateText(evening)}.${(plans?.plans.length ?? 1) > 1 ? ' Other plans whose site or train is not in this profile use its first.' : ''}`;
+        moved = ` The open plan${open ? ` "${open.name}"` : ''} moved to ${first.name}, ${firstTrain.name}, ${nightDateText(evening)}.${(plans?.plans.length ?? 1) > 1 ? ' Other plans whose site or train is missing use its first.' : ''}`;
       }
     }
     loadForm(next.sites[0]?.blockedArcs ?? [], true);
@@ -1787,11 +1787,11 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   /** Why a choice is off: saved gear that could not be loaded is never shared as if it were the sample on screen. */
   const shareBlocked: Partial<Record<ShareWhat, string>> =
     {
-      ...(profileHeld !== null ? { gear: 'Your saved gear could not be loaded, so it cannot be shared from here. Export profile (JSON) under Gear and site keeps the saved text as it is.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {}),
+      ...(profileHeld !== null ? { gear: 'Saved gear could not be loaded, so it is not shared. Export profile (JSON) under Gear and site keeps it as stored.', everything: 'Needs the gear, which could not be loaded (see Gear).' } : {}),
       ...(projectsApi.state.projects.length === 0 ? { projects: 'You have no projects yet. Make one under Projects.' } : {}),
     };
   const shareNow: ShareWhat = shareBlocked[shareWhat] !== undefined ? 'plan' : shareWhat;
-  const heldNote = heldPlans !== null ? 'Your saved plans are held back (see the notice at the top of the page), so this is the plans on this page.' : null;
+  const heldNote = heldPlans !== null ? 'Saved plans are held back (see the notice at the top), so these are this page\u2019s plans.' : null;
   /** The page's one way to name a target id (a project's targets, in its tab and in every file). */
   const targetName = useCallback(
     (id: string): string => {
@@ -1847,7 +1847,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (!file) return;
     pendingImport.current = null;
     const refuse = (text: string) => setImportPanel({ kind: 'error', text });
-    if (heldPlans !== null) return refuse('Your saved plans are held back (see the notice at the top of the page), so nothing can be added to them until you decide there.');
+    if (heldPlans !== null) return refuse('Saved plans are held back (see the notice at the top), so nothing can be added until you decide there.');
     const have = plansRef.current;
     if (have === null) return refuse('The plans have not loaded yet.');
     try {
@@ -1873,7 +1873,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const stored = readPlansText();
       if (stored !== null) keepCopy(window.localStorage, stored);
     } catch (e) {
-      setImportPanel({ kind: 'error', text: `A copy of your saved plans could not be kept first (${(e as Error).message}), so they were left as they are.` });
+      setImportPanel({ kind: 'error', text: `No backup of your saved plans could be made (${(e as Error).message}), so they were left as they are.` });
       return;
     }
     let result: ImportResult | null = null;
@@ -1885,7 +1885,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     });
     const r = result as ImportResult | null;
     if (!ok || r === null) {
-      setImportPanel({ kind: 'error', text: 'The plans could not be added (the notice at the top of the page says why).' });
+      setImportPanel({ kind: 'error', text: 'The plans could not be added (see the notice at the top).' });
       return;
     }
     const noGear = r.state.plans.slice(before).filter((p) => missingOf(profile, p).train || missingOf(profile, p).site).length;
@@ -1923,7 +1923,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         : catalog.status === 'loading'
           ? 'The catalog is still loading.'
           : aiTargets.length === 0
-            ? 'The plan has no deep-sky targets the AI planner can use. It plans fixed objects, not the Moon and planets.'
+            ? 'The AI plans fixed objects, not the Moon and planets.'
             : aiBase === null
               ? 'The site or train is not ready.'
               : null;
@@ -1960,7 +1960,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         {profile.sites.length > 0 && usable.length === 0 ? (
           <div className="mt-4 space-y-2" data-testid="no-usable-site">
             <p className="text-p-t1 font-normal break-words">
-              {profile.sites.length === 1 ? 'Your saved site cannot be used' : 'None of your saved sites can be used'}, so the planner has no night to show yet. Correct it in Gear below: the site&apos;s own form says what is wrong. Your gear is untouched.
+              {profile.sites.length === 1 ? 'Your saved site cannot be used' : 'None of your saved sites can be used'}, so there is no night to show yet. Correct it in Gear below.
             </p>
             {siteProblems(profile).map((x) => (
               <p key={`${x.id}-${x.key}`} className="text-p-warn-text font-normal text-sm break-words">
@@ -1970,7 +1970,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </div>
         ) : (
           <p className="text-p-t1 font-normal mt-4">
-            The profile needs at least one site and one train. Import a profile below, or reset all to start from the sample.
+            The profile needs one site and one train. Import a profile below, or reset all.
           </p>
         )}
         {importError && (

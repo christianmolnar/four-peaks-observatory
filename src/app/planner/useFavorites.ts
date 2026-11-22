@@ -14,9 +14,9 @@ import type { FavoritesState } from '@/planner/state/favorites';
 
 /** What a held store says, in plain words: saving is off and the stored text is not touched. */
 const HELD_TEXT = {
-  newer: 'Your saved favorite exposures were made by a newer version of the planner, so saving favorites is off here and nothing stored is changed.',
-  nocopy: 'Your saved favorite exposures could not be read whole, and a copy of them could not be kept first, so saving favorites is off here and nothing stored is changed. To fix it, free some browser storage and reload this page; if it stays, use Reset all in the Gear tab to start the favorites again.',
-  othertab: 'Another tab saved favorite exposures this page cannot use, so saving favorites is off here and nothing stored is changed. Reload this tab to read what the other tab saved; if it still cannot be read, use Reset all in the Gear tab.',
+  newer: 'Your saved favorites were made by a newer version of the planner, so saving favorites is off here.',
+  nocopy: 'Your saved favorites could not be read whole and no copy could be kept, so saving favorites is off here. Free some browser storage and reload; if it stays, use Reset all in the Gear tab.',
+  othertab: 'Another tab saved favorites this page cannot use, so saving favorites is off here. Reload this tab; if it still cannot be read, use Reset all in the Gear tab.',
 } as const;
 type HeldWhy = keyof typeof HELD_TEXT;
 
@@ -89,7 +89,7 @@ export function useFavorites(): FavoritesApi {
       try {
         const key = keepFavoritesCopy(window.localStorage, text);
         const n = listFavoritesBackups(window.localStorage).length;
-        setNotes([`Your saved favorite exposures could not be read (${why}), so they start over. A copy of them as they were is kept under the backup name "${key}"; ${n} ${n === 1 ? 'copy is' : 'copies are'} kept in this browser.`]);
+        setNotes([`Your saved favorites could not be read (${why}), so they start over. A copy is kept under the backup name "${key}"; ${n} ${n === 1 ? 'copy is' : 'copies are'} kept in this browser.`]);
       } catch (e) {
         hold(text, 'nocopy');
         setNotes([`The copy of your damaged favorites failed: ${(e as Error).message}.`]);

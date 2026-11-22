@@ -171,7 +171,7 @@ describe('the run sheet carries the numbers the rows show', () => {
     await ready();
     openPlanTab();
     openSheet();
-    expect(text()).toMatch(/Warning: This plan was made with a train that is no longer in your gear/);
+    expect(text()).toMatch(/Warning: The plan's train is no longer in your gear/);
   });
 
   it('other plans are shared as they are stored, and say their numbers were not worked out', async () => {
@@ -229,7 +229,7 @@ describe('Export for ASIAir', () => {
     // The file has no name column, so the sheet lists which pane is which object.
     expect(screen.getByTestId('asiair-panes').textContent).toBe('Pane 1: M31Pane 2: IC 405');
     expect(note).toMatch(/no column for a name/);
-    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).toMatch(/The one test to run: .*each pane arrives at the right RA and Dec/);
+    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).toMatch(/Not yet tested on a real ASIAir/);
     expect(lines[1]).toMatch(/^Pane 1, \d\dhr \d\d' \d\d", \+\d\d\u00ba \d\d' \d\d", 0\.00, [\d.]+, [\d.]+, 20%, 1, 1$/);
     fireEvent.click(within(section).getByRole('checkbox'));
     fireEvent.click(within(section).getByRole('button', { name: 'Copy text' }));

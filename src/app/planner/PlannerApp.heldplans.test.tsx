@@ -228,7 +228,7 @@ describe('S2: Reset all or a clear in another tab', () => {
     window.localStorage.clear();
     storageEvent(PLANS_KEY, null);
     expect([...planSwitch().options].map((o) => o.textContent)).toEqual(['My plan (0)']);
-    expect(messages()).toMatch(/The plans were reset in another tab/);
+    expect(messages()).toMatch(/plans were reset in another tab/);
     await newPlan(u);
     expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'Plan 2']);
   });
@@ -351,7 +351,7 @@ describe('R4: a backup is never overwritten and a held page follows the other ta
     await replace(u, a);
     storageEvent(PLANS_KEY, window.localStorage.getItem(PLANS_KEY));
     expect(b.queryByTestId('plans-held')).toBeNull();
-    expect(b.getByTestId('plans-messages').textContent).toMatch(/Another tab saved plans while this page held the saved ones back\. This page now shows them/);
+    expect(b.getByTestId('plans-messages').textContent).toMatch(/Another tab saved plans\. This page now shows them/);
     expect(backups()).toEqual([V2]);
   });
 
@@ -363,7 +363,7 @@ describe('R4: a backup is never overwritten and a held page follows the other ta
     await replace(u, a);
     const afterA = window.localStorage.getItem(PLANS_KEY)!;
     storageEvent(PLANS_KEY, afterA);
-    expect(b.getByTestId('plans-held').textContent).toMatch(/Another tab saved plans after this page held the saved ones back/);
+    expect(b.getByTestId('plans-held').textContent).toMatch(/Another tab saved plans, so what you changed here is not saved/);
     await replace(u, b);
     expect(backups()).toEqual([V2, afterA]);
     expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'Plan 2']);
@@ -395,7 +395,7 @@ describe('R4: a backup is never overwritten and a held page follows the other ta
     act(() => void document.dispatchEvent(new Event('visibilitychange')));
     expect(held()).toBeNull();
     expect([...planSwitch().options].map((o) => o.textContent)).toEqual(['Theirs (1)']);
-    expect(messages()).toMatch(/Another tab saved plans while this page held/);
+    expect(messages()).toMatch(/Another tab saved plans\. This page now shows/);
   });
 
   it('Replace is described before the press and reported once after, with where the copy is', async () => {

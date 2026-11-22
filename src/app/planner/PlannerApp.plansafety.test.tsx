@@ -156,7 +156,7 @@ describe('the old night timeline keeps its order', () => {
     });
     await app();
     expect(heading()).toBe('PLAN: My plan (from before) (2 targets)');
-    expect(status()).toMatch(/carried over but could not be saved: quota\. Your old plan stays in this browser and is carried over again the next time the page opens\./);
+    expect(status()).toMatch(/carried over but could not be saved: quota\. It stays in this browser and is carried over again next time\./);
     expect(status()).not.toMatch(/lost on reload/);
     jest.restoreAllMocks();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).not.toBeNull();

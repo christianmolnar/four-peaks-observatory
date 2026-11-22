@@ -165,7 +165,7 @@ describe('a stored profile this page cannot load is never written over (round 4)
     pickClass('Filters');
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
     expect(status()).not.toMatch(/Added/);
-    expect(status()).toMatch(/^Not saved\. Your saved gear is kept as it is/);
+    expect(status()).toMatch(/^Not saved: your saved gear is kept as it is/);
     expect(within(screen.getByRole('region', { name: 'GEAR' })).queryAllByRole('alert')).toHaveLength(0); // the page's notice is the one alert
     expect(window.localStorage.getItem(PROFILE_KEY)).toBe(before);
     expect(ownCameraStored()).toBe(true);
@@ -257,9 +257,9 @@ describe('smaller round 4 fixes', () => {
     await mount();
     openPlanTab();
     const note = screen.getByTestId('plan-stale-site').textContent!;
-    expect(note).toContain('whose saved numbers cannot be used');
-    expect(note).toContain(`It shows "${raw.sites[1].name}" for now.`);
-    expect(document.body.textContent).not.toMatch(/no longer in your gear\. It shows "Broken/);
+    expect(note).toContain('cannot be used');
+    expect(note).toContain(`Showing "${raw.sites[1].name}".`);
+    expect(document.body.textContent).not.toMatch(/no longer in your gear\. Showing "Broken/);
   });
 
   it('a refused Save clears the earlier "Saved ..." line', async () => {
@@ -366,7 +366,7 @@ describe('round 5: plain words for a held profile, no false Saved, one message',
     const gear = status()!;
     expect(within(screen.getByRole('region', { name: 'GEAR' })).queryAllByRole('alert')).toHaveLength(0);
     expect(screen.getAllByRole('alert').filter((a) => a.getAttribute('data-testid') === 'profile-held')).toHaveLength(1);
-    expect(gear).toMatch(/^Not saved\./);
+    expect(gear).toMatch(/^Not saved/);
     expect(gear.length).toBeLessThan(120);
     expect(gear).not.toMatch(/Export profile|Reset all|could not be loaded/);
     expect(screen.getByTestId('profile-held').textContent).toMatch(/Export profile/);
