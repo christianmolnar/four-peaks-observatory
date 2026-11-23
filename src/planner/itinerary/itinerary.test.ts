@@ -468,16 +468,16 @@ describe('the schedule', () => {
   it('a stale item shows a problem on its slot and does not stop the others', () => {
     const plan = build([item('nope'), item('m31', { filterId: 'gone' }), item('m31', { trainId: 'gone' }), item('m31')]);
     expect(plan.slots.map((s) => codes(s).includes('problem'))).toEqual([true, true, true, false]);
-    expect(plan.slots[0].warnings[0].text).toMatch(/"nope" is not in the target list/);
-    expect(plan.slots[1].warnings[0].text).toMatch(/Filter "gone" is not in the profile/);
-    expect(plan.slots[2].warnings[0].text).toMatch(/Train "gone" is not in the profile/);
+    expect(plan.slots[0].warnings[0].text).toBe("Target not found");
+    expect(plan.slots[1].warnings[0].text).toBe("Filter not found");
+    expect(plan.slots[2].warnings[0].text).toBe("Setup not found");
     expect(plan.slots[3].integrationMin).toBeGreaterThan(0);
   });
 
-  it('a smart-scope train is refused with a reason, not guessed', () => {
+  it('a smart-scope train is refused with a two-word label, not guessed', () => {
     const plan = build([item('m31', { trainId: 'smart-seestar-s50' })]);
     expect(codes(plan.slots[0])).toEqual(['problem']);
-    expect(plan.slots[0].warnings[0].text).toMatch(/no optics numbers/);
+    expect(plan.slots[0].warnings[0].text).toBe("Smart scope");
   });
 
   it('the totals count the changes and the waiting the sentence leaves out', () => {

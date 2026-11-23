@@ -28,10 +28,10 @@ export function slotInputFor(item: ItineraryItem, profile: Profile, targets: rea
   const base = { item, name, trainName: train?.name ?? item.trainId, filterName: 'No filter', optics: null, camera: null, filter: null } as const;
   const fail = (problem: string): SlotInput => ({ ...base, source: { kind: 'planet', body: 'Mars' }, exposureTarget: { id: item.targetId, name }, problem });
 
-  if (!planet && !catalog) return fail(`"${item.targetId}" is not in the target list.`);
-  if (!train) return fail(`Train "${item.trainId}" is not in the profile.`);
+  if (!planet && !catalog) return fail('Target not found');
+  if (!train) return fail('Setup not found');
   const filter = item.filterId === null ? null : (profile.equipment.filters.find((f) => f.id === item.filterId) ?? null);
-  if (item.filterId !== null && !filter) return fail(`Filter "${item.filterId}" is not in the profile.`);
+  if (item.filterId !== null && !filter) return fail('Filter not found');
   const filterName = filter ? filter.name : 'No filter';
   const source = planet ? ({ kind: 'planet', body: planet } as const) : ({ kind: 'fixed', raHours: (catalog as SlotTarget).raHours, decDeg: (catalog as SlotTarget).decDeg } as const);
   const exposureTarget = catalog ? exposureTargetFrom(catalog) : { id: item.targetId, name };

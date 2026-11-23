@@ -22,7 +22,7 @@ function draw(ids: string[], startAt?: Date) {
   const items: ItineraryItem[] = ids.map((targetId, i) => ({ id: `n${i}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }));
   const inputs = items.map((i) => slotInputFor(i, profile, starterTargets));
   const plan = buildItinerary({ site: SITE, night: NIGHT, horizon: HORIZON, minAltitude: 20, bortle: 6, slots: inputs, startAt, formatTime: fmt });
-  const view = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={20} formatTime={fmt} nightWord="that night (12/15/2026)" />);
+  const view = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={20} formatTime={fmt} />);
   return { plan, ...view };
 }
 const thick = (c: HTMLElement) => c.querySelectorAll('svg polyline[stroke-width="5"]');
@@ -36,7 +36,7 @@ describe('Night graph', () => {
     expect(thick(container)).toHaveLength(0);
     expect(container.textContent).toMatch(/Night starts 01:49/);
     expect(container.textContent).toMatch(/ends 12:55/);
-    expect(container.textContent).toMatch(/Add a target to draw it on the night\./);
+    expect(container.textContent).toMatch(/No targets yet\./);
     expect(await violations(container)).toEqual([]);
   });
 
@@ -52,28 +52,27 @@ describe('Night graph', () => {
     expect(await violations(container)).toEqual([]);
   });
 
-  it('six slots: six segments, five changeover connectors among them, a key line per number', async () => {
+  it('six slots: six segments, five changeover connectors among them', async () => {
     const { container, plan } = draw(['m31', 'm42', 'm33', 'ic405', 'planet-jupiter', 'planet-moon']);
     const drawn = plan.slots.filter((s) => s.altitudes).length;
     expect(thick(container)).toHaveLength(drawn);
     expect(container.querySelectorAll('svg line[stroke-dasharray="1 5"]')).toHaveLength(drawn - 1);
-    expect(container.querySelectorAll('ol[aria-label="Slots on the graph"] li')).toHaveLength(6);
     expect(await violations(container)).toEqual([]);
   });
 
-  it('a slot with no time is listed as "no time, not drawn" and has no line', () => {
+  it('a slot with no time is listed as "no time" and has no line', () => {
     const { container, plan } = draw(['m31', 'm42'], new Date((NIGHT.end as Date).getTime() + 3600000));
     expect(plan.slots.every((s) => s.altitudes === null)).toBe(true);
     expect(thick(container)).toHaveLength(0);
-    expect(container.textContent).toMatch(/1\. Andromeda Galaxy: no time, not drawn/);
+    expect(container.textContent).toMatch(/1\. Andromeda Galaxyno time/);
     expect(container.querySelector('svg desc')!.textContent).toMatch(/Slot 1, Andromeda Galaxy: no time\./);
   });
 
-  it('says why nothing is drawn, naming the night the page chose', () => {
+  it('says in two or three words why nothing is drawn', () => {
     const inputs = [slotInputFor({ id: 'n0', targetId: 'm31', trainId: 'deep-c11-reducer-533', filterId: null, mode: 'balanced', note: '' }, profile, starterTargets)];
     const plan = buildItinerary({ site: SITE, night: NIGHT, horizon: HORIZON, minAltitude: 89, bortle: 6, slots: inputs, formatTime: fmt });
-    const { container } = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={89} formatTime={fmt} nightWord="that night (12/15/2026)" />);
-    expect(container.textContent).toMatch(/No slot has time that night \(12\/15\/2026\), so nothing is drawn/);
+    const { container } = render(<NightTimeline plan={plan} inputs={inputs} night={NIGHT} site={SITE} horizon={HORIZON} minAltitude={89} formatTime={fmt} />);
+    expect(container.textContent).toMatch(/No time left/);
     expect(container.textContent).not.toMatch(/tonight/i);
   });
 

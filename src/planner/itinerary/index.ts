@@ -216,6 +216,8 @@ export const WARNING_TEXT = {
   cutShort: 'Cut short',
   flip: (flipMin: number): string => `Flip +${flipMin} min`,
   noTimeLeft: 'No time left',
+  gearIncomplete: 'Gear incomplete',
+  noExposure: 'Smart scope',
   lowStart: 'Starts low',
   lowEnd: 'Ends low',
   startBeforeNight: 'Start before night',
@@ -432,7 +434,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
           { preset: item.mode, ...(item.overrides ? { overrides: item.overrides } : {}) },
         );
         if (!m.ok) {
-          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: `${si.name} on ${si.trainName}: ${si.gearNote ?? 'the train has no usable optics numbers'}` };
+          return { w, start, end: start, waitMin: 0, delayedMin: 0, subSeconds, subCount, integrationMin, leftMin: remaining, short: false, aim, cut: false, flipMin, peakAt, peakHeld, altitude, unplannable: WARNING_TEXT.gearIncomplete };
         }
         subSeconds = m.subSeconds;
         subCount = m.subCount;
@@ -449,7 +451,7 @@ export function makeScheduler(input: BuildInput): Scheduler {
     };
 
     if (source.kind !== 'planet' && (!si.optics || !si.camera)) {
-      return idle(none(`${si.name} cannot be planned on ${si.trainName}: it has no optics numbers (a smart scope controls its own exposures).`), opensAt);
+      return idle(none(WARNING_TEXT.noExposure), opensAt);
     }
     const firstTry = attemptIn(fitting[0]);
     if (firstTry.unplannable) return idle(none(firstTry.unplannable), opensAt);

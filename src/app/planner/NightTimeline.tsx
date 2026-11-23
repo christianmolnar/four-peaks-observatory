@@ -26,8 +26,6 @@ export interface NightTimelineProps {
   horizon: readonly HorizonPoint[] | null;
   minAltitude: number;
   formatTime: (d: Date) => string;
-  /** "tonight" or "that night (date)", from the page. */
-  nightWord: string;
   idPrefix?: string;
 }
 
@@ -55,7 +53,7 @@ export function wrapWords(text: string, maxChars: number): string[] {
  * start (the changeover or the wait). The drawing is as wide as its box, so text stays the size on screen and nothing scrolls sideways.
  * Nothing moves, so there is no motion to reduce.
  */
-export default function NightTimeline({ plan, inputs, night, site, horizon, minAltitude, formatTime, nightWord, idPrefix = 'timeline' }: NightTimelineProps) {
+export default function NightTimeline({ plan, inputs, night, site, horizon, minAltitude, formatTime, idPrefix = 'timeline' }: NightTimelineProps) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   useLayoutEffect(() => {
@@ -135,10 +133,10 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
     timed.length > 0
       ? null
       : plan.slots.length === 0
-        ? 'Add a target to draw it on the night.'
+        ? 'No targets yet.'
         : afterNight
-          ? `Your start, ${formatTime(plan.startsAt)}, is after the night ends (${formatTime(night.end as Date)}), so no slot has time.`
-          : `No slot has time ${nightWord}, so nothing is drawn.`;
+          ? 'Start after night'
+          : 'No time left';
   const emptyLines = emptyWhy ? wrapWords(emptyWhy, Math.max(12, Math.floor((width - MARGIN.left - MARGIN.right - 16) / CHAR_PX))) : [];
 
   return (
@@ -255,25 +253,6 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
           )}
         </svg>
       </div>
-
-      <ul className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Chart key">
-        <li>Thick lines and numbers: your slots. Faint: the rest of that night.</li>
-        <li>Dotted white: changeover or wait. Dashed orange: minimum altitude {minAltitude}°.</li>
-        <li>Dotted orange: under your horizon or minimum. Dashed white: your start.</li>
-      </ul>
-
-      {plan.slots.length > 0 && (
-        <ol className="mt-2 space-y-1 text-p-t1 font-normal text-sm" aria-label="Slots on the graph">
-          {plan.slots.map((s, i) => (
-            <li key={s.id} className="flex items-baseline gap-2">
-              <span aria-hidden="true" className="inline-block h-3 w-3 shrink-0 rounded-full border-2" style={{ borderColor: colour(i) }} />
-              <span className="min-w-0 break-words">
-                {i + 1}. {s.name}: {s.altitudes ? `${formatTime(s.start)} to ${formatTime(s.end)}` : 'no time, not drawn'}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
 
       <details className="group mt-2" data-testid="timeline-numbers">
         <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
