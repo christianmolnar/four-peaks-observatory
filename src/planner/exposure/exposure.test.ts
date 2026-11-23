@@ -5,8 +5,6 @@ import type { ProfileFilter } from '../profile';
 import {
   ESTIMATE,
   MODE_ORDER,
-  NO_STOP_TIME_NOTE,
-  SNR_ASSUMPTION,
   CORE_FRAME_COUNT,
   CORE_MIN_RATIO,
   CORE_SUB_DIVISOR,
@@ -315,11 +313,6 @@ describe('marginal benefit', () => {
     expect(marginalBenefit(75).map((r) => r.availableTonight)).toEqual([true, true, false, false]);
     expect(marginalBenefit(120).map((r) => r.availableTonight)).toEqual([true, true, true, true]);
     expect(marginalBenefit(0).map((r) => r.availableTonight)).toEqual([false, false, false, false]);
-  });
-  it('states its assumption and refuses a universal stop time', () => {
-    expect(SNR_ASSUMPTION).toMatch(/square root/);
-    expect(SNR_ASSUMPTION).toMatch(/4 times the time gives 2 times/);
-    expect(NO_STOP_TIME_NOTE).toMatch(/no universal best stop time/);
   });
 });
 

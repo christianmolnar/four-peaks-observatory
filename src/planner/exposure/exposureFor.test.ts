@@ -270,14 +270,10 @@ describe('presets are parameters', () => {
     if (!report.ok) throw new Error('not ok');
     for (const m of MODE_ORDER) expect(run(t, rig(TRAINS.f10), 6, n, { preset: m })).toEqual(report.modes[m]);
   });
-  it('gives the gain as none (the profile stores no gain or HCG point), the filter note and a calculated source', () => {
+  it('gives the gain as none (the profile stores no gain or HCG point) and a calculated source', () => {
     const r = run(nebula(22), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' });
     expect(r.source).toBe('calculated');
     expect(r.gain.suggested).toBeNull();
-    expect(r.gain.note).toMatch(/no gain suggestion/i);
-    expect(r.filterNote).toMatch(/Test 50 nm, about 50 nm: .*lines pass.*17% of the full band/);
-    expect(run(galaxy(22), rig(TRAINS.f10, bandFilter(50)), 6, night(), { preset: 'balanced' }).filterNote).toMatch(/continuum/);
-    expect(run(galaxy(22), rig(TRAINS.f10), 6, night(), { preset: 'balanced' }).filterNote).toMatch(/^No filter/);
   });
 });
 

@@ -67,12 +67,6 @@ export * from './constants';
 /** Every number this module returns is an estimate; the field makes that part of the data. */
 export const ESTIMATE = 'estimate' as const;
 
-/** The assumption behind the marginal-benefit table, stated for the UI. */
-export const SNR_ASSUMPTION =
-  'Estimate. Assumes the sky background dominates the noise, so signal-to-noise grows with the square root of integration time: 4 times the time gives 2 times the signal-to-noise. Real stacks gain somewhat less. More time lowers noise and brings out faint signal; it does not sharpen a seeing-limited image.';
-export const NO_STOP_TIME_NOTE =
-  'There is no universal best stop time: each step adds less than the one before, and what is worth it depends on the target and on you.';
-
 // ---------------------------------------------------------------- filter fit
 
 /**
@@ -519,9 +513,8 @@ export interface ExposureResult {
   usableIntegrationRangeMin: Range;
   /** Frames between dithers. */
   ditherEveryFrames: number;
-  /** The camera's gain: the profile does not store a gain or HCG point, so there is no suggestion and the note says so. */
-  gain: { suggested: number | null; note: string };
-  filterNote: string;
+  /** The camera's gain: the profile does not store a gain or HCG point, so there is no suggestion. */
+  gain: { suggested: number | null };
   /** The unclamped sky-limited sub of this preset's K, seconds. */
   swampSeconds: number;
   /** Extra noise from read noise at the chosen sub, as a fraction (0.049 is 4.9%). */
@@ -671,16 +664,6 @@ function kneeFor(object: ExposureTarget, c: Context, filter: ProfileFilter | nul
   };
 }
 
-function filterNoteFor(filter: ProfileFilter | null, bw: Bandwidth, emission: boolean): string {
-  if (!filter) return `No filter: the full ${bw.nm} nm band, so the sky sets the exposure.`;
-  const width = `${bw.nm} nm${bw.assumed ? ' (assumed)' : ''}`;
-  return emission
-    ? `${filter.name}, about ${width}: an emission object's lines pass while the sky is cut to ${Math.round((bw.nm / REF_BANDWIDTH_NM) * 100)}% of the full band, so it stands out more and needs less time.`
-    : `${filter.name}, about ${width}: this object is mostly continuum, so the filter cuts its light with the sky's and its contrast hardly changes.`;
-}
-
-const NO_GAIN_NOTE = "No gain suggestion: the profile stores no gain or high-conversion-gain point for this camera. Use the maker's recommended gain.";
-
 /** How many subs of `subSeconds` (at most `wanted`) the usable window holds with the dithers, autofocus and flip counted, and the overhead that goes with them. */
 function fitSubs(usableMinutes: number, subSeconds: number, wanted: number, flip: boolean, dither: { everyFrames: number; minIntervalS: number }): { count: number; overhead: Overhead } {
   // Start at the most the window could hold (plus one), not at a huge override: the loop below then runs a few times, not a million.
@@ -698,7 +681,6 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   const o = choice.overrides ?? {};
   const sky: SkyInput = { bortle: site.bortle, moonIllumination: night.moonIllumination, moonSeparationDeg: night.moonSeparationDeg, moonUp: night.moonUp };
   const warnings: ExposureWarning[] = [...c.shared];
-  const emission = object.type !== undefined && EMISSION_TYPES.includes(object.type);
 
   // ---- Sub length: the sky-limited optimum, then the clamps.
   const swampSeconds = skyLimitedSeconds(c.readNoiseE, c.rate, spec.swampK);
@@ -819,8 +801,7 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
     integrationMin,
     usableIntegrationRangeMin: [round1(integrationMin * (1 - REJECT_FRACTION_MAX)), integrationMin],
     ditherEveryFrames: ditherEvery(subSeconds, dither),
-    gain: { suggested: null, note: NO_GAIN_NOTE },
-    filterNote: filterNoteFor(rig.filter, c.bw, emission),
+    gain: { suggested: null },
     swampSeconds,
     readNoisePenalty: penalty,
     knee,
