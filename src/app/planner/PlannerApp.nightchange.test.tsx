@@ -42,8 +42,8 @@ const withoutPixelSize = (profile: ReturnType<typeof sampleProfile>) => {
   for (const c of profile.equipment.cameras) delete (c as { pixelSizeUm?: number }).pixelSizeUm;
 };
 const dateBox = () => screen.getByLabelText('Evening of') as HTMLInputElement;
-const subBox = (id: string) => screen.getByLabelText(`Exposure per shot (seconds) for ${NAMES[id]}`) as HTMLInputElement;
-const countBox = (id: string) => screen.getByLabelText(`Number of shots for ${NAMES[id]}`) as HTMLInputElement;
+const subBox = (id: string) => screen.getByLabelText(`Sub (s) for ${NAMES[id]}`) as HTMLInputElement;
+const countBox = (id: string) => screen.getByLabelText(`Subs for ${NAMES[id]}`) as HTMLInputElement;
 const numbers = (id: string) => screen.getByTestId(`plan-numbers-${id}`).textContent ?? '';
 const parse = (text: string) => {
   const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? ·/.exec(text);
@@ -88,12 +88,12 @@ describe('an accepted sub length that stops working when the night changes', () 
     expect(row.sub).toBeGreaterThan(10);
     // The timeline schedules the same preset numbers and says so.
     expect(slotNumbers(0)).toEqual(row);
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
+    expect(screen.getByTestId('plan-chips-m31').textContent).toContain('Custom not used');
     // The stored value stays stored.
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 10 } });
     // Save as favorite is refused in plain words, with no validator text anywhere.
     fireEvent.click(favoriteBox('m31'));
-    expect(screen.getByTestId('plan-favorite-refused-m31').textContent).toMatch(/^Not saved: your custom numbers do not work tonight/);
+    expect(screen.getByTestId('plan-favorite-refused-m31').textContent).toBe('Not saved: custom not used');
     expect(document.body.textContent).not.toMatch(VALIDATOR);
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBeNull();
 
@@ -220,7 +220,7 @@ describe('round 4: a stored sub under the minimum, the timeline in the preset-us
     openPart('Night timeline');
     type(subBox('m31'), '10');
     fireEvent.change(dateBox(), { target: { value: JAN } });
-    expect(screen.getByTestId('it-preset-used-m31')).toBeTruthy();
+    expect(screen.getByTestId('plan-chips-m31').textContent).toContain('Custom not used');
     expect(screen.queryByLabelText('Exposure preset for Andromeda Galaxy', { selector: 'select' })).toBeNull();
     fireEvent.change(dateBox(), { target: { value: MAY } });
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 10 } });
@@ -232,7 +232,7 @@ describe('round 4: a stored sub under the minimum, the timeline in the preset-us
     const box = favoriteBox('m42');
     expect((box as HTMLInputElement).disabled).toBe(false);
     fireEvent.click(box);
-    expect(screen.getByTestId('plan-favorite-refused-m42').textContent).toBe('Not saved: no subs fit this target tonight.');
+    expect(screen.getByTestId('plan-favorite-refused-m42').textContent).toBe('Not saved: no subs fit');
     expect(document.body.textContent).not.toMatch(VALIDATOR);
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBeNull();
   });
@@ -300,10 +300,10 @@ describe('round 7: a stored value outside the limits never reaches the engine, w
     async (custom) => {
       await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom }], withoutPixelSize);
       openPart('Night timeline');
-      expect(screen.getByTestId('plan-numbers-m31').textContent).toMatch(/^Pixel size is not set for .*, so no exposure is shown\. Add it in Gear\.$/);
+      expect(screen.getByTestId('plan-numbers-m31').textContent).toBe('Gear incomplete');
       // Nothing is computed for this target, so no preset is used and none is named.
-      expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
-      expect(screen.getByTestId('slot-preset-m31').textContent).not.toMatch(/Balanced|Quick|Deep|preset/);
+      expect(screen.getByTestId('plan-chips-m31').textContent).toContain('Custom not used');
+      expect(screen.getByTestId('plan-chips-m31').textContent).not.toMatch(/Balanced|Quick|Deep|preset/);
       expect(document.body.textContent).not.toMatch(VALIDATOR);
       expect(storedPlan()!.targets[0].custom).toEqual(custom);
     },
@@ -312,12 +312,12 @@ describe('round 7: a stored value outside the limits never reaches the engine, w
   it('the timeline names the sub length when that is what fails, and the count when that is', async () => {
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 7200 } }]);
     openPart('Night timeline');
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
+    expect(screen.getByTestId('plan-chips-m31').textContent).toContain('Custom not used');
     cleanup();
     window.localStorage.clear();
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subCount: MAX_SUBS + 1 } }]);
     openPart('Night timeline');
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
+    expect(screen.getByTestId('plan-chips-m31').textContent).toContain('Custom not used');
   });
 });
 
@@ -333,9 +333,7 @@ describe('round 7: a favorite saved under older limits stays saved and is shown 
     ]);
     expect(document.body.textContent).not.toMatch(/could not be read|start over/);
     expect(document.body.textContent).not.toMatch(VALIDATOR);
-    expect(screen.getByTestId('plan-favorite-unusable-m31').textContent).toMatch(
-      /^Your favorite cannot be used: its sub length is longer than the 300 s a sub can be\./,
-    );
+    expect(screen.getByTestId('plan-favorite-unusable-m31').textContent).toBe('Favorite not usable');
     expect(screen.queryByTestId('plan-favorite-ask-m31')).toBeNull();
     expect(screen.queryByTestId('plan-favorite-unusable-m42')).toBeNull();
     expect(screen.getByTestId('plan-favorite-ask-m42').textContent).toMatch(/Restore your favorite \(/);

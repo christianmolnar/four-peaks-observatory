@@ -26,7 +26,7 @@ const app = async (profile = base(), initialDate = '2026-12-15') => {
 };
 const trainSelect = () => screen.getByLabelText('Setup') as HTMLSelectElement;
 const siteSelect = () => screen.getByLabelText('Site') as HTMLSelectElement;
-const timeline = () => document.getElementById('night-timeline-body') as HTMLElement;
+const timeline = () => document.querySelector('section[aria-labelledby="open-plan-heading"]') as HTMLElement;
 const bortleSelects = () => screen.queryAllByLabelText(/^Sky darkness, Bortle class \(1 to 9, 1 is darkest\)$/) as HTMLSelectElement[];
 
 /** Picks a class in the site editor and presses that form's Save (fireEvent: a whole-page userEvent step is slow in jsdom). */

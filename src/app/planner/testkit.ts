@@ -121,6 +121,7 @@ export const ready = async (): Promise<void> => {
   await screen.findByTestId('target-list', {}, { timeout: 20000 });
   openFind();
   openControls();
+  openDetails();
 };
 
 /** Chooses an item of the list's "More" menu ("Export CSV", "Print or save as PDF"). */
@@ -182,10 +183,16 @@ export const openGearItem = (label: string, index = 0): HTMLElement => {
   return card;
 };
 
-/** Opens a closed part of the open plan ("Night and horizon", "Night timeline"); does nothing when it is open. */
+/** Opens a closed part of the open plan ("Night and horizon", "Night graph"); does nothing when it is open. The slots are the plan's cards, always on the page, so "Night timeline" is nothing to open. */
 export const openPart = (name: string): void => {
+  if (name === 'Night timeline') return;
   const button = screen.getByRole('button', { name });
   if (button.getAttribute('aria-expanded') === 'false') fireEvent.click(button);
+};
+
+/** Opens the Details of every card of the open plan (they start closed); does nothing for those already open. */
+export const openDetails = (): void => {
+  for (const b of document.querySelectorAll<HTMLElement>('[id^="plan-details-btn-"]')) if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b);
 };
 
 /** Opens the "Plan" tab (it is the one a visit starts on). */
@@ -194,10 +201,13 @@ export const openPlanTab = (): void => {
 };
 
 /** The rows of the open plan's own target list (not the Find a target lists, which are in the same card). */
-export const planRowItems = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('ol[aria-label="Targets in this plan, in order"] > li')];
+export const planRowItems = (): HTMLElement[] => {
+  openDetails();
+  return [...document.querySelectorAll<HTMLElement>('ol[aria-label="Targets in this plan, in order"] > li')];
+};
 
-/** The slots of the open plan's Night timeline (the part is closed by default; its content is in the page either way). */
-export const timelineSlots = (): HTMLElement[] => [...(document.getElementById('night-timeline-body')?.querySelectorAll<HTMLElement>('ol[aria-label="Night timeline, in order"] > li') ?? [])];
+/** The slots of the open plan: its cards. */
+export const timelineSlots = (): HTMLElement[] => planRowItems();
 
 /** The My plans switcher (a select). */
 export const planSwitch = (): HTMLSelectElement => screen.getByRole('combobox', { name: /^My plans/ }) as HTMLSelectElement;

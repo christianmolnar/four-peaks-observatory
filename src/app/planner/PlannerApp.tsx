@@ -20,6 +20,7 @@ import { arcToHorizonPoints, gearProblems, parseProfile, ProfileError, resolveTr
 import type { BlockedArc, Profile } from '@/planner/profile';
 import { DEFAULT_BORTLE, MAX_SUBS, MAX_SUB_S, MIN_CUSTOM_SUB_S, MODE_ORDER, PRESETS } from '@/planner/exposure';
 import { altitudeTrack, compass, fieldOf, planTrainFor, tonightsNight } from '@/planner/plan';
+import type { TrackPoint } from '@/planner/plan';
 import type { PlanEntry, PlanTrain } from '@/planner/plan';
 import type { RankResult } from '@/planner/plan/rank';
 import { SOLAR_SYSTEM, TYPE_GROUPS, groupCount, groupNotFit, typeGroupOf } from '@/planner/plan/type-groups';
@@ -117,7 +118,8 @@ import PlansBar from './PlansBar';
 import ProjectsTab from './ProjectsTab';
 import { sheetNames } from './projectNames';
 import { useProjects } from './useProjects';
-import PlanRowExposure, { Fold } from './PlanRowExposure';
+import PlanRowExposure, { ExposureChips, ExposureWarnings, Fold } from './PlanRowExposure';
+import SlotDetails from './SlotDetails';
 import PlanRowMix from './PlanRowMix';
 import type { AiSlotView } from './AiSlotMix';
 import NarrowbandPanel from './NarrowbandPanel';
@@ -135,7 +137,7 @@ import TargetList, { Group } from './TargetList';
 import type { RowDescription } from './TargetList';
 import TargetSearch from './TargetSearch';
 import { createNightScorer } from './nightScorer';
-import { addDays, designationOf, fitReason, nameList, nightDateText, peakText, scorePartsText, sizeText, typeLabel, upRange } from './catalogText';
+import { addDays, designationOf, fitReason, nameList, nightDateText, peakText, scorePartsText, sizeText, typeLabel } from './catalogText';
 import { useCatalog } from './useCatalog';
 import { useTonightList } from './useTonightList';
 
@@ -353,7 +355,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The plan rail (from 1024 px): the timeline's own plan, handed up each time it is built, so the rail's Light and time windows are the timeline's numbers, not a second calculation.
   const railWide = useMinWidth(RAIL_MIN_WIDTH);
   const [timelinePlan, setTimelinePlan] = useState<ItineraryPlan | null>(null);
-  const [timelineTick, setTimelineTick] = useState(0);
   // The site header's slot for the Night mode toggle and Sign in (the slim header on this page); undefined until looked for, null when the page has none (the header row below keeps them).
   const [navSlot, setNavSlot] = useState<HTMLElement | null | undefined>(undefined);
   useLayoutEffect(() => setNavSlot(document.getElementById('planner-nav-actions')), []);
@@ -1573,13 +1574,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     () => new Map(planTargets.map((t) => [t.id, t.preset === 'custom' ? (presetUsed.has(t.id) ? `${presetLabel(baseOf(t))}, custom not used` : 'Custom') : presetLabel(t.preset)] as const)),
     [planTargets, presetUsed],
   );
-  /** What each target's own row plans for the whole night: the timeline's slot says why when its own sub differs. */
-  const rowNumbers = useMemo(() => {
-    const out = new Map<string, { subSeconds: number; subCount: number; lengthenedForCap: boolean }>();
-    for (const [id, v] of rowViews) if (v.kind === 'ok' && v.chosen.subCount >= 1) out.set(id, { subSeconds: v.chosen.subSeconds, subCount: v.chosen.subCount, lengthenedForCap: v.chosen.limitedBy.sub === 'count-cap' || v.chosen.limitedBy.total === 'count-cap' });
-    return out;
-  }, [rowViews]);
-
   const importProfile = async (file: File | undefined) => {
     if (!file) return;
     setImportError(null);
@@ -1627,55 +1621,88 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
 
 
+  /** Each plan target's altitude through the night (the card's chart); a target with no score for the night has none. */
+  const planTracks = useMemo(() => {
+    const out = new Map<string, TrackPoint[]>();
+    if (!stableNight || stableNight.kind !== 'normal' || !site) return out;
+    const pad = 2 * 3600000;
+    const from = new Date((stableNight.start as Date).getTime() - pad);
+    const to = new Date((stableNight.end as Date).getTime() + pad);
+    for (const p of planItems) {
+      if (p.entry === null) continue;
+      out.set(p.id, altitudeTrack(p.entry.source, { latitude: site.latitude, longitude: site.longitude, elevationM: site.elevationM }, horizon, minAltitude, from, to, 10));
+    }
+    return out;
+  }, [stableNight, planItems, site, horizon, minAltitude]);
+  const cardSlots = new Map((mixTimeline?.slots ?? []).map((x) => [x.id, x] as const));
+  const setNote = (id: string, text: string) => applyTimeline(timelineItems.map((i) => (i.id === id ? { ...i, note: text } : i)), open?.startTime ?? null);
+  /** The warnings that come from the plan's train and filter, so they are the same on every deep-sky target: printed once under the header, not on each card. */
+  const PLAN_WARNING_CODES: readonly string[] = ['filter-rated-slower', 'filter-uvir-missing', 'filter-needs-uvir', 'filter-visual-colour', 'filter-kind-unknown'];
+  const planWarnings = (() => {
+    for (const v of rowViews.values()) {
+      if (v.kind === 'ok') return splitWarnings(v.chosen.warnings.filter((w) => PLAN_WARNING_CODES.includes(w.code))).act;
+    }
+    return [];
+  })();
+  const primeMarks = (t: string): string => t.replace(/'/g, '′').replace(/"/g, '″');
+
   const planRows: PlanRow[] = planItems.map(({ id, ref, target, body, entry }) => {
     const name = body ?? target?.displayName ?? target?.name ?? id;
-    const detail =
-      body !== undefined
-        ? 'Solar system'
-        : target !== undefined
-          ? [designationOf(target.id) === name ? '' : designationOf(target.id), typeLabel(target.type), sizeText(target.sizeArcmin)].filter((x) => x !== '').join(' · ')
-          : catalog.status === 'loading'
-            ? 'Loading the catalog…'
-            : 'Not in the bundled catalog.';
-    const up =
-      entry !== null
-        ? entry.usableMinutes > 0
-          ? `Up ${upRange(entry, formatTime)}`
-          : `Not up ${nightWord}`
-        : scorer === null && stableNight
-          ? 'No astronomical night on this date.'
-          : '';
     const view = rowViews.get(id);
     const fav = favoriteOf(favs.state, id);
+    const slot = cardSlots.get(id);
+    const ran = slot !== undefined && slot.end.getTime() > slot.start.getTime();
+    const trackOf = planTracks.get(id);
+    const item = timelineItems.find((i) => i.id === id);
+    // The card's chips: what the slot and the row warn of, a few words each, no repeats; the filter ones are under the header.
+    const rowWarnings = view?.kind === 'ok' ? splitWarnings(view.chosen.warnings.filter((w) => !PLAN_WARNING_CODES.includes(w.code))).act : [];
+    const slotTexts = slot?.warnings.map((w) => w.text) ?? [];
+    const own = [presetUsed.has(id) ? NOT_USED_TEXT : '', ...slotTexts, view?.kind === 'missing' ? view.reason : ''].filter((x) => x !== '');
+    const actions = rowWarnings.filter((w) => !own.includes(w.text));
     return {
       id,
       name,
-      detail,
-      up,
-      score: entry !== null && entry.usableMinutes > 0 ? Math.round(entry.score.total) : null,
-      preset: ref.preset === 'custom' ? 'Custom' : PRESETS[ref.preset].label,
-      extra:
-        view === undefined ? undefined : (
-          <PlanRowExposure
-            id={id}
-            name={name}
-            preset={ref.preset}
-            view={view}
-            favorite={fav}
-            favoritesBlocked={favs.blocked}
-            prompt={ref.favorite ?? null}
-            onPreset={(p) => editTarget(id, (t) => withPreset(t, p))}
-            onNumber={(field, value) => editTarget(id, (t) => withNumber(t, field, value))}
-            onBack={() => editTarget(id, (t) => withPreset(t, baseOf(t)))}
-            onSaveFavorite={() => saveFavorite(id)}
-            onRemoveFavorite={() => removeFavorite(id)}
-            onRestore={() => restoreFavorite(id)}
-            onNotNow={() => notNow(id)}
-            onGoTo={goToControl}
+      coords: target !== undefined ? primeMarks(`RA ${raText(target.raHours)}  Dec ${decText(target.decDeg)}`) : body !== undefined ? 'Solar system' : '',
+      chart:
+        entry !== null && trackOf !== undefined && stableNight && stableNight.kind === 'normal' ? (
+          <AltitudeChart
+            compact
+            idPrefix={`card-${id}`}
+            entry={entry}
+            night={stableNight}
+            track={trackOf}
+            slot={ran ? { start: slot.start, end: slot.end } : null}
+            formatTime={formatTime}
+            nightWord={nightWord}
           />
-        ),
-      mix: (
+        ) : null,
+      length: ran ? minutesText(Math.round((slot.end.getTime() - slot.start.getTime()) / 60000)) : '',
+      chips: view === undefined ? undefined : <ExposureChips id={id} name={name} preset={ref.preset} onPreset={(p) => editTarget(id, (t) => withPreset(t, p))} />,
+      warnings: [...new Set(own)],
+      warningActions: actions.length > 0 ? <ExposureWarnings id={id} warnings={actions} onGoTo={goToControl} /> : undefined,
+      details: (
         <>
+          {view !== undefined && (
+            <PlanRowExposure
+              key={ref.preset}
+              id={id}
+              name={name}
+              preset={ref.preset}
+              view={view}
+              favorite={fav}
+              favoritesBlocked={favs.blocked}
+              prompt={ref.favorite ?? null}
+              onNumber={(field, value) => editTarget(id, (t) => withNumber(t, field, value))}
+              onBack={() => editTarget(id, (t) => withPreset(t, baseOf(t)))}
+              onSaveFavorite={() => saveFavorite(id)}
+              onRemoveFavorite={() => removeFavorite(id)}
+              onRestore={() => restoreFavorite(id)}
+              onNotNow={() => notNow(id)}
+            />
+          )}
+          {slot !== undefined && item !== undefined && (
+            <SlotDetails slot={slot} first={timelineItems[0]?.id === id} formatTime={formatTime} note={item.note} onNote={(text) => setNote(id, text)} />
+          )}
           <PlanRowMix
             id={id}
             mix={mixViews.get(id) as RowMix}
@@ -2077,7 +2104,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <span aria-hidden="true">Captured</span>
         </label>
         {track && stableNight && e.id === openId && (
-          <AltitudeChart entry={e} night={stableNight} track={track} horizonSet={horizon !== null} minAltitude={minAltitude} formatTime={formatTime} nightWord={nightWord} />
+          <AltitudeChart entry={e} night={stableNight} track={track} formatTime={formatTime} nightWord={nightWord} />
         )}
         {e.isPlanet && solarBody(e.id) !== undefined && solarDetail(solarBody(e.id)!)}
       </div>
@@ -2153,10 +2180,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   );
   // The plan rail's numbers: the timeline's plan while the timeline can be built, else none.
   const railPlan = stableNight && astroSite && catalog.status !== 'loading' ? timelinePlan : null;
+  const presetOfRow = (id: string): string => {
+    const t = planTargets.find((x) => x.id === id);
+    return t === undefined ? '' : t.preset === 'custom' ? 'Custom' : PRESETS[t.preset].label;
+  };
   const railSlots = new Map(railPlan?.slots.map((x) => [x.id, x] as const) ?? []);
   const railRows = planRows.map((r) => {
     const slot = railSlots.get(r.id);
-    return { id: r.id, name: r.name, mode: r.preset, window: slot !== undefined && slot.end.getTime() > slot.start.getTime() ? `${formatTime(slot.start)} to ${formatTime(slot.end)}` : null };
+    return { id: r.id, name: r.name, mode: presetOfRow(r.id), window: slot !== undefined && slot.end.getTime() > slot.start.getTime() ? `${formatTime(slot.start)} to ${formatTime(slot.end)}` : null };
   });
   const railWarnings = railPlan?.slots.reduce((n, x) => n + x.warnings.filter((w) => w.severity === 'warning').length, 0) ?? 0;
   const goToRow = (id: string) => {
@@ -2166,10 +2197,10 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     el.focus({ preventScroll: true });
   };
   const goToWarnings = () => {
-    flushSync(() => setTimelineTick((t) => t + 1));
-    const part = document.getElementById('night-timeline');
-    part?.scrollIntoView({ block: 'start' });
-    part?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    const chips = document.querySelector<HTMLElement>('[data-testid^="plan-chips-"]');
+    const card = chips?.closest<HTMLElement>('li') ?? document.getElementById('open-plan-heading');
+    card?.scrollIntoView({ block: 'start' });
+    card?.focus({ preventScroll: true });
   };
   const openAi = () => setAiOpen(true);
   const openShare = (what: ShareWhat = 'plan') => {
@@ -2545,6 +2576,36 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </>
           ),
         }}
+        header={
+          <div id="plan-header" className="mb-3 space-y-2">
+            {stableNight && astroSite && catalog.status !== 'loading' ? (
+              <PlanTimeline
+                profile={profile}
+                items={timelineItems}
+                startTime={open?.startTime ?? null}
+                unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
+                onChange={applyTimeline}
+                catalog={catalog.status === 'ready' ? catalog.index : null}
+                site={astroSite}
+                night={stableNight}
+                horizon={horizon}
+                minAltitude={minAltitude}
+                bortle={bortle}
+                formatTime={formatTime}
+                timeZone={siteZone || zone || undefined}
+                report={itineraryReport}
+                onPlan={setTimelinePlan}
+              />
+            ) : (
+              <p className="text-p-t1 font-normal text-sm">Loading...</p>
+            )}
+            {planWarnings.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5" data-testid="plan-warnings">
+                <ExposureWarnings id="plan" warnings={planWarnings} onGoTo={goToControl} />
+              </div>
+            )}
+          </div>
+        }
         action={
           <button
             type="button"
@@ -2585,32 +2646,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               </a>
             </p>
           </div>
-        </Collapsible>
-        <Collapsible id="night-timeline" title="Night timeline" openTick={timelineTick}>
-          {stableNight && astroSite && catalog.status !== 'loading' ? (
-            <PlanTimeline
-              profile={profile}
-              items={timelineItems}
-              presetUsed={presetUsed}
-              rowNumbers={rowNumbers}
-              startTime={open?.startTime ?? null}
-              unscheduled={Math.max(0, planTargets.length - MAX_SLOTS)}
-              onChange={applyTimeline}
-              catalog={catalog.status === 'ready' ? catalog.index : null}
-              site={astroSite}
-              night={stableNight}
-              horizon={horizon}
-              minAltitude={minAltitude}
-              bortle={bortle}
-              formatTime={formatTime}
-              nightWord={nightWord}
-              timeZone={siteZone || zone || undefined}
-              report={itineraryReport}
-              onPlan={setTimelinePlan}
-            />
-          ) : (
-            <p className="text-p-t1 font-normal text-sm">The timeline appears when the date and catalog load.</p>
-          )}
         </Collapsible>
       </OpenPlan>
 

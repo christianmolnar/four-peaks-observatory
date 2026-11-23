@@ -24,8 +24,8 @@ const group = (name: string) => screen.getByRole('group', { name: `Exposure pres
 const press = (name: string, preset: string) => fireEvent.click(within(group(name)).getByRole('button', { name: preset }));
 const pressed = (name: string) => within(group(name)).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent);
 const numbers = (id: string) => screen.getByTestId(`plan-numbers-${id}`).textContent ?? '';
-const subBox = (name: string) => screen.getByLabelText(`Exposure per shot (seconds) for ${name}`) as HTMLInputElement;
-const countBox = (name: string) => screen.getByLabelText(`Number of shots for ${name}`) as HTMLInputElement;
+const subBox = (name: string) => screen.getByLabelText(`Sub (s) for ${name}`) as HTMLInputElement;
+const countBox = (name: string) => screen.getByLabelText(`Subs for ${name}`) as HTMLInputElement;
 const open = (id: string) => {
   const b = document.getElementById(id)!;
   if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b);
@@ -53,8 +53,8 @@ describe('a preset on each target', () => {
       expect(pressed(name)).toEqual(['Balanced']);
     }
     expect(within(row(2)).queryByRole('group')).toBeNull();
-    expect(within(row(2)).queryByRole('textbox')).toBeNull();
-    expect(row(2).textContent).toContain('Solar system');
+    expect(within(row(2)).queryByLabelText(/^Sub/)).toBeNull();
+    expect(row(2).textContent).toContain('Jupiter');
     expect(row(2).textContent).not.toMatch(/Balanced|Quick|Deep|Custom/);
   });
 
@@ -70,7 +70,6 @@ describe('a preset on each target', () => {
 
   it('choosing a preset stores it, changes the numbers to that preset\'s, and the comparison table agrees with every row', async () => {
     await app([m31]);
-    open('plan-why-m31');
     open('plan-compare-m31');
     const table = screen.getByTestId('plan-compare-table-m31');
     expect(within(table).getAllByRole('columnheader').map((c) => c.textContent).slice(1)).toEqual(['Quick', 'Balanced', 'Deep']);
@@ -87,13 +86,12 @@ describe('a preset on each target', () => {
     expect(col(0)[2]).not.toBe(col(2)[2]);
   });
 
-  it('"How this is worked out" holds the limits, the range, the stop point and the folded notes; the calculator and its inputs are one more fold, closed', async () => {
+  it('Details holds the figures behind the numbers, the comparison and what more time buys; the two tables are closed folds', async () => {
     await app([m31]);
-    const why = document.getElementById('plan-why-m31-body')!;
-    expect(why.hasAttribute('hidden')).toBe(true);
-    open('plan-why-m31');
-    expect(why.textContent).toMatch(/Range: subs \d+ to \d+ s; light/);
-    expect(why.textContent).toMatch(/Stop point .+Surface brightness [\d.]+ \(/);
+    const figures = screen.getByTestId('plan-figures-m31').textContent!;
+    expect(figures).toMatch(/Sub range\d+ to \d+ s/);
+    expect(figures).toMatch(/Stop point.+Needs.+Surface brightness[\d.]+ (catalog|class|assumed)/);
+    expect(figures).toMatch(/Read noise[\d.]+%Dither every\d+ subs/);
     expect(document.getElementById('plan-compare-m31-body')!.hasAttribute('hidden')).toBe(true);
     expect(document.getElementById('plan-buys-m31-body')!.hasAttribute('hidden')).toBe(true);
     open('plan-buys-m31');
@@ -101,11 +99,11 @@ describe('a preset on each target', () => {
     expect(screen.getByTestId('plan-inputs-m31').textContent).toMatch(/^Inputs: f\/[\d.]+, [\d.]+ um pixels, read noise class .+, Bortle \d, Moon \d+% at \d+°.+usable minutes\.$/);
   });
 
-  it('a warning to act on shows on the row with the word Warning, the one thing to change, and no note mixed in', async () => {
+  it('a warning shows on the card as a few words, with no control when none changes it', async () => {
     await app([m31]);
-    const w = screen.getByTestId('plan-warning-m31');
-    expect(w.textContent).toBe('WarningFlip +10 min');
-    expect(within(w).queryByRole('button')).toBeNull(); // the flip has no control that changes it
+    const chips = screen.getByTestId('plan-chips-m31');
+    expect(chips.textContent).toBe('Flip +10 min');
+    expect(within(chips).queryByRole('button')).toBeNull(); // the flip has no control that changes it
   });
 
   it('a row with no engine numbers (a smart scope) says why and still offers the choice', async () => {

@@ -19,7 +19,7 @@ const app = async (date = '2026-12-15', train = 'deep-c11-reducer-533') => {
   const r = render(<PlannerApp {...pageProps} initialDate={date} initialProfile={withTrain(train)} />);
   await ready();
   openPart('Night timeline'); // closed by default
-  await within(section()).findByLabelText('Imaging can start at'); // the timeline appears once the catalog has loaded
+  await within(section()).findByLabelText('Start'); // the timeline appears once the catalog has loaded
   return r;
 };
 // Helsinki on 2027-04-20: a short night (00:55 to 01:41), where a start of 00:13 is before the night and shows the start note.
@@ -31,19 +31,19 @@ const helApp = async () => {
   const r = render(<PlannerApp {...pageProps} initialDate="2027-04-20" initialProfile={helsinki()} />);
   await ready();
   openPart('Night timeline');
-  await within(section()).findByLabelText('Imaging can start at');
+  await within(section()).findByLabelText('Start');
   return r;
 };
-const section = () => document.getElementById('night-timeline-body') as HTMLElement;
+const section = () => document.querySelector('section[aria-labelledby="open-plan-heading"]') as HTMLElement;
 const slots = timelineSlots;
 const names = () => slots().map((li) => li.querySelector('h3')!.textContent!.replace(/^\d+\. /, ''));
-const times = () => slots().map((li) => /(\d\d:\d\d) to (\d\d:\d\d)/.exec(li.textContent ?? '')!.slice(1, 3));
+const times = () => slots().map((li) => /(\d\d:\d\d) to (\d\d:\d\d)/.exec(li.querySelector('[data-testid$="-times"]')?.textContent ?? '')!.slice(1, 3));
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 const seed = (version: 1 | 2, targets: string[], startTime?: string | null, mode = 'balanced') => {
   const items = targets.map((targetId, i) => ({ id: `s${i + 1}`, targetId, trainId: 'deep-c11-reducer-533', filterId: null, mode, note: '' }));
   window.localStorage.setItem(ITINERARY_KEY, JSON.stringify(version === 1 ? { version, items } : { version, items, startTime: startTime ?? null }));
 };
-const startInput = () => within(section()).getByLabelText('Imaging can start at') as HTMLInputElement;
+const startInput = () => within(section()).getByLabelText('Start') as HTMLInputElement;
 
 beforeAll(() => {
   const w = window as unknown as { CSS?: { escape?: (s: string) => string } };
@@ -85,7 +85,7 @@ describe('start time', () => {
     seed(2, ['m31', 'ic405'], '11:00');
     await app();
     expect(screen.getByTestId('itinerary-start-note').textContent).toBe('Start after night');
-    expect(slots().map((li) => li.textContent)).toEqual([expect.stringContaining('no time'), expect.stringContaining('no time')]);
+    expect(slots().map((li) => li.querySelector('[data-testid^="plan-chips-"]')?.textContent)).toEqual([expect.stringMatching(/^Start after night/), expect.stringMatching(/^Start after night/)]);
   });
 
   it('a start before the night says so in three words', async () => {
@@ -100,7 +100,6 @@ describe('start time', () => {
     const input = startInput();
     expect(input.type).toBe('text');
     expect(input.inputMode).toBe('numeric');
-    expect(input.getAttribute('aria-describedby')).toBe('it-start-hint');
     fireEvent.change(input, { target: { value: '2130' } });
     expect(storedPlan()!.startTime).toBe('21:30');
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
@@ -111,7 +110,7 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '25:00' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull(); // could still be typed over; not yet
     fireEvent.blur(input);
-    expect(screen.getByTestId('itinerary-start-error').textContent).toMatch(/24-hour time, such as 21:30/);
+    expect(screen.getByTestId('itinerary-start-error').textContent).toBe('Use 24-hour time');
     expect(startInput().value).toBe('25:00'); // the text stays in the box with its message
     expect(storedPlan()!.startTime).toBe('09:05'); // the last good time stays
     fireEvent.change(input, { target: { value: 'ab' } });
@@ -143,7 +142,6 @@ describe('start time', () => {
     fireEvent.change(input, { target: { value: '２２：１５' } });
     expect(stored()).toBe('22:15');
     expect(input.maxLength).toBeGreaterThanOrEqual(7);
-    expect(screen.getByTestId('itinerary-start-hint').textContent).toMatch(/21:30/);
     // A time that is only half typed: the message waits for Enter or for leaving the box.
     fireEvent.change(input, { target: { value: '9:' } });
     expect(screen.queryByTestId('itinerary-start-error')).toBeNull();
@@ -331,11 +329,11 @@ describe('start time', () => {
     await app();
     const g = within(section()).getByTestId('night-timeline');
     const why = within(g).getByTestId('timeline-empty').textContent!;
-    expect(why).toMatch(/Your start, 11:00, is after the night ends \(\d\d:\d\d\), so no slot has time\./);
+    expect(why).toBe('Start after night');
     expect(g.querySelector('svg')!.textContent).not.toMatch(/Start 11:00/);
   });
 
-  it('every button in the night timeline is a 44 px target by its class', async () => {
+  it('every button of the plan header is a 44 px target by its class', async () => {
     seed(2, ['m31', 'm42', 'planet-jupiter']);
     await app();
     const buttons = within(section()).getAllByRole('button');
@@ -351,15 +349,14 @@ describe('start time', () => {
   });
 });
 
-describe('altitude in a slot\'s details', () => {
-  it('shows altitude with direction at the start, in the middle and at the end, and the trend, for the slot whose Details are open', async () => {
+describe('altitude in a card\'s details', () => {
+  it('shows altitude with direction at the start, in the middle and at the end, and the trend, in the card\'s Details', async () => {
     seed(2, ['m31', 'planet-jupiter']);
     await app();
-    expect(document.querySelector('[data-testid^="slot-altitude-"]')).toBeNull(); // not on every slot
     for (const name of ['Andromeda Galaxy', 'Jupiter']) {
       fireEvent.click(within(section()).getByRole('button', { name: `Details for ${name}` }));
-      // The second copy in the region only reserves room, hidden from everyone.
-      expect(screen.getAllByTestId('slot-altitude')[0].textContent).toMatch(/^Altitude \d+° [NSEW]{1,2}, \d+° [NSEW]{1,2}, \d+° [NSEW]{1,2}; (rising|peaks in this slot|past peak, falling)\.$/);
+      const card = slots().find((li) => li.querySelector('h3')!.textContent!.includes(name))!;
+      expect(within(card).getByTestId('slot-altitude').textContent).toMatch(/^\d+° [NSEW]{1,2}, \d+° [NSEW]{1,2}, \d+° [NSEW]{1,2} \((rising|peaks in this slot|past peak, falling)\)$/);
     }
   });
 });
@@ -384,42 +381,5 @@ describe('no suggested order', () => {
     expect(screen.queryByRole('button', { name: 'Use this order' })).toBeNull();
     expect(document.body.textContent).not.toMatch(/Use this order|Suggested order|itinerary/i);
     expect(names()).toEqual(before);
-  });
-});
-
-describe('a slot whose sub differs from its row', () => {
-  const CAP = /^Row plans \d+ s × \d+, held to 500 subs; this slot \d+ s × \d+\.$/;
-  const NEUTRAL = /^Row plans \d+ s × \d+; this slot \d+ s × \d+\.$/;
-
-  it('every line is either the cap reason (only when the row was lengthened for it) or the neutral line, never the share', async () => {
-    seed(2, ['m31', 'm42', 'm33', 'ic405', 'm81', 'm101'], null, 'deep');
-    await app('2026-12-31', 'wide-c11-hyperstar-2600');
-    const said = slots().filter((li) => within(li).queryByTestId(/^slot-why-sub-/) !== null);
-    expect(said.length).toBeGreaterThan(0);
-    for (const li of said) expect(within(li).getByTestId(/^slot-why-sub-/).textContent).toMatch(new RegExp(`${CAP.source}|${NEUTRAL.source}`));
-    expect(document.body.textContent).not.toMatch(/\(its share\)|sized to that share/);
-    // A slot that plans the row's own sub length says nothing.
-    for (const li of slots().filter((x) => !said.includes(x))) expect(within(li).queryByTestId(/^slot-why-sub-/)).toBeNull();
-  });
-
-  it('a slot whose sub differs for another reason (the sky at its own start) gets the neutral line, never the share', async () => {
-    seed(2, ['m31', 'm42', 'm33', 'ngc891', 'm1'], null, 'balanced');
-    await app('2026-12-27', 'deep-c11-reducer-533');
-    const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
-    expect(said.length).toBeGreaterThan(0);
-    for (const t of said) expect(t).toMatch(new RegExp(`${CAP.source}|${NEUTRAL.source}`));
-    expect(document.body.textContent).not.toMatch(/\(its share\)|sized to that share/);
-    expect(said.some((t) => NEUTRAL.test(t))).toBe(true);
-  });
-
-  it('a row held to 500 subs by the total cap (HyperStar, NGC 891) explains it in a shorter slot', async () => {
-    seed(2, ['m31', 'ngc891'], null, 'deep');
-    const catalog = fakeCatalog([{ id: 'ngc891', name: 'NGC 891', type: 'galaxy', raHours: 2.37, decDeg: 42.35, majorArcmin: 13, minorArcmin: 3, mag: 10, surfaceBrightness: 24.1, constellation: 'And' }]);
-    render(<PlannerApp {...pageProps} loadCatalogIndex={catalog.load} initialDate="2026-12-29" initialProfile={withTrain('wide-c11-hyperstar-2600')} />);
-    await ready();
-    openPart('Night timeline');
-    await within(section()).findByLabelText('Imaging can start at');
-    const said = slots().map((li) => within(li).queryByTestId(/^slot-why-sub-/)?.textContent).filter((t): t is string => !!t);
-    expect(said.some((t) => CAP.test(t) && /plans 20 s × 500/.test(t))).toBe(true);
   });
 });

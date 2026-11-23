@@ -77,7 +77,7 @@ describe('the old night timeline keeps its order', () => {
     expect(planIds()).toEqual(['m42', 'm31', 'ngc7000', 'm13']);
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm42', preset: 'deep', note: 'first' });
     expect(storedPlan()!.startTime).toBe('21:30');
-    const slots = [...document.querySelectorAll('#night-timeline-body ol[aria-label="Night timeline, in order"] > li')];
+    const slots = [...document.querySelectorAll('ol[aria-label="Targets in this plan, in order"] > li')];
     expect(slots.slice(0, 2).map((li) => li.textContent)).toEqual([expect.stringMatching(/Orion Nebula/), expect.stringMatching(/Andromeda/)]);
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull();
@@ -89,7 +89,7 @@ describe('the old night timeline keeps its order', () => {
     window.localStorage.setItem(ITINERARY_KEY, serializeItinerary([slot(1, 'm42', 'deep'), slot(2, 'ngc7000', 'quick')], null));
     await app();
     expect(planIds()).toEqual(['m42', 'ngc7000', ...mine]);
-    const slots = [...document.querySelectorAll('#night-timeline-body ol[aria-label="Night timeline, in order"] > li')];
+    const slots = [...document.querySelectorAll('ol[aria-label="Targets in this plan, in order"] > li')];
     expect(slots[0].textContent).toMatch(/Orion Nebula/);
     expect(slots[1].textContent).toMatch(/North America|7000/);
   });
@@ -263,11 +263,11 @@ describe('a plan whose night has passed says so', () => {
     return app();
   };
 
-  it('the first day after it was saved: one line with the date, and nothing is changed until Move to tonight', async () => {
+  it('the first day after it was saved: one short line, and nothing is changed until Move to tonight', async () => {
     const yesterday = dayBefore(tonight());
     await withPlan(yesterday);
     const line = screen.getByTestId('plan-past');
-    expect(line.textContent).toMatch(/^This plan is for (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} \w{3}, which has passed\.Move to tonight$/);
+    expect(line.textContent).toBe('Plan date passedMove to tonight');
     expect(storedPlan()!.date).toBe(yesterday); // no silent change
     expect(screen.getByLabelText('Evening of')).toBeTruthy();
   });

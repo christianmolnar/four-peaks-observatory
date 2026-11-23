@@ -96,7 +96,7 @@ const status = () => screen.getByTestId('ai-status');
 const result = () => screen.getByTestId('ai-result');
 const slotsText = () => within(result()).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-')).map((li) => li.textContent ?? '');
 const myPlan = () => screen.getByRole('region', { name: /^PLAN:/ });
-const timeline = () => document.getElementById('night-timeline-body') as HTMLElement;
+const timeline = () => document.querySelector('section[aria-labelledby="open-plan-heading"]') as HTMLElement;
 const itinerarySlots = timelineSlots;
 const apply = () => within(panel()).getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement;
 const planned = async () => {
@@ -627,7 +627,7 @@ describe('Use this plan', () => {
     expect(plan.startTime).toMatch(/^\d\d:\d\d$/);
     expect(screen.getByTestId('ai-apply-note').textContent).toMatch(/^Done: the open plan now has this order and first start time\.$/);
     // The plan's own start box shows the AI plan's first start.
-    expect((within(timeline()).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe(plan.startTime);
+    expect((within(timeline()).getByLabelText('Start') as HTMLInputElement).value).toBe(plan.startTime);
     expect(document.body.textContent).not.toMatch(/itinerary/i);
   });
 
@@ -662,7 +662,7 @@ describe('Use this plan', () => {
     expect(saved.targets.map((t) => t.id).sort()).toEqual([...plan].sort());
     expect(saved.startTime).toBe(aiTimes[0][0]);
     // The timeline shows its own estimated times; where they differ from the AI's, no target note carries the AI's.
-    const shown = plan.map((_, k) => screen.getByTestId(`slot-time-${k}`).textContent ?? '');
+    const shown = plan.map((id) => screen.getByTestId(`card-${id}-times`).textContent ?? '');
     expect(shown.every((t) => /\d\d:\d\d to \d\d:\d\d/.test(t))).toBe(true);
     for (const t of saved.targets) expect(t.note ?? '').not.toMatch(/\d\d:\d\d|\d min/);
     expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/timeline times may differ/);
@@ -752,7 +752,7 @@ describe('the plan and the AI flyout', () => {
     await ready();
     const user = userEvent.setup();
     // The plan had an earlier start time.
-    await user.type(within(timeline()).getByLabelText('Imaging can start at'), '{Control>}a{/Control}2300{Enter}');
+    await user.type(within(timeline()).getByLabelText('Start'), '{Control>}a{/Control}2300{Enter}');
     expect(storedPlan()!.startTime).toBe('23:00');
     const before = JSON.stringify(storedPlan());
     fireEvent.click(trigger());

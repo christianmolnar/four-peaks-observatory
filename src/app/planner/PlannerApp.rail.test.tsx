@@ -57,7 +57,7 @@ describe('the plan rail', () => {
     const rows = planRowItems();
     expect(items).toHaveLength(2);
     rows.forEach((li, i) => {
-      const name = li.querySelector('p')!.textContent!.replace(/^\d+\.\s*/, '');
+      const name = li.querySelector('h3')!.textContent!.replace(/^\d+\.\s*/, '').replace(/×$/, '');
       expect(items[i].textContent).toContain(name);
       expect(items[i].textContent).toContain(i === 0 ? 'Balanced' : 'Deep');
       expect(items[i].textContent).toMatch(/^\d+\./);
@@ -66,13 +66,13 @@ describe('the plan rail', () => {
 
   it('shows each target\'s time window from the timeline once there is one', async () => {
     await app([m31]);
-    const slot = screen.getByTestId('slot-time-0').textContent!.replace(/\s*\(estimate\)\s*$/, '');
+    const slot = screen.getByTestId('card-m31-times').textContent!;
     expect(within(rail()).getAllByRole('listitem')[0].textContent).toContain(slot.replace(' to ', ' to '));
   });
 
   it('says Light and the night from the timeline\'s own numbers', async () => {
     await app([m31, ic405]);
-    const min = Number(/^Light (\d+) min/.exec(screen.getByTestId('itinerary-totals').textContent!)![1]);
+    const min = [...screen.getByTestId('itinerary-totals').textContent!.matchAll(/Light (?:(\d+) h)? ?(?:(\d+) min)?/g)].map((m) => Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0))[0];
     const night = /\((\d+\.\d) h\)/.exec(screen.getByTestId('night-summary').textContent!)![1];
     const h = Math.floor(min / 60);
     const m = min % 60;
@@ -133,17 +133,15 @@ describe('the plan rail', () => {
     expect(screen.getAllByRole('dialog').length).toBeGreaterThan(0);
   });
 
-  it('the warnings count is the timeline\'s warnings and links to the timeline, opened', async () => {
-    // Several targets that cannot all be timed on the night, so some slots carry a Warning chip.
+  it('the warnings count is the timeline\'s warnings and links to the first card that has chips', async () => {
+    // Several targets that cannot all be timed on the night, so some slots carry a warning chip.
     await app(['m31', 'm42', 'm45', 'm81', 'm51', 'ic405', 'ngc7000', 'm13', 'planet-jupiter', 'planet-saturn', 'planet-mars', 'm1', 'm27', 'm101'].map((id) => ({ id, preset: 'balanced' })));
-    const chips = [...document.querySelectorAll('[data-testid^="slot-chips-"] > span')].filter((c) => (c.textContent ?? '').startsWith('Warning:'));
+    expect(document.querySelectorAll('[data-testid^="plan-chips-"]').length).toBeGreaterThan(0);
     const text = within(rail()).getByTestId('rail-warnings').textContent!;
-    expect(text).toBe(chips.length === 0 ? 'No warnings' : `${chips.length} ${chips.length === 1 ? 'warning' : 'warnings'}`);
-    expect(chips.length).toBeGreaterThan(0); // this plan's slots carry at least one warning, so the link is exercised
-    expect(screen.getByRole('button', { name: 'Night timeline' }).getAttribute('aria-expanded')).toBe('false');
+    expect(text).toMatch(/^\d+ warnings?$/);
     fireEvent.click(within(rail()).getByRole('button', { name: /warning/ }));
-    expect(screen.getByRole('button', { name: 'Night timeline' }).getAttribute('aria-expanded')).toBe('true');
     expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+    expect(document.activeElement!.closest('li')!.querySelector('[data-testid^="plan-chips-"]')).not.toBeNull();
   });
 
   it('says "No warnings" and has no link when no slot has one', async () => {

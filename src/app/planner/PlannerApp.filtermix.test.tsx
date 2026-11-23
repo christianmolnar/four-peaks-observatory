@@ -119,7 +119,7 @@ describe('the light comes from the timeline, and a target it leaves out has none
 
   it('earlier slots push North America out: its row says "not scheduled tonight" and shows no hours; the others split their slot’s light', async () => {
     await app(four, profileWith('nbz'));
-    expect(timelineSlots().map((s) => /no time/.test(s.textContent ?? ''))).toEqual([false, false, true, false]);
+    expect(timelineSlots().map((s) => s.querySelector('[data-testid^="plan-length-"]') === null)).toEqual([false, false, true, false]);
     for (const [id, i] of [['m42', 0], ['m31', 1], ['m33', 3]] as const) {
       open(id);
       expect(body(id)).toContain(`Light: ${fmt(slotMinutes(i))}`);

@@ -383,7 +383,7 @@ describe('a stored profile with values outside their ranges', () => {
     expect(screen.getByText(/saved gear values are not usable \(out of range or not a number\), so the planner ignores them/)).toBeTruthy();
     openPlanTab();
     await waitFor(() => expect(planRowItems()).toHaveLength(1));
-    expect(planRowItems()[0].textContent).toMatch(/Focal length of .* \(an impossibly large number\) is outside 10 to 10,000 mm.*so no exposure is shown\. Change it in Gear\./);
+    expect(planRowItems()[0].textContent).toMatch(/Gear incomplete/);
     openGear();
     expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values are not usable (outside the allowed range or not a number).');
     pickClass('Scopes');

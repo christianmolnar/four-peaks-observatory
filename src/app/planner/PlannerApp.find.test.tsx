@@ -39,7 +39,7 @@ describe('Find a target in the plan', () => {
     for (const el of [screen.getByRole('search'), screen.getByRole('combobox', { name: 'Type' }), screen.getByTestId('target-list')]) expect(body().contains(el)).toBe(true);
     // Find a target comes after the plan's heading and before its parts.
     const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(follows(toggle(), document.getElementById('night-timeline')!)).toBe(true);
+    expect(follows(toggle(), document.getElementById('night-and-horizon')!)).toBe(true);
     expect(follows(plan().querySelector('h2')!, toggle())).toBe(true);
   });
 

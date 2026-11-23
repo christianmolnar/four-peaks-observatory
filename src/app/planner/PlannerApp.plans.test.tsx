@@ -7,7 +7,7 @@ import { ITINERARY_KEY } from '@/planner/itinerary';
 import { MY_PLAN_KEY, defaultTonightDate, sampleProfile } from '@/planner/state';
 import { MAX_PLANS, PLANS_KEY, listBackups } from '@/planner/state/plans';
 import PlannerApp from './PlannerApp';
-import { openControls, openGear, openPart, openPlanTab, pageProps, planSwitch, ready, storedPlan, storedPlans, timelineSlots } from './testkit';
+import { openControls, openGear, openPart, openPlanTab, pageProps, planRowItems, planSwitch, ready, storedPlan, storedPlans, timelineSlots } from './testkit';
 
 // The plans: the My plans bar, the open plan owning the strip's date, site and train, the two tabs, the header sign-in,
 // and what the page no longer has.
@@ -314,8 +314,8 @@ describe('what was there before plans moves into the first plan', () => {
     ]);
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull();
-    expect(screen.getByTestId('plan-row-preset-m31').textContent).toBe('Deep Project');
-    expect((within(document.getElementById('night-timeline-body')!).getByLabelText('Imaging can start at') as HTMLInputElement).value).toBe('21:30');
+    expect(within(planRowItems()[0]).getAllByRole('button', { pressed: true }).map((b) => b.textContent)).toEqual(['Deep']);
+    expect((within(document.querySelector('section[aria-labelledby="open-plan-heading"]')!).getByLabelText('Start') as HTMLInputElement).value).toBe('21:30');
   });
 
   it('is done once: a plan already saved is not replaced by an old key that turns up', async () => {
@@ -527,7 +527,7 @@ describe('what is no longer on the page', () => {
     for (let i = 1; i < order.length; i++) expect(Boolean(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     const open = screen.getByRole('region', { name: /^PLAN:/ });
     expect(within(open).getByRole('button', { name: 'Night and horizon' })).toBeTruthy();
-    expect(within(open).getByRole('button', { name: 'Night timeline' }).getAttribute('aria-expanded')).toBe('false'); // closed by default
+    expect(within(open).getByRole('button', { name: 'Night graph' }).getAttribute('aria-expanded')).toBe('false'); // closed by default
     expect(within(open).getByRole('button', { name: 'Plan my night with AI' })).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'PLAN MY NIGHT WITH AI' })).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull(); // the flyout opens on the button

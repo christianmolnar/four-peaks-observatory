@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
 import CatalogCredits from './CatalogCredits';
-import { listRows, openControls, openFind, openGear, pageProps, planRowItems, seedPlan } from './testkit';
+import { listRows, openControls, openDetails, openFind, openGear, pageProps, planRowItems, seedPlan } from './testkit';
 
 // R6a: the plan comes first, type is readable, targets are 44 px, labels are plain words.
 
@@ -29,13 +29,13 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 describe('plan first', () => {
-  it('orders the plan card: heading, the plan rows, then Find a target, then the timeline', async () => {
+  it('orders the plan card: heading, the plan rows, then Find a target, then the night parts', async () => {
     mount(TARGETS);
     await listReady();
     const rows = plan().querySelector('ol[aria-label="Targets in this plan, in order"]')!;
     expect(follows(plan().querySelector('h2')!, rows)).toBe(true);
     expect(follows(rows, toggle())).toBe(true);
-    expect(follows(toggle(), document.getElementById('night-timeline')!)).toBe(true);
+    expect(follows(toggle(), document.getElementById('night-and-horizon')!)).toBe(true);
     // My plans sits above the plan card.
     expect(follows(screen.getByTestId('plans-bar'), plan())).toBe(true);
   });
@@ -57,7 +57,7 @@ describe('plan first', () => {
     mount();
     await listReady();
     const empty = within(plan()).getByTestId('plan-empty');
-    expect(empty.textContent).toContain('No targets yet. Search below or tap Add on a suggestion.');
+    expect(empty.textContent).toContain('No targets yet.');
     expect(follows(plan().querySelector('h2')!, empty)).toBe(true);
     expect(follows(empty, toggle())).toBe(true);
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
@@ -129,6 +129,7 @@ describe('touch targets', () => {
     mount(TARGETS);
     await listReady();
     openFind();
+    openDetails();
     expect(listRows()[0].querySelector('button[aria-expanded]')!.className).toContain('min-h-11');
     const noFit = screen.getByRole('checkbox', { name: 'Show targets that do not fit' });
     expect(noFit.closest('label')!.className).toContain('min-h-11');
@@ -171,8 +172,8 @@ describe('plain labels', () => {
   it('a row\'s exposure boxes say "Exposure per shot (seconds)" and "Number of shots"', async () => {
     mount(TARGETS);
     await listReady();
-    expect(screen.getAllByLabelText(/^Exposure per shot \(seconds\) for /)).toHaveLength(4);
-    expect(screen.getAllByLabelText(/^Number of shots for /)).toHaveLength(4);
+    expect(screen.getAllByLabelText(/^Sub \(s\) for /)).toHaveLength(4);
+    expect(screen.getAllByLabelText(/^Subs for /)).toHaveLength(4);
     expect(screen.queryByLabelText(/^Sub length \(s\) for /)).toBeNull();
   });
 
@@ -204,12 +205,12 @@ describe('plain labels', () => {
 });
 
 describe('mode chips and the row figure', () => {
-  it('the four chips are a 2 x 2 grid below 420 px and one row from 420 px', async () => {
+  it('the four chips wrap in a row and are 44 px tall', async () => {
     mount(TARGETS);
     await listReady();
     const group = screen.getAllByRole('group', { name: /^Exposure preset for / })[0];
-    expect(group.className).toContain('grid-cols-2');
-    expect(group.className).toContain('min-[420px]:grid-cols-4');
+    expect(group.className).toContain('flex-wrap');
+    for (const b of within(group).getAllByRole('button')) expect(b.className).toContain('min-h-11');
   });
 
   it('"N s × M subs" is its own line before the long sentence, and the sentence keeps every number', async () => {

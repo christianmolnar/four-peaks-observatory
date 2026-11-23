@@ -43,7 +43,10 @@ const print = () => {
   act(() => void window.dispatchEvent(new Event('afterprint')));
   return t;
 };
-const timelineLight = () => Number(/^Light (\d+) min/.exec(screen.getByTestId('itinerary-totals').textContent!)![1]);
+const timelineLight = () => {
+  const m = /^Light (?:(\d+) h)? ?(?:(\d+) min)?/.exec(screen.getByTestId('itinerary-totals').textContent!)!;
+  return Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0);
+};
 
 describe('a scheduled row carries the timeline slot\'s own numbers', () => {
   it('a slot that cuts the row\'s light: the sheet has the slot\'s sub count and light in every format, and the total is the timeline\'s Light', async () => {
@@ -88,8 +91,8 @@ describe('a scheduled row carries the timeline slot\'s own numbers', () => {
   it('two scheduled targets: each row has its slot\'s numbers (not the row\'s) and the total is the timeline\'s Light', async () => {
     await mount([{ id: 'm31', preset: 'deep' }, { id: 'm42', preset: 'deep' }]);
     expect(timelineSlots().map((s) => s.querySelector('[data-testid^="slot-light-"]')!.textContent)).toEqual([
-      '90 s × 169 subs = 253.5 min. ',
-      '120 s × 72 subs = 144 min. Before it: 3 min.',
+      '90 s × 169 subs = 253.5 min',
+      '120 s × 72 subs = 144 min',
     ]);
     openSheet();
     expect(text()).toContain('169 x 90 s = 253.5 min');
@@ -104,7 +107,7 @@ describe('a row the timeline does not schedule carries no numbers and adds no li
 
   it('the default four-target plan on the sample train: one target is scheduled, three say "not scheduled tonight", and the total is the timeline\'s', async () => {
     await mount(defaultFour);
-    expect(timelineSlots().map((s) => /no time/.test(s.textContent ?? ''))).toEqual([false, true, true, true]);
+    expect(timelineSlots().map((s) => /No time left/.test(s.textContent ?? ''))).toEqual([false, true, true, true]);
     const light = timelineLight();
     expect(light).toBe(106);
     openSheet();

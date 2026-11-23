@@ -26,8 +26,8 @@ const app = async (targets: readonly object[]) => {
   return r;
 };
 const NAME = 'Andromeda Galaxy';
-const subBox = () => screen.getByLabelText(`Exposure per shot (seconds) for ${NAME}`) as HTMLInputElement;
-const countBox = () => screen.getByLabelText(`Number of shots for ${NAME}`) as HTMLInputElement;
+const subBox = () => screen.getByLabelText(`Sub (s) for ${NAME}`) as HTMLInputElement;
+const countBox = () => screen.getByLabelText(`Subs for ${NAME}`) as HTMLInputElement;
 const numbers = () => screen.getByTestId('plan-numbers-m31').textContent ?? '';
 const parse = (text: string) => {
   const m = /^(\d+(?:\.\d+)?) s × (\d+) subs? · (.+?) light/.exec(text);
@@ -193,7 +193,7 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
 });
 
 describe('the Night timeline does not offer to drop custom numbers', () => {
-  it('a Custom target shows "Custom" and a preset target its preset, and neither slot has a preset select (it is on the row)', async () => {
+  it('a Custom target has Custom pressed and a preset target its preset, and neither card has a preset select', async () => {
     await app([
       { id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } },
       { id: 'ic405', preset: 'balanced' },
@@ -201,9 +201,9 @@ describe('the Night timeline does not offer to drop custom numbers', () => {
     openPart('Night timeline');
     const slots = timelineSlots();
     expect(within(slots[0]).queryByRole('combobox')).toBeNull();
-    expect(within(slots[0]).getByTestId('slot-preset-m31').textContent).toMatch(/Custom.*Deep/);
+    expect(within(slots[0]).getAllByRole('button', { pressed: true }).map((b) => b.textContent)).toEqual(['Custom']);
     expect(within(slots[1]).queryByRole('combobox')).toBeNull();
-    expect(within(slots[1]).queryByTestId('slot-preset-ic405')).toBeNull(); // a preset is chosen on the row, so the slot says nothing
+    expect(within(slots[1]).getAllByRole('button', { pressed: true }).map((b) => b.textContent)).toEqual(['Balanced']);
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90 } });
   });
 });

@@ -8,7 +8,7 @@ import { FAVORITES_BACKUP_PREFIX, FAVORITES_KEY, listFavoritesBackups } from '@/
 import type { Favorite } from '@/planner/state/favorites';
 import PlannerApp from './PlannerApp';
 import { RESET_LOSES } from './ResetAll';
-import { openGear, openPlanTab, pageProps, planRowItems, ready, resetAll, seedPlan, storedPlan } from './testkit';
+import { openDetails, openGear, openPlanTab, pageProps, planRowItems, ready, resetAll, seedPlan, storedPlan } from './testkit';
 
 // Favorites: "Save as favorite" on a deep-sky row, "Restore favorite?" when the object is added again, "Always use my favorite exposure" in the
 // Gear and site tab, and a store that never loses what it holds (damaged, newer, failed copy, quota, two tabs).
@@ -46,7 +46,10 @@ const tag = (li: HTMLElement) => {
 const numbers = (id: string) => screen.getByTestId(`plan-numbers-${id}`).textContent ?? '';
 const group = (name: string) => screen.getByRole('group', { name: `Exposure preset for ${name}` });
 const press = (name: string, preset: string) => fireEvent.click(within(group(name)).getByRole('button', { name: preset }));
-const askLine = (id: string) => screen.queryByTestId(`plan-favorite-ask-${id}`);
+const askLine = (id: string) => {
+  openDetails();
+  return screen.queryByTestId(`plan-favorite-ask-${id}`);
+};
 const status = () => screen.queryByRole('status')?.textContent ?? '';
 const messages = () => screen.queryByTestId('plans-messages')?.textContent ?? '';
 const storageEvent = (key: string | null, newValue: string | null) =>
@@ -226,17 +229,15 @@ describe('Always use my favorite exposure', () => {
     expect(JSON.parse(window.localStorage.getItem(SELECTION_KEY)!).alwaysRestore).toBeUndefined();
   });
 
-  it('applies the favorite when the target is added, and the row line says so; a later change of the numbers takes the line away', async () => {
+  it('applies the favorite when the target is added; a later change of the numbers drops the flag', async () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: sampleProfile().sites[0].id, trainId: sampleProfile().trains[0].id, alwaysRestore: true }));
     window.localStorage.setItem(FAVORITES_KEY, store(fav('m31')));
     await app();
     await addFromList(NAME);
     expect(askLine('m31')).toBeNull();
-    expect(screen.getByTestId('plan-favorite-restored-m31').textContent).toBe('Restored your favorite: 90 s × 20.');
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subSeconds: 90, subCount: 20 }, favorite: 'restored' });
     expect(numbers('m31')).toMatch(/^90 s × 20 subs/);
     press(NAME, 'Quick');
-    expect(screen.queryByTestId('plan-favorite-restored-m31')).toBeNull();
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'quick' });
   });
 

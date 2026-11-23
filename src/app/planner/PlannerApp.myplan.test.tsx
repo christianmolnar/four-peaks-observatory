@@ -49,7 +49,7 @@ describe('the open plan is in sight', () => {
     expect(find.contains(screen.getByTestId('target-list'))).toBe(true);
     expect(within(find).getByRole('region', { name: /^Best targets for/ })).toBeTruthy();
     expect(within(find).getByRole('search')).toBeTruthy();
-    expect(follows(find, document.getElementById('night-timeline')!)).toBe(true);
+    expect(follows(find, document.getElementById('night-and-horizon')!)).toBe(true);
     expect(screen.queryByRole('heading', { name: 'FIND A TARGET' })).toBeNull();
   });
 
@@ -58,7 +58,7 @@ describe('the open plan is in sight', () => {
     await ready();
     expect(header().textContent).toBe('PLAN: My plan (0 targets)');
     expect(planRowItems()).toHaveLength(0);
-    expect(within(myPlan()).getByText('No targets yet. Search below or tap Add on a suggestion.')).toBeTruthy();
+    expect(within(myPlan()).getByTestId('plan-empty').textContent).toContain('No targets yet.');
     fireEvent.click(add('NGC 891'));
     expect(header().textContent).toBe('PLAN: My plan (1 target)');
     fireEvent.click(add('NGC 7331'));
@@ -66,16 +66,15 @@ describe('the open plan is in sight', () => {
     expect(planRowItems()).toHaveLength(2);
   });
 
-  it('shows on each row the name, type and size, when it is up, its score and the preset as a plain label; no Up or Down', async () => {
+  it('shows on each card the name, the position, the length and the mode chips, with Balanced pressed; no Up or Down', async () => {
     mount();
     await ready();
     fireEvent.click(add('NGC 891'));
     const row = planRowItems()[0];
     expect(row.textContent).toContain('NGC 891');
-    expect(row.textContent).toMatch(/Galaxy/);
-    expect(row.textContent).toMatch(/13/); // its size
-    expect(screen.getByTestId('plan-row-status-ngc891').textContent).toMatch(/^(Up \d\d:\d\d.\d\d:\d\d · Score \d+|Not up .+) · Balanced$/);
-    expect(screen.getByTestId('plan-row-preset-ngc891').textContent).toBe('Balanced');
+    expect(screen.getByTestId('plan-coords-ngc891').textContent).toMatch(/^RA \d\dh \d\dm \d\ds  Dec [+-]\d\d° \d\d′ \d\d″$/);
+    expect(within(row).getAllByRole('button', { pressed: true }).map((b) => b.textContent)).toEqual(['Balanced']);
+    expect(within(row).getByRole('button', { name: 'Details for NGC 891' })).toBeTruthy();
     expect(within(myPlan()).queryByRole('button', { name: /Move .* (up|down)/ })).toBeNull();
     expect(within(myPlan()).queryByRole('button', { name: /^(Up|Down)$/ })).toBeNull();
     expect(within(myPlan()).getByRole('button', { name: 'Remove NGC 891 from the plan' })).toBeTruthy();
