@@ -40,7 +40,7 @@ describe('itineraryFromAiPlan', () => {
     expect(new Set(items.map((i) => i.id)).size).toBe(3)
     expect(startTime).toBe(clockOfIso(slots[0][1]))
     // The item holds no AI time or minutes: the itinerary shows its own times for the slot, and the two would disagree.
-    expect(items.map((i) => i.note)).toEqual([1, 2, 3].map((n) => `From the AI plan, slot ${n} of 3. The itinerary times it again with its own estimate.`))
+    expect(items.map((i) => i.note)).toEqual([1, 2, 3].map((n) => `AI plan, slot ${n} of 3`))
     expect(items.every((i) => !/\d\d:\d\d|\d min/.test(i.note))).toBe(true)
   })
 })
@@ -121,7 +121,7 @@ describe('errors in plain language', () => {
   })
   it('503 says the AI planner is not available, and never shows the route text', () => {
     const p = problemFor(503, null, 'ANTHROPIC_API_KEY is not set')
-    expect(p.text).toMatch(/AI planner is not available right now/)
+    expect(p.text).toMatch(/AI planner unavailable/)
     expect(p.text).not.toMatch(/ANTHROPIC|KEY/)
     expect(p.retry).toBe(false)
   })
@@ -130,15 +130,15 @@ describe('errors in plain language', () => {
   })
   it('422 explains no usable night, or too many targets when that is the cause', () => {
     expect(problemFor(422, null, 'No astronomical night on 2026-06-21').text).toMatch(/no usable night/i)
-    expect(problemFor(422, null, 'The request is too large for one model call').text).toMatch(/too many or too large/i)
+    expect(problemFor(422, null, 'The request is too large for one model call').text).toMatch(/Too many targets/)
   })
   it('a 400 or 413 is a plain request problem', () => {
     expect(problemFor(400, null, 'targets must be a non-empty array').text).not.toMatch(/targets must/)
-    expect(problemFor(413, null, '').text).toMatch(/could not accept/)
+    expect(problemFor(413, null, '').text).toMatch(/Request not accepted/)
     // An identical request is refused again, so no "Try again".
     for (const status of [400, 413]) {
       const p = problemFor(status, null, '')
-      expect(p.text).toMatch(/If it keeps happening, tell the site owner\./)
+      expect(p.text).toMatch(/Request not accepted/)
       expect(p.text).not.toMatch(/Try again/)
       expect(p.retry).toBe(false)
     }

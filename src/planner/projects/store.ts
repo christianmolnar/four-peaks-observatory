@@ -136,7 +136,7 @@ export type HeldWhy = 'newer' | 'nocopy' | 'othertab';
 /** Said when saving is off because stored text is held: the stored text is not touched. */
 export const HELD_TEXT: Record<HeldWhy, string> = {
   newer: 'Saved projects are from a newer planner. Saving is off.',
-  nocopy: 'Saved projects could not be read or copied. Saving is off. Free browser storage, then reload.',
+  nocopy: 'Saved projects unreadable. Saving is off. Free storage and reload.',
   othertab: 'Another tab saved projects this page cannot use. Saving is off. Reload.',
 };
 
@@ -169,17 +169,17 @@ export function openProjects(storage: Backer, now: number = Date.now()): OpenedP
   try {
     const key = keepProjectsCopy(storage, r.unusable.text, now);
     const n = listProjectsBackups(storage).length;
-    return { handle, notes: [...r.notices, `A copy of your saved projects is kept under the backup name "${key}"; ${n} ${n === 1 ? 'copy is' : 'copies are'} kept in this browser.`] };
+    return { handle, notes: [...r.notices, `Copy kept as "${key}" (${n} ${n === 1 ? 'copy' : 'copies'}).`] };
   } catch {
-    return { handle: { ...handle, held: 'nocopy' }, notes: [...r.notices, 'The copy of your saved projects failed, so they are left as they are.'] };
+    return { handle: { ...handle, held: 'nocopy' }, notes: [...r.notices, 'Copy of saved projects failed.'] };
   }
 }
 
 export type ChangeResult = { ok: true; handle: ProjectsHandle } | { ok: false; handle: ProjectsHandle; message: string };
 
-const FULL = 'Not saved: browser storage is full. Remove old backups or export; the next change tries again.';
-const BLOCKED_READ = 'Not saved: browser storage is blocked, nothing changed. Allow storage, then retry.';
-const BLOCKED = 'Not saved: browser storage is blocked. Export the project; the next change tries again.';
+const FULL = 'Not saved: storage full. Export.';
+const BLOCKED_READ = 'Not saved: storage blocked.';
+const BLOCKED = 'Not saved: storage blocked. Export.';
 
 function writeProblem(e: unknown): string {
   const name = typeof e === 'object' && e !== null && 'name' in e ? String((e as { name: unknown }).name) : '';
@@ -222,7 +222,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
   } catch (e) {
     // The two copies together pass a limit: refuse, and keep this page's state (and its unsaved mark) so nothing is lost.
     if (!(e instanceof ProjectsError)) throw e;
-    return refuse(`Not saved: this page and the saved projects together pass a limit (${e.message}). Export, or remove items in the other tab.`);
+    return refuse(`Not saved: over a limit (${e.message})`);
   }
   let next: ProjectsState;
   try {
@@ -235,7 +235,7 @@ export function changeProjects(storage: Backer, handle: ProjectsHandle, edit: (s
     // Stored text that is not what this version would write (older shape, fields it does not know) is copied first; if that fails, nothing is written over it.
     if (stored !== null && stored !== text && !isCanonical(stored)) keepProjectsCopy(storage, stored, now);
   } catch {
-    return refuse(`Not saved: the stored projects could not be copied first, so they are untouched.`);
+    return refuse(`Not saved: copy first failed`);
   }
   try {
     storage.setItem(PROJECTS_KEY, text);

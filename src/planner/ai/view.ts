@@ -57,33 +57,33 @@ export interface AiProblem {
 export function problemFor(status: number, retryAfter: string | null, serverMessage: string): AiProblem {
   switch (status) {
     case 429:
-      return { text: `You have used the AI planner's allowance for now. ${retryWhen(retryAfter === null || retryAfter.trim() === '' ? null : Number(retryAfter))}`, retry: false }
+      return { text: `AI allowance used. ${retryWhen(retryAfter === null || retryAfter.trim() === '' ? null : Number(retryAfter))}`, retry: false }
     case 503:
-      return { text: 'The AI planner is not available right now. The rest of the planner works as usual; try the AI plan again later.', retry: false }
+      return { text: 'AI planner unavailable', retry: false }
     case 502:
-      return { text: 'The AI planner did not give a usable answer this time. Nothing was changed. Try again.', retry: true }
+      return { text: 'No usable answer. Try again.', retry: true }
     case 422:
       return /too large|do not fit|fewer targets/i.test(serverMessage)
-        ? { text: 'There are too many or too large targets for one AI plan. Remove some from the plan and try again.', retry: false }
-        : { text: 'There is no usable night to plan: at this site on this date the sky is never dark enough, or nothing in the plan is up. Pick another night or site.', retry: false }
+        ? { text: 'Too many targets for one plan', retry: false }
+        : { text: 'No usable night', retry: false }
     case 413:
     case 400:
-      return { text: 'The AI planner could not accept this request. Nothing was changed. If it keeps happening, tell the site owner.', retry: false }
+      return { text: 'Request not accepted', retry: false }
     default:
-      return { text: `The AI planner could not be reached (error ${status}). Try again.`, retry: true }
+      return { text: `AI planner unreachable (error ${status}). Try again.`, retry: true }
   }
 }
 
-export const NETWORK_PROBLEM: AiProblem = { text: 'The AI planner could not be reached. Check your connection and try again.', retry: true }
-export const TIMEOUT_PROBLEM: AiProblem = { text: 'The AI planner took too long and was stopped. Nothing was changed. Try again.', retry: true }
-export const UNREADABLE_PROBLEM: AiProblem = { text: 'The AI planner answered, but the answer could not be read. Nothing was changed. Try again.', retry: true }
+export const NETWORK_PROBLEM: AiProblem = { text: 'AI planner unreachable. Try again.', retry: true }
+export const TIMEOUT_PROBLEM: AiProblem = { text: 'AI planner timed out. Try again.', retry: true }
+export const UNREADABLE_PROBLEM: AiProblem = { text: 'Answer unreadable. Try again.', retry: true }
 
 /** The minutes between two ISO instants. */
 export const minutesBetween = (a: string, b: string): number => Math.round((Date.parse(b) - Date.parse(a)) / 60000)
 
 /** No AI clock times or minutes here: the itinerary shows its own times for the slot, and the two would disagree. */
 const noteFor = (index: number, count: number): string => {
-  const text = `From the AI plan, slot ${index + 1} of ${count}. The itinerary times it again with its own estimate.`
+  const text = `AI plan, slot ${index + 1} of ${count}`
   return text.length <= MAX_NOTE_CHARS ? text : text.slice(0, MAX_NOTE_CHARS)
 }
 

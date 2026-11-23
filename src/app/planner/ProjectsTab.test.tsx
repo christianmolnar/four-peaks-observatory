@@ -525,7 +525,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
     press('Add session');
     type('Minutes of light', '10');
     fireEvent.click(screen.getByRole('button', { name: 'Add session' }));
-    expect(screen.getByTestId('projects-problem').textContent).toMatch(/^Not saved: browser storage is full\./);
+    expect(screen.getByTestId('projects-problem').textContent).toMatch(/^Not saved: storage full/);
     expect(screen.getByTestId('projects-status').textContent).toBe('');
     expect(document.body.textContent).not.toMatch(/\bSaved\b/);
     expect(screen.getByTestId('projects-unsaved').textContent).toMatch(/^Not saved\. Export the project/);
@@ -544,7 +544,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
     press('Save project');
     const alerts = screen.getAllByRole('alert').map(text).filter((x) => /Not saved/.test(x));
     expect(alerts).toHaveLength(1); // once, in the open editor
-    expect(alerts[0]).toMatch(/^Not saved: browser storage is blocked, nothing changed/);
+    expect(alerts[0]).toMatch(/^Not saved: storage blocked/);
     expect(document.body.textContent).not.toMatch(/Saved the project|denied|on this page only; export/);
   });
 
@@ -565,7 +565,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
     window.localStorage.setItem(PROJECTS_KEY, '{not json');
     await draw();
     expect(screen.getByTestId('projects-notes').textContent).toMatch(/could not be read, so you start with none/);
-    expect(screen.getByTestId('projects-notes').textContent).toMatch(/backup name/);
+    expect(screen.getByTestId('projects-notes').textContent).toMatch(/Copy kept as/);
     expect(Object.keys(window.localStorage).some((k) => k.startsWith(`${PROJECTS_KEY}.bak.`))).toBe(true);
   });
 });

@@ -371,7 +371,7 @@ describe('states', () => {
     await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
-    expect(p.textContent).toMatch(/allowance for now\. Try again in about 25 minutes\./);
+    expect(p.textContent).toMatch(/AI allowance used\. Try again in about 25 minutes\./);
     expect(p.textContent).not.toMatch(/Hourly planner limit/);
     expect(within(panel()).queryByRole('button', { name: 'Ask again' })).toBeNull(); // asking again now would only be refused
     expect(p.getAttribute('role')).toBe('alert');
@@ -383,7 +383,7 @@ describe('states', () => {
     await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
-    expect(p.textContent).toMatch(/The AI planner is not available right now/);
+    expect(p.textContent).toMatch(/AI planner unavailable/);
     expect(p.textContent).not.toMatch(/ANTHROPIC/);
   });
 
@@ -394,7 +394,7 @@ describe('states', () => {
     const user = userEvent.setup();
     await user.click(go());
     const p = await screen.findByTestId('ai-problem');
-    expect(p.textContent).toMatch(/did not give a usable answer/);
+    expect(p.textContent).toMatch(/No usable answer/);
     await user.click(within(panel()).getByRole('button', { name: 'Ask again' }));
     await screen.findByTestId('ai-result', {}, { timeout: 20000 });
     expect(f.sent).toHaveLength(2);
@@ -407,7 +407,7 @@ describe('states', () => {
     mount(f.fn);
     await readyOpen();
     await userEvent.setup().click(go());
-    expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/There is no usable night to plan.*Pick another night or site\./);
+    expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/^No usable night$/);
   });
 
   it('a network failure is said in words and offers Ask again', async () => {
@@ -418,7 +418,7 @@ describe('states', () => {
     await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
-    expect(p.textContent).toMatch(/could not be reached\. Check your connection/);
+    expect(p.textContent).toMatch(/AI planner unreachable/);
     expect(within(panel()).getByRole('button', { name: 'Ask again' })).toBeTruthy();
   });
 
@@ -428,7 +428,7 @@ describe('states', () => {
     await readyOpen();
     await userEvent.setup().click(go());
     const p = await screen.findByTestId('ai-problem');
-    expect(p.textContent).toMatch(/answer could not be read/);
+    expect(p.textContent).toMatch(/Answer unreadable/);
     expect(p.textContent).not.toMatch(/could not be reached|connection/);
     expect(screen.queryByTestId('ai-result')).toBeNull();
   });
@@ -439,7 +439,7 @@ describe('states', () => {
     await readyOpen();
     await userEvent.setup().click(go());
     const p = (await screen.findByTestId('ai-problem')).textContent ?? '';
-    expect(p).toMatch(/could not accept this request/);
+    expect(p).toMatch(/Request not accepted/);
     expect(p).not.toMatch(/fewer targets|horizon/);
   });
 
@@ -448,7 +448,7 @@ describe('states', () => {
     mount(f.fn);
     await readyOpen();
     await userEvent.setup().click(go());
-    expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/answer could not be read/);
+    expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/Answer unreadable/);
     expect(screen.queryByTestId('ai-result')).toBeNull();
   });
 
@@ -463,7 +463,7 @@ describe('states', () => {
       await act(async () => {
         jest.advanceTimersByTime(131_000);
       });
-      expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/took too long and was stopped/);
+      expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/timed out/);
       expect(go().disabled).toBe(false);
     } finally {
       jest.useRealTimers();

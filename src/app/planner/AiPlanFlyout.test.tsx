@@ -274,7 +274,7 @@ describe('errors, in plain words with the next step', () => {
   it('limit reached: says when to try again, no raw text, no Ask again', async () => {
     const { problem } = await failing(429, { error: 'Hourly planner limit reached' }, { 'Retry-After': '1500' });
     expect(problem.getAttribute('role')).toBe('alert');
-    expect(problem.textContent).toMatch(/allowance for now\. Try again in about 25 minutes\./);
+    expect(problem.textContent).toMatch(/AI allowance used\. Try again in about 25 minutes\./);
     expect(problem.textContent).not.toMatch(/Hourly planner limit/);
     expect(screen.queryByRole('button', { name: 'Ask again' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
@@ -282,13 +282,13 @@ describe('errors, in plain words with the next step', () => {
 
   it('AI unavailable: says so without the route text', async () => {
     const { problem } = await failing(503, { error: 'ANTHROPIC_API_KEY is not set' });
-    expect(problem.textContent).toMatch(/The AI planner is not available right now/);
+    expect(problem.textContent).toMatch(/AI planner unavailable/);
     expect(problem.textContent).not.toMatch(/ANTHROPIC/);
   });
 
   it('no usable night: says to pick another night or site', async () => {
     const { problem } = await failing(422, { error: 'No astronomical night on 2026-12-15' });
-    expect(problem.textContent).toMatch(/There is no usable night to plan.*Pick another night or site\./);
+    expect(problem.textContent).toMatch(/^No usable night$/);
   });
 
   it('a failed answer offers Ask again, which sends the same request', async () => {
@@ -296,7 +296,7 @@ describe('errors, in plain words with the next step', () => {
     render(<AiPlanFlyout {...propsFor(f as unknown as typeof fetch)} />);
     const user = userEvent.setup();
     await user.click(ask());
-    expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/did not give a usable answer/);
+    expect((await screen.findByTestId('ai-problem')).textContent).toMatch(/No usable answer/);
     await user.click(screen.getByRole('button', { name: 'Ask again' }));
     await screen.findByTestId('ai-result');
     expect(screen.queryByTestId('ai-problem')).toBeNull();
@@ -305,7 +305,7 @@ describe('errors, in plain words with the next step', () => {
 
   it('no error shows a validator or raw route text', async () => {
     const { problem } = await failing(400, { error: 'rig.camera must be a short string' });
-    expect(problem.textContent).toMatch(/could not accept this request/);
+    expect(problem.textContent).toMatch(/Request not accepted/);
     expect(problem.textContent).not.toMatch(/rig\.camera|must be/);
   });
 });

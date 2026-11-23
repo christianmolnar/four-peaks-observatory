@@ -55,7 +55,7 @@ describe('reading the store', () => {
     const s = memory({ [PROJECTS_KEY]: '{nope' }, (k) => (k.startsWith(PROJECTS_BACKUP_PREFIX) ? new Error('full') : null));
     const o = openProjects(s);
     expect(o.handle.held).toBe('nocopy');
-    expect(o.notes.join(' ')).toMatch(/copy .* failed/);
+    expect(o.notes.join(' ')).toMatch(/Copy of saved projects failed/);
     expect(changeProjects(s, o.handle, add('a', 5)).ok).toBe(false);
     expect(s.getItem(PROJECTS_KEY)).toBe('{nope');
   });
@@ -138,7 +138,7 @@ describe('writing', () => {
     full = true;
     const r = changeProjects(s, h, add('a', 30));
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.message).toMatch(/browser storage is full/);
+    expect(!r.ok && r.message).toMatch(/storage full/);
     expect(r.handle.unsaved).toBe(true);
     expect(sessionsOf(r.handle)).toEqual(['a']);
     expect(s.getItem(PROJECTS_KEY)).toBe(before);
@@ -184,7 +184,7 @@ describe('writing', () => {
     expect(listProjectsBackups(s).map((b) => b.text)).toEqual([odd]);
     const s2 = memory({ [PROJECTS_KEY]: odd }, (k) => (k.startsWith(PROJECTS_BACKUP_PREFIX) ? new Error('full') : null));
     const r2 = changeProjects(s2, openProjects(s2).handle, add('a', 5));
-    expect(!r2.ok && r2.message).toMatch(/stored projects could not be copied/);
+    expect(!r2.ok && r2.message).toMatch(/copy first failed/);
     expect(s2.getItem(PROJECTS_KEY)).toBe(odd);
   });
 
@@ -311,7 +311,7 @@ describe('changeProjects refuses in words, never throws, when the two copies tog
     expect(r.message).toMatch(/^Not saved: .*sessions: holds 0 to 5,000, found 6,000/);
     noPath(r.message);
     // The remedy is true: this change was not made; the earlier unsaved ones are kept; removing in this page cannot help.
-    expect(r.message).toContain('pass a limit');
+    expect(r.message).toContain('over a limit');
     expect(r.message).not.toContain('remove some sessions or projects and change something again');
     expect(r.handle).toBe(mine);
     expect(r.handle.unsaved).toBe(true);
