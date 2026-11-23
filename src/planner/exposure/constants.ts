@@ -162,8 +162,6 @@ export const MODE_ORDER: readonly ExposureMode[] = ['quick', 'balanced', 'deep']
  */
 export interface PresetSpec {
   label: string;
-  /** One sentence for the user: what the preset asks for. */
-  summary: string;
   /** Swamp factor: sub length = K * read noise^2 / sky rate. Read noise adds sqrt(1 + 1/K) - 1 to the noise (5 -> 9.5%, 10 -> 4.9%, 20 -> 2.5%). */
   swampK: number;
   /** Signal-to-noise wanted per resolution element (SNR_ELEMENT_ARCSEC wide); the object's surface brightness sets the time it takes. */
@@ -190,7 +188,6 @@ export interface PresetSpec {
 export const PRESETS: Readonly<Record<ExposureMode, PresetSpec>> = {
   quick: {
     label: 'Quick & Beautiful',
-    summary: 'Short subs, the base signal-to-noise target, stops early. For a short night or a first look. A bright object needs about 30 minutes in every preset; the presets then differ in sub length and count.',
     swampK: 5,
     snrTarget: 20,
     maxNextHalfHourGain: 0.2,
@@ -199,7 +196,6 @@ export const PRESETS: Readonly<Record<ExposureMode, PresetSpec>> = {
   },
   balanced: {
     label: 'Balanced',
-    summary: 'Sub length from the sky, twice the base signal-to-noise target, stops where more time adds under 10% per half hour.',
     swampK: SKY_LIMIT_K,
     snrTarget: 40,
     maxNextHalfHourGain: 0.1,
@@ -208,7 +204,6 @@ export const PRESETS: Readonly<Record<ExposureMode, PresetSpec>> = {
   },
   deep: {
     label: 'Deep Project',
-    summary: 'Longer subs, three times the base signal-to-noise target, stops where more time adds under 5% per half hour or the night ends.',
     swampK: 20,
     snrTarget: 60,
     maxNextHalfHourGain: 0.05,

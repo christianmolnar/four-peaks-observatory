@@ -15,7 +15,6 @@ export interface EmissionProfile {
   /** A citation in words, or "type default". */
   source: string;
   confidence: Confidence;
-  note?: string;
   /** True when the lines belong to small knots (HII regions) inside a target whose light is mostly something else: the whole target is not the emission target. */
   knotsOnly?: boolean;
 }
@@ -40,13 +39,12 @@ export function judgeProfile(p: unknown): string[] {
   if (!inUnit(o.continuum)) problems.push('The continuum must be a number from 0 to 1.');
   if (typeof o.source !== 'string' || o.source.trim() === '') problems.push('A profile needs a source.');
   if (!CONFIDENCES.includes(o.confidence as Confidence)) problems.push('The confidence must be measured, amateur or type-default.');
-  if (o.note !== undefined && typeof o.note !== 'string') problems.push('The note must be text.');
   if (o.knotsOnly !== undefined && typeof o.knotsOnly !== 'boolean') problems.push('knotsOnly must be true or false.');
   return problems;
 }
 
 const DEFAULT_SOURCE = 'type default';
-const typed = (lines: EmissionProfile['lines'], continuum: number, note?: string): EmissionProfile => ({ lines, continuum, source: DEFAULT_SOURCE, confidence: 'type-default', ...(note === undefined ? {} : { note }) });
+const typed = (lines: EmissionProfile['lines'], continuum: number): EmissionProfile => ({ lines, continuum, source: DEFAULT_SOURCE, confidence: 'type-default' });
 /** No emission: all of the light is continuum. */
 const noEmission = (): EmissionProfile => typed({}, 1);
 
@@ -65,7 +63,7 @@ export const TYPE_DEFAULTS: Record<TargetType, EmissionProfile> = {
 };
 
 /** An HII region inside a galaxy (a knot small against the disk). The catalog has no type for it; the objects below use it. */
-const HII_IN_GALAXY = typed({ Ha: 1, OIII: 0.3, SII: 0.15 }, 0.9, 'An HII region in a galaxy: the knot is small against the stellar disk.');
+const HII_IN_GALAXY = typed({ Ha: 1, OIII: 0.3, SII: 0.15 }, 0.9);
 
 /**
  * The HII knots of a star-forming galaxy (spiral arms, irregulars). Ha only: the OIII and SII shares in the knots depend on metallicity and are not modelled
@@ -78,7 +76,6 @@ const knotsOf = (source: string, confidence: 'amateur' | 'type-default'): Partia
   source,
   confidence,
   knotsOnly: true,
-  note: 'For the knots only: the HII regions in the arms are small and faint against the disk. The disk itself is broadband light.',
 });
 const SPIRAL_SOURCE = 'Typical for a star-forming spiral, not measured for this galaxy (Kennicutt 1998, arXiv:astro-ph/9807187)';
 const knotsType = (): Partial<EmissionProfile> => knotsOf(SPIRAL_SOURCE, 'type-default');
@@ -100,7 +97,6 @@ export const OBJECT_OVERRIDES: Record<string, Partial<EmissionProfile>> = {
     lines: { Ha: 1, OIII: 0.83, SII: 0.034, NII: 0.25 },
     source: 'Sanchez et al. 2007, arXiv:astro-ph/0611363, Tables 1 and 3',
     confidence: 'measured',
-    note: 'Whole-nebula integrated values; OIII is the 5007 line alone.',
   },
   // The Veil: one filament (Cygnus Loop), the lines vary a lot from point to point.
   ngc6960: veil(),
@@ -111,27 +107,23 @@ export const OBJECT_OVERRIDES: Record<string, Partial<EmissionProfile>> = {
     lines: { Ha: 0.25, OIII: 1, SII: 0.05, NII: 0.5 },
     source: "O'Dell et al. 2009, arXiv:0901.3185, Table 1",
     confidence: 'measured',
-    note: 'The ring; values change by a factor of 3 to 10 with position. The Ha band here carries more nitrogen than hydrogen.',
   },
   // Helix: a survey column, partly unverified (the literature columns differ 2 to 3 times). NII is 1.7 times Ha, so NII = 0.55 x 1.7 (derived).
   ngc7293: {
     lines: { Ha: 0.55, OIII: 1, SII: 0.06, NII: 0.9 },
     source: 'LVM integrated spectrum, arXiv:2602.10072, Table 3',
     confidence: 'measured',
-    note: 'Partly unverified: the literature columns differ 2 to 3 times. NII is derived (1.7 times Ha).',
   },
   // California Nebula: three imagers' SHO write-ups, no flux table.
   ngc1499: {
     lines: { Ha: 1, OIII: 0.1, SII: 0.4 },
     source: 'Three SHO write-ups (AstroBin, AAPOD2): Ha strongest, SII second, OIII faintest',
     confidence: 'amateur',
-    note: 'OIII is the faintest line: one imager needed 19 extra hours of it.',
   },
   // Crab: the continuum is synchrotron; the lines stay the type default.
   ngc1952: {
     continuum: 0.8,
     source: 'Crab: synchrotron continuum passes narrowband filters (arXiv:2512.11103); lines are the type default',
-    note: 'The continuum is a large share (synchrotron); the line weights are the type default.',
   },
   // Reflection nebulae: M78 and the M45 nebulosity.
   ngc2068: REFLECTION,
@@ -197,7 +189,6 @@ function veil(): Partial<EmissionProfile> {
     lines: { Ha: 0.6, OIII: 1, SII: 0.5 },
     source: 'Raymond et al., arXiv:2004.09567, Table 1 (Cygnus Loop radiative shocks)',
     confidence: 'measured',
-    note: 'Shock-heated: SII is strong. One filament; the lines vary a lot from point to point.',
   };
 }
 

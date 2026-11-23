@@ -248,8 +248,7 @@ describe('total light: the knee comes from the object, not the mode', () => {
 describe('presets are parameters', () => {
   it('each preset is described by K, an SNR target, a stop threshold, a risk cap and dither: no minutes to shoot', () => {
     for (const m of MODE_ORDER) {
-      expect(Object.keys(PRESETS[m]).sort()).toEqual(['dither', 'label', 'maxNextHalfHourGain', 'riskCapS', 'snrTarget', 'summary', 'swampK']);
-      expect(PRESETS[m].summary.length).toBeGreaterThan(20);
+      expect(Object.keys(PRESETS[m]).sort()).toEqual(['dither', 'label', 'maxNextHalfHourGain', 'riskCapS', 'snrTarget', 'swampK']);
     }
     expect(MODE_ORDER.map((m) => PRESETS[m].swampK)).toEqual([5, 10, 20]);
     expect(MODE_ORDER.map((m) => PRESETS[m].snrTarget)).toEqual([20, 40, 60]);
