@@ -68,17 +68,43 @@ describe('Solar system rows', () => {
     expect(screen.getByTestId('solar-detail-Saturn')).toBeTruthy();
   });
 
-  it('the opened body gives its figures as numbers, seven labelled rows', async () => {
+  it('the opened body gives its figures as numbers, its labelled rows', async () => {
     const user = userEvent.setup();
     app(withTrain('planet-c11-676'));
     const detail = await openBody(user, 'Jupiter');
     const labels = [...detail.querySelectorAll('dt')].map((d) => d.textContent ?? '');
-    expect(labels).toEqual(['Apparent diameter', 'Phase', 'Opposition', 'Culmination', 'Clear of your horizon', 'Clip length limit', 'Image scale and sampling']);
+    expect(labels).toEqual([
+      'Apparent diameter', 'Phase', 'Opposition', 'Culmination', 'Clear of your horizon', 'Clip length limit', 'Rotation smear', 'Clips per session', 'Cool-down',
+      'Start exposure', 'Frame rate cap', 'ROI', 'Stack best', 'Colour spread by altitude', 'Spread at peak', 'Image scale and sampling', 'Other trains, arcsec/px',
+    ]);
     const text = detail.textContent ?? '';
     expect(text).toMatch(/Apparent diameter\d+\.\d″, \d+ px on C11 \+ ASI676MC/);
     expect(text).toMatch(/Clip length limit\d+ s, suggested \d+ s \(period 9\.925 h\)/);
     expect(text).toMatch(/0\.15 arcsec\/px on C11 \+ ASI676MC \(solar system\): near the limit vs 0\.18\. Seeing 2″ assumed/);
     expect(screen.getByRole('img', { name: /Altitude of Jupiter/ }).parentElement!.querySelector('desc')!.textContent).toMatch(/^Jupiter: (peaks at \d+ degrees|never clears)/);
+  });
+
+  it('the opened body keeps the guide numbers as short labelled values: exposure, frame rate, ROI, session clips, dispersion, other trains', async () => {
+    const user = userEvent.setup();
+    app(withTrain('planet-c11-676'));
+    const jupiter = await openBody(user, 'Jupiter');
+    const value = (label: string) => [...jupiter.querySelectorAll('dt')].find((d) => d.textContent === label)?.nextElementSibling?.textContent;
+    expect(value('Start exposure')).toBe('10 ms (assumed)');
+    expect(value('Frame rate cap')).toBe('100/s at 10 ms');
+    expect(value('ROI')).toBe('432 px square');
+    expect(value('Clips per session')).toBe('20 of 58 s in 30 min, 30 s apart');
+    expect(value('Rotation smear')).toBe('0.22″/min at the centre, resolution 0.42″');
+    expect(value('Cool-down')).toBe('45 min');
+    expect(value('Stack best')).toBe('25%');
+    expect(value('Colour spread by altitude')).toBe('80° 0.15″, 70° 0.32″, 60° 0.50″, 45° 0.87″, 30° 1.50″');
+    expect(value('Spread at peak')).toBe('0.32″ at 70°, resolution 0.42″');
+    expect(value('Other trains, arcsec/px')).toBe('C11 + 2.5x Powermate + ASI676MC (solar system) 0.06 nominal');
+    // A sourced exposure shows its gain and says sourced.
+    const saturn = await openBody(user, 'Saturn');
+    const sv = (label: string) => [...saturn.querySelectorAll('dt')].find((d) => d.textContent === label)?.nextElementSibling?.textContent;
+    expect(sv('Start exposure')).toBe('64 ms, gain 104 (sourced)');
+    expect(sv('Frame rate cap')).toBe('15/s at 64 ms');
+    expect(sv('ROI')).toMatch(/^\d+ px square$/);
   });
 
   it('Saturn shows its ring tilt; other planets have no such row', async () => {
@@ -94,9 +120,12 @@ describe('Solar system rows', () => {
     const detail = await openBody(user, 'Moon');
     expect(rowOf('Moon').textContent).toContain('Solar system');
     const text = detail.textContent ?? '';
-    expect(text).toMatch(/Clip length limitNone/);
+    expect(text).toMatch(/Clip length limitNone, 60 s clips/);
+    expect(text).toMatch(/Start exposureNone/);
+    expect(text).toMatch(/ROIFull frame/);
+    expect(text).toMatch(/Clips per session\d+ of 60 s in 30 min/);
     expect(text).toMatch(/(New|Waxing crescent|First quarter|Waxing gibbous|Full|Waning gibbous|Last quarter|Waning crescent), \d+\.\d% lit/);
-    expect(text).toMatch(/Mosaic \d × \d panels/);
+    expect(text).toMatch(/Mosaic \d × \d panels, 20% overlap/);
   });
 
   it('a smart scope has no scale or clip numbers and the row says why', async () => {

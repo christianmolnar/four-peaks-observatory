@@ -62,6 +62,47 @@ export const DAWES_ARCSEC_MM = 116;
 export const MAX_CLIP_S = 180;
 /** ASSUMPTION: time between clips for saving, checking focus and starting the next one. */
 export const CLIP_GAP_S = 30;
+/** ASSUMPTION: planned length of one planetary session at the telescope, minutes, excluding cool-down. */
+export const SESSION_MIN = 30;
+/** ASSUMPTION: planned cool-down before focusing, minutes. Not measured. */
+export const COOLDOWN_MIN = 45;
+/** ASSUMPTION: Saturn's rings span about this many globe diameters. */
+export const SATURN_RING_SPAN_FACTOR = 2.3;
+/** ASSUMPTION: the region of interest is this multiple of the object's size across. */
+export const ROI_MARGIN = 1.5;
+/** ASSUMPTION: the region of interest is rounded up to a multiple of this many pixels. */
+export const ROI_STEP_PX = 16;
+/** ASSUMPTION: percent of frames kept in the first stack. */
+export const KEEP_PERCENT = 25;
+
+// ---- Exposure -----------------------------------------------------------------------------------
+
+export interface StartExposure {
+  /** Milliseconds; null: no number is given for this body. */
+  ms: number | null;
+  basis: 'assumption' | 'sourced';
+  /** The gain that went with a sourced exposure. */
+  gain?: number;
+}
+
+/**
+ * Starting exposure per body.
+ * Jupiter: ASSUMPTION, 10 ms.
+ * Saturn, Mars, Uranus, Neptune: SOURCED, Table 1 of the Technical University of Munich astronomy club's planet seminar
+ * (https://www.asg.ed.tum.de/fesg/astronomy-club/astronomy-seminar/planets/, read 2026-11-07): one club's own telescope and
+ * camera (Mars and Neptune with a 2x Barlow), so an order of magnitude.
+ * Mercury, Venus, Moon: no source found, so no number.
+ */
+export const START_EXPOSURE: Readonly<Record<CardBody, StartExposure>> = {
+  Mercury: { ms: null, basis: 'assumption' },
+  Venus: { ms: null, basis: 'assumption' },
+  Mars: { ms: 15, basis: 'sourced', gain: 246 },
+  Jupiter: { ms: 10, basis: 'assumption' },
+  Saturn: { ms: 64, basis: 'sourced', gain: 104 },
+  Uranus: { ms: 120, basis: 'sourced', gain: 528 },
+  Neptune: { ms: 130, basis: 'sourced', gain: 478 },
+  Moon: { ms: null, basis: 'assumption' },
+};
 
 // ---- Sampling ----------------------------------------------------------------------------------
 
