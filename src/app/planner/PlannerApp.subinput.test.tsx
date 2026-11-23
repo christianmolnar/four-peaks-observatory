@@ -262,7 +262,7 @@ describe('favorites on the row', () => {
 });
 
 describe('a held favorites store says the next step', () => {
-  it('"othertab" says to reload this tab or Reset all; "nocopy" says to free space and reload, or Reset all', async () => {
+  it('"nocopy" says to free storage and reload', async () => {
     window.localStorage.setItem(FAVORITES_KEY, '{"version":1,"favorites":[{"id":"m31"}]}'); // damaged
     const real = Storage.prototype.setItem;
     const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
@@ -272,8 +272,7 @@ describe('a held favorites store says the next step', () => {
     await app([{ id: 'm31', preset: 'balanced' }]);
     const text = screen.getByTestId('plan-favorite-blocked-m31').textContent ?? '';
     setItem.mockRestore();
-    expect(text).toMatch(/free some browser storage and reload/i);
-    expect(text).toMatch(/Reset all/);
+    expect(text).toMatch(/Free storage and reload/);
   });
 });
 

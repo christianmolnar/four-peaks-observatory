@@ -49,13 +49,13 @@ export default function ResetAll({ onConfirm }: { onConfirm: () => void }) {
           className="mt-3 max-w-xl rounded-lg border border-p-warn/50 bg-p-bg/80 p-4"
         >
           <p id="reset-all-title" className="text-p-t1 font-normal text-sm">Reset everything to the starting point?</p>
-          <p className="mt-1 text-p-t1 font-normal text-sm">This clears, in this browser, and cannot be undone:</p>
+          <p className="mt-1 text-p-t1 font-normal text-sm">Clears this browser. Cannot be undone:</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-5 text-p-t1 font-normal text-sm">
             {RESET_LOSES.map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
-          <p className="mt-2 text-p-t1/70 font-normal text-sm">The planner then shows the sample profile. Export your profile first to keep your gear. Plans are not part of the profile export: share them first (the plan’s More menu, Share and export), or they cannot be recovered.</p>
+          <p className="mt-2 text-p-t1/70 font-normal text-sm">Plans are not in the profile export.</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <button type="button" className={btn} onClick={() => { setOpen(false); onConfirm(); }}>
               Yes, reset everything

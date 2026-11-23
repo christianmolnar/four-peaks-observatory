@@ -231,7 +231,7 @@ describe('odd stored types read in words (round 4)', () => {
       keep(raw);
       await mount();
       expect(document.body.textContent).not.toMatch(/\[object|NaN|undefined/);
-      expect(screen.getByText(/One saved gear value is not usable \(out of range or not a number\)/)).toBeTruthy();
+      expect(screen.getByText(/1 saved gear value not usable/)).toBeTruthy();
       openGear();
       pickClass('Scopes');
       const flag = screen.getByTestId('gear-flag').textContent!;
@@ -287,7 +287,7 @@ describe('smaller round 4 fixes', () => {
     fireEvent.change(within(form).getByLabelText(/^Name/), { target: { value: 'Renamed here' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
     const alerts = within(screen.getByRole('region', { name: 'GEAR' })).queryAllByRole('alert').map((a) => a.textContent);
-    expect(alerts.filter((t) => t!.includes('Another tab changed your gear'))).toHaveLength(1);
+    expect(alerts.filter((t) => t!.includes('Gear changed in another tab'))).toHaveLength(1);
     expect(new Set(alerts).size).toBe(alerts.length);
   });
 
@@ -432,7 +432,7 @@ describe('round 5: plain words for a held profile, no false Saved, one message',
       fireEvent.change(document.getElementById(`${id}-number`) as HTMLInputElement, { target: { value: v } });
     }
     fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
-    const said = document.body.textContent!.split('Another tab changed your gear, so your edit was not made').length - 1;
+    const said = document.body.textContent!.split('Gear changed in another tab. Edit again.').length - 1;
     expect(said).toBe(1);
   });
 

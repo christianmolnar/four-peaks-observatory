@@ -380,7 +380,7 @@ describe('a stored profile with values outside their ranges', () => {
     seedPlan([{ id: 'm42', preset: 'balanced' }], () => profile);
     await mount();
     expect(document.body.textContent).not.toMatch(/Application error|NaN|Infinity/);
-    expect(screen.getByText(/saved gear values are not usable \(out of range or not a number\), so the planner ignores them/)).toBeTruthy();
+    expect(screen.getByText(/saved gear values not usable/)).toBeTruthy();
     openPlanTab();
     await waitFor(() => expect(planRowItems()).toHaveLength(1));
     expect(planRowItems()[0].textContent).toMatch(/Gear incomplete/);
@@ -426,7 +426,7 @@ describe('two tabs', () => {
     openGear();
     const other = addItem(sampleProfile(), 'cameras'); // the other tab added a camera
     otherTabSaves(other);
-    await waitFor(() => expect(screen.getByText('Another tab changed your gear. This page now shows it.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Gear changed in another tab')).toBeTruthy());
     pickClass('Cameras');
     expect(cards()).toHaveLength(other.equipment.cameras.length);
     pickClass('Filters');
@@ -442,7 +442,7 @@ describe('two tabs', () => {
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(other)); // saved by the other tab; no event reached this one yet
     pickClass('Filters');
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
-    expect(screen.getByRole('alert').textContent).toContain('Another tab changed your gear, so your edit was not made.');
+    expect(screen.getByRole('alert').textContent).toContain('Gear changed in another tab. Edit again.');
     expect(stored().equipment.filters).toHaveLength(other.equipment.filters.length); // nothing of this tab's was written over it
     expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length);
     pickClass('Cameras');
@@ -616,7 +616,7 @@ describe('a refused edit never says it was made (round 3)', () => {
     fireEvent.change(within(form).getByLabelText(/^Name/), { target: { value: 'Renamed here' } });
     fireEvent.click(button(form, 'Save'));
     expect(status()).not.toMatch(/Saved/);
-    expect(document.body.textContent).toContain('your edit was not made');
+    expect(document.body.textContent).toContain('Edit again');
     expect(stored().equipment.cameras.map((c: { name: string }) => c.name)).not.toContain('Renamed here');
     expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length);
   });
@@ -627,7 +627,7 @@ describe('a refused edit never says it was made (round 3)', () => {
     pickClass('Filters');
     fireEvent.click(button(cards()[0], 'Remove'));
     expect(status()).not.toMatch(/Removed/);
-    expect(within(screen.getByRole('region', { name: 'GEAR' }) as HTMLElement).getByRole('alert').textContent).toContain('your edit was not made');
+    expect(within(screen.getByRole('region', { name: 'GEAR' }) as HTMLElement).getByRole('alert').textContent).toContain('Edit again');
     otherTabSavedSilently();
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
     expect(status()).not.toMatch(/Added/);
@@ -644,7 +644,7 @@ describe('a refused edit never says it was made (round 3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save horizon' }));
     expect(stored().equipment.cameras).toHaveLength(other.equipment.cameras.length); // the other tab's camera is still stored
     expect(stored().sites[0].blockedArcs).toEqual(sampleProfile().sites[0].blockedArcs); // the horizon was not saved over it
-    expect(screen.getByRole('status').textContent).toContain('Another tab changed your gear, so your edit was not made.');
+    expect(screen.getByRole('status').textContent).toContain('Gear changed in another tab. Edit again.');
   });
 
   it('Undo says what came back', async () => {
@@ -705,7 +705,7 @@ describe('a stored value that is negative, zero, empty or text opens plainly and
         window.localStorage.setItem(PROFILE_KEY, JSON.stringify(withScopeField(value, key)));
         await mount();
         expect(document.body.textContent).not.toMatch(/\$\.|Problem at|could not be used/);
-        expect(screen.getByText(/One saved gear value is not usable \(out of range or not a number\), so the planner ignores it/)).toBeTruthy();
+        expect(screen.getByText(/1 saved gear value not usable/)).toBeTruthy();
         openGear();
         pickClass(key === 'focalLengthMm' ? 'Scopes' : 'Cameras');
         expect(document.querySelector('[data-testid="gear-flag"]')!.textContent).toMatch(/^! (Focal length|Pixel size) /);

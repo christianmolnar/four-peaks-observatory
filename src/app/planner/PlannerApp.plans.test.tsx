@@ -192,7 +192,7 @@ describe('My plans', () => {
   it('a damaged saved set of plans is reported, copied to the backup, and one empty plan starts; the text is not removed', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     await app();
-    expect((await screen.findByTestId('plans-messages')).textContent).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 1 backup is kept in this browser\./);
+    expect((await screen.findByTestId('plans-messages')).textContent).toMatch(/Saved plans unreadable. Started a new plan. A copy of the saved plans is kept as "fpo-planner-plans-v1\.bak\.\d+" \(1 backup\)/);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
     expect(listBackups(window.localStorage).map((b) => b.text)).toEqual(['{nope']);
     expect(heading()).toBe('PLAN: My plan (0 targets)');

@@ -5,7 +5,7 @@ import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { PROFILE_KEY, sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { describeArcs, describeOverlaps } from './HorizonEditor';
+import { describeArcs } from './HorizonEditor';
 import { openGear, openPart, pageProps, ready, resetAll } from './testkit';
 
 // Real keystrokes, one key at a time, through the whole page. The expected values are the rows of the

@@ -118,7 +118,7 @@ describe('a copy or download that fails says why and what to do', () => {
     await act(async () => fireEvent.click(screen.getAllByRole('button', { name: 'Copy text' })[0]));
     const said = screen.getByTestId('share-status').textContent!;
     expect(said).toMatch(/^Not copied: .*does not let a page copy/);
-    expect(said).toContain('by hand');
+    expect(said).not.toContain('by hand');
     expect(said).not.toMatch(/^Copied/);
   });
 
@@ -131,7 +131,7 @@ describe('a copy or download that fails says why and what to do', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Download file' })[0]);
     const said = screen.getByTestId('share-status').textContent!;
     expect(said).toMatch(/^Not downloaded: downloads are blocked/);
-    expect(said).toContain('by hand');
+    expect(said).not.toContain('by hand');
     expect(said).not.toMatch(/^Downloaded/);
   });
 });
@@ -242,9 +242,9 @@ describe('Export for ASIAir', () => {
     await app();
     openSheet();
     const note = screen.getByTestId('asiair-note').textContent!;
-    expect(note).toMatch(/Positions only/);
+    expect(note).toMatch(/positions only/);
     expect(note).toMatch(/2 targets/);
-    expect(note).toMatch(/1 solar-system body is left out/);
+    expect(note).toMatch(/1 solar-system body left out/);
     const section = screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!;
     fireEvent.click(within(section).getByRole('button', { name: 'Download file' }));
     expect(blobs[0].name).toMatch(/^fpo-asiair-positions-my-plan-2026-12-15\.csv$/);
@@ -254,8 +254,7 @@ describe('Export for ASIAir', () => {
     expect(lines).toHaveLength(3);
     // The file has no name column, so the sheet lists which pane is which object.
     expect(screen.getByTestId('asiair-panes').textContent).toBe('Pane 1: M31Pane 2: IC 405');
-    expect(note).toMatch(/no column for a name/);
-    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).toMatch(/Not yet tested on a real ASIAir/);
+    expect(screen.getByRole('heading', { name: 'Export for ASIAir (CSV)' }).closest('section')!.textContent).not.toMatch(/Not yet tested/);
     expect(lines[1]).toMatch(/^Pane 1, \d\dhr \d\d' \d\d", \+\d\d\u00ba \d\d' \d\d", 0\.00, [\d.]+, [\d.]+, 20%, 1, 1$/);
     fireEvent.click(within(section).getByRole('checkbox'));
     fireEvent.click(within(section).getByRole('button', { name: 'Copy text' }));
@@ -299,18 +298,18 @@ describe('Import plans', () => {
     // the same file: every plan is a repeat, so nothing is added whichever button there is
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
-    expect(screen.getByTestId('import-ask').textContent).toMatch(/All of them are already here and will be skipped/);
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/All are already here/);
     expect(screen.getByTestId('import-ask').textContent).not.toMatch(/same id/);
     fireEvent.click(screen.getByRole('button', { name: 'Import 2 plans' }));
-    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 were already here and were skipped/));
+    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 already here, skipped/));
     expect(plansOf()).toHaveLength(2);
     // a changed plan with the same id: said in the words it is
     exported.plans[1].notes = 'changed elsewhere';
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
-    expect(screen.getByTestId('import-ask').textContent).toMatch(/1 of 2 is already here and will be skipped\. One has the same id as a different plan here\./);
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/1 already here\. 1 same id as another plan\./);
     fireEvent.click(screen.getByRole('button', { name: 'Import new plans only' }));
-    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 1 was already here and was skipped\. 1 has the same id as a different plan here and was skipped\./));
+    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 1 already here, skipped\. 1 same id, skipped\./));
     expect(plansOf().find((p) => p.id === 'plan-2')!.notes).toBe('');
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
@@ -323,10 +322,10 @@ describe('Import plans', () => {
     // the same changed file again: the copy made before is a repeat, so no "(imported) 2"
     upload(JSON.stringify(exported));
     await screen.findByTestId('import-ask');
-    expect(screen.getByTestId('import-ask').textContent).toMatch(/All of them are already here and will be skipped/);
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/All are already here/);
     expect(screen.queryByRole('button', { name: 'Import, same-id plans as copies' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Import 2 plans' }));
-    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 were already here and were skipped/));
+    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/No plan was added\. 2 already here, skipped/));
     expect(plansOf().map((p) => p.name)).toEqual(['My plan', 'Second plan', 'Second plan (imported)']);
     // Cancel changes nothing.
     upload(JSON.stringify(exported));
@@ -382,7 +381,7 @@ describe('Import plans', () => {
     await screen.findByTestId('import-ask');
     fireEvent.click(screen.getByRole('button', { name: 'Import 3 plans' }));
     await waitFor(() => expect(plansOf()).toHaveLength(MAX_PLANS));
-    expect(screen.getByTestId('import-done').textContent).toMatch(/Imported 1 plan\. Plans hold at most 50 plans, so 2 were left out/);
+    expect(screen.getByTestId('import-done').textContent).toMatch(/Imported 1 plan\. 2 left out: 50 plans at most/);
   });
 
   it('an imported plan that uses a site or train not in the gear says so', async () => {
@@ -391,7 +390,7 @@ describe('Import plans', () => {
     upload(JSON.stringify({ format: 'four-peaks-planner', version: 1, plans: [other('far', 'Far away', { trainId: 'removed-train' })] }));
     await screen.findByTestId('import-ask');
     fireEvent.click(screen.getByRole('button', { name: 'Import the plan' }));
-    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/1 uses a site or train that is not in your gear/));
+    await waitFor(() => expect(screen.getByTestId('import-done').textContent).toMatch(/1 missing a site or setup/));
   });
 
   it('an "everything" file offers its gear to Import profile, and Import profile reads it', async () => {
@@ -401,7 +400,7 @@ describe('Import plans', () => {
     const file = text();
     upload(file);
     await screen.findByTestId('import-ask');
-    expect(screen.getByTestId('import-ask').textContent).toMatch(/also holds gear/);
+    expect(screen.getByTestId('import-ask').textContent).toMatch(/Also holds gear/);
   });
 
   it('Import profile reads the gear out of an "everything" file', async () => {

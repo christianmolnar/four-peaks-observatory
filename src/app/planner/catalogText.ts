@@ -1,6 +1,5 @@
 import { compass, fitLabel } from '@/planner/plan';
 import type { PlanEntry, ScoreParts } from '@/planner/plan';
-import { DEFAULT_MIN_FRAME_PERCENT } from '@/planner/plan/rank';
 
 /** "planetary-nebula" as "Planetary nebula". */
 export function typeLabel(type: string): string {

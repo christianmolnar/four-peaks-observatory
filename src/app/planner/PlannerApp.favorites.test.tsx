@@ -259,7 +259,7 @@ describe('the favorites store never loses what it holds', () => {
     expect(copies).toHaveLength(1);
     expect(copies[0].text).toBe(damaged);
     expect(copies[0].key.startsWith(FAVORITES_BACKUP_PREFIX)).toBe(true);
-    expect(messages()).toMatch(/Your saved favorites could not be read \(it is not valid JSON\), so they start over\. A copy is kept under the backup name "fpo-planner-favorites-v1\.bak\.\d+"; 1 copy is kept/);
+    expect(messages()).toMatch(/Favorites unreadable \(it is not valid JSON\)\. Copy kept as "fpo-planner-favorites-v1\.bak\.\d+" \(1 copy\)/);
     expect(saveBox('m31').disabled).toBe(false);
     fireEvent.click(saveBox('m31'));
     expect(storedFavorites()).toHaveLength(1);
@@ -279,13 +279,13 @@ describe('the favorites store never loses what it holds', () => {
     window.localStorage.setItem(FAVORITES_KEY, newer);
     await app([m31]);
     expect(saveBox('m31').disabled).toBe(true);
-    expect(screen.getByTestId('plan-favorite-blocked-m31').textContent).toMatch(/made by a newer version of the planner, so saving favorites is off here/);
+    expect(screen.getByTestId('plan-favorite-blocked-m31').textContent).toMatch(/Favorites are from a newer planner\. Saving is off/);
     fireEvent.click(saveBox('m31'));
     press(NAME, 'Deep'); // other edits are fine
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBe(newer);
     expect(listFavoritesBackups(window.localStorage)).toHaveLength(0);
     openGear();
-    expect(screen.getByTestId('favorites-blocked').textContent).toMatch(/newer version/);
+    expect(screen.getByTestId('favorites-blocked').textContent).toMatch(/newer planner/);
   });
 
   it('when the copy of damaged text cannot be made the text is held, not written over', async () => {
@@ -298,8 +298,8 @@ describe('the favorites store never loses what it holds', () => {
     });
     await app([m31]);
     expect(saveBox('m31').disabled).toBe(true);
-    expect(screen.getByTestId('plan-favorite-blocked-m31').textContent).toMatch(/could not be read whole and no copy could be kept/);
-    expect(messages()).toMatch(/The copy of your damaged favorites failed: quota/);
+    expect(screen.getByTestId('plan-favorite-blocked-m31').textContent).toMatch(/Favorites unreadable\. Saving is off/);
+    expect(messages()).toMatch(/Favorites copy failed: quota/);
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBe(damaged);
   });
 
@@ -342,7 +342,7 @@ describe('the favorites store never loses what it holds', () => {
     window.localStorage.setItem(FAVORITES_KEY, newer);
     storageEvent(FAVORITES_KEY, newer);
     expect(saveBox('ic405').disabled).toBe(true);
-    expect(screen.getAllByTestId(/^plan-favorite-blocked-/)[0].textContent).toMatch(/newer version/);
+    expect(screen.getAllByTestId(/^plan-favorite-blocked-/)[0].textContent).toMatch(/newer planner/);
     fireEvent.click(saveBox('ic405'));
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBe(newer);
     // Readable favorites from the other tab release the hold.
@@ -360,7 +360,7 @@ describe('the favorites store never loses what it holds', () => {
     fireEvent.click(saveBox('m31'));
     expect(window.localStorage.getItem(FAVORITES_KEY)).toBe('not json at all');
     expect(saveBox('m31').disabled).toBe(true);
-    expect(screen.getByTestId('plan-favorite-blocked-m31').textContent).toMatch(/Another tab saved favorites this page cannot use/);
+    expect(screen.getByTestId('plan-favorite-blocked-m31').textContent).toMatch(/Another tab saved favorites\. Saving is off/);
   });
 
   it('the favorites cleared in another tab are cleared here too', async () => {

@@ -200,7 +200,7 @@ export interface LoadedPlans {
 /** Said by the held box (newer plans) and not by the persistent line, so the two never repeat each other. */
 export const NEWER_NOTICE = 'Your saved plans were made by a newer version of the planner.';
 /** The copy made for damaged text is named by the page, which knows whether it could be made. */
-export const DAMAGED_NOTICE = 'Your saved plans could not be read, so they start over with one empty plan.';
+export const DAMAGED_NOTICE = 'Saved plans unreadable. Started a new plan.';
 
 /** The sentence for a plan that cannot be read, as the saved plans say it. */
 function explainLeftOut(first: PlansError, label: string): string {

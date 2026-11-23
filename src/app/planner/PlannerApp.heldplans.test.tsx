@@ -63,8 +63,8 @@ describe('M1: another tab saves a newer or damaged text while this page is open'
     await newPlan(u);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(V2);
     expect(held()!.textContent).toMatch(/from a newer planner/);
-    expect(held()!.textContent).toMatch(/Saved only when you replace them/);
-    expect(held()!.textContent).toMatch(/after a backup/);
+    expect(held()!.textContent).toMatch(/Replace the saved plans/);
+    expect(held()!.textContent).toMatch(/Replace the saved plans/);
     expect(planSwitch().options).toHaveLength(2); // the edit shows on screen, unsaved
   });
 
@@ -154,7 +154,7 @@ describe('M3: a copy that cannot be kept holds the stored text', () => {
     const u = userEvent.setup();
     await app();
     expect(held()!.textContent).toMatch(/could not be read or copied/);
-    expect(held()!.textContent).toMatch(/The copy failed: quota/);
+    expect(held()!.textContent).toMatch(/Copy failed: quota/);
     expect(messages()).not.toMatch(/could not be kept/); // the box says it; the line does not repeat it
     await newPlan(u);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(text);
@@ -187,7 +187,7 @@ describe('S1: a backup is never overwritten', () => {
     await app();
     expect(backups()).toEqual([V2, '{nope']); // the single old key is the oldest
     expect(held()).toBeNull();
-    expect(messages()).toMatch(/A copy of the saved plans is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 2 backups are kept/);
+    expect(messages()).toMatch(/A copy of the saved plans is kept as "fpo-planner-plans-v1\.bak\.\d+" \(2 backups\)/);
     await newPlan(u);
     expect(storedPlans()!.plans).toHaveLength(2);
     expect(backups()).toEqual([V2, '{nope']);
@@ -215,7 +215,7 @@ describe('S1: a backup is never overwritten', () => {
     await app();
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
     expect(backups()).toEqual(['old 2', 'old 3', 'old 4', 'old 5', V2]);
-    expect(messages()).toMatch(/The saved plans were replaced\. A copy of what was stored is kept under the backup name "fpo-planner-plans-v1\.bak\.\d+"; 5 backups are kept/);
+    expect(messages()).toMatch(/The saved plans were replaced\. A copy of what was stored is kept as "fpo-planner-plans-v1\.bak\.\d+" \(5 backups\)/);
     expect(messages()).not.toMatch(/does not save over|leaves them untouched/);
   });
 });
@@ -363,7 +363,7 @@ describe('R4: a backup is never overwritten and a held page follows the other ta
     await replace(u, a);
     const afterA = window.localStorage.getItem(PLANS_KEY)!;
     storageEvent(PLANS_KEY, afterA);
-    expect(b.getByTestId('plans-held').textContent).toMatch(/so your change here is not saved/);
+    expect(b.getByTestId('plans-held').textContent).toMatch(/Your change is not saved/);
     await replace(u, b);
     expect(backups()).toEqual([V2, afterA]);
     expect(storedPlans()!.plans.map((p) => p.name)).toEqual(['My plan', 'Plan 2']);
@@ -402,7 +402,7 @@ describe('R4: a backup is never overwritten and a held page follows the other ta
     window.localStorage.setItem(PLANS_KEY, V2);
     const u = userEvent.setup();
     await app();
-    expect(held()!.textContent).toMatch(/after a backup/);
+    expect(held()!.textContent).toMatch(/Replace the saved plans/);
     await u.click(screen.getByRole('button', { name: 'Replace the saved plans' }));
     expect(messages().match(/The saved plans were replaced/g)).toHaveLength(1);
     expect(held()).toBeNull();

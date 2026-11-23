@@ -5,7 +5,7 @@ import type { PlanEntry } from '@/planner/plan';
 import type { ProfileFilter } from '@/planner/profile';
 import type { PlanTargetRef } from '@/planner/state/plans';
 import { PLANS_VERSION, validatePlans } from '@/planner/state/plans';
-import type { ExposureResult, ExposureWarning } from '@/planner/exposure';
+import type { ExposureWarning } from '@/planner/exposure';
 
 const ref = (extra: Partial<PlanTargetRef> = {}): PlanTargetRef => ({ id: 'm31', preset: 'balanced', ...extra });
 
@@ -66,9 +66,6 @@ describe('a target\'s exposure choice', () => {
 });
 
 describe('words', () => {
-  const result = (mode: 'balanced' | 'deep', custom: boolean, fields: ('subSeconds' | 'subCount' | 'totalMin')[]) =>
-    ({ mode, custom, differs: fields.map((field) => ({ field, preset: 1, chosen: 2 })) }) as unknown as ExposureResult;
-
   it('says Custom', () => {
     expect(differsText()).toBe('Custom');
   });

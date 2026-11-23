@@ -156,7 +156,7 @@ describe('the old night timeline keeps its order', () => {
     });
     await app();
     expect(heading()).toBe('PLAN: My plan (from before) (2 targets)');
-    expect(status()).toMatch(/carried over but not saved: quota\. It is carried over again next time\./);
+    expect(status()).toMatch(/Plan not saved: quota/);
     expect(status()).not.toMatch(/lost on reload/);
     jest.restoreAllMocks();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).not.toBeNull();
@@ -241,7 +241,7 @@ describe('stored plans that cannot be used whole are never removed', () => {
   it('M3: damaged text starts one empty plan, is said, is copied to the backup, and stays until the next save', async () => {
     window.localStorage.setItem(PLANS_KEY, '{nope');
     const first = await app();
-    expect(status()).toMatch(/Your saved plans could not be read, so they start over with one empty plan\. A copy of the saved plans is kept under the backup name/);
+    expect(status()).toMatch(/Saved plans unreadable. Started a new plan. A copy of the saved plans is kept as/);
     expect(backups()).toEqual(['{nope']);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe('{nope');
     expect(heading()).toBe('PLAN: My plan (0 targets)');
@@ -370,7 +370,7 @@ describe('Delete, Import and Reset say what they do', () => {
     const imported = { ...p, sites: [{ ...p.sites[0], id: 'sydney', name: 'Sydney yard', latitude: -33.9, longitude: 151.2, timeZone: 'Australia/Sydney' }], plans: p.plans.map((pl) => ({ ...pl, siteId: 'sydney' })) };
     await u.upload(screen.getByLabelText('Import profile (JSON)'), new File([JSON.stringify(imported)], 'sydney.json', { type: 'application/json' }));
     await waitFor(() => expect(status()).toMatch(/^Imported sydney\.json\./));
-    expect(status()).toMatch(new RegExp(`The open plan "My plan" moved to Sydney yard, ${p.trains[0].name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, \\w{3} \\d{1,2} \\w{3}\\.`));
+    expect(status()).toMatch(new RegExp(`Plan moved to Sydney yard, ${p.trains[0].name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, \\w{3} \\d{1,2} \\w{3}\\.`));
     expect(storedPlan()!.siteId).toBe('sydney');
   });
 
@@ -380,7 +380,7 @@ describe('Delete, Import and Reset say what they do', () => {
     openGear();
     await u.click(screen.getByRole('button', { name: 'Reset all' }));
     const text = screen.getByTestId('reset-confirm').textContent!;
-    expect(text).toMatch(/Plans are not part of the profile export: share them first .*or they cannot be recovered\./);
+    expect(text).toMatch(/Plans are not in the profile export\./);
     expect(text).not.toMatch(/Export your profile first to keep a copy\./);
   });
 });

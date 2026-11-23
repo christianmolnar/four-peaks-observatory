@@ -201,7 +201,7 @@ describe('plans: stored copy', () => {
     const m = memory({ [PLANS_KEY]: text });
     const r = loadPlans(m, TODAY);
     expect(r.state).toBeNull();
-    expect(r.notices.join(' ')).toMatch(/could not be read, so they start over/);
+    expect(r.notices.join(' ')).toMatch(/Saved plans unreadable/);
     expect(r.unusable).toEqual({ kind: 'damaged', text });
     expect(m.data.get(PLANS_KEY)).toBe(text);
   });

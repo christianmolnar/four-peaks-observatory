@@ -111,7 +111,7 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
       download(file, text, mime, bom);
       setSaid(`Downloaded ${file}.`);
     } catch (e) {
-      setSaid(`Not downloaded: ${(e as Error).message}. Copy it from the box by hand.`);
+      setSaid(`Not downloaded: ${(e as Error).message}`);
     }
   };
   const copy = async (text: string, label: string) => {
@@ -120,7 +120,7 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
       await navigator.clipboard.writeText(text);
       setSaid(`Copied ${label}.`);
     } catch (e) {
-      setSaid(`Not copied: ${(e as Error).message}. Copy it from the box by hand.`);
+      setSaid(`Not copied: ${(e as Error).message}`);
     }
   };
 
@@ -178,19 +178,17 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
         </div>
         <label htmlFor="share-text" className="sr-only">Text to share</label>
         <textarea id="share-text" readOnly value={out.text} rows={8} wrap="soft" className="mb-1 block w-full min-w-0 rounded border border-p-line/30 bg-p-bg/60 p-2 font-mono text-sm font-normal text-p-t1" />
-        <p className="mb-4 text-sm font-normal text-p-t1/70">Plain text and Markdown are run sheets. JSON keeps everything and can be imported again below.</p>
 
         <section aria-labelledby="share-print" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-print" className="mb-1 text-base font-normal text-p-t1">Print</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/70">Prints the run sheet, black on white. For a PDF, choose Save as PDF in the print dialog.</p>
-          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/70" data-testid="print-projects-note">Projects have no run sheet. Choose a plan above to print it.</p>}
+          {what === 'projects' && <p className="mb-2 break-words text-sm font-normal text-p-t1/70" data-testid="print-projects-note">No run sheet for projects</p>}
           <button type="button" className={btn} disabled={what === 'projects'} onClick={onPrint}>Print run sheet</button>
         </section>
 
         <section aria-labelledby="share-asiair" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-asiair" className="mb-1 text-base font-normal text-p-t1">Export for ASIAir (CSV)</h3>
           <p className="mb-2 text-sm font-normal text-p-t1/70" data-testid="asiair-note">
-            Positions only, for this plan: {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, one pane each with its RA and Dec. The file has no column for a name; panes are listed below in plan order. Exposure, filter and times do not import.{asiair.left === '' ? '' : ` ${asiair.left}`}
+            {asiair.count} {asiair.count === 1 ? 'target' : 'targets'}, positions only.{asiair.left === '' ? '' : ` ${asiair.left}`}
           </p>
           {asiair.panes.length > 0 && (
             <ul className="mb-2 list-none break-words text-sm font-normal text-p-t1" data-testid="asiair-panes">
@@ -202,20 +200,16 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
           {asiair.fovNote !== null && <p className="mb-2 break-words text-sm font-normal text-p-warn-text">{asiair.fovNote}</p>}
           <label className="mb-2 flex min-h-11 items-start gap-2 text-sm font-normal text-p-t1">
             <input type="checkbox" checked={letter} onChange={(e) => setLetter(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-p-focus" />
-            <span>Write the degree sign as the letter d (if the ASIAir refuses the file)</span>
+            <span>Write the degree sign as d</span>
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => save(asi.file, asi.text, 'text/csv;charset=utf-8', false)}>Download file</button>
             <button type="button" className={btn} disabled={asiair.count === 0} onClick={() => void copy(asi.text, 'the ASIAir CSV')}>Copy text</button>
           </div>
-          <p className="mt-2 text-sm font-normal text-p-t1/70">
-            Not yet tested on a real ASIAir. After importing, check each pane's RA and Dec. If the file is refused, tick the box above.
-          </p>
         </section>
 
         <section aria-labelledby="share-import" className="mb-4 border-t border-p-line/10 pt-3">
           <h3 id="share-import" className="mb-1 text-base font-normal text-p-t1">Import plans</h3>
-          <p className="mb-2 text-sm font-normal text-p-t1/70">Adds plans from a JSON file made here. Your plans are never replaced.</p>
           <label htmlFor="plans-import" className="mb-1 block text-sm font-normal text-p-t1">Plans file (JSON)</label>
           <input
             id="plans-import"
@@ -233,13 +227,13 @@ export default function ShareSheet({ planName, planCount, projectCount, what, on
             <div role="group" aria-label="Import choice" className="mt-2 rounded border border-p-line/30 p-3" data-testid="import-ask">
               <p className="break-words text-sm font-normal text-p-t1">
                 {importPanel.file} holds {importPanel.total} {importPanel.total === 1 ? 'plan' : 'plans'}: {importPanel.names.join(', ')}.
-                {importPanel.same > 0 ? (importPanel.same === importPanel.total ? ` ${importPanel.total === 1 ? 'It is' : 'All of them are'} already here and will be skipped.` : ` ${importPanel.same} of ${importPanel.total} ${importPanel.same === 1 ? 'is' : 'are'} already here and will be skipped.`) : ''}
-                {importPanel.clash > 0 ? ` ${importPanel.clash === 1 ? 'One has' : `${importPanel.clash} have`} the same id as a different plan here.` : ''}
+                {importPanel.same > 0 ? (importPanel.same === importPanel.total ? ` ${importPanel.total === 1 ? 'It is' : 'All are'} already here.` : ` ${importPanel.same} already here.`) : ''}
+                {importPanel.clash > 0 ? ` ${importPanel.clash} same id as another plan.` : ''}
               </p>
               {importPanel.notices.map((n) => (
                 <p key={n} className="mt-1 break-words text-sm font-normal text-p-warn-text">{n}</p>
               ))}
-              {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-p-t1/70">The file also holds gear. Import it under Gear and site, Import profile.</p>}
+              {importPanel.hasGear && <p className="mt-1 text-sm font-normal text-p-t1/70">Also holds gear</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 {importPanel.clash > 0 ? (
                   <>
