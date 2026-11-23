@@ -50,6 +50,13 @@ describe('nbRowView: galaxies', () => {
   it('the Leo Triplet (M65, M66 and NGC 3628 in one entry) still gets none', () => {
     expect(panel(galaxy('leo-triplet', 23)).result.gate).toBe(true);
   });
+  it('the knots use 24 mag when the galaxy is brighter than that, and the galaxy\u2019s own mean when it is fainter', () => {
+    const result = (mu: number) => JSON.stringify(panel(galaxy('m51', mu)).result);
+    expect(result(22.9)).toBe(result(24)); // brighter than the floor: the floor is used
+    expect(result(23.5)).toBe(result(24));
+    expect(result(25)).not.toBe(result(24)); // fainter than the floor: its own mean is used
+    expect(result(25)).not.toBe(result(26));
+  });
   it.each(['ngc4486', 'ngc4472', 'ngc4649'])('the elliptical %s still gets no narrowband', (id) => {
     const v = panel(galaxy(id, 22.8));
     expect(v.result.gate).toBe(true);
