@@ -31,6 +31,6 @@ describe('the planetary train from the profile', () => {
     const p = validateProfile({ ...sample, equipment: { ...sample.equipment, scopes: sample.equipment.scopes.map((s) => ({ ...s, apertureMm: undefined })) } });
     const i = planetTrainInfo(p, p.trains.find((t) => t.id === 'planet-c11-676')!);
     expect(i.apertureMm).toBeUndefined();
-    expect(i.missing).toMatch(/no aperture/);
+    expect(i.missing).toMatch(/No aperture/);
   });
 });

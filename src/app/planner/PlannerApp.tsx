@@ -292,18 +292,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   // The two groups under the list: the user's own open or close, else the default for the situation.
   const [planetsOpen, setPlanetsOpen] = useState<boolean | null>(null);
   const [notUpOpen, setNotUpOpen] = useState<boolean | null>(null);
-  // The solar-system checklist ticks, "Body:item"; not saved.
-  const [solarChecked, setSolarChecked] = useState<ReadonlySet<string>>(new Set());
-  const toggleSolar = useCallback(
-    (key: string) =>
-      setSolarChecked((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      }),
-    [],
-  );
   const [noFitOpen, setNoFitOpen] = useState(false);
   // The target just added, for a few seconds: said next to its button, and to a screen reader in the status line.
   const [added, setAdded] = useState<{ id: string; text: string; say: string } | null>(null);
@@ -2021,8 +2009,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         minAltitude={minAltitude}
         formatTime={formatTime}
         nightWord={nightWord}
-        checked={solarChecked}
-        onToggle={toggleSolar}
       />
     ) : null;
   const renderDetail = (e: PlanEntry) => {

@@ -15,12 +15,8 @@ jest.setTimeout(60000);
 
 const DOWN_DATE = '2026-11-14';
 const MOON_UP_DATE = '2026-11-20';
-const withTrain = (id: string) => {
-  const p = sampleProfile();
-  return { ...p, trains: [...p.trains].sort((a) => (a.id === id ? -1 : 1)) };
-};
 const app = (date = DOWN_DATE, profile = sampleProfile()) => render(<PlannerApp {...pageProps} initialDate={date} initialProfile={profile} />);
-const groupButton = () => screen.getByRole('button', { name: /^Solar system up/ });
+const groupButton = () => screen.getByRole('button', { name: /^Solar system \(/ });
 const notUpButton = () => screen.getByRole('button', { name: /^Not up/ });
 const nameOf = (li: HTMLElement) => (li.querySelector('button[aria-expanded]')!.textContent as string).replace(/^[▸▾]\s*(\d+\.\s*)?/, '').trim();
 const notUpRow = (name: string) => listRows('notup-list').find((r) => nameOf(r) === name) as HTMLElement;
@@ -53,22 +49,19 @@ describe('solar-system bodies that are not up', () => {
     expect(listRows('planet-list').map(nameOf)).not.toContain('Venus');
   });
 
-  it('a down Venus opens its full detail: size, phase, elongation, clip limit, scale, the closed checklist', async () => {
+  it('a down Venus opens its full detail: size, phase, elongation, clip limit, scale', async () => {
     const user = userEvent.setup();
     app();
     await openNotUp(user);
     await user.click(within(notUpRow('Venus')).getByRole('button', { expanded: false }));
     const detail = screen.getByTestId('solar-detail-Venus');
     const text = detail.textContent ?? '';
-    expect(text).toMatch(/Apparent diameter, computed.*arcsec/);
+    expect(text).toMatch(/Apparent diameter\d+\.\d″/);
     expect(text).toMatch(/% lit/); // phase
-    expect(text).toMatch(/Greatest elongation .*Elongation now/); // elongation and its event
+    expect(text).toMatch(/Elongation\d+\.\d° /); // elongation and its event
     expect(text).toMatch(/Clip length limit/);
     expect(text).toMatch(/Image scale and sampling/);
-    expect(text).toMatch(/Clear of your horizon, computed0 min|Clear of your horizon, computed.*min/);
-    expect(text).toMatch(/Great Red Spot transits are not shown/); // the intro warning, with the twilight note
-    expect(within(detail).queryAllByRole('checkbox')).toHaveLength(0); // the checklist is behind its own fold
-    expect(within(detail).getByRole('button', { name: /^Lucky-imaging checklist: Venus \(\d+ items\)/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(text).toMatch(/Clear of your horizon\d+ min/);
     expect(screen.getAllByRole('img', { name: /Altitude of Venus/ })).toHaveLength(1);
   });
 
@@ -78,8 +71,8 @@ describe('solar-system bodies that are not up', () => {
     await openNotUp(user);
     await user.click(within(notUpRow('Moon')).getByRole('button', { expanded: false }));
     const text = screen.getByTestId('solar-detail-Moon').textContent ?? '';
-    expect(text).toMatch(/None: the Moon does not rotate under the camera/);
-    expect(text).toMatch(/\d+\.\d% lit\. Terminator position/);
+    expect(text).toMatch(/Clip length limitNone/);
+    expect(text).toMatch(/\d+\.\d% lit/);
   });
 
   it('the Moon is in the ranked group, not under Not up, on a night it is up', async () => {
@@ -104,22 +97,6 @@ describe('solar-system bodies that are not up', () => {
     expect(screen.queryByTestId('solar-detail-Venus')).toBeNull();
   });
 
-  it('the checklist fold keeps the ticks when closed', async () => {
-    const user = userEvent.setup();
-    app(DOWN_DATE, withTrain('planet-c11-676'));
-    await openNotUp(user);
-    await user.click(within(notUpRow('Venus')).getByRole('button', { expanded: false }));
-    const detail = screen.getByTestId('solar-detail-Venus');
-    const fold = within(detail).getByRole('button', { name: /^Lucky-imaging checklist/ });
-    await user.click(fold);
-    const boxes = within(detail).getAllByRole('checkbox') as HTMLInputElement[];
-    expect(boxes).toHaveLength(21);
-    await user.click(boxes[0]);
-    await user.click(fold);
-    expect(within(detail).queryAllByRole('checkbox')).toHaveLength(0);
-    await user.click(fold);
-    expect((within(detail).getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true);
-  });
 });
 
 describe('the Solar system group open rule', () => {
@@ -144,7 +121,7 @@ describe('the Solar system group open rule', () => {
     app();
     await ready();
     await user.selectOptions(screen.getByLabelText('Type'), 'galaxies');
-    expect(screen.queryByRole('button', { name: /^Solar system up/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Solar system \(/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Not up/ })).toBeNull();
     await user.selectOptions(screen.getByLabelText('Type'), 'all');
     await user.click(groupButton());

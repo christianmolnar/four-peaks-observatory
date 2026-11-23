@@ -1,7 +1,13 @@
 import { opticalTrain } from '../optics';
 import { resolveTrain, trainGearNote } from '../profile';
 import type { Profile, TrainEntry } from '../profile';
-import type { GuideTrain } from './guide';
+
+/** A train with its image scale; `nominal` when an extender or Barlow is in it (its real scale depends on spacing the maker does not state). */
+export interface GuideTrain {
+  name: string;
+  scaleArcsecPx: number;
+  nominal: boolean;
+}
 
 export interface PlanetTrainInfo {
   /** The telescope's aperture; undefined when the profile has none. */
@@ -29,7 +35,7 @@ export interface PlanetTrainInfo {
  */
 export function planetTrainInfo(profile: Profile, train: TrainEntry): PlanetTrainInfo {
   if (train.kind === 'smart') {
-    return { trainName: train.name, variants: [], missing: `${train.name} is a smart scope with fixed optics: pick an optical train for image scale and clip numbers.` };
+    return { trainName: train.name, variants: [], missing: `${train.name}: smart scope, no optics numbers.` };
   }
   const own = resolveTrain(profile, train);
   const optics = opticalTrain(own.scope, own.camera, own.accessory);
@@ -44,9 +50,9 @@ export function planetTrainInfo(profile: Profile, train: TrainEntry): PlanetTrai
   const aperture = own.scope.apertureMm;
   const missing =
     aperture === undefined
-      ? 'The telescope has no aperture in the profile, so clip, dispersion and sampling numbers are not given.'
+      ? 'No aperture in the profile.'
       : optics.imageScale === undefined
-        ? (trainGearNote(profile, train) ?? 'The train has no usable optics numbers, so the image scale is not given.').replace('no exposure is shown', 'the image scale is not given')
+        ? (trainGearNote(profile, train) ?? 'No usable optics numbers.')
         : null;
   return {
     apertureMm: aperture,
