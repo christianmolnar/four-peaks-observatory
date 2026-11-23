@@ -225,7 +225,7 @@ describe('print', () => {
     const sheet = screen.getByTestId('print-sheet');
     expect(sheet.textContent).toMatch(/Evening of .*2026/);
     expect(sheet.textContent).toMatch(/Fountain Hills, AZ/);
-    expect(sheet.textContent).toMatch(/Planner estimates, not measurements/);
+    expect(sheet.textContent).toMatch(/Planner estimates/);
     expect(sheet.textContent).toMatch(/No objects in this plan/);
     act(() => void window.dispatchEvent(new Event('afterprint')));
     expect(screen.queryByTestId('print-sheet')).toBeNull();

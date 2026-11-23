@@ -231,7 +231,7 @@ describe('seed offer', () => {
     expect(A.getByTestId('projects-status').textContent).toBe('Saved the project “Marathon”.');
     fireEvent.click(B.getByRole('button', { name: 'Save project' }));
     const refusal = B.getAllByRole('alert').map(text).join(' | ');
-    expect(refusal).toMatch(/^Not saved: .*already logged in the project “Marathon”/);
+    expect(refusal).toMatch(/^Not saved: .*logged in “Marathon”/);
     expect(B.queryByTestId('projects-problem')).toBeNull();
     expect(B.getByTestId('projects-status').textContent).toBe('');
     expect(stored()).toHaveLength(1);
@@ -263,7 +263,7 @@ describe('creating a project', () => {
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
     expect((minutesBox('Andromeda Galaxy', 'Broadband') as HTMLInputElement).value).toBe('120');
     expect((minutesBox('Andromeda Galaxy', 'Optolong H-alpha 7 nm') as HTMLInputElement).value).toBe('60');
-    expect(screen.getByText(/^Added Andromeda Galaxy: 2 boxes/).textContent).toMatch(/2 boxes filled.*1 plan filter is not in this project/);
+    expect(screen.getByText(/^Added Andromeda Galaxy: 2 boxes/).textContent).toMatch(/2 boxes filled.*1 not in this project/);
     // unticking and ticking again restores them
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
     fireEvent.click(screen.getByLabelText('Andromeda Galaxy'));
@@ -528,7 +528,7 @@ describe('Copy tracker, and storage that does not take the change', () => {
     expect(screen.getByTestId('projects-problem').textContent).toMatch(/^Not saved: browser storage is full\./);
     expect(screen.getByTestId('projects-status').textContent).toBe('');
     expect(document.body.textContent).not.toMatch(/\bSaved\b/);
-    expect(screen.getByTestId('projects-unsaved').textContent).toMatch(/^Not saved: changes are on this page only/);
+    expect(screen.getByTestId('projects-unsaved').textContent).toMatch(/^Not saved\. Export the project/);
     expect(text(screen.getAllByTestId('session-row')[0])).toContain('10m');
   });
 
@@ -595,12 +595,12 @@ describe('import', () => {
     store(plain);
     await draw();
     await choose(file('p.json', fileText(over, plain)));
-    expect(text(await screen.findByTestId('projects-import-ask'))).toContain('p.json holds 2 projects: “Over and off”, “Plain”. 1 of 2 is already here and will be skipped.');
+    expect(text(await screen.findByTestId('projects-import-ask'))).toContain('p.json holds 2 projects: “Over and off”, “Plain”. 1 already here.');
     press('Import 2 projects');
     expect(stored().map((p) => p.name)).toEqual(['Plain', 'Over and off']);
     expect(screen.getByTestId('projects-status').textContent).toBe('Added 1 project. 1 already here, skipped.');
     await choose(file('p.json', fileText(over)));
-    expect(text(await screen.findByTestId('projects-import-ask'))).toContain('It is already here and will be skipped.');
+    expect(text(await screen.findByTestId('projects-import-ask'))).toContain('It is already here.');
     press('Import the project');
     expect(stored()).toHaveLength(2);
     expect(screen.getByTestId('projects-status').textContent).toBe('Added 0 projects. 1 already here, skipped.');

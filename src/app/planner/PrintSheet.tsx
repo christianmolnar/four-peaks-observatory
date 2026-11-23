@@ -141,7 +141,7 @@ export default function PrintSheet({ doc }: PrintSheetProps) {
           ))}
         </section>
       )}
-      <p className="mt-4 text-sm">Planner estimates, not measurements. Made with the Four Peaks Observatory imaging planner.</p>
+      <p className="mt-4 text-sm">Planner estimates</p>
     </div>
   );
 }

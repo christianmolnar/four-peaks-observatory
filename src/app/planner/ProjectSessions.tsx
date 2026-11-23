@@ -237,7 +237,7 @@ export default function ProjectSessions({ project, names, today, onAdd, onUpdate
         />
       )}
       {log.length === 0 ? (
-        <p className="text-sm font-normal text-p-t1/70">No sessions yet. Add one for each night you shoot.</p>
+        <p className="text-sm font-normal text-p-t1/70">No sessions yet.</p>
       ) : (
         <>
           <p className="text-sm font-normal text-p-t1/70" data-testid="log-count">

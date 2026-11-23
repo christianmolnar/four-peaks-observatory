@@ -90,7 +90,6 @@ export default function ProjectProgress({ project, names }: { project: Project; 
         <p className="mt-2 text-sm font-normal text-p-t1" data-testid="project-exposures">
           {count(o.doneExposures)} of {count(o.plannedExposures)} planned {sheet.subSeconds}-second exposures
         </p>
-        <p className="mt-1 text-sm font-normal text-p-t1/70">Time logged at another sub length is converted to the project&rsquo;s.</p>
         {o.over > 0 && <p className="mt-1 text-sm font-normal text-p-warn-text" data-testid="project-over-note">{durationText(o.over)} was shot beyond the plan on some lines. It does not reduce the other lines.</p>}
       </div>
 
@@ -150,7 +149,7 @@ export default function ProjectProgress({ project, names }: { project: Project; 
       {sheet.notInPlan.length > 0 && (
         <div role="group" aria-label="Sessions not in the plan" className="rounded-lg border border-p-warn/50 p-3" data-testid="not-in-plan">
           <p className="break-words text-sm font-normal text-p-warn-text">
-            {sheet.notInPlan.length} logged {sheet.notInPlan.length === 1 ? 'session is' : 'sessions are'} not in the plan ({durationText(sheet.notInPlanMinutes)} in all). Kept, but in no bar or total. Plan the target and filter to count {sheet.notInPlan.length === 1 ? 'it' : 'them'}.
+            {sheet.notInPlan.length} logged {sheet.notInPlan.length === 1 ? 'session is' : 'sessions are'} not in the plan ({durationText(sheet.notInPlanMinutes)} in all).
           </p>
           <ul className="mt-1 list-disc pl-5">
             {sheet.notInPlan.map((n, i) => (

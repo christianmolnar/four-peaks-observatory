@@ -75,7 +75,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
     }
     const r = fillFromPlan(addDraftTarget(d, id), id, held);
     setD(r.draft);
-    setAdded(`Added ${targetName(id)}: ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled from your plan.${r.left > 0 ? ` ${r.left} plan ${r.left === 1 ? 'filter is' : 'filters are'} not in this project. Add ${r.left === 1 ? 'it' : 'them'} under Filters, then add the target again.` : ''}`);
+    setAdded(`Added ${targetName(id)}: ${r.filled} ${r.filled === 1 ? 'box' : 'boxes'} filled.${r.left > 0 ? ` ${r.left} not in this project.` : ''}`);
   };
   const dropTarget = (id: string) => {
     setD(removeDraftTarget(d, id));
@@ -121,11 +121,10 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
       <h3 id={`${uid}-title`} className="text-lg font-normal text-p-t1">{title}</h3>
       {review !== undefined && review.length > 0 && (
         <div className="rounded border border-p-line/20 p-3" data-testid="seed-review">
-          <p className="text-sm font-medium text-p-t1">Saving also logs these hours (all broadband, night of {SEED_DATE}):</p>
+          <p className="text-sm font-medium text-p-t1">Saving also logs (broadband, {SEED_DATE}):</p>
           <ul className="mt-1 list-disc pl-5">
             {review.map((l) => <li key={l} className="break-words text-sm font-normal text-p-t1">{l}</li>)}
           </ul>
-          <p className="mt-1 text-sm font-normal text-p-t1/70">Type the minutes you plan for each target below. Nothing is saved until you press {saveLabel}.</p>
         </div>
       )}
       {editNote !== undefined && <p className="break-words text-sm font-normal text-p-t1/70">{editNote}</p>}

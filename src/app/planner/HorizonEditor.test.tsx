@@ -864,7 +864,7 @@ describe('up to four zones', () => {
     expect(button('Save horizon').disabled).toBe(false);
     expect(document.querySelectorAll('#horizon svg[role=img] path')).toHaveLength(2);
     const text = screen.getByRole('img', { name: /Horizon, seen from above/ }).textContent as string;
-    expect(text).toContain('Zones 1 and 2 overlap from 200 deg (S) clockwise to 250 deg (W); there the highest applies, 60 deg.');
+    expect(text).toContain('Zones 1 and 2 overlap 200 deg (S) to 250 deg (W), highest 60 deg.');
     await u.click(button('Save horizon'));
     expect(storedArcs()).toEqual([
       { startAz: 120, endAz: 320, heightDeg: 42 },
@@ -895,7 +895,7 @@ describe('up to four zones', () => {
     expect(rows.find((r) => r[1] === '135')).toEqual(['SE', '135', '30']);
     expect(rows.find((r) => r[1] === '180')).toEqual(['S', '180', '50']);
     expect(rows.find((r) => r[1] === '225')).toEqual(['SW', '225', '50']);
-    expect(document.querySelector('#horizon details')?.textContent).toContain('Zones 1 and 2 overlap from 150 deg (SE) clockwise to 200 deg (S); there the highest applies, 50 deg.');
+    expect(document.querySelector('#horizon details')?.textContent).toContain('Zones 1 and 2 overlap 150 deg (SE) to 200 deg (S), highest 50 deg.');
   });
 
   it('each zone has the same field rules: a bad Start in zone 2 says so under zone 2 only', async () => {

@@ -86,7 +86,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
       const list = await lookupPlace(query, fetchImpl);
       setFound(list);
       setCredits(creditsFor(list));
-      setMessage(list.length === 0 ? 'Nothing found. Try the city and state, or a postal code.' : 'Choose your place.');
+      setMessage(list.length === 0 ? 'Nothing found' : 'Choose your place.');
     } catch (e) {
       setFound(null);
       setError((e as Error).message);
@@ -110,7 +110,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
       setCredits(creditsFor([]));
       const now = getTexts();
       if ((now.latitude ?? '') !== latText || (now.longitude ?? '') !== lonText) {
-        setMessage('The coordinates changed during the lookup, so nothing was filled in. Try again.');
+        setMessage('Coordinates changed. Try again.');
         return;
       }
       const values = detailValues(d);
@@ -121,7 +121,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
         '',
         d.notes.join(' '),
       );
-      if (r.changed.length === 0 && r.kept.length === 0 && d.notes.length === 0) setMessage('Nothing to change: the boxes already match these coordinates.');
+      if (r.changed.length === 0 && r.kept.length === 0 && d.notes.length === 0) setMessage('Nothing to change');
       if (r.kept.length > 0) setPending({ values, latitude: latText, longitude: lonText });
     } catch (e) {
       setError((e as Error).message);
@@ -137,7 +137,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
   return (
     <div className="sm:col-span-2 xl:col-span-3 rounded border border-p-line/15 p-3">
       <label htmlFor={queryId} className="block text-p-t1 font-normal text-sm mb-1">Find my site: city and state, or postal code</label>
-      <p id={hintId} className="text-p-t1/70 font-normal text-sm mb-1">A city or ZIP is enough; don&apos;t enter a street address.</p>
+      <p id={hintId} className="text-p-t1/70 font-normal text-sm mb-1">City or ZIP, no street address.</p>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-56">
           <WrapText
@@ -231,7 +231,7 @@ export default function SiteFinder({ texts, getTexts, overwritable, onApply, inp
         </ul>
       )}
       {credits.length > 0 && <p className="mt-2 text-p-t1/70 font-normal text-sm">{credits.join(' ')}</p>}
-      <p className="mt-2 text-p-t1/70 font-normal text-sm">Bortle class is not looked up: set it below.</p>
+      <p className="mt-2 text-p-t1/70 font-normal text-sm">Set Bortle below.</p>
     </div>
   );
 }

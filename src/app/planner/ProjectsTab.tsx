@@ -125,7 +125,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
     const r = api.change((s, now) => {
       // The latest stored projects, not this page's: another tab may have saved the same offer, and its hours must not be logged twice.
       const held = seed ? seedHeldBy(s) : null;
-      if (held !== null) throw new Error(`last night’s hours are already logged in the project “${held}”. Open it instead.`);
+      if (held !== null) throw new Error(`Last night is logged in “${held}”`);
       const a = addProject(s, value, now);
       made = a.id;
       // The seed's sessions have fixed ids: adding them twice to one project adds nothing.
@@ -218,7 +218,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
       setSaid(`Copied the tracker of “${project.name}”.`);
     } catch (e) {
       setSaid('');
-      setProblem(`Not copied: ${(e as Error).message}. Copy it from the box by hand.`);
+      setProblem(`Not copied: ${(e as Error).message}`);
       setCopyFallback(text);
     }
   };
@@ -230,7 +230,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
     setImportError('');
     setSaid('');
     try {
-      if (file.size > MAX_PLANS_FILE_CHARS) throw new PlansFileError('This file is not a planner file with projects. The file is too large.');
+      if (file.size > MAX_PLANS_FILE_CHARS) throw new PlansFileError('File too large');
       const read = readProjectsFile(await file.text());
       const names5 = read.projects.slice(0, 5).map((p) => `“${p.name}”`);
       if (read.projects.length > 5) names5.push(`and ${read.projects.length - 5} more`);
@@ -256,8 +256,8 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         : [
             `Added ${c.added} ${c.added === 1 ? 'project' : 'projects'}${c.copies > 0 ? ` (${c.copies} as ${c.copies === 1 ? 'a copy' : 'copies'})` : ''}.`,
             c.skipped > 0 ? `${c.skipped} already here, skipped.` : '',
-            c.clashSkipped > 0 ? `${c.clashSkipped} with the id of a different project, skipped.` : '',
-            c.leftOut > 0 ? `${c.leftOut} left out: a browser holds at most ${MAX_PROJECTS} projects.` : '',
+            c.clashSkipped > 0 ? `${c.clashSkipped} same id, skipped.` : '',
+            c.leftOut > 0 ? `${c.leftOut} left out: ${MAX_PROJECTS} projects at most.` : '',
           ].filter((x) => x !== '');
     finish(r, `${parts.join(' ')} ${pending.notices.join(' ')}`.trim());
   };
@@ -285,8 +285,8 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         <div role="group" aria-label="Import choice" className="rounded border border-p-line/30 p-3" data-testid="projects-import-ask">
           <p className="break-words text-sm font-normal text-p-t1">
             {ask.file} holds {ask.total} {ask.total === 1 ? 'project' : 'projects'}: {ask.names.join(', ')}.
-            {ask.same > 0 ? (ask.same === ask.total ? ` ${ask.total === 1 ? 'It is' : 'All of them are'} already here and will be skipped.` : ` ${ask.same} of ${ask.total} ${ask.same === 1 ? 'is' : 'are'} already here and will be skipped.`) : ''}
-            {ask.clash > 0 ? ` ${ask.clash === 1 ? 'One has' : `${ask.clash} have`} the same id as a different project here.` : ''}
+            {ask.same > 0 ? (ask.same === ask.total ? ` ${ask.total === 1 ? 'It is' : 'All are'} already here.` : ` ${ask.same} already here.`) : ''}
+            {ask.clash > 0 ? ` ${ask.clash} same id as another project.` : ''}
           </p>
           {ask.notices.map((n) => (
             <p key={n} className="mt-1 break-words text-sm font-normal text-p-warn-text">{n}</p>
@@ -320,7 +320,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         </div>
       )}
       {api.held !== null && <p role="alert" data-testid="projects-held" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">{api.held}</p>}
-      {api.unsaved && <p role="alert" data-testid="projects-unsaved" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">Not saved: changes are on this page only. Export the project; the next change saves again.</p>}
+      {api.unsaved && <p role="alert" data-testid="projects-unsaved" className="break-words rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text">Not saved. Export the project.</p>}
       <p role="status" aria-live="polite" className="min-h-5 break-words text-sm font-normal text-p-t1" data-testid="projects-status">{said}</p>
       {problem !== '' && <p role="alert" className="break-words text-sm font-normal text-p-warn-text" data-testid="projects-problem">{problem}</p>}
 
@@ -342,7 +342,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
         />
       ) : project === null ? (
         <div className="space-y-3 rounded-lg border border-p-line/20 p-4" data-testid="projects-empty">
-          <p className="text-sm font-normal text-p-t1">No projects yet. A project is a list of targets with planned minutes per filter; log each night&rsquo;s light to see progress.</p>
+          <p className="text-sm font-normal text-p-t1">No projects yet.</p>
           <div className="flex flex-wrap gap-2">
             <button id="project-new" type="button" className={btn} onClick={() => startNew(false)}>New project</button>
             <button type="button" className={btn} onClick={() => startNew(true)}>Start from last night&rsquo;s hours</button>
@@ -410,7 +410,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
               key={project.id}
               title={`Edit plan: ${project.name}`}
               initial={draftFromProject(project)}
-              editNote="Logged sessions are kept. A session for a target or filter you take out stays in the log and shows as not in the plan."
+              editNote="Logged sessions are kept."
               saveLabel="Save changes"
               onRefused={() => setSaid('')}
               onSave={saveEdit}

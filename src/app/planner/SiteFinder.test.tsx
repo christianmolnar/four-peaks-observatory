@@ -47,11 +47,11 @@ describe('Find my site', () => {
     expect(screen.queryByText(/OpenStreetMap contributors/)).toBeNull();
   });
 
-  it('the box says a city or ZIP is enough and not to enter a street address', () => {
+  it('the box says city or ZIP, no street address', () => {
     open();
-    expect(screen.getByText(/A city or ZIP is enough; don't enter a street address\./)).toBeTruthy();
+    expect(screen.getByText(/City or ZIP, no street address\./)).toBeTruthy();
     const hint = box(/Find my site/).getAttribute('aria-describedby') as string;
-    expect(document.getElementById(hint)?.textContent).toMatch(/A city or ZIP is enough/);
+    expect(document.getElementById(hint)?.textContent).toMatch(/City or ZIP/);
   });
 
   it('a second site form has its own named box and hint: ids are unique per finder', () => {
@@ -258,7 +258,7 @@ describe('Find my site', () => {
     await u.click(screen.getByRole('button', { name: /Look up elevation and time zone/ }));
     await u.type(box(/^Latitude/), '1');
     answer(reply({ elevationM: 40 }));
-    expect(await screen.findByText(/changed during the lookup, so nothing was filled in/)).toBeTruthy();
+    expect(await screen.findByText(/Coordinates changed\. Try again/)).toBeTruthy();
     expect(box(/^Elevation/).value).toBe('');
   });
 
@@ -393,7 +393,7 @@ describe('Find my site', () => {
 
   it('Bortle stays the editable box, with a note that it is not looked up', () => {
     open();
-    expect(screen.getByText(/Bortle class is not looked up/)).toBeTruthy();
+    expect(screen.getByText(/Set Bortle below/)).toBeTruthy();
     expect(screen.getByRole('combobox', { name: /Sky darkness, Bortle class/ })).toBeTruthy();
   });
 });

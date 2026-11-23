@@ -63,7 +63,7 @@ describe('planner page', () => {
   it('clearing the arc shows "horizon not set" and the flat minimum in the list', () => {
     const cleared = render(withSiteArcs(wideProfile(), siteId, []));
     expect(cleared).toContain('data-testid="horizon-not-set"');
-    expect(cleared).toContain('Horizon not set: only the flat minimum altitude applies.');
+    expect(cleared).toContain('Horizon not set');
     expect(cleared).toContain('Add a zone');
     expect(cleared).not.toContain('aria-label="Blocked from slider"');
   });
