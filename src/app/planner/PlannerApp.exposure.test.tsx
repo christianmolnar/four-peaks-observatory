@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { sampleProfile } from '@/planner/state';
 import PlannerApp from './PlannerApp';
-import { openPart, pageProps, planRowItems, ready, seedPlan, storedPlan, timelineSlots } from './testkit';
+import { openDetails, openPart, pageProps, planRowItems, ready, seedPlan, storedPlan, timelineSlots } from './testkit';
 
 // Exposure on each target: Quick, Balanced, Deep and Custom on the row, the engine's numbers for the plan's night, site, train and Moon,
 // "Why these numbers", the comparison and the calculator per row, Custom in words with "Back to ...", and the timeline scheduling what was chosen.
@@ -14,6 +14,7 @@ const app = async (targets: readonly object[]) => {
   seedPlan(targets, sampleProfile);
   const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
   await ready();
+  openDetails();
   return r;
 };
 const m31 = { id: 'm31', preset: 'balanced' };
@@ -112,6 +113,7 @@ describe('a preset on each target', () => {
     seedPlan([m31], () => ({ sites: sampleProfile().sites, trains: [smart] }));
     render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     await ready();
+    openDetails();
     expect(numbers('m31')).toMatch(/No exposure: add optics/);
     expect(pressed('Andromeda Galaxy')).toEqual(['Balanced']);
   });

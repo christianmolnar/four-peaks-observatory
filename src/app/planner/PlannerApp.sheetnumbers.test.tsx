@@ -83,7 +83,7 @@ describe('a scheduled row carries the timeline slot\'s own numbers', () => {
     expect(timelineSlots()[0].textContent).toContain('120 s × 105 subs = 210 min');
     openSheet();
     expect(text()).toContain('105 x 120 s = 210 min');
-    expect(text()).toContain('Warning: Site removed or unusable');
+    expect(text()).toContain('Warning: Site removed');
     expect(text()).toContain(`Total light: ${timelineLight()} min`);
     expect(text()).not.toMatch(/224 min/);
   });

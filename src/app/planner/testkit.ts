@@ -121,7 +121,6 @@ export const ready = async (): Promise<void> => {
   await screen.findByTestId('target-list', {}, { timeout: 20000 });
   openFind();
   openControls();
-  openDetails();
 };
 
 /** Chooses an item of the list's "More" menu ("Export CSV", "Print or save as PDF"). */
@@ -201,10 +200,8 @@ export const openPlanTab = (): void => {
 };
 
 /** The rows of the open plan's own target list (not the Find a target lists, which are in the same card). */
-export const planRowItems = (): HTMLElement[] => {
-  openDetails();
-  return [...document.querySelectorAll<HTMLElement>('ol[aria-label="Targets in this plan, in order"] > li')];
-};
+export const planRowItems = (): HTMLElement[] =>
+  [...document.querySelectorAll<HTMLElement>('ol[aria-label="Targets in this plan, in order"] > li')];
 
 /** The slots of the open plan: its cards. */
 export const timelineSlots = (): HTMLElement[] => planRowItems();

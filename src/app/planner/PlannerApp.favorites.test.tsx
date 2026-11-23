@@ -35,6 +35,7 @@ const app = async (targets?: readonly object[]) => {
   if (targets) seedPlan(targets, sampleProfile);
   const r = render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
   await ready();
+  openDetails();
   return r;
 };
 const saveBox = (id: string) => document.getElementById(`plan-fav-${id}`) as HTMLInputElement;

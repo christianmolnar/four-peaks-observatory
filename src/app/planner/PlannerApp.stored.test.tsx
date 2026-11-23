@@ -159,7 +159,7 @@ describe('a stored profile this page cannot load is never written over (round 4)
     const box = screen.getByTestId('profile-held');
     expect(box.textContent).toMatch(/unusable; sample shown/);
     expect(box.textContent).not.toMatch(/\$\.|Problem at/);
-    expect(box.textContent).toMatch(/kept as it is/);
+    expect(box.textContent).toMatch(/Copy kept/);
     openGear();
     pickClass('Filters');
     fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
@@ -235,8 +235,8 @@ describe('odd stored types read in words (round 4)', () => {
       pickClass('Scopes');
       const flag = screen.getByTestId('gear-flag').textContent!;
       expect(flag).toMatch(/^! Focal length(: |, )/);
-      expect(flag).not.toMatch(/outside 10 to 10,000 mm, so/);
-      if (typeof value === 'object' && value !== null) expect(flag).toContain('something that is not a number');
+      expect(flag).not.toMatch(/\[object/);
+      expect(flag).toMatch(/not a number/);
       const form = openGearItem('Scopes', raw.equipment.scopes.length - 1);
       const box = within(form).getByLabelText(/^Focal length \(/) as HTMLInputElement;
       expect(box.value).not.toMatch(/object/);

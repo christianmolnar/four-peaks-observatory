@@ -106,11 +106,11 @@ describe('the Type selector', () => {
     mount();
     await ready();
     await choose('supernova-remnants');
-    await screen.findByTestId('list-empty');
+    await screen.findByTestId('list-empty', {}, { timeout: 20000 });
     expect(screen.getByTestId('list-empty').textContent).toBe(`Nothing fits ${WORD}.`);
     expect(typeSelect().value).toBe('supernova-remnants');
     fireEvent.click(screen.getByLabelText(/show non-fitting/i));
-    await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
+    await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ }, { timeout: 20000 });
   });
 
   it('the counts follow the night: another date counts again, and none is shown stale while it is worked out', async () => {
@@ -180,7 +180,7 @@ describe('the list for a type', () => {
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
     expect(empty.textContent).toBe(`Nothing fits ${WORD}.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show non-fitting/ }));
-    await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
+    await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ }, { timeout: 20000 });
   });
 
   it('a type with nothing up at all says so in plain words', async () => {
@@ -384,10 +384,10 @@ describe('over the real catalog', () => {
     expect(snr).toBeGreaterThan(0);
     expect(direct(targets, ['supernova-remnant'], trainId)).toHaveLength(0);
     await choose('supernova-remnants');
-    await screen.findByTestId('list-empty');
+    await screen.findByTestId('list-empty', {}, { timeout: 20000 });
     expect(screen.getByTestId('list-empty').textContent).toBe(`Nothing fits ${WORD}.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show non-fitting/ }));
-    await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) });
+    await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) }, { timeout: 20000 }); // the real catalog re-ranks off the render: under four workers it can take over the 1 s default
   }, 120000);
 
   it('option counts equal a direct catalog count, and a type is ranked best to worst over all of the catalog, not the mixed top 100 filtered', async () => {

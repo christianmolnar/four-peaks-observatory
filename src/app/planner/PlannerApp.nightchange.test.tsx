@@ -7,7 +7,7 @@ import { sampleProfile } from '@/planner/state';
 import { FAVORITES_KEY } from '@/planner/state/favorites';
 import PlannerApp from './PlannerApp';
 import { PLANS_KEY } from '@/planner/state/plans';
-import { openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
+import { openDetails, openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
 
 // A stored Custom value is judged on every render, not only when it is typed: when the night, site, train or filter changes and the engine's count for the
 // same sub length goes over MAX_SUBS (or the sub no longer fits), the row says so, the preset's own numbers are used everywhere (row, timeline, print, CSV),
@@ -36,6 +36,7 @@ const app = async (date: string, trainId: string, filterId: string | null, targe
   edit?.(profile);
   render(<PlannerApp {...pageProps} initialDate={date} initialProfile={profile} />);
   await ready();
+  openDetails();
 };
 /** The profile's cameras without a pixel size: the engine cannot compute an exposure, but the page must still load. */
 const withoutPixelSize = (profile: ReturnType<typeof sampleProfile>) => {

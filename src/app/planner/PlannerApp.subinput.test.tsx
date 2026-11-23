@@ -12,7 +12,7 @@ import { planTonight, planTrainFor } from '@/planner/plan';
 import { sampleProfile } from '@/planner/state';
 import { FAVORITES_KEY, validateFavorites } from '@/planner/state/favorites';
 import PlannerApp from './PlannerApp';
-import { openPart, pageProps, planRowItems, ready, seedPlan, storedPlan, timelineSlots } from './testkit';
+import { openDetails, openPart, pageProps, planRowItems, ready, seedPlan, storedPlan, timelineSlots } from './testkit';
 
 // The typed sub length and count of a row judge the light the engine would give for them, never the stored count times the new length; an absurd value
 // is refused in plain words and never stored; every number the row accepts can be saved as a favorite. Also: the row's preset numbers equal an independent
@@ -23,6 +23,7 @@ const app = async (targets: readonly object[]) => {
   seedPlan(targets, sampleProfile);
   const r = render(<PlannerApp {...pageProps} initialDate={DATE} initialProfile={sampleProfile()} />);
   await ready();
+  openDetails();
   return r;
 };
 const NAME = 'Andromeda Galaxy';
@@ -240,6 +241,7 @@ describe('favorites on the row', () => {
     );
     render(<PlannerApp {...pageProps} initialDate={DATE} initialProfile={sampleProfile()} />);
     await ready();
+    openDetails();
     expect(screen.getByTestId('plan-favorite-ask-m31')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Update favorite to these numbers' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
@@ -254,6 +256,7 @@ describe('favorites on the row', () => {
     );
     render(<PlannerApp {...pageProps} initialDate={DATE} initialProfile={sampleProfile()} />);
     await ready();
+    openDetails();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Save as favorite' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove favorite' }));
     expect(storedFavorites()).toEqual([]);
