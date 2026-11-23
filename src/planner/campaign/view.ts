@@ -105,7 +105,6 @@ export function timelinePlanOfNight(night: CampaignNight, items: readonly Itiner
     startsAt: slots[0]?.start ?? new Date(0),
     startNote: null,
     slots,
-    why: null,
     totals: { integrationMin: slots.reduce((n, s) => n + s.integrationMin, 0), changeoverMin: 0, waitMin: 0, filterChanges: 0, trainChanges: 0, ends: slots.length > 0 ? slots[slots.length - 1].end : null },
   };
 }
@@ -117,7 +116,7 @@ export function lowAltitudeNotes(slot: Slot): string[] {
   const a = slot.altitudes;
   if (a === null) return [];
   return [
-    ...(a.start.belowLimit ? [WARNING_TEXT.lowStart(round(a.start.altitude), a.start.direction, round(a.start.limit))] : []),
-    ...(a.end.belowLimit ? [WARNING_TEXT.lowEnd(round(a.end.altitude), a.end.direction, round(a.end.limit))] : []),
+    ...(a.start.belowLimit ? [WARNING_TEXT.lowStart] : []),
+    ...(a.end.belowLimit ? [WARNING_TEXT.lowEnd] : []),
   ];
 }

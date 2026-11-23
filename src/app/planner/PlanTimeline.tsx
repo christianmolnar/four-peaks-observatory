@@ -16,7 +16,6 @@ import {
   clockToInstant,
   lightMinutes,
   makeWindowLookup,
-  worstCaseWarningTexts,
 } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan, Slot } from '@/planner/itinerary';
 import { clockFromText, couldBecomeClock, isThreeDigits } from '@/planner/itinerary/clock-text';
@@ -198,8 +197,6 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
 
   const shown: Slot[] = plan.slots;
   const detailSlot = shown.find((s) => s.id === detailId) ?? shown[0];
-  const longestName = shown.reduce((n, s) => (s.name.length > n.length ? s.name : n), 'Orion Nebula');
-  const worst = worstCaseWarningTexts(longestName);
   const totals = plan.totals;
 
   return (
@@ -258,11 +255,6 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
           {plan.startNote}
         </p>
       )}
-      {plan.why !== null && (
-        <p className="mt-4 text-p-t1 font-normal text-sm min-h-10 max-md:min-h-[5rem]" data-testid="itinerary-why">
-          {plan.why}
-        </p>
-      )}
       <p className="text-p-t1/70 font-normal text-sm min-h-10 max-md:min-h-[7.5rem]" data-testid="itinerary-totals">
         {shown.length === 0
           ? 'No slots yet.'
@@ -318,18 +310,10 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
                     {slotSubReason(s, rowNumbers!.get(s.id)!)}
                   </p>
                 )}
-                {/* The chips for the most that can appear together (three) are reserved invisibly, so a change of order or filter moves nothing. */}
-                <div className="mt-1 grid">
-                  <div className="[grid-area:1/1] flex flex-wrap items-start gap-2" data-testid={`slot-chips-${k}`}>
-                    {s.warnings.map((w) => (
-                      <Chip key={w.code} severity={w.severity} label={w.label} />
-                    ))}
-                  </div>
-                  <div className="[grid-area:1/1] invisible flex flex-wrap items-start gap-2" aria-hidden="true">
-                    {worst.map((w) => (
-                      <Chip key={w.label} severity={w.severity} label={w.label} />
-                    ))}
-                  </div>
+                <div className="mt-1 flex flex-wrap items-start gap-2" data-testid={`slot-chips-${k}`}>
+                  {s.warnings.map((w) => (
+                    <Chip key={w.code} severity={w.severity} label={w.label} />
+                  ))}
                 </div>
                 <div className="mt-2 flex flex-wrap items-end gap-3">
                   <div className="grow min-w-[12rem]">
@@ -365,27 +349,13 @@ export default function PlanTimeline({ profile, items, startTime, presetUsed, ro
 
       {detailSlot && (
         <div className="mt-4 grid rounded-lg border border-p-line/15 bg-p-bg/40 p-4" role="region" aria-label="Slot details" data-testid="slot-detail">
-          <div className="[grid-area:1/1]" aria-live="polite">
+          <div aria-live="polite">
             <Detail
               heading={`Slot ${shown.indexOf(detailSlot) + 1} details: ${detailSlot.name}`}
               changeover={shown.indexOf(detailSlot) === 0 ? [] : detailSlot.changeover.parts}
               window={detailSlot.window ? `Usable window ${formatTime(detailSlot.window.start)} to ${formatTime(detailSlot.window.end)}.` : 'No usable window left for this slot.'}
               altitude={altitudeText(detailSlot)}
               warnings={detailSlot.warnings}
-            />
-          </div>
-          <div className="[grid-area:1/1] invisible" aria-hidden="true" inert>
-            <Detail
-              heading={`Slot 8 details: ${longestName}`}
-              changeover={[
-                { label: 'slew and centre', minutes: 88 },
-                { label: 'setup change', minutes: 88 },
-                { label: 'filter change', minutes: 88 },
-                { label: 'refocus', minutes: 88 },
-              ]}
-              window="Usable window 88:88 to 88:88."
-              altitude="Altitude 88° SSW, 88° SSW, 88° SSW; past peak, falling."
-              warnings={worst}
             />
           </div>
         </div>

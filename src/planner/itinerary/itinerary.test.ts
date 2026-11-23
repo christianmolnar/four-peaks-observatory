@@ -20,7 +20,6 @@ import {
   parseItinerary,
   serializeItinerary,
   validateItinerary,
-  worstCaseWarningTexts,
 } from './index';
 import type { ItineraryItem } from './index';
 import { slotInputFor } from './resolve';
@@ -167,57 +166,28 @@ describe('the schedule', () => {
     expect(plan.slots[1].changeover.minutes).toBe(3 + 15 + 2 + 3);
   });
 
-  it('a slot that waits for its target says how long and when the window opens', () => {
+  it('a slot that waits for its target starts when the window opens', () => {
     const plan = build([item('m81')]); // m81 clears the horizon at 03:22
     expect(fmt(plan.slots[0].start)).toBe('03:22');
     expect(plan.slots[0].waitMin).toBeCloseTo((plan.slots[0].start.getTime() - NIGHT.start!.getTime()) / MIN, 6);
-    expect(codes(plan.slots[0])).toContain('waits');
-    expect(plan.slots[0].warnings.find((w) => w.code === 'waits')!.text).toMatch(/^Waits 93 min for Bode's Galaxy to clear the horizon \(its window opens 03:22\)\./);
+    expect(Math.round(plan.slots[0].waitMin)).toBe(93);
   });
 
-  it('a slot that starts after its window opened and gets too little is flagged with times, and is cut short', () => {
+  it('a slot that starts after its window opened and gets too little is cut short', () => {
     // California Nebula (Deep, 249 min of light, rounded up to whole subs) ends 06:35; Triangulum's only window is 01:49 to 07:11, so 32 min of its Balanced 53 to 106 are left.
     // (Before the redesign this was Orion then Triangulum: Orion's Balanced is now 105 min and ends 07:22, after Triangulum's window closed.)
     const plan = build([item('ngc1499', { mode: 'deep' }), item('m33')]);
     const s = plan.slots[1];
-    expect(codes(s)).toEqual(['overlap', 'cut-short']);
-    const overlap = s.warnings.find((w) => w.code === 'overlap')!;
-    expect(overlap.severity).toBe('warning');
-    expect(overlap.text).toMatch(/^Starts 2\d\d min late; Triangulum Galaxy's window opened \d\d:\d\d, closes 07:11\.$/);
+    expect(codes(s)).toEqual(['cut-short']);
+    expect(s.warnings[0].text).toBe('Cut short');
     expect(fmt(s.window!.end)).toBe('07:11');
     expect(s.end.getTime()).toBeLessThanOrEqual(s.window!.end.getTime());
     // The other order gives the Triangulum Galaxy its whole window: no overlap.
     const other = build([item('m33'), item('m42')]);
-    expect(codes(other.slots[0])).not.toContain('overlap');
     expect(codes(other.slots[0])).not.toContain('cut-short');
   });
 
-  it('"Overlaps window" warns only when too little is left: a start inside the window that still reaches the mode range is not flagged', () => {
-    // California Nebula after Flaming Star, both Deep: it starts 06:12, 4 hours after its window opened, and gets 197 min of Deep's aim of 127 to 254 (half to all of its stop point).
-    const plan = build([item('ic405', { mode: 'deep' }), item('ngc1499', { mode: 'deep' })]);
-    const s = plan.slots[1];
-    expect(s.integrationMin).toBeGreaterThanOrEqual(120);
-    expect(s.integrationMin).toBeLessThanOrEqual(300);
-    expect(codes(s)).toContain('cut-short');
-    expect(codes(s)).not.toContain('overlap');
-    // Over many pairs and modes: every overlap goes with light below the low end of the mode's range.
-    const ids = ['m31', 'm33', 'm42', 'ic405', 'ngc1499', 'ngc2264', 'ngc2359', 'm81', 'm51'];
-    for (const a of ids) {
-      for (const b of ids) {
-        if (a === b) continue;
-        for (const mode of ['balanced', 'deep'] as const) {
-          const sl = build([item(a, { mode }), item(b, { mode })]).slots[1];
-          const cut = sl.warnings.find((w) => w.code === 'cut-short');
-          if (sl.warnings.some((w) => w.code === 'overlap')) {
-            const low = Number(/aim (\d+) to/.exec(cut!.text)![1]);
-            expect(sl.integrationMin).toBeLessThan(low);
-          }
-        }
-      }
-    }
-  });
-
-  it('a first window much shorter than a later free one: the slot waits for the later window and says so (Andromeda, then Orion)', () => {
+  it('a first window much shorter than a later free one: the slot waits for the later window (Andromeda, then Orion)', () => {
     // Andromeda (Quick, 36 min, ends 02:28) then Orion Balanced: 03:17 to 04:06 gives 45 min of the aim 53 to 106; 05:25 to 09:21 is free.
     // (Andromeda in Balanced is now 142 min and ends 04:39, after Orion's first window.)
     const plan = build([item('m31', { mode: 'quick' }), item('m42')]);
@@ -225,19 +195,13 @@ describe('the schedule', () => {
     expect(fmt(s.window!.start)).toBe('05:25');
     expect(fmt(s.start)).toBe('05:25');
     expect(s.integrationMin).toBeGreaterThanOrEqual(60);
-    const waits = s.warnings.find((w) => w.code === 'waits')!;
-    expect(waits.text).toMatch(/^Waits 1\d\d min for the better window, 05:25 to 09:21\.$/);
-    expect(codes(s)).not.toContain('overlap');
     expect(plan.totals.waitMin).toBeGreaterThan(100);
-    // Nothing to skip when the first window is enough, or when no later window exists.
-    expect(build([item('m31'), item('m33')]).slots[1].warnings.some((w) => /better window/.test(w.text))).toBe(false);
-    expect(build([item('m42', { mode: 'quick' })]).slots[0].warnings.some((w) => /better window/.test(w.text))).toBe(false);
   });
 
   it('a target that crosses the meridian during its slot is flagged, with the flip time added', () => {
     const plan = build([item('ngc2359')]);
     expect(codes(plan.slots[0])).toContain('flip');
-    expect(plan.slots[0].warnings.find((w) => w.code === 'flip')!.text).toMatch(/Thor's Helmet crosses the meridian during this slot: a flip adds 10 min\./);
+    expect(plan.slots[0].warnings.find((w) => w.code === 'flip')!.text).toBe('Flip +10 min');
     expect(codes(build([item('m33', { mode: 'quick' })]).slots[0])).not.toContain('flip');
   });
 
@@ -246,38 +210,29 @@ describe('the schedule', () => {
     const s = plan.slots[1];
     expect(codes(s)).toEqual(['no-time']);
     expect(s.warnings[0].severity).toBe('warning');
-    expect(s.warnings[0].text).toMatch(/No time left for Andromeda Galaxy: its window closed 06:35/);
+    expect(s.warnings[0].text).toBe('No time left');
     expect(s.end.getTime()).toBe(s.start.getTime());
     expect(s.integrationMin).toBe(0);
     expect(plan.totals.changeoverMin).toBe(0);
   });
 
-  it('the no-time sentence says a changeover ended after the window closed, when that is what happened', () => {
+  it('a changeover that ends after the window closed gives no time', () => {
     // Orion Nebula (Quick) then Triangulum (Balanced) end 06:34; the 21 minute train change plus refocus that follows runs to 06:55, twenty minutes after Andromeda's window closed at 06:35.
     // (Before the exposure engine counted whole subs upward this was California Nebula in Deep, which now ends exactly at 06:35, a different sentence.)
     const plan = build([item('m42', { mode: 'quick' }), item('m33', { mode: 'balanced' }), item('m31', { trainId: NATIVE_2600 })]);
     expect(fmt(plan.slots[1].end)).toBe('06:34');
     const w = plan.slots[2].warnings[0];
     expect(w.code).toBe('no-time');
-    expect(w.text).toBe('No time left for Andromeda Galaxy: its window closed 06:35; earlier slots end 06:34, then the changeover runs to 06:55.');
-    expect(w.text).not.toMatch(/and the slots before end/);
+    expect(w.text).toBe('No time left');
   });
 
-  it('a target that never opens says so without "slots before", first or later', () => {
+  it('a target that never opens has no time, first or later', () => {
     // With a 60 degree minimum only Andromeda (high near the meridian) opens; Orion never gets that high.
     const high = { minAltitude: 60 };
     const first = build([item('m42')], high).slots[0].warnings[0].text;
-    expect(first).toBe('No time left for Orion Nebula: its window never opens.');
+    expect(first).toBe('No time left');
     const later = build([item('m31'), item('m42')], high).slots[1].warnings[0].text;
     expect(later).toBe(first);
-  });
-
-  it('the one-slot sentence counts the slots that open, not the slots listed', () => {
-    const high = { minAltitude: 60 };
-    expect(build([item('m31'), item('m42')], high).why).toBeNull();
-    expect(build([item('m42')], high).why).toBeNull();
-    expect(build([item('m42'), item('m43')], high).why).toBeNull();
-    expect(build([item('m31')]).why).toBeNull();
   });
 
   it('the totals count a train or filter change only when the slot behind it runs', () => {
@@ -289,7 +244,7 @@ describe('the schedule', () => {
     const plan = build([item('m31', { mode: 'quick' }), item('ic405', { mode: 'quick', trainId: NATIVE_2600, filterId: 'zwo-duo-band' })], { night });
     expect(plan.slots[0].integrationMin).toBeGreaterThan(0);
     expect(plan.slots[1].end.getTime()).toBe(plan.slots[1].start.getTime());
-    expect(plan.slots[1].warnings.map((w) => w.text)).toContain("1 min is left in Flaming Star Nebula's window, too little for one sub.");
+    expect(plan.slots[1].warnings.map((w) => w.text)).toContain('No time left');
     expect(plan.totals.filterChanges).toBe(0);
     expect(plan.totals.trainChanges).toBe(0);
     expect(plan.totals.changeoverMin).toBe(0);
@@ -311,8 +266,6 @@ describe('the schedule', () => {
     expect(fmt(s.window!.start)).toBe('01:49');
     expect(s.start.getTime()).toBeCloseTo(transit.getTime() - (PLANET_SLOT_MIN / 2) * MIN, -3);
     expect(s.start.getTime()).toBeGreaterThan(s.window!.start.getTime());
-    const waits = s.warnings.find((w) => w.code === 'waits')!;
-    expect(waits.text).toMatch(/^Waits 2\d min for Saturn's highest point \(02:21\)\.$/);
     // The slot's middle is at the highest altitude of its window to within a few minutes.
     const alt = (t: number) => bodyAltAz('Saturn', new Date(t), SITE).altitude;
     const mid = s.start.getTime() + (PLANET_SLOT_MIN / 2) * MIN;
@@ -338,7 +291,6 @@ describe('the schedule', () => {
       expect(fmt(s.window!.start)).toBe('04:48');
       expect(fmt(s.start)).toBe('07:07');
       expect(alt('Neptune', s)).toBeGreaterThan(56);
-      expect(s.warnings.find((w) => w.code === 'waits')!.text).toMatch(/Waits \d+ min for Neptune's highest point \(07:17\)/);
     });
 
     it('Neptune 2027-10-13: the slot holds the culmination the card reports (06:16 UTC), so the two agree', () => {
@@ -347,7 +299,6 @@ describe('the schedule', () => {
       expect(fmt(transit)).toBe('06:16');
       expect(s.start.getTime()).toBeLessThanOrEqual(transit.getTime());
       expect(s.end.getTime()).toBeGreaterThanOrEqual(transit.getTime());
-      expect(s.warnings.find((w) => w.code === 'waits')!.text).toContain('highest point (06:16)');
     });
 
     it('Moon 2027-01-26: the slot is at the 46 degree it can reach, not the 22 degree early one', () => {
@@ -355,21 +306,17 @@ describe('the schedule', () => {
       expect(alt('Moon', s)).toBeGreaterThan(45);
     });
 
-    it('when the window ends before the peak the slot says "highest point in this window" with the time it reaches it (Neptune 2027-06-12)', () => {
+    it('when the window ends before the peak the slot ends at the close (Neptune 2027-06-12)', () => {
       const s = on('2027-06-12', [item('planet-neptune')]).slots[0];
       expect(s.end.getTime()).toBe(s.window!.end.getTime());
-      const text = s.warnings.find((w) => w.code === 'waits')!.text;
-      expect(text).toMatch(/^Waits \d+ min for Neptune's highest point in this window \(\d\d:\d\d\)\.$/);
-      expect(text).not.toMatch(/centred/);
     });
 
     describe('a window that leaves under half a slot cannot beat one that leaves a full slot', () => {
       const left = (s: { start: Date; window: { end: Date } | null }) => (s.window!.end.getTime() - s.start.getTime()) / MIN;
-      it.each([['2028-07-02'], ['2027-07-03']])('Neptune %s keeps its 20 min slot, with a reason that is altitude, not the horizon', (date) => {
+      it.each([['2028-07-02'], ['2027-07-03']])('Neptune %s keeps its 20 min slot, ', (date) => {
         const s = on(date, [item('planet-neptune')]).slots[0];
         expect(s.integrationMin).toBe(PLANET_SLOT_MIN);
         expect(codes(s)).not.toContain('cut-short');
-        for (const w of s.warnings) expect(w.text).not.toMatch(/clear the horizon/);
       });
       it('Jupiter 2028-12-25 keeps the 26 min window', () => {
         const s = on('2028-12-25', [item('planet-jupiter')]).slots[0];
@@ -382,28 +329,17 @@ describe('the schedule', () => {
         const s = on('2028-12-28', [item('planet-jupiter')]).slots[0];
         expect(Math.round(left(s))).toBeGreaterThanOrEqual(10);
         expect(alt('Jupiter', s)).toBeGreaterThan(40);
-        expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toMatch(/cut to 1\d min \(planned 20\)/);
+        expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toBe('Cut short');
       });
       it('Moon 2027-12-20 keeps a slot of at least 10 min', () => {
         const s = on('2027-12-20', [item('planet-moon')]).slots[0];
         expect(s.integrationMin).toBeGreaterThanOrEqual(10);
         expect(s.integrationMin).toBeGreaterThan(12);
       });
-      it('Jupiter 2028-12-28: skipping an earlier clear window for altitude says altitude, never the horizon', () => {
-        const s = on('2028-12-28', [item('planet-jupiter')]).slots[0];
-        const text = s.warnings.find((w) => w.code === 'waits')!.text;
-        expect(text).toMatch(/^Waits \d+ min: Jupiter is higher in the window that opens 12:48\.$/);
-        expect(text).not.toMatch(/clear the horizon/);
-      });
-      it('a planet that waits only for its one window to open still says so', () => {
-        const text = on('2027-12-20', [item('planet-moon')]).slots[0].warnings.find((w) => w.code === 'waits')!.text;
-        expect(text).toMatch(/^Waits \d+ min for Moon to clear the horizon \(its window opens 10:19\)\.$/);
-      });
-      it('Uranus 2027-09-26: 19.7 min is not reported as "cut to 20 min (planned 20)"', () => {
+      it('Uranus 2027-09-26: 19.7 min is under the slot and cut short', () => {
         const s = on('2027-09-26', [item('planet-uranus')]).slots[0];
         expect(s.integrationMin).toBeLessThan(PLANET_SLOT_MIN);
-        const text = s.warnings.find((w) => w.code === 'cut-short')!.text;
-        expect(text).toContain('so the slot is cut to just under 20 min (planned 20).');
+        expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toBe('Cut short');
       });
       it('a window is judged by the minutes it leaves, not by the light after a flip (Neptune 2026-12-15, a wall of trees after the meridian)', () => {
         // The first window (01:49 to 02:01) leaves 12 min and holds the meridian crossing, so the flip takes 10 of them and leaves 2 min of light.
@@ -434,45 +370,33 @@ describe('the schedule', () => {
       });
     });
 
-    it('a planet slot never uses the deep-sky wording about the mode', () => {
-      for (const date of ['2026-12-15', '2027-09-28', '2027-06-12', '2027-01-26']) {
-        for (const id of ['planet-neptune', 'planet-moon', 'planet-saturn']) {
-          for (const w of on(date, [item(id)]).slots[0].warnings) expect(w.text).not.toMatch(/better window/);
-        }
-      }
-    });
   });
 
-  it('a target whose only window closes as the night starts says so, not "the slots before end" (Thor\'s Helmet, 2027-03-27)', () => {
+  it('a target whose only window closes as the night starts has no time (Thor\'s Helmet, 2027-03-27)', () => {
     const plan = build([item('ngc2359')], { night: tonightsNight(SITE, '2027-03-27') });
-    const text = plan.slots[0].warnings[0].text;
     expect(codes(plan.slots[0])).toEqual(['no-time']);
-    expect(text).toMatch(/^No time left for Thor's Helmet: its window closes \d\d:\d\d, as the night starts \(\d\d:\d\d\)\.$/);
-    expect(text).not.toMatch(/slots before/);
+    expect(plan.slots[0].warnings[0].text).toBe('No time left');
   });
 
-  describe('a longer later window that is not taken is named in the Cut short sentence', () => {
+  describe('a window that leaves less than the aim is cut short', () => {
     const on = (date: string, items: ItineraryItem[]) => build(items, { night: tonightsNight(SITE, date) });
 
-    it('Orion, Deep, 2027-10-03: the later window is also under the minimum, so it is not taken, and the sentence says so', () => {
+    it('Orion, Deep, 2027-10-03: the later window is also under the minimum, so it is not taken', () => {
       const s = on('2027-10-03', [item('m42', { mode: 'deep' })]).slots[0];
       expect(fmt(s.start)).toBe('08:05'); // the first window; the later one (10:13) is not taken
       expect(fmt(s.window!.start)).toBe('08:05');
       expect(s.integrationMin).toBeLessThan(119);
-      expect(s.warnings.some((w) => /better window/.test(w.text))).toBe(false);
-      const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
-      expect(cut).toMatch(/^Window closes \d\d:\d\d: light cut to \d+ min \(aim 120 to \d+\)\.$/);
+      expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toBe('Cut short');
     });
 
-    it('Orion, Quick, 2027-10-19: a later window with more light is named even though the first one reaches the minimum', () => {
+    it('Orion, Quick, 2027-10-19: the first window reaches the minimum', () => {
       const s = on('2027-10-19', [item('m42', { mode: 'quick' })]).slots[0];
       expect(fmt(s.start)).toBe('07:02');
       expect(s.integrationMin).toBeGreaterThanOrEqual(30); // the low end of the aim, 30 to 60
-      const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
-      expect(cut).toMatch(/^Window closes \d\d:\d\d: light cut to \d+ min \(aim 30 to 60\)\.$/);
+      expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toBe('Cut short');
     });
 
-    it('Cigar Galaxy, Deep, 2028-08-27: the first window gives no subs, so the slot takes the later window with 60 min and says so', () => {
+    it('Cigar Galaxy, Deep, 2028-08-27: the first window gives no subs, so the slot takes the later window with 60 min', () => {
       // The first window is 03:24 to 03:27. With subs this short a 3 minute window now always holds a few, so the slot uses a narrowband filter
       // (300 s subs): the window is under one sub, and the later window is the only way to get light.
       const s = on('2028-08-27', [item('m82', { mode: 'deep', filterId: 'optolong-lextreme' })]).slots[0];
@@ -481,19 +405,13 @@ describe('the schedule', () => {
       expect(s.integrationMin).toBeLessThanOrEqual(64);
       expect(fmt(s.window!.start)).toBe('10:27');
       expect(codes(s)).not.toContain('no-time');
-      expect(s.warnings.find((w) => w.code === 'waits')!.text).toMatch(/^Waits \d+ min for the better window, 10:27 to 11:31\.$/);
-          });
-
-    it('Cigar Galaxy, Balanced, 2027-08-15: a later window with less light (0 min) is not named', () => {
-      const s = on('2027-08-15', [item('m82')]).slots[0];
-      expect(s.integrationMin).toBeGreaterThan(30);
-      const cut = s.warnings.find((w) => w.code === 'cut-short')!.text;
-      expect(cut).toBe('Window closes 04:17: light cut to 31 min (aim 53 to 106).');
     });
 
-    it('a cut-short slot gives the one short sentence and says nothing of another window', () => {
-      const s = build([item('m33', { mode: 'deep' })]).slots[0];
-      for (const w of s.warnings.filter((x) => x.code === 'cut-short')) expect(w.text).toMatch(/^Window closes \d\d:\d\d: light cut to [\d.]+ min \(aim \d+ to \d+\)\.$/);
+    it('Cigar Galaxy, Balanced, 2027-08-15: a later window with less light (0 min) is not taken', () => {
+      const s = on('2027-08-15', [item('m82')]).slots[0];
+      expect(s.integrationMin).toBeGreaterThan(30);
+      expect(fmt(s.window!.end)).toBe('04:17');
+      expect(s.warnings.find((w) => w.code === 'cut-short')!.text).toBe('Cut short');
     });
   });
 
@@ -505,7 +423,7 @@ describe('the schedule', () => {
     expect(fmt(s.start)).toBe('01:49'); // centring would start at 01:46, before the night: the night's start holds
     expect(s.start.getTime()).toBeLessThanOrEqual(transit.getTime());
     expect(codes(s)).toContain('flip');
-    expect(s.warnings.find((w) => w.code === 'flip')!.text).toBe('Neptune crosses the meridian during this slot: a flip adds 10 min.');
+    expect(s.warnings.find((w) => w.code === 'flip')!.text).toBe('Flip +10 min');
     expect(s.integrationMin).toBe(PLANET_SLOT_MIN);
     expect((s.end.getTime() - s.start.getTime()) / MIN).toBe(PLANET_SLOT_MIN + 10);
     // The next slot starts after the flip, not after the light.
@@ -530,7 +448,7 @@ describe('the schedule', () => {
     expect(s.subSeconds).toBeNull();
   });
 
-  it('a planet slot that starts late in a closing window is cut to what is left, and the overlap is named', () => {
+  it('a planet slot that starts late in a closing window is cut to what is left', () => {
     // With a 53 degree minimum, Saturn's window closes at 03:34; California Nebula (Quick, 30 min) ends 03:23, so Saturn starts 03:26.
     const plan = build([item('ngc1499', { mode: 'quick' }), item('planet-saturn')], { minAltitude: 53 });
     const s = plan.slots[1];
@@ -538,8 +456,8 @@ describe('the schedule', () => {
     const left = (s.window!.end.getTime() - s.start.getTime()) / MIN;
     expect(left).toBeLessThan(PLANET_SLOT_MIN);
     expect((s.end.getTime() - s.start.getTime()) / MIN).toBeCloseTo(left, 6);
-    expect(codes(s)).toEqual(['overlap', 'cut-short']);
-    expect(s.warnings[1].text).toMatch(/^The window closes 03:34, so the slot is cut to \d+ min \(planned 20\)\./);
+    expect(codes(s)).toEqual(['cut-short']);
+    expect(s.warnings[0].text).toBe('Cut short');
   });
 
   it('a slot that would start after the planet is gone is a no-time slot', () => {
@@ -562,16 +480,6 @@ describe('the schedule', () => {
     expect(plan.slots[0].warnings[0].text).toMatch(/no optics numbers/);
   });
 
-  it('why this order: one short sentence, sorted by opening or your own order named as such', () => {
-    const sorted = build([item('m31'), item('m81')]);
-    expect(sorted.why).toBeNull();
-    const unsorted = build([item('m81'), item('m31')]);
-    expect(unsorted.why).toBe("Your order: Andromeda Galaxy opens at 01:49, before Bode's Galaxy at 03:22.");
-    expect(build([]).why).toBeNull();
-    expect(build([item('m31')]).why).toBeNull();
-    expect(unsorted.why!.length).toBeLessThan(120);
-  });
-
   it('the totals count the changes and the waiting the sentence leaves out', () => {
     const plan = build([item('m31'), item('ic405', { filterId: 'zwo-duo-band', trainId: NATIVE_2600 })]);
     expect(plan.totals.filterChanges).toBe(1);
@@ -579,21 +487,6 @@ describe('the schedule', () => {
     expect(plan.totals.changeoverMin).toBe(23);
     expect(plan.totals.waitMin).toBe(0);
     expect(plan.totals.ends).toEqual(plan.slots[1].end);
-  });
-
-  it('no real warning is longer than the worst case the page reserves room for', () => {
-    const ids = ['m31', 'm42', 'ngc2359', 'm81', 'planet-saturn', 'planet-neptune', 'planet-moon', 'm13', 'ic405'];
-    for (const order of [ids, [...ids].reverse(), [ids[1], ids[0], ids[4], ids[2]]]) {
-      const plan = build(order.map((id) => item(id)), { minAltitude: 30 });
-      for (const s of plan.slots) {
-        const worst = worstCaseWarningTexts(s.name);
-        for (const w of s.warnings.filter((x) => ['overlap', 'cut-short', 'flip', 'waits'].includes(x.code))) {
-          const label = { 'cut-short': 'Cut short', flip: 'Meridian flip', waits: 'Waits', overlap: 'Overlaps window' }[w.code as string]!;
-          const ruler = worst.find((x) => x.label === label)!;
-          expect(w.text.length).toBeLessThanOrEqual(ruler.text.length);
-        }
-      }
-    }
   });
 
   it('invariants over many orders: slots never overlap, stay inside their window and the night, and gaps cover the changeover', () => {

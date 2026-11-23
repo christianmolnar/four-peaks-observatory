@@ -58,7 +58,7 @@ describe('start time in the schedule', () => {
   it('a start before the night begins at the night start, and says so in plain words', () => {
     const plan = build(['m31'], new Date((NIGHT.start as Date).getTime() - 90 * MIN));
     expect(plan.startsAt).toEqual(NIGHT.start);
-    expect(plan.startNote).toBe(`Your start time is before the night: imaging begins when the night starts, ${fmt(NIGHT.start as Date)}.`);
+    expect(plan.startNote).toBe('Start before night');
     expect(plan.slots[0].end.getTime()).toBeGreaterThan(plan.slots[0].start.getTime());
   });
   it('a start in the same minute as the night start is the night start: no warning', () => {
@@ -68,18 +68,18 @@ describe('start time in the schedule', () => {
     const plan = build(['m31'], sameMinute);
     expect(plan.startNote).toBeNull();
     expect(plan.startsAt).toEqual(NIGHT.start);
-    expect(build(['m31'], new Date(sameMinute.getTime() - MIN)).startNote).toMatch(/^Your start time is before the night/);
+    expect(build(['m31'], new Date(sameMinute.getTime() - MIN)).startNote).toBe('Start before night');
   });
-  it('the first slot with no time left names the start time you gave, not "as the night starts"', () => {
+  it('the first slot with no time left has no time left', () => {
     // M31's only window closes at 06:35 UTC at this site and date; a start at 08:00 UTC is after it.
     const start = new Date('2026-12-16T08:00:00Z');
     const plan = build(['m31'], start);
     expect(plan.slots[0].warnings.map((w) => w.code)).toEqual(['no-time']);
-    expect(plan.slots[0].warnings[0].text).toBe('No time left for Andromeda Galaxy: its window closes 06:35, before your start time (08:00).');
+    expect(plan.slots[0].warnings[0].text).toBe('No time left');
   });
   it('a start after the night ends gives every slot no time and a message, and does not throw', () => {
     const plan = build(['m31', 'm42'], new Date((NIGHT.end as Date).getTime() + 30 * MIN));
-    expect(plan.startNote).toMatch(/is after the night ends \(12:55\), so there is no time for any slot\.$/);
+    expect(plan.startNote).toBe('Start after night');
     for (const s of plan.slots) {
       expect(s.end.getTime()).toBe(s.start.getTime());
       expect(s.altitudes).toBeNull();

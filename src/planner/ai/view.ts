@@ -161,7 +161,6 @@ export function timelinePlanOf({ items, inputs, result, site, horizon, minAltitu
     startsAt: slots[0]?.start ?? new Date(0),
     startNote: null,
     slots,
-    why: '',
     totals: {
       integrationMin: slots.reduce((n, s) => n + s.integrationMin, 0),
       changeoverMin: 0,
