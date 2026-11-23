@@ -43,7 +43,7 @@ export const LIST_SPECS: Record<ListKey, ListSpec> = {
       { key: 'latitude', label: 'Latitude', kind: 'number', unit: 'north is positive', required: true },
       { key: 'longitude', label: 'Longitude', kind: 'number', unit: 'east is positive', required: true },
       { key: 'elevationM', label: 'Elevation', kind: 'number' },
-      { key: 'timeZone', label: 'Time zone', kind: 'text', unit: 'e.g. America/Phoenix; empty uses your browser' },
+      { key: 'timeZone', label: 'Time zone', kind: 'text', unit: 'e.g. America/Phoenix' },
       { key: 'bortle', label: 'Sky darkness, Bortle class', kind: 'choice', numeric: true, emptyText: `Not set (${DEFAULT_BORTLE} assumed)`, options: ['1', '2', '3', '4', '5', '6', '7', '8', '9'], unit: '1 to 9, 1 is darkest' },
     ],
   },
@@ -57,8 +57,8 @@ export const LIST_SPECS: Record<ListKey, ListSpec> = {
     noun: 'accessory',
     fields: [
       NAME,
-      { key: 'factor', label: 'Focal length factor', kind: 'number', unit: '0.7 is a reducer, 2.5 an extender' },
-      { key: 'effectiveFocalLengthMm', label: 'Whole-scope focal length', kind: 'number', unit: 'only for HyperStar-type parts' },
+      { key: 'factor', label: 'Focal length factor', kind: 'number' },
+      { key: 'effectiveFocalLengthMm', label: 'Whole-scope focal length', kind: 'number' },
     ],
   },
   cameras: {

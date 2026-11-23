@@ -123,7 +123,7 @@ function BandRows({ idBase, texts, rows, onEdit, onAdd, onRemove }: { idBase: st
   return (
     <div className="sm:col-span-2 xl:col-span-3 min-w-0">
       <p className="mb-2 break-words text-sm font-normal text-p-t1/70" id={`${idBase}-bands-help`}>
-        Passbands: centre {rangeText(GEAR_LIMITS.passbandCentreNm)}, width {rangeText(GEAR_LIMITS.bandWidthNm)}, at most {MAX_PASSBANDS} bands that do not overlap.
+        Passbands: centre {rangeText(GEAR_LIMITS.passbandCentreNm)}, width {rangeText(GEAR_LIMITS.bandWidthNm)}, {MAX_PASSBANDS} bands at most.
       </p>
       <div className="space-y-3 [&>*]:min-w-0">
         {Array.from({ length: rows }, (_, i) => i + 1).map((row) => (

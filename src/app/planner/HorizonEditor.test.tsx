@@ -1157,9 +1157,8 @@ describe('layout: zone cards above the chart in at most 2 columns', () => {
     expect(document.activeElement).toBe(button('Add a zone'));
   });
 
-  it('a full circle does not end "Nothing is blocked elsewhere."; a partial one does', () => {
-    expect(describeArcs([{ startAz: 0, endAz: 180, heightDeg: 20 }, { startAz: 180, endAz: 0, heightDeg: 30 }])).not.toContain('elsewhere');
-    expect(describeArcs([{ startAz: 0, endAz: 180, heightDeg: 20 }, { startAz: 180, endAz: 350, heightDeg: 30 }])).toContain('Nothing is blocked elsewhere.');
+  it('the zones are listed with numbers only, no sentence about what is not blocked', () => {
+    expect(describeArcs([{ startAz: 0, endAz: 180, heightDeg: 20 }, { startAz: 180, endAz: 350, heightDeg: 30 }])).not.toContain('elsewhere');
   });
 
   it('the Tonight Horizon line says no overlap sentence', async () => {

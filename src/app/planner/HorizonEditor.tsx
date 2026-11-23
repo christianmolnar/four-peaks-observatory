@@ -51,10 +51,7 @@ export function describeArcs(arcs: readonly BlockedArc[]): string {
   if (arcs.length === 0) return 'Horizon not set';
   const one = (a: BlockedArc) => `from ${a.startAz} deg (${compass(a.startAz)}) clockwise to ${a.endAz} deg (${compass(a.endAz)}), up to ${a.heightDeg} deg high`;
   const overlaps = describeOverlaps(arcs);
-  // Every direction is covered when the stretches add up to the full circle: then there is no "elsewhere".
-  const covered = zoneSpans(arcs).reduce((sum, s) => sum + (((s.to - s.from + 360) % 360) || 360), 0);
-  const elsewhere = covered >= 360 ? '' : 'Nothing is blocked elsewhere.';
-  const tail = [overlaps, elsewhere].filter(Boolean).join(' ');
+  const tail = overlaps;
   if (arcs.length === 1) return `Blocked ${one(arcs[0])}.${tail && ` ${tail}`}`;
   return `${arcs.length} blocked zones: ${arcs.map((a, i) => `${i + 1}, ${one(a)}`).join('; ')}.${tail && ` ${tail}`}`;
 }

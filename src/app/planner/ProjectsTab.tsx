@@ -347,7 +347,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
             <button id="project-new" type="button" className={btn} onClick={() => startNew(false)}>New project</button>
             <button type="button" className={btn} onClick={() => startNew(true)}>Start from last night&rsquo;s hours</button>
           </div>
-          <p className="text-sm font-normal text-p-t1/70">Last night&rsquo;s hours: {seedSessions().map((s) => `${targetName(s.targetId)} ${s.minutes} min`).join(', ')}, all {BROADBAND_NAME.toLowerCase()}. Nothing is saved until you review them.</p>
+          <p className="text-sm font-normal text-p-t1/70">Last night&rsquo;s hours: {seedSessions().map((s) => `${targetName(s.targetId)} ${s.minutes} min`).join(', ')}, all {BROADBAND_NAME.toLowerCase()}</p>
           {importBox}
         </div>
       ) : (
