@@ -61,7 +61,7 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
   return (
     <>
       {noneJudged ? (
-        <p className="break-words" data-testid={`nb-none-${idBase}`}>None of your filters is a narrowband filter with known passbands.</p>
+        <p className="break-words" data-testid={`nb-none-${idBase}`}>No narrowband filters</p>
       ) : (
       <ul className="space-y-2">
         {result.filters.map((f) => {

@@ -127,20 +127,17 @@ export function valueText(key: GearLimitKey | SiteLimitKey, value: unknown): str
   return `${fmt(value)}${limit.unit === '' ? '' : ` ${limit.unit}`}`;
 }
 
-/**
- * "Focal length 99,999 mm is outside 10 to 10,000 mm, so the planner does not use it." A saved value that is not a number says so, in words
- * for any stored type. `use` is what is not used: "it" for a gear value, "this site" for a site's.
- */
-export function problemText(p: { key: GearLimitKey | SiteLimitKey; value: unknown }, use = 'it'): string {
+/** "Focal length 99,999 mm: outside 10 to 10,000 mm". A saved value that is not a number says so, for any stored type. */
+export function problemText(p: { key: GearLimitKey | SiteLimitKey; value: unknown }): string {
   const limit = ALL_LIMITS[p.key];
   const noun = capitalised(limit.noun);
   const shown = valueText(p.key, p.value);
   if (typeof p.value !== 'number') {
     const odd = typeof p.value === 'object' && p.value !== null;
-    return `${noun} is saved as ${shown}${odd ? '' : ', which is not a number'}, so the planner does not use ${use}. Enter ${limit.whole ? 'a whole number' : 'a number'} from ${rangeText(limit)}.`;
+    return `${noun}${odd ? '' : `: ${shown}`}, not a number. Use ${rangeText(limit)}.`;
   }
-  if (shown.startsWith('an ')) return `${noun} is ${shown}, outside ${rangeText(limit)}, so the planner does not use ${use}.`;
-  return `${noun} ${shown} is outside ${rangeText(limit)}, so the planner does not use ${use}.`;
+  if (shown.startsWith('an ')) return `${noun}: ${shown.slice(3)}, outside ${rangeText(limit)}.`;
+  return `${noun} ${shown}: outside ${rangeText(limit)}.`;
 }
 
 const KEYS = Object.keys(GEAR_LIMITS) as GearLimitKey[];

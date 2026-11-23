@@ -83,7 +83,7 @@ describe('a stored profile with values outside the ranges', () => {
         return;
       }
       expect(outcome?.ok).toBe(false);
-      expect(note).toMatch(/is outside .*, so no exposure is shown\. Change it in Gear\.$/);
+      expect(note).toMatch(/: outside .*\. No exposure\.$/);
       expect(slot.gearNote).toBe(note);
     });
   }
@@ -158,14 +158,14 @@ describe('plain messages for the boxes', () => {
     const s = (t: Record<string, string>) => () => replaceItem(p, 'sites', site.id, { name: 'Site', latitude: '33', longitude: '-111', ...t });
     expect(s({ latitude: '95' })).toThrow('Latitude: 95 is outside the allowed range. Enter a latitude between -90 and 90 deg.');
     expect(s({ latitude: '' })).toThrow('Latitude: the box is empty. Enter a latitude between -90 and 90 deg.');
-    expect(s({ timeZone: 'Mars/Olympus' })).toThrow('Time zone: "Mars/Olympus" is not a time zone name. Enter one such as America/Phoenix, or leave it empty to use your browser.');
+    expect(s({ timeZone: 'Mars/Olympus' })).toThrow('Time zone: "Mars/Olympus" is not a time zone name. Example: America/Phoenix.');
     const cam = p.equipment.cameras[0];
     expect(() => replaceItem(p, 'cameras', cam.id, { name: 'Cam', sensorWidthPx: '0.5' })).toThrow('Sensor width: 0.5 is outside the allowed range. Enter a whole number for the sensor width between 100 and 20,000 px.');
   });
   it('an empty or a duplicate name says so plainly', () => {
     const two = addItem(p, 'scopes').equipment.scopes; // "New scope" beside the sample's scope
     expect(save({ name: '   ' })).toThrow('Name: enter a name for this scope.');
-    expect(() => replaceItem(addItem(p, 'scopes'), 'scopes', two[0].id, { name: two[1].name.toUpperCase(), focalLengthMm: '800', apertureMm: '100' })).toThrow(`Name: there is already a scope named "${two[1].name.toUpperCase()}". Give this one a different name.`);
+    expect(() => replaceItem(addItem(p, 'scopes'), 'scopes', two[0].id, { name: two[1].name.toUpperCase(), focalLengthMm: '800', apertureMm: '100' })).toThrow(`Name: scope "${two[1].name.toUpperCase()}" exists already.`);
   });
 });
 
@@ -177,7 +177,7 @@ describe('rows with no pixel size', () => {
     const { pixelSizeUm: _x, ...rest } = cam;
     void _x;
     const q = { ...p, equipment: { ...p.equipment, cameras: p.equipment.cameras.map((c) => (c.id === cam.id ? rest : c)) } };
-    expect(trainGearNote(q, t)).toBe(`Pixel size is not set for ${cam.name}, so no exposure is shown. Add it in Gear.`);
+    expect(trainGearNote(q, t)).toBe(`Pixel size not set for ${cam.name}. No exposure.`);
     expect(trainGearNote(p, t)).toBeNull();
   });
 });
@@ -191,15 +191,15 @@ describe('a stored value that is negative, zero, empty or text (round 3)', () =>
       const [flag] = gearProblems(loaded);
       expect(flag.key).toBe('focalLengthMm');
       expect(problemText(flag)).not.toMatch(/\$\.|undefined|NaN/);
-      expect(trainGearNote(loaded, opticalTrain(loaded))).toMatch(typeof v === 'number' ? /\(-?\d+ mm\) is outside 10 to 10,000 mm, so no exposure is shown\. Change it in Gear\.$/ : /is saved as (nothing|"abc"), which is not a number, so no exposure is shown\. Change it in Gear\.$/);
+      expect(trainGearNote(loaded, opticalTrain(loaded))).toMatch(typeof v === 'number' ? /\(-?\d+ mm\): outside 10 to 10,000 mm\. No exposure\.$/ : /: (nothing|"abc"), not a number\. No exposure\.$/);
     }
   });
   it('reads absurd values plainly and a text value as not a number', () => {
-    expect(problemText({ key: 'focalLengthMm', value: 1e300 })).toBe('Focal length is an impossibly large number, outside 10 to 10,000 mm, so the planner does not use it.');
-    expect(problemText({ key: 'pixelSizeUm', value: 1e-300 })).toBe('Pixel size is an impossibly small number, outside 1 to 25 µm, so the planner does not use it.');
-    expect(problemText({ key: 'focalLengthMm', value: -100 })).toBe('Focal length -100 mm is outside 10 to 10,000 mm, so the planner does not use it.');
-    expect(problemText({ key: 'focalLengthMm', value: 'abc' })).toBe('Focal length is saved as "abc", which is not a number, so the planner does not use it. Enter a number from 10 to 10,000 mm.');
-    expect(problemText({ key: 'focalLengthMm', value: null })).toMatch(/is saved as nothing, which is not a number/);
+    expect(problemText({ key: 'focalLengthMm', value: 1e300 })).toBe('Focal length: impossibly large number, outside 10 to 10,000 mm.');
+    expect(problemText({ key: 'pixelSizeUm', value: 1e-300 })).toBe('Pixel size: impossibly small number, outside 1 to 25 µm.');
+    expect(problemText({ key: 'focalLengthMm', value: -100 })).toBe('Focal length -100 mm: outside 10 to 10,000 mm.');
+    expect(problemText({ key: 'focalLengthMm', value: 'abc' })).toBe('Focal length: "abc", not a number. Use 10 to 10,000 mm.');
+    expect(problemText({ key: 'focalLengthMm', value: null })).toMatch(/: nothing, not a number/);
   });
   it('a profile problem is told by item and box, never by path', () => {
     const p = JSON.parse(JSON.stringify(base()));
@@ -227,18 +227,17 @@ describe('round 4: odd stored types and the whole-scope range', () => {
     expect(valueText('focalLengthMm', value)).toBe(shown);
     const text = problemText({ key: 'focalLengthMm', value });
     expect(text).not.toMatch(/\[object|outside/);
-    expect(text).toContain(`Focal length is saved as ${shown}`);
-    expect(text).toContain('so the planner does not use it. Enter a number from 10 to 10,000 mm.');
+    expect(text).toContain('not a number. Use 10 to 10,000 mm.');
   });
 
-  it('a site number says "this site"; a site with a bad number is kept, flagged and not usable', () => {
+  it('a site with a bad number is kept, flagged and not usable', () => {
     const p = base();
     const bad = { ...p, sites: [{ ...p.sites[0], latitude: -100 }, { ...p.sites[0], id: 'ok', name: 'Fine' }] };
     const kept = validateProfile(bad, { lenient: true });
     expect(kept.sites[0].latitude).toBe(-100);
     expect(siteProblems(kept).map((x) => [x.id, x.key])).toEqual([[p.sites[0].id, 'latitude']]);
     expect(usableSites(kept).map((s) => s.id)).toEqual(['ok']);
-    expect(problemText({ key: 'latitude', value: -100 }, 'this site')).toBe('Latitude -100 deg is outside -90 to 90 deg, so the planner does not use this site.');
+    expect(problemText({ key: 'latitude', value: -100 })).toBe('Latitude -100 deg: outside -90 to 90 deg.');
     expect(() => validateProfile(bad)).toThrow(ProfileError); // typed or imported: still refused
   });
 
@@ -249,7 +248,7 @@ describe('round 4: odd stored types and the whole-scope range', () => {
     const accessories = [...p.equipment.accessories, { id: 'red', name: 'Reducer 0.7x', factor: 0.7 }];
     const next: Profile = { ...p, equipment: { ...p.equipment, scopes, accessories } };
     const train = { ...t, scopeId: 'wide', accessoryIds: ['red'] };
-    expect(reducedFocalNote(next, train)).toBe('With Reducer 0.7x the focal length of 14 mm lens is 9.8 mm, under the 10 mm the planner is built for. Numbers are still shown; check them.');
+    expect(reducedFocalNote(next, train)).toBe('Focal length 9.8 mm, under 10 mm');
     expect(trainGearNote(next, train)).toBeNull();
     expect(reducedFocalNote(next, { ...train, accessoryIds: [] })).toBeNull();
     expect(reducedFocalNote(next, { ...train, scopeId: t.scopeId })).toBeNull(); // 2800 mm x 0.7 is far over the floor

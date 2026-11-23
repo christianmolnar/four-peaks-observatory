@@ -204,7 +204,7 @@ export default function ProjectEditor({ title, initial, profile, targetName, fil
         {fe(`${uid}-targets-err`, errors.targets)}
 
         <p id={`${uid}-optional`} className="text-sm font-normal text-p-t1/70">
-          Planned minutes per filter and target; leave a box empty if unused. Optional lines are left out of every total.
+          Minutes per filter (optional)
         </p>
         <ul className="space-y-3" aria-label="Targets of the project">
           {d.targets.map((t) => (

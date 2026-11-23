@@ -71,7 +71,7 @@ interface Need {
 
 /**
  * Why a train cannot give an exposure, as one plain sentence with the way out, or null when every number it needs is set and in range.
- * "Pixel size is not set for ZWO ASI2600MC Duo, so no exposure is shown. Add it in Gear."
+ * "Pixel size not set for ZWO ASI2600MC Duo. No exposure."
  */
 export function trainGearNote(profile: Profile, train: TrainEntry): string | null {
   if (train.kind !== 'optical') return null;
@@ -93,14 +93,13 @@ export function trainGearNote(profile: Profile, train: TrainEntry): string | nul
   }
   const parts = needs.flatMap((n) => {
     const limit = GEAR_LIMITS[n.key];
-    if (n.value === undefined) return [`${limit.noun} is not set for ${n.owner}`];
-    if (typeof n.value !== 'number') return [`${limit.noun} of ${n.owner} is saved as ${valueText(n.key, n.value)}, which is not a number`];
-    if (!inRange(limit, n.value)) return [`${limit.noun} of ${n.owner} (${valueText(n.key, n.value)}) is outside ${rangeText(limit)}`];
+    if (n.value === undefined) return [`${limit.noun} not set for ${n.owner}`];
+    if (typeof n.value !== 'number') return [`${limit.noun} of ${n.owner}: ${valueText(n.key, n.value)}, not a number`];
+    if (!inRange(limit, n.value)) return [`${limit.noun} of ${n.owner} (${valueText(n.key, n.value)}): outside ${rangeText(limit)}`];
     return [];
   });
   if (parts.length === 0) return null;
-  const unset = parts.every((p) => p.includes(' is not set for '));
-  return `${capitalised(parts.join('; '))}, so no exposure is shown. ${unset ? (parts.length === 1 ? 'Add it in Gear.' : 'Add them in Gear.') : 'Change it in Gear.'}`;
+  return `${capitalised(parts.join('; '))}. No exposure.`;
 }
 
 /**
@@ -116,5 +115,5 @@ export function reducedFocalNote(profile: Profile, train: TrainEntry): string | 
   const effective = accessories.reduce((k, a) => k * (a.factor as number), scope.focalLengthMm);
   const floor = GEAR_LIMITS.focalLengthMm.min;
   if (effective >= floor) return null;
-  return `With ${accessories.map((a) => a.name).join(' + ')} the focal length of ${scope.name} is ${Math.round(effective * 100) / 100} mm, under the ${floor} mm the planner is built for. Numbers are still shown; check them.`;
+  return `Focal length ${Math.round(effective * 100) / 100} mm, under ${floor} mm`;
 }

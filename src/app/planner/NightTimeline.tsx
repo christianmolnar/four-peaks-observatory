@@ -257,7 +257,7 @@ export default function NightTimeline({ plan, inputs, night, site, horizon, minA
       <details className="group mt-2" data-testid="timeline-numbers">
         <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1 font-normal text-sm"><DisclosureChevron />Altitude numbers as a table</summary>
         <table className="mt-1 w-full table-fixed text-left text-sm font-normal text-p-t1">
-          <caption className="sr-only">Altitude and compass direction at the start, middle and end of each slot</caption>
+          <caption className="sr-only">Altitude and direction per slot</caption>
           <thead>
             <tr>
               <th scope="col" className="w-[26%] pr-1 align-bottom">Slot</th>

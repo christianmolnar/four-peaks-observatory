@@ -597,9 +597,6 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
   return (
     <section aria-labelledby="gear-heading" className="bg-p-bg/70 rounded-lg border border-p-line/10 p-4 sm:p-6">
       <h2 id="gear-heading" className="text-xl font-light text-p-t1 tracking-[0.15em] mb-2">GEAR</h2>
-      <p data-testid="setup-help" className="text-p-t1/70 font-normal text-sm mb-3">
-        A setup (train) is one scope with its camera, filter and accessories. Leave an optional box empty when you do not know it.
-      </p>
       <div role="group" aria-label="Gear class" className="flex flex-wrap gap-2">
         {GEAR_CLASSES.map((c) => (
           <button key={c.id} type="button" aria-pressed={cls === c.id} className={`${btn} ${cls === c.id ? 'bg-p-raised/15 border-p-accent' : ''}`} onClick={() => pick(c.id)}>
@@ -647,7 +644,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
             e.kind !== 'item'
               ? []
               : e.list === 'sites'
-                ? siteBadKeys(e.item).map((key) => problemText({ key, value: valueOf(e.item, key) }, 'this site'))
+                ? siteBadKeys(e.item).map((key) => problemText({ key, value: valueOf(e.item, key) }))
                 : outOfRangeKeys(e.item).map((key) => problemText({ key, value: valueOf(e.item, key) }));
           const focalNote = e.kind === 'train' ? reducedFocalNote(profile, e.train) : null;
           const isOpen = editing === card;
@@ -675,7 +672,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
               {flags.map((t) => (
                 <p key={t} className="mt-1 break-words text-sm font-normal text-p-warn-text" data-testid="gear-flag">
                   <span aria-hidden="true">! </span>
-                  {t} Change it and press Save.
+                  {t}
                 </p>
               ))}
               <div className="mt-2 flex flex-wrap gap-2">
@@ -724,7 +721,7 @@ function ProfileEditor({ profile, onChange, findSite, plans, openTrainId, onUseT
       {flagged.length > 0 && (
         <p className="mt-3 break-words text-sm font-normal text-p-warn-text" data-testid="gear-flagged">
           <span aria-hidden="true">! </span>
-          {flagged.length === 1 ? '1 saved value is' : `${flagged.length} saved values are`} not usable (outside the allowed range or not a number).
+          {flagged.length === 1 ? '1 saved value' : `${flagged.length} saved values`} not usable
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-3">

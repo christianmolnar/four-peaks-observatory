@@ -1174,7 +1174,7 @@ describe('layout: zone cards above the chart in at most 2 columns', () => {
     expect(summary()).not.toContain('overlap');
   });
 
-  it('the compass follows the cards and comes before the buttons and the summary (phone order)', async () => {
+  it('the compass follows the cards and comes before the buttons (phone order)', async () => {
     await app();
     await user().click(button('Add another zone'));
     const grid = screen.getByTestId('zone-grid');
@@ -1182,7 +1182,6 @@ describe('layout: zone cards above the chart in at most 2 columns', () => {
     const add = button('Add another zone');
     expect(grid.compareDocumentPosition(compass) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(compass.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(compass.compareDocumentPosition(screen.getByText(/^Compass degrees run clockwise/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('the message slot takes no room at xl while there is no message, and two lines while there is one', async () => {

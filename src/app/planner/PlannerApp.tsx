@@ -466,7 +466,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       const sites = siteProblems(r.profile);
       const said = [
         flagged > 0 ? `${flagged} saved gear ${flagged === 1 ? 'value' : 'values'} not usable. Open Gear.` : '',
-        ...sites.map((x) => `Site "${x.siteName}": ${problemText(x, 'this site')} Open Gear, Sites to change it.`),
+        ...sites.map((x) => `Site "${x.siteName}": ${problemText(x)}`),
       ].filter((x) => x !== '');
       if (said.length > 0) setNotice(said.join(' '));
     }
@@ -1205,7 +1205,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (m.train && train) {
       notes.push({
         key: 'train',
-        text: `The plan's train is no longer in your gear. Showing "${train.name}".`,
+        text: `Setup removed. Showing "${train.name}".`,
         keepLabel: `Keep ${train.name}`,
         onKeep: () => chooseTrain(train.id),
       });
@@ -1214,8 +1214,8 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       notes.push({
         key: 'site',
         text: m.siteKept
-          ? `The plan's site cannot be used (Gear, Sites says why). Showing "${site.name}".`
-          : `The plan's site is no longer in your gear. Showing "${site.name}".`,
+          ? `Site unusable. Showing "${site.name}".`
+          : `Site removed. Showing "${site.name}".`,
         keepLabel: `Keep ${site.name}`,
         onKeep: () => void editOpen({ siteId: site.id }),
       });
@@ -1753,7 +1753,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const otherSheet = (p: Plan): PlanSheet => {
     const m = missingOf(profile, p);
     const sheet = storedSheet(p, profile, factsOf, dateWithYear, favoriteText);
-    return { ...sheet, warnings: [...(m.train ? ['The plan\'s train is no longer in your gear.'] : []), ...(m.site ? ['The plan\'s site is no longer in your gear or cannot be used.'] : [])] };
+    return { ...sheet, warnings: [...(m.train ? ['Setup removed'] : []), ...(m.site ? ['Site removed or unusable'] : [])] };
   };
   const sheetsFor = (what: ShareWhat, withMix = false): PlanSheet[] => (what === 'plan' ? [openSheet(withMix)] : what === 'all' || what === 'everything' ? (plans?.plans ?? []).map((p) => (p.id === plans?.openId ? openSheet(withMix) : otherSheet(p))) : []);
   /** Why a choice is off: saved gear that could not be loaded is never shared as if it were the sample on screen. */
@@ -1925,17 +1925,17 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         {profile.sites.length > 0 && usable.length === 0 ? (
           <div className="mt-4 space-y-2" data-testid="no-usable-site">
             <p className="text-p-t1 font-normal break-words">
-              {profile.sites.length === 1 ? 'Your saved site cannot be used' : 'None of your saved sites can be used'}, so there is no night to show yet. Correct it in Gear below.
+              {profile.sites.length === 1 ? 'Saved site unusable' : 'Saved sites unusable'}. Fix in Gear.
             </p>
             {siteProblems(profile).map((x) => (
               <p key={`${x.id}-${x.key}`} className="text-p-warn-text font-normal text-sm break-words">
-                <span aria-hidden="true">! </span>Site &quot;{x.siteName}&quot;: {problemText(x, 'this site')}
+                <span aria-hidden="true">! </span>Site &quot;{x.siteName}&quot;: {problemText(x)}
               </p>
             ))}
           </div>
         ) : (
           <p className="text-p-t1 font-normal mt-4">
-            Needs one site and one train. Import a profile below, or reset all.
+            Needs a site and a setup.
           </p>
         )}
         {importError && (

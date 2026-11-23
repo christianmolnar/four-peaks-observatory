@@ -363,7 +363,7 @@ export default function ProjectsTab({ api, profile, targetName, context, planTar
             </div>
             <button id="project-new" type="button" className={btn} onClick={() => startNew(false)} disabled={projects.length >= MAX_PROJECTS}>New project</button>
           </div>
-          {projects.length >= MAX_PROJECTS && <p className="text-sm font-normal text-p-t1/70">Projects hold at most {MAX_PROJECTS} projects. Delete one to make another.</p>}
+          {projects.length >= MAX_PROJECTS && <p className="text-sm font-normal text-p-t1/70">Limit: {MAX_PROJECTS} projects</p>}
 
           <div className="flex flex-wrap gap-2" role="group" aria-label="This project">
             <button id="project-edit" type="button" className={btn} onClick={() => { setProblem(''); setSaid(''); setView({ kind: 'edit' }); }}>Edit plan</button>

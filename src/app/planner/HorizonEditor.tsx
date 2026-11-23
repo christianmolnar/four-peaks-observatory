@@ -291,9 +291,6 @@ export default function HorizonEditor({
                 </button>
               </div>
               <p className="text-p-t1/70 font-normal text-sm leading-5 mt-3">{summary}</p>
-              <p className="text-p-t1/70 font-normal text-sm leading-5 mt-3">
-                Compass degrees run clockwise from north (0 = N, 90 = E, 180 = S, 270 = W). A zone is blocked clockwise from its first number to its second, and may cross north. Whole degrees, 0 to 360.
-              </p>
             </div>
           </div>
           </div>
