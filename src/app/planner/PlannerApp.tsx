@@ -2420,7 +2420,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             </div>
             <label className="flex min-h-11 items-center gap-2 text-p-t1 font-normal text-sm">
               <input type="checkbox" checked={showNoFit} onChange={(e) => setShowNoFit(e.target.checked)} className="h-5 w-5 accent-p-focus" />
-              Show targets that do not fit
+              Show non-fitting
             </label>
           </div>
         </div>
@@ -2457,7 +2457,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         ) : (
           <>
             {(planetGroup.length > 0 || notUpGroup.length > 0) && (
-              <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={groupOpen} onToggle={() => setPlanetsOpen(!groupOpen)}>
+              <Group id="planets-group" title={`Solar system (${planetGroup.length})`} open={groupOpen} onToggle={() => setPlanetsOpen(!groupOpen)}>
                 {planetGroup.length > 0 && <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" fitText={bodyFit} />}
                 {notUpGroup.length > 0 && (
                   <Group id="planets-notup-group" title={`Not up ${nightWord} (${notUpGroup.length})`} open={notUpShown} onToggle={() => setNotUpOpen(!notUpShown)}>
@@ -2472,7 +2472,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               <p className="text-p-t1 font-normal" data-testid="list-empty">{emptyText(ranked!.typeNotFit)}</p>
             ) : (
               <>
-                {planetGroup.length > 0 && <h3 className="mt-4 text-base font-medium text-p-t1">Best deep-sky targets</h3>}
+                {planetGroup.length > 0 && <h3 className="mt-4 text-base font-medium text-p-t1">Deep sky</h3>}
                 {topThree(mainList)}
                 <TargetList {...listProps} entries={mainList} label={`Targets ranked for ${nightWord}`} idPrefix="target" />
               </>

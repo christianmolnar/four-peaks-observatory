@@ -26,7 +26,7 @@ const app = async (initialDate?: string) => {
 };
 /** Opens the solar-system group and its first row; returns that row's solar-system detail. */
 const openFirstBody = (): HTMLElement => {
-  const group = screen.getByRole('button', { name: /^Solar system up/ });
+  const group = screen.getByRole('button', { name: /^Solar system \(/ });
   if (group.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
   const row = listRows('planet-list')[0];
   fireEvent.click(within(row).getByRole('button', { expanded: false }));

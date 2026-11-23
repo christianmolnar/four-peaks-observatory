@@ -49,7 +49,7 @@ export function fitWords(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
 export function nightStatus(entry: PlanEntry, nightWord: string, formatTime: (d: Date) => string): string {
   if (entry.usableMinutes > 0) {
     const fit = entry.fit === 'too-large' ? ' Too big.' : '';
-    return `Up ${nightWord}: clear ${(entry.usableMinutes / 60).toFixed(1)} h, peak ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)} at ${formatTime(entry.peakTime)}. Score ${Math.round(entry.score.total)}.${fit}`;
+    return `Up ${nightWord}: ${(entry.usableMinutes / 60).toFixed(1)} h, peak ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)} at ${formatTime(entry.peakTime)}, score ${Math.round(entry.score.total)}.${fit}`;
   }
   return `Never up ${nightWord}: peaks ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)}.`;
 }

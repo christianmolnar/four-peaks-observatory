@@ -49,7 +49,7 @@ const stored = () => {
   return p === null ? null : { ids: p.targets.map((t) => t.id) };
 };
 const myPlan = () => screen.getByRole('region', { name: /^PLAN:/ });
-const planGroup = () => screen.getByRole('button', { name: /^Solar system up/ });
+const planGroup = () => screen.getByRole('button', { name: /^Solar system \(/ });
 
 beforeAll(() => {
   const w = window as unknown as { CSS?: { escape?: (s: string) => string } };
@@ -92,7 +92,7 @@ describe('planets on 2026-11-13 at Fountain Hills', () => {
     expect(planGroup().getAttribute('aria-expanded')).toBe('true');
     expect(rowNames('planet-list')).toEqual(expect.arrayContaining(FIVE));
     await userEvent.setup().selectOptions(screen.getByLabelText('Type'), 'galaxies');
-    expect(screen.queryByRole('button', { name: /^Solar system up/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Solar system \(/ })).toBeNull();
   });
 
   it('a planet can be added to the plan from the list', async () => {
@@ -115,7 +115,7 @@ describe('search finds the planets and the Moon', () => {
     const hits = within(results()).getAllByRole('listitem');
     expect(hits[0].textContent).toContain('Jupiter');
     expect(hits[0].textContent).toContain('Solar system');
-    expect(hits[0].textContent).toMatch(/Up (tonight|[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}).*Score \d+/);
+    expect(hits[0].textContent).toMatch(/Up (tonight|[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}).*score \d+/);
     expect(hits[1].textContent).toContain('Ghost of Jupiter Nebula');
     await u.click(within(hits[0]).getByRole('button', { name: 'Add Jupiter to the plan' }));
     expect(stored()?.ids).toEqual(['planet-jupiter']);
@@ -217,7 +217,7 @@ describe('the label', () => {
     await ready();
     const u = userEvent.setup();
     expect([...(screen.getByLabelText('Type') as HTMLSelectElement).options].map((o) => o.textContent ?? '').some((t) => t.startsWith('Solar system'))).toBe(true);
-    expect(planGroup().textContent).toContain('Solar system up');
+    expect(planGroup().textContent).toContain('Solar system (');
     expect(planRowItems()[0].textContent).toContain('Solar system');
     await u.type(searchBox(), 'Jupiter');
     expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('Solar system');

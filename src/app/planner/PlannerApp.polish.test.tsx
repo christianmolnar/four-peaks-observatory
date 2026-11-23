@@ -216,7 +216,7 @@ describe('the detail: score parts add up to the score', () => {
   it('names brightness and framing, and the parts sum to the row score (capped at 100)', async () => {
     await app();
     const row = listRows()[0];
-    const score = Number(row.querySelector('[data-testid="row-fit-score"]')!.textContent!.match(/Score (\d+)/)![1]);
+    const score = Number(row.querySelector('[data-testid="row-fit-score"]')!.textContent!.match(/(\d+)$/)![1]);
     fireEvent.click(row.querySelector('button[aria-expanded]')!);
     const text = screen.getByText(/^Score parts:/).textContent!;
     const [terms, result] = text.replace(/^Score parts: /, '').split(' = ');

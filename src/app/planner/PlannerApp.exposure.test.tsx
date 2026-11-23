@@ -49,7 +49,7 @@ describe('a preset on each target', () => {
     await app([m31, ic405, jupiter]);
     expect(planRowItems()).toHaveLength(3);
     for (const name of ['Andromeda Galaxy', 'Flaming Star Nebula']) {
-      expect(within(group(name)).getAllByRole('button').map((b) => b.textContent)).toEqual(['Quick', 'Balanced', 'Deep', 'Custom']);
+      expect(within(group(name)).getAllByRole('button').map((b) => b.textContent)).toEqual(['Quick', 'Balanced', 'Deep']); // Custom shows only once a number is typed
       expect(pressed(name)).toEqual(['Balanced']);
     }
     expect(within(row(2)).queryByRole('group')).toBeNull();
@@ -149,13 +149,6 @@ describe('Custom', () => {
     expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom/);
     expect(numbers('m31')).toMatch(/^50 s × 12 subs · 10 min light/);
     expect(screen.getByRole('button', { name: 'Back to Deep' })).toBeTruthy();
-  });
-
-  it('choosing Custom stores it without any number changed, and says nothing differs yet', async () => {
-    await app([m31]);
-    press('Andromeda Galaxy', 'Custom');
-    expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: {} });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom/);
   });
 
   it('invalid input (0, negative, text, absurd, empty) is rejected with a plain message and never stored', async () => {

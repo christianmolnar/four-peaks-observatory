@@ -122,7 +122,7 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
         }}
       >
         <div className="min-w-0 flex-1 basis-56">
-          <label htmlFor={inputId} className="block text-p-t1 font-normal text-sm mb-1">Search the catalog by name or number</label>
+          <label htmlFor={inputId} className="sr-only">Search the catalog by name or number</label>
           <input
             id={inputId}
             type="search"

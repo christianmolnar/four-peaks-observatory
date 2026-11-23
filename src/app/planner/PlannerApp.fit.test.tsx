@@ -7,7 +7,7 @@ import PlannerApp from './PlannerApp';
 import { listRows, pageProps, ready, rowName, showAll } from './testkit';
 
 // Targets that do not fit the chosen train: left out of the list, counted in a note, and listed in a closed group of their
-// own below it (with how they miss, in numbers) when "Show targets that do not fit" is ticked. One control for that state.
+// own below it (with how they miss, in numbers) when "Show non-fitting" is ticked. One control for that state.
 
 const withTrain = (id: string) => {
   const p = sampleProfile();
@@ -20,7 +20,7 @@ const app = async (profile = narrow()) => {
   return r;
 };
 
-const toggle = () => screen.getByRole('checkbox', { name: 'Show targets that do not fit' }) as HTMLInputElement;
+const toggle = () => screen.getByRole('checkbox', { name: 'Show non-fitting' }) as HTMLInputElement;
 const group = () => screen.getByRole('button', { name: /^Does not fit this camera view \(\d+\)/ });
 
 afterEach(cleanup);

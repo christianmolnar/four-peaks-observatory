@@ -26,18 +26,20 @@ const app = async () => {
 afterEach(cleanup);
 
 describe('compact target rows', () => {
-  it('shows name, type, size and constellation, the up window and peak, fit, a whole-number score and a short why, and an Add button of its own', async () => {
+  it('shows name, type, size and constellation, the window and one peak, fit, a whole-number score and a short why, and an Add button of its own', async () => {
     await app();
     const row = listRows().find((r) => rowName(r) === 'NGC 891') as HTMLElement;
     const text = row.textContent as string;
     expect(text).toContain('Galaxy');
     expect(text).toContain('13′ × 3′');
     expect(text).toContain('Andromeda');
-    expect(text).toMatch(/Up \d\d:\d\d–\d\d:\d\d/);
-    expect(text).toMatch(/peak \d+° [NESW]+ at \d\d:\d\d/);
+    expect(text).toMatch(/\d\d:\d\d–\d\d:\d\d/);
+    expect(text.match(/\d+° [NESW]+/g)).toHaveLength(1); // one peak form, not two
+    expect(text).not.toMatch(/\bUp \d|peak/);
     expect(text).not.toMatch(/Fits your camera view/); // a fitting row prints nothing about fit
     const score = row.querySelector('[data-testid="row-fit-score"]')!.textContent as string;
-    expect(score).toMatch(/Score \d+$/);
+    expect(score).toMatch(/\d+$/);
+    expect(score).not.toMatch(/Score/);
     expect(text).toMatch(/[\d.]+ h/);
     const add = within(row).getByRole('button', { name: 'Add NGC 891 to the plan' });
     expect(add.textContent).toBe('Add');

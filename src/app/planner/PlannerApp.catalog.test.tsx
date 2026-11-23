@@ -119,7 +119,7 @@ describe('tonight\'s list over the whole catalog', () => {
     expect(screen.queryByTestId('hidden-note')).toBeNull();
     expect(screen.queryByRole('button', { name: /show anyway/i })).toBeNull();
     expect(listNames()).not.toContain('Andromeda Galaxy');
-    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
+    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show non-fitting' }));
     await ready();
     expect(listNames()).not.toContain('Andromeda Galaxy'); // below the list, not in it
     fireEvent.click(screen.getByRole('button', { name: /^Does not fit this camera view/ }));
@@ -133,7 +133,7 @@ describe('tonight\'s list over the whole catalog', () => {
     const row = listRows().find((r) => rowName(r) === 'NGC 891') as HTMLElement;
     expect(row).toBeTruthy();
     expect(table().textContent).not.toMatch(/Not listed|Season/);
-    await userEvent.setup().click(within(row).getByRole('button', { name: /^\d+\. NGC 891$/ }));
+    await userEvent.setup().click(within(row).getByRole('button', { name: /^NGC 891$/ }));
     expect(screen.queryByRole('region', { name: /^EXPOSURE:/ })).toBeNull(); // the global Exposure module is gone from the page
     expect(within(row).getByRole('img', { name: /NGC 891/ })).toBeTruthy(); // the altitude chart, in the row
     expect(screen.queryByRole('heading', { name: 'ALTITUDE: NGC 891' })).toBeNull();
@@ -159,7 +159,7 @@ describe('search', () => {
     expect(hit.textContent).toContain('NGC 891');
     expect(hit.textContent).toContain('Galaxy');
     expect(hit.textContent).toContain('13′ × 3′');
-    expect(hit.textContent).toMatch(new RegExp(`Up ${WORD.replace(/[()]/g, '\\$&')}: clear [\\d.]+ h, peak \\d+° [NESW]+ at \\d\\d:\\d\\d\\. Score \\d+\\.`));
+    expect(hit.textContent).toMatch(new RegExp(`Up ${WORD.replace(/[()]/g, '\\$&')}: [\\d.]+ h, peak \\d+° [NESW]+ at \\d\\d:\\d\\d, score \\d+\\.`));
     expect(hit.textContent).toMatch(/#\d+ in the list below/);
     // By alias, too.
     await u.clear(searchBox());
@@ -174,7 +174,7 @@ describe('search', () => {
     await u.type(searchBox(), 'M40');
     const dbl = within(results()).getAllByRole('listitem')[0];
     expect(dbl.textContent).toContain('Double star');
-    expect(dbl.textContent).toMatch(/Up [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}.*Score \d+/);
+    expect(dbl.textContent).toMatch(/Up [A-Z][a-z]{2} \d+ [A-Z][a-z]{2}.*score \d+/);
     expect(dbl.textContent).not.toMatch(/in the list below/);
     expect(dbl.textContent).toContain('Not ranked');
     await u.clear(searchBox());
@@ -304,7 +304,7 @@ describe('the open plan', () => {
     window.localStorage.setItem(MY_PLAN_KEY, '{nope');
     mount();
     await ready();
-    expect((await screen.findByText(/Your saved plan is damaged, so it starts empty\./))).toBeTruthy();
+    expect((await screen.findByText(/Saved plan damaged\. Starting empty\./))).toBeTruthy();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).toBeNull();
     expect(planNames()).toEqual([]);
   });

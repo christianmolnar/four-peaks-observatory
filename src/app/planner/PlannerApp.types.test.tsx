@@ -57,7 +57,7 @@ const stored = () => {
   return p === null ? null : { ids: p.targets.map((t) => t.id) };
 };
 /** The whole-number score in a row's fit-and-score cell. */
-const scoreOf = (row: HTMLElement): number => Number(/Score (\d+)/.exec(within(row).getByTestId('row-fit-score').textContent ?? '')?.[1]);
+const scoreOf = (row: HTMLElement): number => Number(/(\d+)$/.exec(within(row).getByTestId('row-fit-score').textContent ?? '')?.[1]);
 const live = () => document.querySelector('p[aria-live="polite"].sr-only')?.textContent ?? '';
 const choose = async (id: string) => {
   await userEvent.setup().selectOptions(typeSelect(), id);
@@ -109,7 +109,7 @@ describe('the Type selector', () => {
     await screen.findByTestId('list-empty');
     expect(screen.getByTestId('list-empty').textContent).toBe(`Nothing fits ${WORD}.`);
     expect(typeSelect().value).toBe('supernova-remnants');
-    fireEvent.click(screen.getByLabelText(/show targets that do not fit/i));
+    fireEvent.click(screen.getByLabelText(/show non-fitting/i));
     await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
   });
 
@@ -166,11 +166,11 @@ describe('the list for a type', () => {
     await ready();
     await choose('globular-clusters');
     await listed();
-    expect(screen.queryByRole('button', { name: /^Solar system up/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Solar system \(/ })).toBeNull();
     expect(rowNames()).toContain('Evening Globular'); // with the curated Hercules cluster, which the catalog always holds
     expect(rowNames()).not.toContain('Test Cluster 1');
     await choose('solar-system');
-    expect(screen.getByRole('button', { name: /^Solar system up/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Solar system \(/ })).toBeTruthy();
     expect(screen.queryByTestId('target-list')).toBeNull();
   });
 
@@ -179,7 +179,7 @@ describe('the list for a type', () => {
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
     expect(empty.textContent).toBe(`Nothing fits ${WORD}.`);
-    fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Show non-fitting/ }));
     await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
   });
 
@@ -386,7 +386,7 @@ describe('over the real catalog', () => {
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
     expect(screen.getByTestId('list-empty').textContent).toBe(`Nothing fits ${WORD}.`);
-    fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Show non-fitting/ }));
     await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) });
   }, 120000);
 

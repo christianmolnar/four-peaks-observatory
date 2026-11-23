@@ -135,7 +135,7 @@ export const listRows = (testId = 'target-list'): HTMLElement[] => [...screen.ge
 
 /** A row's target name, without the open/closed arrow and the place number. */
 export const rowName = (li: HTMLElement): string =>
-  (li.querySelector('button[aria-expanded]')!.textContent as string).replace(/^[▸▾]\s*\d+\.\s*/, '').trim();
+  (li.querySelector('button[aria-expanded]')!.textContent as string).replace(/^[▸▾]\s*/, '').trim();
 
 /** The names of the rows on the page, best first. */
 export const rowNames = (testId = 'target-list'): string[] => listRows(testId).map(rowName);
@@ -147,7 +147,7 @@ export const nameButton = (name: string | RegExp): HTMLElement => {
   if (!hit) throw new Error(`No row named ${String(name)} on the page`);
   return hit;
 };
-const rowOf = (b: HTMLElement): string => (b.textContent as string).replace(/^[▸▾]\s*\d+\.\s*/, '').trim();
+const rowOf = (b: HTMLElement): string => (b.textContent as string).replace(/^[▸▾]\s*/, '').trim();
 
 /** Presses "Show N more" until every row of the lists on the page is there. */
 export const showAll = (): void => {

@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { compass } from '@/planner/plan';
 import type { PlanEntry } from '@/planner/plan';
-import { fitWords, peakText, rowWhy, upRange } from './catalogText';
+import { fitWords, rowWhy, upRange } from './catalogText';
 
-/** "86° N": the peak without its time, for the one-line phone row. */
+/** "86° N": the peak, one form for every width. */
 const peakShort = (e: PlanEntry): string => `${Math.round(e.peakAltitude) + 0}° ${compass(e.peakAzimuth)}`;
 
 /** Rows shown at first, and how many each "Show more" adds. */
@@ -77,7 +77,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
         <span />
       </div>
       <ul aria-label={label} className="text-sm leading-5 font-normal text-p-t1" data-testid={`${idPrefix}-list`}>
-        {visible.map((e, i) => {
+        {visible.map((e) => {
           const d = describe(e);
           const isOpen = openId === e.id;
           const inPlan = planIds.has(e.id);
@@ -95,7 +95,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                   className="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded py-0.5 text-left text-[15px] font-medium leading-[18px] text-p-t1"
                 >
                   <span aria-hidden="true" className="w-4 shrink-0 text-sm text-p-t1/70">{isOpen ? '▾' : '▸'}</span>
-                  <span className="break-words">{notClear === undefined && <span className="text-p-t1/70">{i + 1}. </span>}{e.name}</span>
+                  <span className="break-words">{e.name}</span>
                 </button>
                 {d.aka !== '' && <span className="ml-1.5 text-p-t1/70">{d.aka}</span>}
                 <p className="pl-[1.375rem] text-p-t1/70">{d.meta}</p>
@@ -103,14 +103,14 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
               {/* On a phone the up window, peak, fit and score are one line; from md they are two columns. */}
               <div className="col-start-1 pl-[1.375rem] md:contents">
                 <span className="md:col-auto md:block">
-                  {notClear === undefined ? `Up ${upRange(e, formatTime)}` : `Not clear ${notClear}`}
-                  <span className="md:hidden"> · peak {peakShort(e)}</span>
-                  <span className="hidden md:block">peak {peakText(e, formatTime)}</span>
+                  {notClear === undefined ? upRange(e, formatTime) : `Not clear ${notClear}`}
+                  <span className="md:hidden"> · </span>
+                  <span data-testid="row-peak" className="md:block">{peakShort(e)}</span>
                 </span>
                 <span data-testid="row-fit-score" className="md:col-auto md:block">
                   {(fitText ? fitText(e) : fitWords(e)) !== '' && <span className="md:hidden"> · </span>}
                   <span>{fitText ? fitText(e) : fitWords(e)}</span>
-                  {notClear === undefined && <span className="hidden md:block">Score <span className="font-medium text-p-t1">{Math.round(e.score.total)}</span></span>}
+                  {notClear === undefined && <span className="hidden font-medium text-p-t1 md:block">{Math.round(e.score.total)}</span>}
                 </span>
               </div>
               <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-p-t1/70 md:col-auto md:line-clamp-2 md:pl-0">{notClear === undefined ? rowWhy(e) : 'Never up'}</p>

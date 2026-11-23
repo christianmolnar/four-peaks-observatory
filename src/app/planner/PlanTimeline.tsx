@@ -130,7 +130,7 @@ export default function PlanTimeline({ profile, items, startTime, unscheduled, o
           <>
             <span>Light {minutesText(lightMinutes(plan))}</span>
             <span>Changeover {Math.round(totals.changeoverMin)} min</span>
-            <span>Waiting {Math.round(totals.waitMin)} min</span>
+            {Math.round(totals.waitMin) > 0 && <span>Waiting {Math.round(totals.waitMin)} min</span>}
             {totals.ends && <span>Ends {formatTime(totals.ends)}</span>}
           </>
         )}
@@ -186,12 +186,12 @@ export default function PlanTimeline({ profile, items, startTime, unscheduled, o
         </Collapsible>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div role="group" aria-label="Export timeline" className="mt-3 flex flex-wrap gap-2">
         <button type="button" className={btn44} disabled={plan.slots.length === 0} onClick={() => download('fpo-planner-itinerary.csv', itineraryToCsv(plan, makeCsvTime(timeZone)), 'text/csv;charset=utf-8', true)}>
-          Export timeline (CSV)
+          CSV
         </button>
         <button type="button" className={btn44} disabled={plan.slots.length === 0} onClick={() => download('fpo-planner-itinerary.json', itineraryToJson(plan), 'application/json')}>
-          Export timeline (JSON)
+          JSON
         </button>
       </div>
     </div>

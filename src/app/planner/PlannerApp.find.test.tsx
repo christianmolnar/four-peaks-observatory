@@ -119,8 +119,8 @@ describe('Find a target in the plan', () => {
     const options = [...(screen.getByRole('combobox', { name: 'Type' }) as HTMLSelectElement).options].map((o) => o.textContent);
     expect(options.some((t) => /· \d+ (up|fit) /.test(t ?? ''))).toBe(true);
     expect(screen.getByRole('button', { name: /^Show \d+ more$/ }).closest('#find-a-target-body')).not.toBeNull();
-    await u.click(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }));
-    expect(body().contains(screen.getByRole('checkbox', { name: 'Show targets that do not fit' }))).toBe(true);
+    await u.click(screen.getByRole('checkbox', { name: 'Show non-fitting' }));
+    expect(body().contains(screen.getByRole('checkbox', { name: 'Show non-fitting' }))).toBe(true);
   });
 
   it('the plan\'s own list is separate from the lists in Find a target: one row per target, no second Add path in the plan', async () => {

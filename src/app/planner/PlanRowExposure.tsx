@@ -38,11 +38,11 @@ export function Fold({ id, title, children, level = 0 }: { id: string; title: st
   );
 }
 
-/** The mode chips of a card: Quick, Balanced, Deep, and Custom. The pressed one is filled. */
+/** The mode chips of a card: Quick, Balanced, Deep, and Custom only while it is set (typing a number sets it). The pressed one is filled. */
 export function ExposureChips({ id, name, preset, onPreset }: { id: string; name: string; preset: PlanPreset; onPreset: (preset: PlanPreset) => void }) {
   return (
     <div role="group" aria-label={`Exposure preset for ${name}`} className="flex flex-wrap gap-1.5">
-      {([...MODE_ORDER, 'custom'] as const).map((p) => (
+      {(preset === 'custom' ? ([...MODE_ORDER, 'custom'] as const) : MODE_ORDER).map((p) => (
         <button
           key={p}
           type="button"
