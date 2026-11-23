@@ -46,11 +46,6 @@ describe('a sub length for each filter, from the filter’s own bandwidth', () =
     expect(r.subCount * r.subSeconds).toBeGreaterThanOrEqual(900 * 60);
     expect(r.minutes).toBe(900);
   });
-  it('names the read noise class it assumed, in the engine’s words, and gives no assumption when it is set', () => {
-    const none = ok(filterSub({ target: nebula, rig: rigAt(7, { id: 'c', name: 'C', pixelSizeUm: 3.76 }), filter: nbz, bortle: 6, night, preset: 'balanced', minutes: 120 }));
-    expect(none.assumed.join(' ')).toMatch(/read noise medium/);
-    expect(run(nbz, 7, 6).assumed).toEqual([]);
-  });
   it('missing pixel size or focal ratio gives the words, never a number', () => {
     const noPixel = filterSub({ target: nebula, rig: rigAt(7, { id: 'c', name: 'C' }), filter: nbz, bortle: 6, night, preset: 'balanced', minutes: 120 });
     expect(noPixel).toEqual({ kind: 'missing', text: 'not worked out: the pixel size is not set' });

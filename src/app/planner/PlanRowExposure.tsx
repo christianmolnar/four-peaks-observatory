@@ -244,9 +244,6 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
               Surface brightness {chosen.knee.surfaceBrightnessMu.toFixed(1)} ({chosen.knee.surfaceBrightnessFrom === 'catalog' ? 'catalog' : chosen.knee.surfaceBrightnessFrom === 'class' ? 'class stand-in' : 'assumed'}).
             </p>
             <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}%. Dither every {chosen.ditherEveryFrames} subs.</p>
-            {chosen.warnings.filter((w) => w.detail !== undefined).map((w, i) => (
-              <p key={`${w.code}-${i}`} data-testid={`plan-warning-detail-${id}`}>{w.detail}</p>
-            ))}
             <p className="text-sm text-p-t1/70">All numbers are estimates.</p>
             {how}
             {split.notes.length > 0 && (

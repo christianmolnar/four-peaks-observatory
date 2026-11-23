@@ -28,8 +28,6 @@ export type FilterSub =
       subCount: number;
       /** The minutes the plan gives this filter; the number the row shows as its total. */
       minutes: number;
-      /** What the engine assumed for this filter (a read noise class, a passband width): its own wording, empty when nothing was. */
-      assumed: string[];
     }
   | { kind: 'missing'; text: string };
 
@@ -42,5 +40,5 @@ export function filterSub(input: { target: ExposureTarget; rig: ExposureRig; fil
   const { target, rig, filter, bortle, night, preset, minutes } = input;
   const r = exposureFor(target, { ...rig, filter }, { bortle }, { ...night, usableMinutes: NO_WINDOW_MIN, acquisitionStart: null, transitTime: null }, { preset, overrides: { totalMin: minutes } });
   if (!r.ok) return { kind: 'missing', text: `not worked out: ${r.missing.map((m) => MISSING_WORDS[m] ?? m).join(' and ')} ${r.missing.length > 1 ? 'are' : 'is'} not set` };
-  return { kind: 'ok', subSeconds: r.subSeconds, subCount: r.subCount, minutes, assumed: r.warnings.filter((w) => w.code === 'inputs-assumed').map((w) => w.text) };
+  return { kind: 'ok', subSeconds: r.subSeconds, subCount: r.subCount, minutes };
 }
