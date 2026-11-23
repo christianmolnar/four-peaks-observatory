@@ -127,7 +127,7 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
     const original = JSON.stringify(storedPlan());
     for (const sub of [600, 1200]) {
       type(subBox(), String(sub));
-      expect(alertText()).toBe(`A sub of ${sub} s is longer than ${MAX_SUB_S} s: too long for one sub.`);
+      expect(alertText()).toBe(`Sub: 1 to ${MAX_SUB_S} s`);
       expect(JSON.stringify(storedPlan())).toBe(original);
     }
     type(subBox(), String(MAX_SUB_S));
@@ -153,10 +153,10 @@ describe('a typed sub length is judged by what the engine gives for it', () => {
     const original = JSON.stringify(storedPlan());
     const before = numbers();
     type(subBox(), '0.001');
-    expect(alertText()).toMatch(/shorter than 1 s/);
+    expect(alertText()).toBe(`Sub: 1 to ${MAX_SUB_S} s`);
     expect(JSON.stringify(storedPlan())).toBe(original);
     type(subBox(), '1');
-    expect(alertText()).toBe(`That would need more than ${MAX_SUBS} subs; use longer subs.`);
+    expect(alertText()).toBe(`Max ${MAX_SUBS} subs`);
     expect(JSON.stringify(storedPlan())).toBe(original);
     expect(subBox().getAttribute('aria-invalid')).toBe('true');
     expect(numbers()).toBe(before);

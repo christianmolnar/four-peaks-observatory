@@ -98,7 +98,7 @@ describe('a preset on each target', () => {
     expect(document.getElementById('plan-buys-m31-body')!.hasAttribute('hidden')).toBe(true);
     open('plan-buys-m31');
     expect(within(screen.getByTestId('plan-buys-table-m31')).getAllByRole('row')).toHaveLength(5); // the heading and 30, 60, 90, 120 min
-    expect(screen.getByTestId('plan-inputs-m31').textContent).toMatch(/^Inputs: f\/[\d.]+, [\d.]+ um pixels, read noise class .+, Bortle \d, Moon \d+% lit and \d+ degrees away.+usable minutes\.$/);
+    expect(screen.getByTestId('plan-inputs-m31').textContent).toMatch(/^Inputs: f\/[\d.]+, [\d.]+ um pixels, read noise class .+, Bortle \d, Moon \d+% at \d+°.+usable minutes\.$/);
   });
 
   it('a warning to act on shows on the row with the word Warning, the one thing to change, and no note mixed in', async () => {
@@ -114,7 +114,7 @@ describe('a preset on each target', () => {
     seedPlan([m31], () => ({ sites: sampleProfile().sites, trains: [smart] }));
     render(<PlannerApp {...pageProps} initialDate="2026-12-15" initialProfile={sampleProfile()} />);
     await ready();
-    expect(numbers('m31')).toMatch(/No exposure: this setup has no optics numbers/);
+    expect(numbers('m31')).toMatch(/No exposure: add optics/);
     expect(pressed('Andromeda Galaxy')).toEqual(['Balanced']);
   });
 });
@@ -129,7 +129,7 @@ describe('Custom', () => {
     fireEvent.blur(box);
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 20 } });
     expect(pressed('Andromeda Galaxy')).toEqual(['Custom']);
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom/);
     expect(parse(numbers('m31')).sub).toBe(20);
     expect(parse(numbers('m31')).subs).toBeGreaterThan(before.subs); // the same light in shorter subs
     fireEvent.click(screen.getByRole('button', { name: 'Back to Balanced' }));
@@ -144,11 +144,11 @@ describe('Custom', () => {
     await u.clear(countBox('Andromeda Galaxy'));
     await u.type(countBox('Andromeda Galaxy'), '12{Enter}');
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'deep', custom: { subCount: 12 } });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom/);
     await u.clear(subBox('Andromeda Galaxy'));
     await u.type(subBox('Andromeda Galaxy'), '50{Enter}');
     expect(storedPlan()!.targets[0].custom).toEqual({ subCount: 12, subSeconds: 50 });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom/);
     expect(numbers('m31')).toMatch(/^50 s × 12 subs · 10 min light/);
     expect(screen.getByRole('button', { name: 'Back to Deep' })).toBeTruthy();
   });
@@ -157,7 +157,7 @@ describe('Custom', () => {
     await app([m31]);
     press('Andromeda Galaxy', 'Custom');
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: {} });
-    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom: same as Balanced\./);
+    expect(screen.getByTestId('plan-custom-m31').textContent).toMatch(/^Custom/);
   });
 
   it('invalid input (0, negative, text, absurd, empty) is rejected with a plain message and never stored', async () => {
@@ -166,11 +166,11 @@ describe('Custom', () => {
     const before = numbers('m31');
     const box = subBox('Andromeda Galaxy');
     for (const [text, message] of [
-      ['0', /must be above 0/],
-      ['-30', /must be above 0/],
-      ['abc', /Enter the sub length in seconds as a number/],
-      ['999999', /too long for one sub/],
-      ['', /^Enter a sub length\.$/],
+      ['0', /^Above 0$/],
+      ['-30', /^Above 0$/],
+      ['abc', /^Seconds, a number$/],
+      ['999999', /^Sub: 1 to 300 s$/],
+      ['', /^Enter a sub length$/],
     ] as const) {
       fireEvent.change(box, { target: { value: text } });
       fireEvent.blur(box);

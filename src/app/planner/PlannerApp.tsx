@@ -128,7 +128,7 @@ import type { MixFilter } from '@/planner/filtermix';
 import { mixSummary } from '@/planner/filtermix';
 import { rowMix } from '@/planner/filtermix/row';
 import type { RowMix, RowMixInput } from '@/planner/filtermix/row';
-import { baseOf, minutesText, notUsedNoPresetText, presetLabel, rowExposure, splitWarnings, storedProblem, withNumber, withPreset } from './rowExposure';
+import { baseOf, minutesText, presetLabel, rowExposure, splitWarnings, NOT_USED_TEXT, storedProblem, withNumber, withPreset } from './rowExposure';
 import type { RowExposure } from './rowExposure';
 import { useFavorites } from './useFavorites';
 import TargetList, { Group } from './TargetList';
@@ -1487,7 +1487,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       // A stored value outside the limits is judged here whatever the row's kind (a profile without a pixel size gives no numbers, but the timeline still must not get the value).
       const stored = t.preset === 'custom' ? storedProblem(t.custom) : null;
       if (v?.kind === 'ok' && v.customUnusable !== null) used.set(t.id, v.customUnusable);
-      else if (stored !== null) used.set(t.id, notUsedNoPresetText(stored));
+      else if (stored !== null) used.set(t.id, NOT_USED_TEXT);
     }
     return used;
   }, [planTargets, rowViews]);

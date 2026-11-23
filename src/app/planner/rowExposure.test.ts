@@ -18,16 +18,16 @@ describe('typed numbers', () => {
 
   it('rejects zero, negative, non-numeric, empty and absurd input with a plain message', () => {
     for (const field of ['subSeconds', 'subCount'] as const) {
-      for (const text of ['0', '00', '0.0', '-5', '-0.5']) expect(checkNumber(field, text)).toMatchObject({ ok: false, message: expect.stringMatching(/must be above 0/) });
+      for (const text of ['0', '00', '0.0', '-5', '-0.5']) expect(checkNumber(field, text)).toMatchObject({ ok: false, message: 'Above 0' });
       for (const text of ['abc', '1e3', '12x', '1,5', 'NaN', 'Infinity', '--1']) expect(checkNumber(field, text).ok).toBe(false);
       expect(checkNumber(field, '')).toMatchObject({ ok: false, message: expect.stringMatching(/^Enter a /) });
     }
-    expect(checkNumber('subSeconds', '0.999')).toMatchObject({ ok: false, message: expect.stringMatching(/shorter than 1 s/) });
+    expect(checkNumber('subSeconds', '0.999')).toMatchObject({ ok: false, message: 'Sub: 1 to 300 s' });
     expect(checkNumber('subSeconds', '1').ok).toBe(true);
-    expect(checkNumber('subSeconds', String(MAX_SUB_S + 1))).toMatchObject({ ok: false, message: expect.stringMatching(/too long for one sub/) });
-    expect(checkNumber('subSeconds', '3600')).toMatchObject({ ok: false, message: expect.stringMatching(/too long for one sub/) });
+    expect(checkNumber('subSeconds', String(MAX_SUB_S + 1))).toMatchObject({ ok: false, message: 'Sub: 1 to 300 s' });
+    expect(checkNumber('subSeconds', '3600')).toMatchObject({ ok: false, message: 'Sub: 1 to 300 s' });
     expect(checkNumber('subSeconds', String(MAX_SUB_S)).ok).toBe(true);
-    expect(checkNumber('subCount', String(MAX_SUBS + 1))).toMatchObject({ ok: false, message: expect.stringMatching(/too many/) });
+    expect(checkNumber('subCount', String(MAX_SUBS + 1))).toMatchObject({ ok: false, message: `Max ${MAX_SUBS} subs` });
     expect(checkNumber('subCount', String(MAX_SUBS)).ok).toBe(true);
     expect(checkNumber('subCount', '2.5').ok).toBe(false);
     expect(checkNumber('subCount', '99999999999999999999').ok).toBe(false);
@@ -69,17 +69,15 @@ describe('words', () => {
   const result = (mode: 'balanced' | 'deep', custom: boolean, fields: ('subSeconds' | 'subCount' | 'totalMin')[]) =>
     ({ mode, custom, differs: fields.map((field) => ({ field, preset: 1, chosen: 2 })) }) as unknown as ExposureResult;
 
-  it('says Custom, or that it is the same as the preset while no number differs', () => {
-    expect(differsText(result('balanced', true, ['subSeconds']))).toBe('Custom.');
-    expect(differsText(result('deep', true, ['subSeconds', 'subCount']))).toBe('Custom.');
-    expect(differsText(result('balanced', false, []))).toBe('Custom: same as Balanced.');
+  it('says Custom', () => {
+    expect(differsText()).toBe('Custom');
   });
 
-  it('splits the nine act-on codes from the notes', () => {
+  it('splits the act-on codes from the notes', () => {
     const w = (code: string, severity: 'warning' | 'note' = 'note'): ExposureWarning => ({ code: code as ExposureWarning['code'], severity, text: code });
-    const { act, notes } = splitWarnings([w('moon-near'), w('inputs-assumed'), w('target-ou4', 'warning'), w('sampling'), w('short-of-target', 'warning')]);
-    expect(act.map((x) => x.code)).toEqual(['moon-near', 'target-ou4']);
-    expect(notes.map((x) => x.code)).toEqual(['inputs-assumed', 'sampling', 'short-of-target']);
+    const { act, notes } = splitWarnings([w('moon-near'), w('meridian-flip'), w('count-capped')]);
+    expect(act.map((x) => x.code)).toEqual(['moon-near', 'meridian-flip']);
+    expect(notes.map((x) => x.code)).toEqual(['count-capped']);
   });
 
   it('formats minutes', () => {

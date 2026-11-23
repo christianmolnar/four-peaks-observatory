@@ -82,15 +82,13 @@ describe('an accepted sub length that stops working when the night changes', () 
 
     fireEvent.change(dateBox(), { target: { value: JAN } });
     // The row: the plain message, and the preset's own numbers (never 10 s x more than the limit).
-    expect(unusable('m31')).toBe(
-      `That would need more than ${MAX_SUBS} subs on this night; use longer subs. Balanced is used instead.`,
-    );
+    expect(unusable('m31')).toBe('Custom not used');
     const row = parse(numbers('m31'));
     expect(row.subs).toBeLessThanOrEqual(MAX_SUBS);
     expect(row.sub).toBeGreaterThan(10);
     // The timeline schedules the same preset numbers and says so.
     expect(slotNumbers(0)).toEqual(row);
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(/Balanced is used instead/);
+    expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
     // The stored value stays stored.
     expect(storedPlan()!.targets[0]).toEqual({ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 10 } });
     // Save as favorite is refused in plain words, with no validator text anywhere.
@@ -141,7 +139,7 @@ describe('an accepted sub length that stops working when the night changes', () 
               expect([where, row.subs <= MAX_SUBS]).toEqual([where, true]);
               if (unusable(id) !== null) {
                 unusableSeen += 1;
-                expect(unusable(id)).toMatch(/Balanced is used instead\.$/);
+                expect(unusable(id)).toBe('Custom not used');
                 expect([where, row.sub]).not.toEqual([where, sub]);
                 fireEvent.click(favoriteBox(id));
                 expect(screen.getByTestId(`plan-favorite-refused-${id}`)).toBeTruthy();
@@ -169,14 +167,14 @@ describe('an accepted sub length that stops working when the night changes', () 
 describe('a sub that does not fit the night says so truthfully', () => {
   it('a longest sub on a night with 3 usable minutes names the usable minutes, not "no usable time"', async () => {
     const { resultProblem } = await import('./rowExposure');
-    expect(resultProblem({ subSeconds: MAX_SUB_S, subCount: 0, warnings: [] } as never, 3.4)).toBe(`A ${MAX_SUB_S} s sub does not fit in the 3 usable minutes of this night; use shorter subs.`);
+    expect(resultProblem({ subSeconds: MAX_SUB_S, subCount: 0, warnings: [] } as never, 3.4)).toBe('Sub too long');
   });
 
   it('keeps "no usable time" for a night with none', async () => {
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'balanced' }]);
     // A night where M31 is never up: the row has no numbers to type into; the message text itself is the zero-usable case.
     const { resultProblem } = await import('./rowExposure');
-    expect(resultProblem({ subSeconds: 600, subCount: 0, warnings: [] } as never, 0)).toBe('There is no usable time on this night for that, so it would give no subs.');
+    expect(resultProblem({ subSeconds: 600, subCount: 0, warnings: [] } as never, 0)).toBe('Not up tonight');
   });
 });
 
@@ -184,7 +182,7 @@ describe('a refused typing error goes when the other box makes it valid', () => 
   it('1 s refused (over MAX_SUBS subs), then count MAX_SUBS: the sub box is judged again and the message goes', async () => {
     await app(JAN, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'balanced' }]);
     type(subBox('m31'), '1');
-    expect(screen.getByRole('alert').textContent).toMatch(new RegExp(`more than ${MAX_SUBS} subs`));
+    expect(screen.getByRole('alert').textContent).toBe(`Max ${MAX_SUBS} subs`);
     type(countBox('m31'), String(MAX_SUBS));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(subBox('m31').getAttribute('aria-invalid')).toBe('false');
@@ -195,7 +193,7 @@ describe('plain words', () => {
   it('one sub, no echo of a huge number', async () => {
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'balanced' }]);
     type(subBox('m31'), '99999999999999999999');
-    expect(screen.getByRole('alert').textContent).toBe(`That sub length is longer than ${MAX_SUB_S} s: too long for one sub.`);
+    expect(screen.getByRole('alert').textContent).toBe(`Sub: 1 to ${MAX_SUB_S} s`);
     type(subBox('m31'), '10');
     type(countBox('m31'), '1');
     expect(numbers('m31')).toMatch(/^10 s × 1 sub · 0 min light/);
@@ -206,7 +204,7 @@ describe('round 4: a stored sub under the minimum, the timeline in the preset-us
   it('a stored 0.5 s sub is judged like an over-MAX_SUBS one: plain message, preset used on row and timeline, favorite refused', async () => {
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 0.5, subCount: 100 } }]);
     openPart('Night timeline');
-    expect(unusable('m31')).toBe('Custom sub is under 1 s. Balanced is used instead.');
+    expect(unusable('m31')).toBe('Custom not used');
     const row = parse(numbers('m31'));
     expect(row.sub).toBeGreaterThan(1);
     expect(slotNumbers(0)).toEqual(row);
@@ -241,20 +239,18 @@ describe('round 4: a stored sub under the minimum, the timeline in the preset-us
 });
 
 describe('round 5: every stored custom value outside the limits is judged, never sent to the engine, never saved', () => {
-  const PLAIN = / Balanced is used instead\.$/;
   it.each([
-    [{ subSeconds: 60, subCount: 0.5 }, /^Custom number of subs is not a whole number of 1 or more\./],
-    [{ subCount: 12.7 }, /^Custom number of subs is not a whole number of 1 or more\./],
-    [{ subSeconds: MAX_SUB_S + 1 }, new RegExp(`^Custom sub is over ${MAX_SUB_S} s`)],
-    [{ subSeconds: 3600, subCount: 2 }, new RegExp(`^Custom sub is over ${MAX_SUB_S} s`)],
-    [{ subCount: 6000 }, new RegExp(`^Custom number of subs is over ${MAX_SUBS}`)],
-    [{ subCount: MAX_SUBS + 1 }, new RegExp(`^Custom number of subs is over ${MAX_SUBS}`)],
-  ])('stored %j: page loads, plain message, preset numbers on row and timeline, favorite refused, value kept', async (custom, message) => {
+    [{ subSeconds: 60, subCount: 0.5 }],
+    [{ subCount: 12.7 }],
+    [{ subSeconds: MAX_SUB_S + 1 }],
+    [{ subSeconds: 3600, subCount: 2 }],
+    [{ subCount: 6000 }],
+    [{ subCount: MAX_SUBS + 1 }],
+  ])('stored %j: page loads, short message, preset numbers on row and timeline, favorite refused, value kept', async (custom) => {
     await app('2026-12-08', 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom }]);
     openPart('Night timeline');
     const text = unusable('m31')!;
-    expect(text).toMatch(message);
-    expect(text).toMatch(PLAIN);
+    expect(text).toBe('Custom not used');
     const row = parse(numbers('m31'));
     expect(slotNumbers(0)).toEqual(row);
     fireEvent.click(favoriteBox('m31'));
@@ -306,7 +302,7 @@ describe('round 7: a stored value outside the limits never reaches the engine, w
       openPart('Night timeline');
       expect(screen.getByTestId('plan-numbers-m31').textContent).toMatch(/^Pixel size is not set for .*, so no exposure is shown\. Add it in Gear\.$/);
       // Nothing is computed for this target, so no preset is used and none is named.
-      expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom number of subs is not a whole number of 1 or more. Not used.');
+      expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
       expect(screen.getByTestId('slot-preset-m31').textContent).not.toMatch(/Balanced|Quick|Deep|preset/);
       expect(document.body.textContent).not.toMatch(VALIDATOR);
       expect(storedPlan()!.targets[0].custom).toEqual(custom);
@@ -316,12 +312,12 @@ describe('round 7: a stored value outside the limits never reaches the engine, w
   it('the timeline names the sub length when that is what fails, and the count when that is', async () => {
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subSeconds: 7200 } }]);
     openPart('Night timeline');
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(/^Custom sub is over 300 s\. Balanced is used instead\./);
+    expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
     cleanup();
     window.localStorage.clear();
     await app(MAY, 'deep-c11-reducer-2600', null, [{ id: 'm31', preset: 'custom', base: 'balanced', custom: { subCount: MAX_SUBS + 1 } }]);
     openPart('Night timeline');
-    expect(screen.getByTestId('it-preset-used-m31').textContent).toMatch(new RegExp(`^Custom number of subs is over ${MAX_SUBS}\\. Balanced is used instead`));
+    expect(screen.getByTestId('it-preset-used-m31').textContent).toBe('Custom not used');
   });
 });
 

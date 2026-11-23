@@ -47,21 +47,18 @@ export function choiceOf(ref: Pick<PlanTargetRef, 'preset' | 'base' | 'custom'>)
   return ref.preset === 'custom' ? { preset: baseOf(ref), overrides: ref.custom ?? {} } : { preset: ref.preset };
 }
 
-/** The plain reason a stored custom value is outside the limits (a sub under MIN_CUSTOM_SUB_S or over MAX_SUB_S, a count over MAX_SUBS or that is not a whole number), or null. */
+/** The short reason a stored custom value is outside the limits (a sub under MIN_CUSTOM_SUB_S or over MAX_SUB_S, a count over MAX_SUBS or that is not a whole number), or null. */
 export function storedProblem(c: ExposureOverrides | undefined): string | null {
   if (c === undefined) return null;
-  if (c.subSeconds !== undefined && c.subSeconds < MIN_CUSTOM_SUB_S) return `Custom sub is under ${MIN_CUSTOM_SUB_S} s.`;
-  if (c.subSeconds !== undefined && c.subSeconds > MAX_SUB_S) return `Custom sub is over ${MAX_SUB_S} s.`;
-  if (c.subCount !== undefined && (!Number.isInteger(c.subCount) || c.subCount < 1)) return 'Custom number of subs is not a whole number of 1 or more.';
-  if (c.subCount !== undefined && c.subCount > MAX_SUBS) return `Custom number of subs is over ${MAX_SUBS}.`;
+  if (c.subSeconds !== undefined && c.subSeconds < MIN_CUSTOM_SUB_S) return `Sub under ${MIN_CUSTOM_SUB_S} s`;
+  if (c.subSeconds !== undefined && c.subSeconds > MAX_SUB_S) return `Sub over ${MAX_SUB_S} s`;
+  if (c.subCount !== undefined && (!Number.isInteger(c.subCount) || c.subCount < 1)) return 'Subs: whole number';
+  if (c.subCount !== undefined && c.subCount > MAX_SUBS) return `Max ${MAX_SUBS} subs`;
   return null;
 }
 
-/** The plain line for a custom value that is not used: the number that fails, then what is used instead. */
-export const notUsedText = (problem: string, base: ExposureMode): string => `${problem} ${presetLabel(base)} is used instead.`;
-
-/** The plain line for a custom value that is not used when nothing is computed for the target (its profile lacks a number): no preset is named, none is used. */
-export const notUsedNoPresetText = (problem: string): string => `${problem} Not used.`;
+/** The warning for a custom value that is not used: the preset takes its place. The number that fails is in `storedProblem` and `resultProblem`. */
+export const NOT_USED_TEXT = 'Custom not used';
 
 /** One edit of a plan target's exposure, as the fields to store. `custom` and `base` are removed when the target is back on a preset. */
 export function withPreset(ref: PlanTargetRef, next: ExposureMode | 'custom'): PlanTargetRef {
@@ -84,8 +81,8 @@ export function withNumber(ref: PlanTargetRef, field: 'subSeconds' | 'subCount',
   return to;
 }
 
-/** The line beside "Back to <preset>": just "Custom", or "same as" the preset while no number differs yet. */
-export const differsText = (r: ExposureResult): string => (r.custom ? 'Custom.' : `Custom: same as ${MODE_LABEL[r.mode]}.`);
+/** The line beside "Back to <preset>". */
+export const differsText = (): string => 'Custom';
 
 const MODE_LABEL: Record<ExposureMode, string> = { quick: 'Quick', balanced: 'Balanced', deep: 'Deep' };
 export const presetLabel = (m: ExposureMode): string => MODE_LABEL[m];
@@ -99,8 +96,6 @@ export const ACT_ON: Readonly<Record<string, readonly ('date' | 'train' | 'filte
   'no-usable-time': ['date'],
   'limited-by-usable-time': ['date'],
   'meridian-flip': [],
-  'target-ou4': [],
-  'short-session-faint': [],
 };
 
 /** The warnings split: the ones to act on, and the notes (everything else). */
@@ -120,9 +115,9 @@ export const minutesText = (m: number): string => {
  */
 export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntry | null, site: Site, bortle: number): RowExposure {
   if (slot.problem) return { kind: 'none', reason: slot.problem };
-  if (entry === null) return { kind: 'none', reason: 'Numbers appear once the catalog and the night have loaded.' };
-  if (slot.source.kind !== 'fixed') return { kind: 'none', reason: 'No exposure numbers for the solar system.' };
-  if (!slot.optics || !slot.camera) return { kind: 'missing', reason: 'No exposure: this setup has no optics numbers. Add them in Gear.' };
+  if (entry === null) return { kind: 'none', reason: 'Loading...' };
+  if (slot.source.kind !== 'fixed') return { kind: 'none', reason: 'No exposure numbers' };
+  if (!slot.optics || !slot.camera) return { kind: 'missing', reason: 'No exposure: add optics' };
   const start = entry.windows[0]?.start ?? null;
   const { raHours, decDeg } = slot.source;
   const night = {
@@ -138,7 +133,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   const presets = {} as Record<ExposureMode, ExposureResult>;
   for (const m of MODE_ORDER) {
     const r = run({ preset: m });
-    if (!r.ok) return { kind: 'missing', reason: slot.gearNote ?? 'Optics numbers unusable. Check Gear.' };
+    if (!r.ok) return { kind: 'missing', reason: slot.gearNote ?? 'Gear incomplete' };
     presets[m] = r;
   }
   // A stored custom number outside the limits never reaches the engine (it throws on a count that is not whole): the preset's numbers are used.
@@ -147,20 +142,20 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   let chosen = presets[baseOf(ref)];
   if (ref.preset === 'custom' && stored === null) {
     const own = run(choiceOf(ref));
-    if (!own.ok) return { kind: 'missing', reason: slot.gearNote ?? 'Optics numbers unusable. Check Gear.' };
-    problem = resultProblem(own, entry.usableMinutes, true);
+    if (!own.ok) return { kind: 'missing', reason: slot.gearNote ?? 'Gear incomplete' };
+    problem = resultProblem(own, entry.usableMinutes);
     if (problem === null) chosen = own;
   } else if (ref.preset !== 'custom') {
     chosen = presets[ref.preset];
   }
-  const customUnusable = problem === null ? null : notUsedText(problem, baseOf(ref));
+  const customUnusable = problem === null ? null : NOT_USED_TEXT;
   const cam = slot.camera;
   const inputs = [
     `f/${(slot.optics.focalRatio ?? 0).toFixed(2)}`,
     `${cam.pixelSizeUm ?? '?'} um pixels`,
-    `read noise class ${cam.readNoiseClass ?? 'not set (medium assumed)'}`,
+    `read noise class ${cam.readNoiseClass ?? 'medium (assumed)'}`,
     `Bortle ${bortle}`,
-    `Moon ${(entry.moonIllumination * 100).toFixed(0)}% lit and ${entry.moonSeparation.toFixed(0)} degrees away${entry.moonUp ? '' : ' (down)'}`,
+    `Moon ${(entry.moonIllumination * 100).toFixed(0)}% at ${entry.moonSeparation.toFixed(0)}°${entry.moonUp ? '' : ' (down)'}`,
     `${Math.round(entry.usableMinutes)} usable minutes`,
   ].join(', ');
   const withNumber = (field: 'subSeconds' | 'subCount', value: number): ExposureResult | null => {
@@ -186,32 +181,27 @@ export type NumberCheck = { ok: true; value: number } | { ok: false; message: st
 /** A typed sub length (seconds) or count: a plain message when it cannot be used, never a stored value. */
 export function checkNumber(field: 'subSeconds' | 'subCount', text: string): NumberCheck {
   const t = text.trim();
-  const what = field === 'subSeconds' ? 'sub length' : 'number of subs';
-  if (t === '') return { ok: false, message: `Enter a ${what}.` };
-  if (/^-/.test(t) || /^0+(\.0*)?$/.test(t)) return { ok: false, message: `The ${what} must be above 0.` };
+  if (t === '') return { ok: false, message: field === 'subSeconds' ? 'Enter a sub length' : 'Enter a count' };
+  if (/^-/.test(t) || /^0+(\.0*)?$/.test(t)) return { ok: false, message: 'Above 0' };
   if (field === 'subSeconds') {
-    if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, message: 'Enter the sub length in seconds as a number, for example 120.' };
+    if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, message: 'Seconds, a number' };
     const v = Number(t);
-    if (v < MIN_CUSTOM_SUB_S) return { ok: false, message: `A sub of ${v} s is shorter than ${MIN_CUSTOM_SUB_S} s: too short to be an exposure.` };
-    if (v > MAX_SUB_S) return { ok: false, message: `${t.length > 10 ? 'That sub length' : `A sub of ${v} s`} is longer than ${MAX_SUB_S} s: too long for one sub.` };
+    if (v < MIN_CUSTOM_SUB_S || v > MAX_SUB_S) return { ok: false, message: `Sub: ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s` };
     return { ok: true, value: v };
   }
-  if (!/^\d+$/.test(t)) return { ok: false, message: 'Enter the number of subs as a whole number, for example 30.' };
+  if (!/^\d+$/.test(t)) return { ok: false, message: 'Subs: whole number' };
   const v = Number(t);
-  if (v > MAX_SUBS) return { ok: false, message: `${t.length > 10 ? 'That many subs' : `${v} subs`} is more than ${MAX_SUBS}: too many for one plan.` };
+  if (v > MAX_SUBS) return { ok: false, message: `Max ${MAX_SUBS} subs` };
   return { ok: true, value: v };
 }
 
 /**
- * The plain reason the engine's numbers for a custom value cannot be used (more subs than a favorite or a plan holds, a sub that does not fit the night,
- * or more than a day of light), or null when they can. `onNight`: the value is already stored and the night changed, so the message says "on this night".
+ * The short reason the engine's numbers for a custom value cannot be used (more subs than a favorite or a plan holds, a sub that does not fit the night,
+ * or more than a day of light), or null when they can.
  */
-export function resultProblem(r: ExposureResult, usableMinutes: number, onNight = false): string | null {
-  if (r.warnings.some((w) => w.code === 'count-capped')) return `That would need more than ${MAX_SUBS.toLocaleString('en-US')} subs${onNight ? ' on this night' : ''}; use longer subs.`;
-  if (r.subCount < 1) {
-    if (usableMinutes <= 0) return 'There is no usable time on this night for that, so it would give no subs.';
-    return `A ${r.subSeconds} s sub does not fit in the ${Math.floor(usableMinutes)} usable minutes of this night; use shorter subs.`;
-  }
-  if (r.subSeconds * r.subCount > MAX_LIGHT_S) return 'That is more than 24 hours of light, so it is not used.';
+export function resultProblem(r: ExposureResult, usableMinutes: number): string | null {
+  if (r.warnings.some((w) => w.code === 'count-capped')) return `Max ${MAX_SUBS} subs`;
+  if (r.subCount < 1) return usableMinutes <= 0 ? 'Not up tonight' : 'Sub too long';
+  if (r.subSeconds * r.subCount > MAX_LIGHT_S) return 'Over 24 hours';
   return null;
 }

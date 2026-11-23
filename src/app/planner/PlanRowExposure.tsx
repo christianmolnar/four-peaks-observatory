@@ -207,7 +207,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
           </p>
           {preset === 'custom' && base !== null && (
             <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-custom-${id}`}>
-              <span>{unusable === null ? differsText(chosen) : 'Custom: not used tonight.'}</span>
+              <span>{unusable === null ? differsText() : 'Custom: not used tonight.'}</span>
               <button type="button" className={btn} onClick={() => { clear(); onBack(); requestAnimationFrame(() => document.getElementById(`plan-preset-${id}-${base}`)?.focus()); }}>
                 Back to {presetLabel(base)}
               </button>
