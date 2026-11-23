@@ -273,14 +273,13 @@ describe('the strip edits the open plan', () => {
     await app();
     await addByHand(user, 'm31', 'Andromeda Galaxy');
     fireEvent.click(screen.getByRole('button', { name: 'Plan my night with AI' }));
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/1 target, in the plan's order: Andromeda Galaxy \(Balanced\)\./);
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/Night: Astronomical night/);
+    expect(screen.getByRole('button', { name: 'Plan 1 target' })).toBeTruthy();
     expect(timelineSlots().map((li) => li.querySelector('h3')!.textContent)).toEqual(['1. Andromeda Galaxy']);
     await user.click(within(bar()).getByRole('button', { name: 'New' }));
-    expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add at least one target to the plan first.');
+    expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add a target first');
     expect(timelineSlots()).toHaveLength(0);
     await user.selectOptions(planSwitch(), storedPlans()!.plans[0].id);
-    expect(screen.getByTestId('ai-inputs').textContent).toMatch(/1 target, in the plan's order: Andromeda Galaxy \(Balanced\)\./);
+    expect(screen.getByRole('button', { name: 'Plan 1 target' })).toBeTruthy();
     expect(timelineSlots()).toHaveLength(1);
   });
 });

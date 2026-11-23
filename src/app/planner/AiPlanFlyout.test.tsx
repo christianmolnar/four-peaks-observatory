@@ -5,7 +5,6 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { starterTargets } from '@/planner/catalog';
 import { MAX_SLOTS } from '@/planner/itinerary';
-import { tonightsNight } from '@/planner/plan';
 import { sampleProfile } from '@/planner/state';
 import AiPlanFlyout from './AiPlanFlyout';
 import type { AiPlanFlyoutProps } from './AiPlanFlyout';
@@ -14,8 +13,6 @@ import type { AiPlanFlyoutProps } from './AiPlanFlyout';
 
 const profile = sampleProfile();
 const site = { latitude: 33.6, longitude: -111.7 };
-const night = tonightsNight(site, '2026-12-15', 'America/Phoenix');
-if (night.kind !== 'normal') throw new Error('test night must be normal');
 const picks = starterTargets.slice(0, MAX_SLOTS + 1);
 const slots = picks.map((t, i) => ({ id: t.id, start: `2026-12-15T${String(19 + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '00' : '30'}-07:00`, end: `2026-12-15T${String(19 + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '25' : '55'}-07:00` }));
 const answer = { status: 'verified', plan: { exposures: [], plan: slots, cut: [], fitsAll: true }, violations: [], warnings: [], lastTarget: null, flips: 0, repairRounds: 0, modelCalls: 1 };
@@ -32,17 +29,8 @@ const propsFor = (fetchPlan: typeof fetch, over: Partial<AiPlanFlyoutProps> = {}
     base: { site, timeZone: 'America/Phoenix', horizon: null, minAltitude: 20, date: '2026-12-15' },
     targets: chosen.map((t) => ({ id: t.id, name: t.name, raHours: t.raHours, decDeg: t.decDeg })),
     blocked: null,
-    leftOutNote: '',
-    profile,
     train: profile.trains.find((t) => t.kind === 'optical')!,
-    siteName: 'Test site',
-    nightWord: 'tonight',
-    night,
-    nightText: 'Astronomical night 20:00 to 05:00.',
-    horizonText: 'Horizon not set: only the flat minimum altitude applies.',
     presetLabels: new Map(chosen.map((t, i) => [t.id, i === 0 ? 'Balanced' : 'Deep'])),
-    catalogTargets: starterTargets,
-    formatTime: (d: Date) => d.toISOString().slice(11, 16),
     owner: false,
     fetchPlan,
     onApply: jest.fn(async () => true),
@@ -54,11 +42,11 @@ const propsFor = (fetchPlan: typeof fetch, over: Partial<AiPlanFlyoutProps> = {}
 it('a verified plan with more slots than the night timeline holds cannot be applied, and says how many fit', async () => {
   const props = propsFor(fetching(reply(200, answer)), {}, MAX_SLOTS + 1);
   render(<AiPlanFlyout {...props} />);
-  await userEvent.setup().click(screen.getByRole('button', { name: /^Ask the AI to order and time/ }));
+  await userEvent.setup().click(screen.getByRole('button', { name: /^Plan \d+ targets?$/ }));
   const result = await screen.findByTestId('ai-result');
   expect(within(result).getAllByRole('listitem').filter((li) => li.getAttribute('data-testid')?.startsWith('ai-slot-'))).toHaveLength(MAX_SLOTS + 1);
   expect((screen.getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByTestId('ai-apply-note').textContent).toMatch(new RegExp(`${MAX_SLOTS} targets.*${MAX_SLOTS + 1}`));
+  expect(screen.getByTestId('ai-apply-note').textContent).toBe(`Max ${MAX_SLOTS} targets`);
   expect(screen.getByTestId('ai-apply-note').className).not.toMatch(/text-p-t1\/\d/); // a reason the button is disabled keeps full colour
   expect(props.onApply).not.toHaveBeenCalled();
 });
@@ -71,25 +59,13 @@ const twoSlots = [
   { id: two[1].id, start: '2026-12-15T20:40:00-07:00', end: '2026-12-15T21:40:00-07:00' },
 ];
 const twoAnswer = (over: object = {}) => ({ status: 'verified', plan: { exposures: [], plan: twoSlots, cut: [], fitsAll: true, notes: '' }, violations: [], warnings: [], lastTarget: null, flips: 0, repairRounds: 0, modelCalls: 1, ...over });
-const ask = () => screen.getByRole('button', { name: /^Ask the AI to order and time/ });
-const stateOf = (n: number) => screen.getByTestId(`ai-step-${n}`).getAttribute('data-state');
-
-describe('step 1, checking the night', () => {
-  it('shows what the AI is given in plain words, with each target\'s preset, and sends nothing until asked', () => {
+const ask = () => screen.getByRole('button', { name: /^Plan \d+ targets?$/ });
+describe('before asking', () => {
+  it('shows only the Ask button; sends nothing until asked', () => {
     const f = fetching(reply(200, twoAnswer()));
     render(<AiPlanFlyout {...propsFor(f)} />);
-    const inputs = screen.getByTestId('ai-inputs').textContent ?? '';
-    expect(inputs).toContain('Night: Astronomical night 20:00 to 05:00.');
-    expect(inputs).toContain('Site: Test site, minimum altitude 20°.');
-    expect(inputs).toContain('Horizon not set');
-    expect(inputs).toMatch(/Setup: .+\./);
-    expect(inputs).toContain(`2 targets, in the plan's order: ${two[0].name} (Balanced), ${two[1].name} (Deep).`);
-    expect(stateOf(1)).toBe('now');
-    expect(stateOf(2)).toBe('waiting');
-    expect(stateOf(3)).toBe('waiting');
-    expect(screen.getByRole('heading', { name: '1. Your night (now)', level: 3 })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 3, name: '2. AI plan (waiting)' })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 3, name: '3. Check (waiting)' })).toBeTruthy();
+    expect(ask().textContent).toBe('Plan 2 targets');
+    expect(screen.queryByTestId('ai-inputs')).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2 }));
     expect(f).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Use this plan' })).toBeNull();
@@ -97,44 +73,40 @@ describe('step 1, checking the night', () => {
 
   it('says why it cannot ask (no targets) and keeps the button off', () => {
     const f = fetching(reply(200, twoAnswer()));
-    render(<AiPlanFlyout {...propsFor(f, { blocked: 'Add at least one target to the plan first.', targets: [] })} />);
-    expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add at least one target to the plan first.');
+    render(<AiPlanFlyout {...propsFor(f, { blocked: 'Add a target first', targets: [] })} />);
+    expect(screen.getByTestId('ai-plan-reason').textContent).toBe('Add a target first');
     expect((ask() as HTMLButtonElement).disabled).toBe(true);
     expect(f).not.toHaveBeenCalled();
   });
 });
 
-describe('step 2, asking the AI', () => {
+describe('asking the AI', () => {
   it('shows a live status and Cancel; Cancel stops the request, changes nothing and offers Ask again', async () => {
     const f = hang();
     const props = propsFor(f);
     render(<AiPlanFlyout {...props} />);
     const user = userEvent.setup();
     await user.click(ask());
-    expect(stateOf(1)).toBe('done');
-    expect(stateOf(2)).toBe('now');
-    expect(screen.getByTestId('ai-status').textContent).toBe('Planning tonight. The AI can take a minute or two.');
+    expect(screen.getByTestId('ai-status').textContent).toBe('Planning...');
     expect(screen.getByTestId('ai-status').getAttribute('aria-live')).toBe('polite');
     const cancel = screen.getByRole('button', { name: 'Cancel' });
     expect(document.activeElement).toBe(cancel);
     await user.click(cancel);
     expect((f as unknown as jest.Mock).mock.calls[0][1].signal.aborted).toBe(true);
-    expect(screen.getByTestId('ai-status').textContent).toBe('Cancelled. Nothing was changed.');
+    expect(screen.getByTestId('ai-status').textContent).toBe('Cancelled');
     expect(screen.getByRole('button', { name: 'Ask again' })).toBeTruthy();
     expect(props.onApply).not.toHaveBeenCalled();
     expect(props.onClose).not.toHaveBeenCalled();
   });
 });
 
-describe('step 3 and the result', () => {
-  it('a passing plan: step 3 says passed; slots show start, end, minutes and preset; nothing is applied yet', async () => {
+describe('the result', () => {
+  it('a passing plan: nothing says passed; slots show start, end, minutes and preset; nothing is applied yet', async () => {
     const props = propsFor(fetching(reply(200, twoAnswer())));
     render(<AiPlanFlyout {...props} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(stateOf(2)).toBe('done');
-    expect(stateOf(3)).toBe('done');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Passed/);
+    expect(screen.queryByTestId('ai-checked')).toBeNull();
     const rows = [0, 1].map((i) => screen.getByTestId(`ai-slot-${i}`).textContent ?? '');
     expect(rows[0]).toMatch(new RegExp(`^1\\. ${two[0].name} 19:00 to 20:30 \\(90 min, Balanced\\)`));
     expect(rows[1]).toMatch(new RegExp(`^2\\. ${two[1].name} 20:40 to 21:40 \\(60 min, Deep\\)`));
@@ -144,31 +116,30 @@ describe('step 3 and the result', () => {
     expect(props.onApply).not.toHaveBeenCalled();
   });
 
-  it('a plan the code repaired says so', async () => {
+  it('a plan the code repaired says nothing', async () => {
     render(<AiPlanFlyout {...propsFor(fetching(reply(200, twoAnswer({ repairRounds: 2 }))))} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Repaired after 2 retries/);
-    expect(screen.getByTestId('ai-checked').textContent ?? '').not.toMatch(/altitude|horizon|overlap|neither planned/); // names no cause
+    expect(screen.queryByTestId('ai-checked')).toBeNull();
   });
 
-  it('targets left out are listed with why, and the checker\'s warnings are shown', async () => {
+  it('targets left out are listed by name, and the checker\'s problems are short chips', async () => {
     const out = starterTargets[2];
     const a = twoAnswer({ plan: { exposures: [], plan: twoSlots, cut: [out.id], fitsAll: false, notes: '' }, flips: 1 });
     render(<AiPlanFlyout {...propsFor(fetching(reply(200, a)), { targets: starterTargets.slice(0, 3).map((t) => ({ id: t.id, name: t.name, raHours: t.raHours, decDeg: t.decDeg })) })} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(screen.getByTestId('ai-cut').textContent).toMatch(new RegExp(`^${out.name}\\. The AI judged it did not fit`));
-    expect(screen.getByTestId('ai-checker').textContent).toMatch(/1 slot crosses the meridian/);
-    expect(screen.getByTestId('ai-status').textContent).toMatch(/2 planned, 1 left out\. Checked by code\./);
+    expect(screen.getByTestId('ai-cut').textContent).toBe(`Left out: ${out.name}`);
+    expect(screen.queryByTestId('ai-checker')).toBeNull();
   });
 
   it('a plan the checker could not clear cannot be used', async () => {
-    render(<AiPlanFlyout {...propsFor(fetching(reply(200, twoAnswer({ status: 'unverified', violations: [{ code: 'x', message: 'Slot overlaps.' }], repairRounds: 3 }))))} />);
+    render(<AiPlanFlyout {...propsFor(fetching(reply(200, twoAnswer({ status: 'unverified', violations: [{ kind: 'overlap', id: two[0].id, message: 'Slot overlaps.' }], repairRounds: 3 }))))} />);
     await userEvent.setup().click(ask());
     await screen.findByTestId('ai-result');
-    expect(stateOf(3)).toBe('failed');
-    expect(screen.getByTestId('ai-checked').textContent).toMatch(/^Not fully checked/);
+    expect(screen.getByTestId('ai-checked').textContent).toBe('Not fully checked');
+    expect(screen.getByTestId('ai-checker').textContent).toBe(`${two[0].name}: Overlap`);
+    expect(screen.getByTestId('ai-apply-note').textContent).toBe('Not fully checked');
     expect((screen.getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
@@ -183,14 +154,13 @@ describe('Use this plan, Ask again, Close', () => {
       await screen.findByTestId('ai-result');
       return u;
     })();
-    expect(screen.getByTestId('ai-apply-explain').textContent).toMatch(/^Sets order and start/);
     expect(screen.queryByTestId('ai-apply-note')).toBeNull(); // nothing to warn about before it is used
     await user.click(screen.getByRole('button', { name: 'Use this plan' }));
     expect(props.onApply).toHaveBeenCalledTimes(1);
     const [items, startTime] = (props.onApply as jest.Mock).mock.calls[0];
     expect(items.map((i: { targetId: string }) => i.targetId)).toEqual([two[0].id, two[1].id]);
     expect(startTime).toBe('19:00');
-    await screen.findByText('Done: the open plan now has this order and first start time.');
+    await screen.findByText('Applied');
     expect(props.onClose).not.toHaveBeenCalled();
   });
 
@@ -208,7 +178,7 @@ describe('Use this plan, Ask again, Close', () => {
     });
     view.rerender(<AiPlanFlyout {...first} onApply={onApply} />);
     await user.click(screen.getByRole('button', { name: 'Use this plan' }));
-    await screen.findByText('Done: the open plan now has this order and first start time.');
+    await screen.findByText('Applied');
     expect(screen.queryByTestId('ai-stale')).toBeNull();
     expect((screen.getByRole('button', { name: 'Use this plan' }) as HTMLButtonElement).disabled).toBe(false);
   });
@@ -220,17 +190,17 @@ describe('Use this plan, Ask again, Close', () => {
     await screen.findByTestId('ai-result');
     const more = starterTargets[2];
     view.rerender(<AiPlanFlyout {...first} targets={[...first.targets, { id: more.id, name: more.name, raHours: more.raHours, decDeg: more.decDeg }]} />);
-    expect(screen.getByTestId('ai-stale').textContent).toMatch(/the plan/);
+    expect(screen.getByTestId('ai-stale').textContent).toBe('Out of date');
   });
 
-  it('when the page refuses it the flyout says the plan was left as it was', async () => {
+  it('when the page refuses it the flyout says Not applied', async () => {
     const props = propsFor(fetching(reply(200, twoAnswer())), { onApply: jest.fn(async () => false) });
     render(<AiPlanFlyout {...props} />);
     const user = userEvent.setup();
     await user.click(ask());
     await screen.findByTestId('ai-result');
     await user.click(screen.getByRole('button', { name: 'Use this plan' }));
-    await screen.findByText('The open plan was left as it was.');
+    await screen.findByText('Not applied');
   });
 
   it('Ask again sends the request again and shows only the new answer', async () => {
@@ -240,7 +210,7 @@ describe('Use this plan, Ask again, Close', () => {
     await user.click(ask());
     await screen.findByTestId('ai-result');
     await user.click(screen.getByRole('button', { name: 'Ask again' }));
-    await waitFor(() => expect(screen.getByTestId('ai-status').textContent).toMatch(/1 planned, 1 left out/));
+    await waitFor(() => expect(screen.getByTestId('ai-cut').textContent).toBe(`Left out: ${two[1].name}`));
     expect(f).toHaveBeenCalledTimes(2);
   });
 
@@ -306,7 +276,6 @@ describe('errors, in plain words with the next step', () => {
     expect(problem.getAttribute('role')).toBe('alert');
     expect(problem.textContent).toMatch(/allowance for now\. Try again in about 25 minutes\./);
     expect(problem.textContent).not.toMatch(/Hourly planner limit/);
-    expect(stateOf(2)).toBe('failed');
     expect(screen.queryByRole('button', { name: 'Ask again' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
   });
@@ -349,7 +318,7 @@ describe('the owner\'s review switch', () => {
     unmount();
     render(<AiPlanFlyout {...propsFor(f, { owner: true })} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('checkbox', { name: /review the plan/ }));
+    await user.click(screen.getByRole('checkbox', { name: 'Ask the AI to review' }));
     await user.click(ask());
     await screen.findByTestId('ai-result');
     expect(JSON.parse((f as unknown as jest.Mock).mock.calls[0][1].body).qualityReview).toBe(true);

@@ -7,7 +7,7 @@ import { ITINERARY_KEY } from '@/planner/itinerary';
 import { sampleProfile } from '@/planner/state';
 import { PLANS_KEY } from '@/planner/state/plans';
 import PlannerApp from './PlannerApp';
-import { fakeCatalog, openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
+import { openPart, pageProps, ready, storedPlan, timelineSlots } from './testkit';
 
 // Start time, altitude per slot and the night graph, on the whole page (2026-12-15, C11 + reducer + ASI533MC).
 

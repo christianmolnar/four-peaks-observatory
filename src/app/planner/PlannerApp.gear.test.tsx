@@ -459,7 +459,7 @@ describe('a plan whose train is gone is never used silently', () => {
   };
   const noteText = 'train is no longer in your gear';
 
-  it('the AI flyout says it in step 1 and does not offer to ask until the user keeps or changes the train', async () => {
+  it('the AI flyout says it and does not offer to ask until the user keeps or changes the train', async () => {
     seedStale();
     await mount();
     openPlanTab();
@@ -467,12 +467,12 @@ describe('a plan whose train is gone is never used silently', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Plan my night with AI' }));
     const flyout = screen.getByTestId('ai-flyout');
     expect(within(flyout).getByTestId('ai-stale-train').textContent).toContain(noteText);
-    const ask = within(flyout).getByRole('button', { name: /^Ask the AI/ });
+    const ask = within(flyout).getByRole('button', { name: /^Plan \d+ targets?$/ });
     expect(ask.hasAttribute('disabled')).toBe(true);
-    expect(within(flyout).getByTestId('ai-plan-reason').textContent).toMatch(/no longer in your gear\. Keep the one shown or change it\./);
+    expect(within(flyout).getByTestId('ai-plan-reason').textContent).toBe('Setup or site removed');
     fireEvent.click(within(flyout).getByRole('button', { name: /^Keep / }));
     await waitFor(() => expect(within(screen.getByTestId('ai-flyout')).queryByTestId('ai-stale-train')).toBeNull());
-    expect(within(screen.getByTestId('ai-flyout')).getByRole('button', { name: /^Ask the AI/ }).hasAttribute('disabled')).toBe(false);
+    expect(within(screen.getByTestId('ai-flyout')).getByRole('button', { name: /^Plan \d+ targets?$/ }).hasAttribute('disabled')).toBe(false);
   });
 
   it('the print header and the shared plan CSV carry the note', async () => {

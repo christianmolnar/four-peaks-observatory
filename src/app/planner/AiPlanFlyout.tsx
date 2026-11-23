@@ -1,18 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MAX_TARGETS } from '@/planner/ai/facts';
-import type { AstronomicalNight } from '@/planner/astro';
 import { MAX_SLOTS } from '@/planner/itinerary';
 import type { ItineraryItem } from '@/planner/itinerary';
-import { slotInputFor } from '@/planner/itinerary/resolve';
-import type { SlotTarget } from '@/planner/itinerary/resolve';
-import type { Profile, TrainEntry } from '@/planner/profile';
+import type { TrainEntry } from '@/planner/profile';
 import { buildAiPlanBody, RequestTooLargeError } from '@/planner/ai/body';
 import type { AiPlanForm, PlanTarget } from '@/planner/ai/body';
 import type { AiPlanResult } from '@/planner/ai/plan';
+import type { ViolationKind } from '@/planner/ai/check';
 import {
   NETWORK_PROBLEM,
   TIMEOUT_PROBLEM,
@@ -20,15 +17,10 @@ import {
   clockOfIso,
   itineraryFromAiPlan,
   minutesBetween,
-  plainText,
   problemFor,
   readResult,
-  timelinePlanOf,
 } from '@/planner/ai/view';
 import type { AiProblem } from '@/planner/ai/view';
-import AiSlotMix from './AiSlotMix';
-import type { AiSlotView } from './AiSlotMix';
-import NightTimeline from './NightTimeline';
 
 export const AI_PLAN_URL = '/api/planner/ai-plan';
 /** A little over the route's own 120 s: when the page stops waiting. */
@@ -41,35 +33,15 @@ export interface AiPlanFlyoutProps {
   base: Omit<AiPlanForm, 'targets'> | null;
   /** The open plan's fixed-position targets, in the plan's order. */
   targets: readonly PlanTarget[];
-  /** Why there is nothing to send yet, in words for the user; null when there is. */
+  /** Why there is nothing to send yet, in a few words; null when there is. */
   blocked: string | null;
   /** The plan's site or train is gone from the gear: what is shown instead. The AI is not asked until the user keeps it or changes it. */
   staleNotes?: readonly { key: string; text: string; keepLabel: string; onKeep: () => void }[];
   /** Closes the flyout and focuses the page's Train control. */
   onChangeStale?: () => void;
-  /** What the open plan holds that the AI plan leaves out (planets, targets past the limit); empty when nothing. */
-  leftOutNote: string;
-  profile: Profile;
   train: TrainEntry;
-  siteName: string;
-  nightWord: string;
-  night: AstronomicalNight | null;
-  /** The night in plain words (dark window, Moon), as the page shows it. */
-  nightText: string;
-  /** The horizon in plain words, as the page shows it. */
-  horizonText: string;
   /** Each target's exposure preset as a label ("Balanced", "Custom"), by target id. */
   presetLabels: ReadonlyMap<string, string>;
-  catalogTargets: readonly SlotTarget[];
-  /**
-   * The filter mix each target of the AI plan will have once the plan is used, by target id: the page's own mix (the plan row's and the text export's)
-   * on the timeline the plan gets, given the targets in the AI's order and its first start. Null when the page cannot work it out (no night, no catalog yet).
-   */
-  mixFor?: (ids: readonly string[], startTime: string | null) => ReadonlyMap<string, AiSlotView> | null;
-  /** The narrowband panel of a slot: the broadband hours typed for a target, and a filter ticked or unticked (the page keeps both, by target id). */
-  onNbHours?: (id: string, text: string) => void;
-  onNbTick?: (id: string, filterId: string, on: boolean) => void;
-  formatTime: (d: Date) => string;
   /** Shown only to the owner. */
   owner: boolean;
   /** For tests: stands in for the browser's fetch. */
@@ -93,7 +65,30 @@ interface Done {
 
 const UNREADABLE = Symbol('unreadable');
 
-const PART_LABELS: Record<string, string> = { night: 'the night', site: 'the site', train: 'the setup', plan: 'the plan', sky: 'the horizon or minimum altitude' };
+const PARTS = ['night', 'site', 'train', 'plan', 'sky'] as const;
+
+/** What the checker found, in a few words (the full sentences go to the AI, not the screen). */
+const VIOLATION_LABEL: Record<ViolationKind, string> = {
+  'too-many-slots': 'Too many slots',
+  'unknown-target': 'Unknown target',
+  'bad-time': 'Bad time',
+  'outside-night': 'Outside the night',
+  'below-min-altitude': 'Below minimum altitude',
+  'blocked-by-horizon': 'Behind horizon',
+  'flip-in-slot': 'Flip in slot',
+  'exposure-mismatch': 'Light too long',
+  overlap: 'Overlap',
+  'slew-gap': 'Slew gap short',
+  'duplicate-slot': 'Two slots',
+  'in-plan-and-cut': 'In plan and left out',
+  'duplicate-cut': 'Left out twice',
+  'missing-target': 'Target missing',
+  'missing-exposure': 'No exposure',
+  'fits-flag': 'Flag wrong',
+  'empty-plan': 'Plan empty',
+  'missing-verdict': 'No last verdict',
+  'verdict-mismatch': 'Last slot mismatch',
+};
 
 /** The request as the page would send it now, split by what the user chose: the stale marker names what moved. */
 function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
@@ -107,29 +102,11 @@ function partsOf(form: AiPlanForm, train: TrainEntry): Record<string, string> {
   };
 }
 
-const CHECKED_TEXT = 'above minimum altitude, clear of horizon, no overlaps.';
-
-type StepState = 'done' | 'now' | 'waiting' | 'failed';
-const STEP_WORD: Record<StepState, string> = { done: 'done', now: 'now', waiting: 'waiting', failed: 'failed' };
-
-function Step({ n, title, state, children }: { n: number; title: string; state: StepState; children?: ReactNode }) {
-  return (
-    <li aria-current={state === 'now' || state === 'failed' ? 'step' : undefined} className={`rounded border p-3 ${state === 'now' ? 'border-p-accent/60' : state === 'failed' ? 'border-p-warn/50' : 'border-p-line/15'}`} data-testid={`ai-step-${n}`} data-state={state}>
-      <h3 className={`flex flex-wrap items-baseline gap-x-2 text-base font-normal ${state === 'waiting' ? 'text-p-t1/70' : 'text-p-t1'}`}>
-        <span>{n}. {title}</span>
-        <span className="text-sm text-p-t1/70" data-testid={`ai-step-${n}-state`}>({STEP_WORD[state]})</span>
-      </h3>
-      {children !== undefined && <div className="mt-2 min-w-0 break-words">{children}</div>}
-    </li>
-  );
-}
-
 /**
- * "Plan my night with AI": a flyout over the plan (a side sheet on a wide screen, the whole screen on a phone). Three steps: the night as
- * the AI is given it, the AI ordering and timing the targets, the code checking every slot against the sky. It ends in a result; the open
- * plan changes only when "Use this plan" is pressed. Closing it stops any request in flight.
+ * "Plan my night with AI": a flyout over the plan (a side sheet on a wide screen, the whole screen on a phone). One button asks, a status line
+ * shows the wait, the result is the planned slots in order. The open plan changes only when "Use this plan" is pressed. Closing it stops any request in flight.
  */
-export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, staleNotes = [], onChangeStale = () => undefined, profile, train, siteName, nightWord, night, nightText, horizonText, presetLabels, catalogTargets, mixFor, onNbHours = () => undefined, onNbTick = () => undefined, formatTime, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
+export default function AiPlanFlyout({ base, targets, blocked, staleNotes = [], onChangeStale = () => undefined, train, presetLabels, owner, fetchPlan, onApply, onClose }: AiPlanFlyoutProps) {
   const [run, setRun] = useState<Run>('idle');
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -287,22 +264,10 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
   closeRef.current = close;
 
   const loading = run === 'loading';
-  const stale = done !== null && prepared !== null ? Object.keys(PART_LABELS).filter((k) => done.parts[k] !== prepared.parts[k]) : done !== null ? Object.keys(PART_LABELS) : [];
+  const stale = done !== null && prepared !== null ? PARTS.filter((k) => done.parts[k] !== prepared.parts[k]) : done !== null ? [...PARTS] : [];
   const count = Math.min(targets.length, MAX_TARGETS);
   const noun = count === 1 ? 'target' : 'targets';
-  const step1: StepState = loading || done !== null || run === 'error' ? 'done' : 'now';
-  const step2: StepState = loading ? 'now' : run === 'error' ? 'failed' : done !== null ? 'done' : 'waiting';
-  const step3: StepState = done !== null ? (done.result.status === 'verified' ? 'done' : 'failed') : 'waiting';
-  const status =
-    loading
-      ? `Planning ${nightWord}. The AI can take a minute or two.`
-      : run === 'cancelled'
-        ? 'Cancelled. Nothing was changed.'
-        : run === 'superseded'
-          ? 'You changed something, so the answer was dropped. Ask again.'
-          : done !== null
-            ? `Plan ready: ${done.result.plan.plan.length} planned, ${done.result.plan.cut.length} left out. ${done.result.status === 'verified' ? 'Checked by code.' : 'Not fully checked.'}`
-            : '';
+  const status = loading ? 'Planning...' : run === 'cancelled' ? 'Cancelled' : run === 'superseded' ? 'Out of date' : '';
   const canAsk = disabledReason === null && !loading;
   const showAskAgain = done !== null || run === 'cancelled' || run === 'superseded' || (run === 'error' && problem?.retry === true);
 
@@ -310,22 +275,19 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
     done === null
       ? null
       : done.result.status !== 'verified'
-        ? 'Not fully checked, so it cannot be used.'
+        ? 'Not fully checked'
         : train.kind !== 'optical'
-          ? 'Pick an optical setup; smart scopes plan their own exposures.'
+          ? 'Pick optical setup'
           : done.result.plan.plan.length === 0
-            ? 'This plan has no slots.'
+            ? 'No slots'
             : done.result.plan.plan.length > MAX_SLOTS
-              ? `The timeline holds at most ${MAX_SLOTS} targets and this plan has ${done.result.plan.plan.length}. Remove one and ask again.`
+              ? `Max ${MAX_SLOTS} targets`
               : stale.length > 0
-                ? 'This plan is out of date. Ask again first.'
+                ? 'Out of date'
                 : null;
 
-  // On the body, so it sits above the site's fixed navigation whatever the page's own stacking.
   /** The short line above the buttons: why Use this plan is off, or what it did. */
-  const footerNote =
-    applyBlock ??
-    (applyNote === 'applied' ? 'Done: the open plan now has this order and first start time.' : applyNote === 'kept' ? 'The open plan was left as it was.' : null);
+  const footerNote = applyBlock ?? (applyNote === 'applied' ? 'Applied' : applyNote === 'kept' ? 'Not applied' : null);
 
   return createPortal(
     <div
@@ -340,112 +302,56 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
         <h2 id="ai-plan-heading" ref={heading} tabIndex={-1} className="mb-3 text-xl font-light tracking-[0.1em] text-p-t1 focus:outline-none">
           PLAN MY NIGHT WITH AI
         </h2>
-        <p className="mb-3 text-sm font-normal text-p-t1/70">
-          Nothing in your plan changes until you press Use this plan.
-        </p>
-        <ol className="space-y-3" aria-label="Steps">
-          <Step n={1} title="Your night" state={step1}>
-            {form !== null ? (
-              <ul className="space-y-1 text-sm font-normal text-p-t1" data-testid="ai-inputs">
-                <li>Night: {nightText.trim()}</li>
-                <li>Site: {siteName}, minimum altitude {form.minAltitude}°.</li>
-                <li>{horizonText}</li>
-                <li>Setup: {train.name}.</li>
-                <li>
-                  {count} {noun}, in the plan&apos;s order:{' '}
-                  {targets.slice(0, MAX_TARGETS).map((t, i) => (
-                    <span key={t.id}>
-                      {i > 0 ? ', ' : ''}
-                      {t.name} ({presetLabels.get(t.id) ?? 'Balanced'})
-                    </span>
-                  ))}
-                  .
-                </li>
-              </ul>
-            ) : null}
-            {staleNotes.map((n) => (
-              <div key={n.key} className="mt-2 rounded border border-p-warn/50 bg-p-warn-fill/15 p-2 text-sm font-normal text-p-warn-text" data-testid={`ai-stale-${n.key}`}>
-                <p className="break-words">{n.text}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button type="button" className={`${btn44} max-w-full min-w-0 break-words text-left`} onClick={n.onKeep}>{n.keepLabel}</button>
-                  <button type="button" className={btn44} onClick={onChangeStale}>Change</button>
-                </div>
+        <div className="space-y-2">
+          {staleNotes.map((n) => (
+            <div key={n.key} className="rounded border border-p-warn/50 bg-p-warn-fill/15 p-2 text-sm font-normal text-p-warn-text" data-testid={`ai-stale-${n.key}`}>
+              <p className="break-words">{n.text}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" className={`${btn44} max-w-full min-w-0 break-words text-left`} onClick={n.onKeep}>{n.keepLabel}</button>
+                <button type="button" className={btn44} onClick={onChangeStale}>Change</button>
               </div>
-            ))}
-            {leftOutNote !== '' && <p className="mt-1 text-sm font-normal text-p-t1/70" data-testid="ai-left-out-note">{leftOutNote}</p>}
-            {disabledReason !== null && (
-              <p id="ai-plan-reason" className="mt-1 text-sm font-normal text-p-warn-text" data-testid="ai-plan-reason">
-                {disabledReason}
-              </p>
-            )}
-            {owner && (
-              <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-normal text-p-t1">
-                <input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} className="h-5 w-5 shrink-0 accent-p-focus" />
-                <span>Also ask the AI to review the plan (owner only)</span>
-              </label>
-            )}
-            {done === null && run === 'idle' && (
-              <button type="button" className={`${btn44} mt-2`} onClick={() => void send()} disabled={!canAsk} aria-describedby={disabledReason !== null ? 'ai-plan-reason' : undefined}>
-                Ask the AI to order and time {count} {noun}
-              </button>
-            )}
-          </Step>
-
-          <Step n={2} title="AI plan" state={step2}>
-            <p aria-live="polite" aria-busy={loading} className="min-h-6 text-sm font-normal text-p-t1" data-testid="ai-status">
-              {status}
+            </div>
+          ))}
+          {disabledReason !== null && (
+            <p id="ai-plan-reason" className="text-sm font-normal text-p-warn-text" data-testid="ai-plan-reason">
+              {disabledReason}
             </p>
-            {loading && (
-              <button ref={cancelButton} type="button" className={`${btn44} mt-2`} onClick={cancel}>
-                Cancel
-              </button>
-            )}
-            {run === 'error' && problem !== null && (
-              <div role="alert" className="mt-2 rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text" data-testid="ai-problem">
-                {problem.text}
-              </div>
-            )}
-          </Step>
-
-          <Step n={3} title="Check" state={step3}>
-            {done !== null ? (
-              <p className={`rounded border px-3 py-2 text-sm font-normal ${done.result.status === 'verified' ? 'border-p-accent/40 text-p-t1' : 'border-p-warn/40 bg-p-warn-fill/15 text-p-warn-text'}`} data-testid="ai-checked">
-                {done.result.status === 'verified'
-                  ? done.result.repairRounds === 0
-                    ? `Passed: ${CHECKED_TEXT}`
-                    : `Repaired after ${done.result.repairRounds} ${done.result.repairRounds === 1 ? 'retry' : 'retries'}; the plan below passes.`
-                  : 'Not fully checked: treat as a rough draft.'}
-              </p>
-            ) : null}
-          </Step>
-        </ol>
-
-        {done !== null && (
-          <Result
-            done={done}
-            stale={stale}
-            profile={profile}
-            base={base}
-            night={night}
-            catalogTargets={catalogTargets}
-            mixFor={mixFor}
-            onNbHours={onNbHours}
-            onNbTick={onNbTick}
-            formatTime={formatTime}
-            nightWord={nightWord}
-            presetLabels={presetLabels}
-          />
-        )}
-        {done !== null && (
-          <p id="ai-apply-explain" className="mt-4 text-sm font-normal text-p-t1/70" data-testid="ai-apply-explain">
-            Sets order and start; timeline times may differ.
+          )}
+          {owner && (
+            <label className="flex min-h-11 items-center gap-2 text-sm font-normal text-p-t1">
+              <input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} className="h-5 w-5 shrink-0 accent-p-focus" />
+              <span>Ask the AI to review</span>
+            </label>
+          )}
+          {done === null && run === 'idle' && (
+            <button type="button" className={btn44} onClick={() => void send()} disabled={!canAsk} aria-describedby={disabledReason !== null ? 'ai-plan-reason' : undefined}>
+              Plan {count} {noun}
+            </button>
+          )}
+          <p aria-live="polite" aria-busy={loading} className="min-h-6 text-sm font-normal text-p-t1" data-testid="ai-status">
+            {status}
           </p>
-        )}
+          {loading && (
+            <button ref={cancelButton} type="button" className={btn44} onClick={cancel}>
+              Cancel
+            </button>
+          )}
+          {run === 'error' && problem !== null && (
+            <div role="alert" className="rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-sm font-normal text-p-warn-text" data-testid="ai-problem">
+              {problem.text}
+            </div>
+          )}
+          {done !== null && done.result.status !== 'verified' && (
+            <p className="inline-block rounded bg-p-warn/15 px-2 py-0.5 text-sm font-normal text-p-warn-text" data-testid="ai-checked">Not fully checked</p>
+          )}
+        </div>
+
+        {done !== null && <Result done={done} stale={stale} presetLabels={presetLabels} />}
       </div>
 
       <div className="border-t border-p-line/20 bg-p-bg p-3" data-testid="ai-footer">
         {done !== null && footerNote !== null && (
-          <p id="ai-apply-note" className={`mb-2 text-sm font-normal ${applyBlock !== null ? 'text-p-t1' : 'text-p-t1/70'}`} data-testid="ai-apply-note">
+          <p id="ai-apply-note" className={`mb-2 text-sm font-normal ${applyBlock !== null ? 'text-p-t1' : 'text-p-t2'}`} data-testid="ai-apply-note">
             {footerNote}
           </p>
         )}
@@ -456,7 +362,7 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
               className={btn44}
               onClick={() => void onApply(done.items, done.startTime).then((applied) => setApplyNote(applied ? 'applied' : 'kept'))}
               disabled={applyBlock !== null}
-              aria-describedby={footerNote !== null ? 'ai-apply-note' : 'ai-apply-explain'}
+              aria-describedby={footerNote !== null ? 'ai-apply-note' : undefined}
             >
               Use this plan
             </button>
@@ -476,157 +382,46 @@ export default function AiPlanFlyout({ base, targets, blocked, leftOutNote, stal
   );
 }
 
-function Result({
-  done,
-  stale,
-  profile,
-  base,
-  night,
-  catalogTargets,
-  mixFor,
-  onNbHours,
-  onNbTick,
-  formatTime,
-  nightWord,
-  presetLabels,
-}: {
-  done: Done;
-  stale: string[];
-  profile: Profile;
-  base: AiPlanFlyoutProps['base'];
-  night: AstronomicalNight | null;
-  catalogTargets: readonly SlotTarget[];
-  mixFor: AiPlanFlyoutProps['mixFor'];
-  onNbHours: (id: string, text: string) => void;
-  onNbTick: (id: string, filterId: string, on: boolean) => void;
-  formatTime: (d: Date) => string;
-  nightWord: string;
-  presetLabels: ReadonlyMap<string, string>;
-}) {
-  const { result, names, items } = done;
+function Result({ done, stale, presetLabels }: { done: Done; stale: readonly string[]; presetLabels: ReadonlyMap<string, string> }) {
+  const { result, names } = done;
   const slots = [...result.plan.plan].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
   const nameOf = (id: string) => names.get(id) ?? id;
-  const say = (m: string) => plainText(m, names);
-  const exposureOf = (id: string) => result.plan.exposures.find((e) => e.id === id);
-  const inputs = useMemo(() => items.map((it) => slotInputFor(it, profile, catalogTargets)), [items, profile, catalogTargets]);
-  const timeline = useMemo(
-    () => (base !== null && night !== null ? timelinePlanOf({ items, inputs, result, site: base.site, horizon: base.horizon, minAltitude: base.minAltitude, night }) : null),
-    [items, inputs, result, base, night],
-  );
-  // The filter mix of each planned slot, only for a checked plan that still matches the page: from the light the plan gets once it is used, not the AI's own minutes.
-  const mixes = useMemo(
-    () => (mixFor !== undefined && result.status === 'verified' && stale.length === 0 ? mixFor(items.map((i) => i.targetId), done.startTime) : null),
-    [mixFor, result.status, stale.length, items, done.startTime],
-  );
-  const cutWhy = (id: string): string =>
-    result.warnings.some((w) => w.kind === 'cut-fits-free-time' && w.id === id)
-      ? 'Left out by the AI, but it may fit (see notes).'
-      : 'The AI judged it did not fit tonight.';
-  const last = result.lastTarget;
+  const chip = 'rounded bg-p-warn/15 px-2 py-0.5 text-sm font-normal text-p-warn-text';
+  const problems = result.violations.map((v) => (v.id !== undefined ? `${nameOf(v.id)}: ${VIOLATION_LABEL[v.kind]}` : VIOLATION_LABEL[v.kind]));
 
   return (
-    <div className="mt-3 space-y-4" data-testid="ai-result">
+    <div className="mt-3 space-y-3" data-testid="ai-result">
       {stale.length > 0 && (
-        <p role="status" className="rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-p-warn-text font-normal text-sm" data-testid="ai-stale">
-          Out of date: you changed {stale.map((k) => PART_LABELS[k]).join(' and ')} after this plan was made. Ask again to match.
+        <p role="status" className={`${chip} inline-block`} data-testid="ai-stale">
+          Out of date
         </p>
       )}
-      <div>
-        <h3 className="text-p-t1 font-normal text-base mb-2">The plan, in order</h3>
-        {slots.length === 0 ? (
-          <p className="text-p-t1 font-normal text-sm">The AI planned no slots for this night.</p>
-        ) : (
-          <ol className="space-y-2" aria-label="AI plan, in time order">
-            {slots.map((s, i) => {
-              // The slot's own minutes when the AI gave them, else the minutes it asked for this target.
-              const planned = s.exposureMinutes ?? exposureOf(s.id)?.minutes;
-              const isLast = i === slots.length - 1 && last !== null && last.id === s.id;
-              return (
-                <li key={`${s.id}-${s.start}`} className="rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1" data-testid={`ai-slot-${i}`}>
-                  <p className="text-p-t1">
-                    {i + 1}. {nameOf(s.id)} <span className="tabular-nums">{clockOfIso(s.start)} to {clockOfIso(s.end)}</span> <span className="text-p-t1/70">({minutesBetween(s.start, s.end)} min, {presetLabels.get(s.id) ?? 'Balanced'})</span>
-                  </p>
-                  <p className="text-p-t1/70">
-                    {planned === undefined ? 'No exposure was given.' : `AI plans about ${Math.round(planned)} min of light.`}
-                  </p>
-                  {isLast && last !== null && (
-                    <p className="mt-1">
-                      <span className="text-p-t1/70">Last slot, {last.usefulness === 'useful' ? 'worth shooting' : last.usefulness === 'marginal' ? 'marginal' : 'not worth shooting'}: </span>
-                      {last.reason}
-                    </p>
-                  )}
-                  {mixes?.get(s.id) !== undefined && <AiSlotMix index={i} targetId={s.id} slot={mixes.get(s.id) as AiSlotView} onNbHours={onNbHours} onNbTick={onNbTick} />}
-                </li>
-              );
-            })}
-          </ol>
-        )}
-        {result.plan.notes && (
-          <p className="mt-2 text-p-t1 font-normal text-sm" data-testid="ai-notes">
-            <span className="text-p-t1/70">The AI&apos;s notes: </span>
-            {result.plan.notes}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <h3 className="text-p-t1 font-normal text-base mb-2">Left out ({result.plan.cut.length})</h3>
-        {result.plan.cut.length === 0 ? (
-          <p className="text-p-t1 font-normal text-sm">Nothing: every target fits.</p>
-        ) : (
-          <ul className="space-y-1" data-testid="ai-cut">
-            {result.plan.cut.map((id) => (
-              <li key={id} className="text-sm font-normal text-p-t1">
-                <span className="text-p-t1">{nameOf(id)}.</span> {cutWhy(id)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {(result.violations.length > 0 || result.warnings.length > 0 || result.flips > 0) && (
-        <div>
-          <h3 className="text-p-t1 font-normal text-base mb-2">What the checker found</h3>
-          <ul className="space-y-2" data-testid="ai-checker">
-            {result.violations.map((v, i) => (
-              <li key={`v${i}`} className="text-sm font-normal text-p-t1">
-                <span className="mr-2 rounded border border-p-warn/60 px-1.5 py-0.5 text-sm font-medium text-p-warn-strong">Problem</span>
-                {say(v.message)}
-              </li>
-            ))}
-            {result.flips > 0 && (
-              <li className="text-sm font-normal text-p-t1">
-                <span className="mr-2 rounded border border-p-accent/50 px-1.5 py-0.5 text-sm font-medium text-p-info-strong">Note</span>
-                {result.flips} {result.flips === 1 ? 'slot crosses' : 'slots cross'} the meridian, so the mount flips during {result.flips === 1 ? 'it' : 'them'}.
-              </li>
-            )}
-            {result.warnings.map((w, i) => (
-              <li key={`w${i}`} className="text-sm font-normal text-p-t1">
-                <span className="mr-2 rounded border border-p-accent/50 px-1.5 py-0.5 text-sm font-medium text-p-info-strong">Note</span>
-                {say(w.message)}
-              </li>
-            ))}
-          </ul>
-        </div>
+      {slots.length > 0 && (
+        <ol className="space-y-2" aria-label="AI plan, in time order">
+          {slots.map((s, i) => (
+            <li key={`${s.id}-${s.start}`} className="rounded border border-p-line/15 p-3 text-sm font-normal text-p-t1" data-testid={`ai-slot-${i}`}>
+              {i + 1}. {nameOf(s.id)} <span className="tabular-nums">{clockOfIso(s.start)} to {clockOfIso(s.end)}</span> <span className="text-p-t2">({minutesBetween(s.start, s.end)} min, {presetLabels.get(s.id) ?? 'Balanced'})</span>
+            </li>
+          ))}
+        </ol>
       )}
-      {result.repairError && <p className="text-p-t1/70 font-normal text-sm">The AI could not finish fixing the plan.</p>}
+      {result.plan.cut.length > 0 && (
+        <p className="text-sm font-normal text-p-t1" data-testid="ai-cut">
+          Left out: {result.plan.cut.map(nameOf).join(', ')}
+        </p>
+      )}
+      {problems.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" data-testid="ai-checker">
+          {problems.map((p, i) => (
+            <li key={i} className={chip}>{p}</li>
+          ))}
+        </ul>
+      )}
       {result.quality && (
-        <p className="text-p-t1 font-normal text-sm" data-testid="ai-quality">
-          <span className="text-p-t1/70">The AI&apos;s own review ({result.quality.good ? 'good' : 'has a concern'}): </span>
-          {result.quality.verdict}
-          {result.quality.issue ? ` Concern: ${result.quality.issue}` : ''}
-          {result.quality.repaired ? ' The plan above is the corrected one.' : ''}
+        <p className={`${chip} inline-block`} data-testid="ai-quality">
+          Review: {result.quality.good ? 'good' : 'concern'}
         </p>
       )}
-      {result.qualityError && <p className="text-p-t1/70 font-normal text-sm">The review could not be completed.</p>}
-
-      {timeline !== null && base !== null && night !== null && slots.length > 0 && (
-        <div>
-          <h3 className="text-p-t1 font-normal text-base mb-2">Night graph</h3>
-          <NightTimeline plan={timeline} inputs={inputs} night={night} site={base.site} horizon={base.horizon} minAltitude={base.minAltitude} formatTime={formatTime} idPrefix="ai-timeline" />
-        </div>
-      )}
-
     </div>
   );
 }

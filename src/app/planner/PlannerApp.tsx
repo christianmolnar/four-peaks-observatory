@@ -5,10 +5,8 @@ import { createPortal, flushSync } from 'react-dom';
 import { moonIllumination } from '@/planner/astro';
 import { apparentDiameterArcsec } from '@/planner/planets';
 import type { CardBody } from '@/planner/planets';
-import type { AstronomicalNight } from '@/planner/astro';
 import { rigOf } from '@/planner/ai/body';
 import type { PlanTarget } from '@/planner/ai/body';
-import { MAX_TARGETS } from '@/planner/ai/facts';
 import { loadCatalog } from '@/planner/catalog/loader';
 import type { CatalogIndex } from '@/planner/catalog/search';
 import { MAX_PLANS_FILE_CHARS, NOT_IN_CATALOG, NOT_SCHEDULED, PlansFileError, asiairCsv, asiairPanes, docToCsv, docToMarkdown, docToText, filterNameOf, gearFileText, gearInEverything, gearSheet, makeCsvTime, planToCsv, plansFileText, raText, decText, readPlansFile, siteText, storedSheet, trainText } from '@/planner/export';
@@ -103,7 +101,7 @@ import type { ImportPanel, ShareFormat, ShareWhat } from './ShareSheet';
 import { FORMATS } from './ShareSheet';
 import { download } from './download';
 import type { PlanTimelineReport } from './PlanTimeline';
-import { ITINERARY_KEY, MAX_SLOTS, buildItinerary, clockToInstant, lightMinutes, makeWindowLookup } from '@/planner/itinerary';
+import { ITINERARY_KEY, MAX_SLOTS, lightMinutes } from '@/planner/itinerary';
 import type { ItineraryItem, ItineraryPlan } from '@/planner/itinerary';
 import WrapSelect from './WrapSelect';
 import ProfileEditor, { HeldGearError } from './ProfileEditor';
@@ -121,7 +119,6 @@ import { useProjects } from './useProjects';
 import PlanRowExposure, { ExposureChips, ExposureWarnings, Fold } from './PlanRowExposure';
 import SlotDetails from './SlotDetails';
 import PlanRowMix from './PlanRowMix';
-import type { AiSlotView } from './AiSlotMix';
 import NarrowbandPanel from './NarrowbandPanel';
 import type { PlanLine } from './projectDraft';
 import { nbRowView } from './nbRow';
@@ -1538,30 +1535,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     [planTargets],
   );
   const applyAiPlan = (items: ItineraryItem[], startTime: string | null): Promise<boolean> => Promise.resolve(editOpen({ targets: aiOrder(items.map((i) => i.targetId)), startTime }));
-  /**
-   * What each target of the AI plan's filter mix will be once the plan is used: the plan as `applyAiPlan` writes it (the AI's order, the first start, each target's own
-   * exposure), timed by the same timeline code, then the same mix as the row. So the row after Use this plan shows what the flyout showed. Null when there is no night yet.
-   */
-  const aiMixFor = useCallback(
-    (ids: readonly string[], startTime: string | null): ReadonlyMap<string, AiSlotView> | null => {
-      if (!stableNight || stableNight.kind !== 'normal' || !astroSite || catalog.status === 'loading') return null;
-      const items = aiOrder(ids).slice(0, MAX_SLOTS).map(slotOf);
-      const startAt = startTime && stableNight.start ? clockToInstant(startTime, stableNight.start, siteZone || zone || undefined) : null;
-      const plan = buildItinerary({
-        site: astroSite,
-        night: stableNight,
-        horizon,
-        minAltitude,
-        bortle: bortleOfSite,
-        slots: items.map((i) => slotInputFor(i, profile, catalog.status === 'ready' ? catalog.index.targets : [])),
-        startAt,
-        formatTime,
-        windows: makeWindowLookup({ site: astroSite, night: stableNight, horizon, minAltitude }),
-      });
-      return new Map(planItems.filter((p) => ids.includes(p.id)).map((p): [string, AiSlotView] => [p.id, { mix: mixOf(p, plan), nb: nbOf(p, plan) }]));
-    },
-    [stableNight, astroSite, catalog, aiOrder, slotOf, siteZone, zone, horizon, minAltitude, bortleOfSite, profile, formatTime, planItems, mixOf, nbOf],
-  );
 
   // The AI flyout: open or closed. Closing puts the keyboard back on the button that opened it.
   const [aiOpen, setAiOpen] = useState(false);
@@ -1935,27 +1908,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     if (!timeZone) return null;
     return { site: planning.base.site, timeZone, horizon: planning.base.horizon, minAltitude, date: planning.base.date, rig: rigOf(profile, train), bortle: site.bortle };
   }, [planning.base, train, site, zone, minAltitude, profile]);
-  const planets = planItems.filter((p) => p.body !== undefined).length;
-  const unresolved = planItems.length - planets - aiTargets.length;
   const aiBlocked =
     staleNotes.length > 0
-      ? 'The plan\'s train or site is no longer in your gear. Keep the one shown or change it.'
+      ? 'Setup or site removed'
       : planIds.length === 0
-      ? 'Add at least one target to the plan first.'
+      ? 'Add a target first'
       : !hasNight
-        ? 'No astronomical night on this date, so nothing to plan.'
+        ? 'No astronomical night'
         : catalog.status === 'loading'
-          ? 'The catalog is still loading.'
+          ? 'Catalog loading'
           : aiTargets.length === 0
-            ? 'The AI plans fixed objects only.'
+            ? 'Fixed objects only'
             : aiBase === null
-              ? 'The site or train is not ready.'
+              ? 'Site or setup not ready'
               : null;
-  const aiLeftOut = [
-    planets > 0 ? `${planets} solar-system ${planets === 1 ? 'body is' : 'bodies are'} left out: the AI plans fixed objects.` : '',
-    unresolved > 0 ? `${unresolved} ${unresolved === 1 ? 'target is' : 'targets are'} left out: not in the bundled catalog.` : '',
-    aiTargets.length > MAX_TARGETS ? `Only the first ${MAX_TARGETS} targets of the plan are sent.` : '',
-  ].filter((x) => x !== '').join(' ');
   const field =
     'min-h-11 bg-p-bg/60 border border-p-line/30 rounded px-2 py-1 text-p-t1 font-normal text-sm';
   const btn =
@@ -2050,7 +2016,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const trainNote =
     planetary && planItems.some((p) => p.body === undefined)
       ? 'Setup suits solar system, plan has deep sky.'
-      : !planetary && planets > 0
+      : !planetary && planItems.some((p) => p.body !== undefined)
         ? 'Setup suits deep sky, plan has solar system.'
         : reducedFocalNote(profile, train);
   // Where "Use ..." goes: the first train that is not set up for planets (an optical one first).
@@ -2654,25 +2620,13 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           base={aiBase}
           targets={aiTargets}
           blocked={aiBlocked}
-          leftOutNote={aiLeftOut}
           staleNotes={staleNotes}
           onChangeStale={() => {
             flushSync(() => setAiOpen(false));
             goToControl('train');
           }}
-          profile={profile}
           train={train}
-          siteName={site.name}
-          nightWord={nightWord}
-          night={hasNight ? (stableNight as AstronomicalNight) : null}
-          nightText={nightText}
-          horizonText={horizonText}
           presetLabels={aiPresetLabels}
-          catalogTargets={catalog.status === 'ready' ? catalog.index.targets : []}
-          mixFor={aiMixFor}
-          onNbHours={setNbHoursFor}
-          onNbTick={setNbTickFor}
-          formatTime={formatTime}
           owner={owner}
           fetchPlan={aiFetch}
           onApply={applyAiPlan}

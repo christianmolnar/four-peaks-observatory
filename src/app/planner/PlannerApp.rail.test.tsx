@@ -127,7 +127,7 @@ describe('the plan rail', () => {
   it('"Plan my night with AI" opens the flyout, "Share and export" the Share sheet', async () => {
     await app([m31]);
     fireEvent.click(within(rail()).getByRole('button', { name: 'Plan my night with AI' }));
-    expect(screen.getByTestId('ai-inputs')).toBeTruthy();
+    expect(screen.getByTestId('ai-flyout')).toBeTruthy();
     fireEvent.click(within(screen.getByRole('dialog', { name: /./ })).getByRole('button', { name: /Close/ }));
     fireEvent.click(within(rail()).getByRole('button', { name: 'Share and export' }));
     expect(screen.getAllByRole('dialog').length).toBeGreaterThan(0);
