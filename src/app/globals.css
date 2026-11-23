@@ -63,8 +63,15 @@
     --p-surface: oklch(20.8% 0.042 265.755) /* slate-900 */;
     --p-raised: #fff;
     --p-t1: #fff;
-    --p-t2: oklch(70.7% 0.022 261.325) /* gray-400 */;
+    --p-t2: #9aa0a8;
     --p-line: #fff;
+    /* Plan card (ASIAir style): surface, header strip, chosen mode chip, altitude curve and the limit dash. */
+    --p-card: #1d2127;
+    --p-card-head: #2a2f37;
+    --p-mode-on: #3fa14b;
+    --p-on-mode: #fff;
+    --p-curve: #ec6a4a;
+    --p-curve-limit: #8a8f98;
     --p-focus: oklch(74.6% 0.16 232.661) /* sky-400 */;
     --p-accent: oklch(82.8% 0.111 230.318) /* sky-300 */;
     --p-warn-text: oklch(95.4% 0.038 75.164) /* orange-100 */;
@@ -189,6 +196,12 @@
   --color-p-raised: var(--p-raised);
   --color-p-t1: var(--p-t1);
   --color-p-t2: var(--p-t2);
+  --color-p-card: var(--p-card);
+  --color-p-card-head: var(--p-card-head);
+  --color-p-mode-on: var(--p-mode-on);
+  --color-p-on-mode: var(--p-on-mode);
+  --color-p-curve: var(--p-curve);
+  --color-p-curve-limit: var(--p-curve-limit);
   --color-p-line: var(--p-line);
   --color-p-focus: var(--p-focus);
   --color-p-accent: var(--p-accent);
@@ -369,6 +382,12 @@ html[data-theme="red"] :is(.planner-root,.planner-ground) {
   --p-t1: #ff2828;
   --p-t2: #e02020;
   --p-line: #ff2828;
+  --p-card: #120000;
+  --p-card-head: #1e0000;
+  --p-mode-on: #ff2828;
+  --p-on-mode: #000000;
+  --p-curve: #ff2828;
+  --p-curve-limit: #a01010;
   --p-focus: #ff2828;
   --p-accent: #ff2828;
   --p-warn-text: #ff2828;

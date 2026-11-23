@@ -12,6 +12,9 @@ const MIN_WIDTH = 260;
 /** px on screen: the drawing is as wide as its box, so this is the size the text is shown at. */
 const FONT = 12;
 const M = { left: 40, right: 16, top: 12, bottom: 34 };
+/** The compact chart's height and margins: no axis text, so no room for it. */
+const COMPACT_H = 72;
+const CM = { left: 2, right: 2, top: 4, bottom: 2 };
 /** Least room between two hour labels, px. */
 const LABEL_GAP = 44;
 
@@ -22,16 +25,18 @@ export interface AltitudeChartProps {
   entry: ChartEntry;
   night: AstronomicalNight;
   track: TrackPoint[];
-  horizonSet: boolean;
-  minAltitude: number;
   formatTime: (d: Date) => string;
   /** "tonight" or "that night (date)", from the page. */
   nightWord: string;
   /** Prefix for the ids the title and description get, so two charts on one page do not share them. */
   idPrefix?: string;
+  /** A plan card's small chart: one curve, the limit dash and the slot's start and finish; no axis text, no key, no table. */
+  compact?: boolean;
+  /** The slot to mark on the compact chart; its start and finish are printed under it. */
+  slot?: { start: Date; end: Date } | null;
 }
 
-export default function AltitudeChart({ entry, night, track, horizonSet, minAltitude, formatTime, nightWord, idPrefix = 'alt' }: AltitudeChartProps) {
+export default function AltitudeChart({ entry, night, track, formatTime, nightWord, idPrefix = 'alt', compact = false, slot = null }: AltitudeChartProps) {
   // Drawn 1:1 with its box (no scaling of the viewBox), so the 12 px text is 12 px on a phone as well.
   const box = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(DEFAULT_WIDTH);
@@ -45,11 +50,12 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const H = W < 500 ? 240 : 280;
+  const H = compact ? COMPACT_H : W < 500 ? 240 : 280;
   const t0 = track[0].time.getTime();
   const t1 = track[track.length - 1].time.getTime();
-  const x = (t: number): number => M.left + ((t - t0) / (t1 - t0)) * (W - M.left - M.right);
-  const y = (alt: number): number => M.top + ((90 - Math.max(0, Math.min(90, alt))) / 90) * (H - M.top - M.bottom);
+  const m = compact ? CM : M;
+  const x = (t: number): number => m.left + ((t - t0) / (t1 - t0)) * (W - m.left - m.right);
+  const y = (alt: number): number => m.top + ((90 - Math.max(0, Math.min(90, alt))) / 90) * (H - m.top - m.bottom);
   const nightX0 = x((night.start as Date).getTime());
   const nightX1 = x((night.end as Date).getTime());
 
@@ -74,6 +80,31 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
           .map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`)
           .join(' and ')}.`
       : `${entry.name}: never clears the limit ${nightWord}; peaks at ${entry.peakAltitude.toFixed(0)} degrees.`;
+
+  if (compact) {
+    const sx0 = slot ? x(Math.max(slot.start.getTime(), t0)) : 0;
+    const sx1 = slot ? x(Math.min(slot.end.getTime(), t1)) : 0;
+    const pct = (px: number): number => Math.max(0, Math.min(100, (px / W) * 100));
+    return (
+      <div>
+        <div ref={box} className="w-full">
+          <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Altitude of ${entry.name} through the night`} className="block w-full" style={{ height: 'auto', aspectRatio: `${W} / ${H}` }}>
+            <rect x={nightX0} y={m.top} width={Math.max(0, nightX1 - nightX0)} height={H - m.top - m.bottom} fill="var(--p-c-night)" fillOpacity="0.22" />
+            {slot && sx1 > sx0 && <rect data-testid={`${idPrefix}-slot`} x={sx0} y={m.top} width={sx1 - sx0} height={H - m.top - m.bottom} fill="var(--p-mode-on)" fillOpacity="0.28" />}
+            <polyline points={limitTop.join(' ')} fill="none" stroke="var(--p-curve-limit)" strokeWidth="1" strokeDasharray="4 3" />
+            <polyline points={line} fill="none" stroke="var(--p-curve)" strokeWidth="2" />
+          </svg>
+        </div>
+        {slot && sx1 > sx0 && (
+          <div className="relative mt-1 h-5 text-sm tabular-nums text-p-t1" data-testid={`${idPrefix}-times`}>
+            <span className="absolute" style={{ left: `${Math.min(pct(sx0), 78)}%` }}>{formatTime(slot.start)}</span>
+            <span className="sr-only"> to </span>
+            <span className="absolute" style={{ right: `${Math.min(100 - pct(sx1), 78)}%` }}>{formatTime(slot.end)}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -111,16 +142,6 @@ export default function AltitudeChart({ entry, night, track, horizonSet, minAlti
         )}
       </svg>
       </div>
-      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-p-t1/70 font-normal text-sm mt-1" aria-label="Chart key">
-        <li><span aria-hidden="true" className="inline-block w-4 h-0.5 bg-p-accent align-middle mr-1" />Altitude</li>
-        <li><span aria-hidden="true" className="p-usable-key inline-block w-4 h-1 bg-p-ok-fill align-middle mr-1" />Usable</li>
-        <li>
-          <span aria-hidden="true" className="inline-block w-4 border-t-2 border-dashed border-p-warn-fill align-middle mr-1" />
-          {horizonSet ? 'Horizon limit' : `Flat limit ${minAltitude}° (horizon not set)`}
-        </li>
-        <li><span aria-hidden="true" className="inline-block w-4 h-3 bg-p-night/40 align-middle mr-1" />Astronomical night</li>
-      </ul>
-      <p className="text-p-t1 font-normal text-sm mt-2">{summary}</p>
       <details className="group mt-2">
         <summary className="flex min-h-11 cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden text-p-t1 font-normal text-sm"><DisclosureChevron />Altitude as a table</summary>
         <table className="mt-2 text-sm font-normal text-p-t1">

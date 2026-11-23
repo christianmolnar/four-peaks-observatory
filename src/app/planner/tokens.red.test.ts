@@ -26,9 +26,9 @@ const ratio = (a: string, b: string): number => {
 };
 
 describe('red night theme tokens', () => {
-  it('has one block that gives every Day token a red value (31 core tokens plus the chart ones)', () => {
+  it('has one block that gives every Day token a red value (37 core tokens plus the chart ones)', () => {
     expect(red.size).toBeGreaterThanOrEqual(31);
-    expect([...day.keys()].filter((k) => !k.startsWith('--p-c-')).length).toBe(31);
+    expect([...day.keys()].filter((k) => !k.startsWith('--p-c-')).length).toBe(37);
     expect([...red.keys()].sort()).toEqual([...day.keys()].sort());
   });
 
