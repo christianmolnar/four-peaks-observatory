@@ -40,6 +40,6 @@ export function failure(e: unknown): Response {
   }
   if (e instanceof CounterStoreError) return fail(503, 'Lookup limits are unavailable right now, try again later')
   if (e instanceof LookupUnavailableError) return fail(502, e.message)
-  if (e instanceof UpstreamError) return fail(502, 'Elevation is not available right now. Enter it by hand or try again later.')
+  if (e instanceof UpstreamError) return fail(502, 'Elevation unavailable.')
   throw e
 }

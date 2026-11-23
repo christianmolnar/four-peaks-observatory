@@ -48,14 +48,14 @@ export function judgePassbands(raw: unknown): Judged {
   for (const b of bands) {
     const lo = round(b.centreNm - b.widthNm / 2);
     const hi = round(b.centreNm + b.widthNm / 2);
-    if (lo < BAND_EDGE_NM.min || hi > BAND_EDGE_NM.max) problems.push(`Passband ${num(b.centreNm)} nm, ${num(b.widthNm)} nm wide: its edges reach ${lo.toLocaleString('en-US')} to ${hi.toLocaleString('en-US')} nm, outside ${rangeText(BAND_EDGE_NM)}. Check the centre and the width.`);
-    else if (b.widthNm > b.centreNm) problems.push(`Passband ${num(b.centreNm)} nm, ${num(b.widthNm)} nm wide: a passband cannot be wider than its own centre wavelength. Check the centre and the width.`);
+    if (lo < BAND_EDGE_NM.min || hi > BAND_EDGE_NM.max) problems.push(`Passband ${num(b.centreNm)} nm, ${num(b.widthNm)} nm wide: edges ${lo.toLocaleString('en-US')} to ${hi.toLocaleString('en-US')} nm, outside ${rangeText(BAND_EDGE_NM)}.`);
+    else if (b.widthNm > b.centreNm) problems.push(`Passband ${num(b.centreNm)} nm, ${num(b.widthNm)} nm wide: wider than its centre.`);
   }
   const byEdge = [...bands].sort((a, b) => a.centreNm - b.centreNm);
   for (let i = 1; i < byEdge.length; i++) {
     const a = byEdge[i - 1];
     const b = byEdge[i];
-    if (round(b.centreNm - b.widthNm / 2) < round(a.centreNm + a.widthNm / 2)) problems.push(`Passbands ${num(a.centreNm)} nm and ${num(b.centreNm)} nm overlap. Each passband must cover its own wavelengths; merge them into one or change a centre or width.`);
+    if (round(b.centreNm - b.widthNm / 2) < round(a.centreNm + a.widthNm / 2)) problems.push(`Passbands ${num(a.centreNm)} nm and ${num(b.centreNm)} nm overlap.`);
   }
   return problems.length > 0 ? { problems } : { bands };
 }
@@ -107,7 +107,7 @@ export function bandsFromTexts(texts: Record<string, string>): { bands: Passband
     const c = (texts[bandKey(i, 'Centre')] ?? '').trim();
     const w = (texts[bandKey(i, 'Width')] ?? '').trim();
     if (c === '' && w === '') continue;
-    if (c === '' || w === '') return { problem: `Passband ${i}: enter both the centre and the width, or remove the row.` };
+    if (c === '' || w === '') return { problem: `Passband ${i}: enter centre and width.` };
     const cn = Number(c);
     const wn = Number(w);
     if (!Number.isFinite(cn) || !inRange(GEAR_LIMITS.passbandCentreNm, cn)) return { problem: rangeProblem(`Passband ${i} centre`, GEAR_LIMITS.passbandCentreNm, c) };

@@ -64,7 +64,7 @@ export function loadProjects(storage: Reader): LoadedProjects {
     }
     try {
       const p = checkProject(raw, `$.projects[${i}]`);
-      if (ids.has(p.id)) notices.push(`The project ${nameForMessage(p.name, `number ${i + 1}`)} repeated the id of another project and is left out.`);
+      if (ids.has(p.id)) notices.push(`Project ${nameForMessage(p.name, `number ${i + 1}`)} repeats an id: left out.`);
       else {
         ids.add(p.id);
         projects.push(p);
@@ -75,7 +75,7 @@ export function loadProjects(storage: Reader): LoadedProjects {
       notices.push(`The project ${nameForMessage(isRecord(raw) ? raw.name : undefined, `number ${i + 1}`)} could not be read and is left out${where === '' ? '' : ` (${where}: ${e.detail})`}.`);
     }
   });
-  if (extra > 0) notices.push(`Projects hold at most ${MAX_PROJECTS} projects, so ${extra} more in the saved copy ${extra === 1 ? 'is' : 'are'} left out.`);
+  if (extra > 0) notices.push(`Project limit ${MAX_PROJECTS}: ${extra} left out.`);
   if (projects.length === 0 && input.projects.length > 0) return { state: null, notices: [...notices, DAMAGED_NOTICE], unusable: { kind: 'damaged', text } };
   return { state: { version: PROJECTS_VERSION, projects }, notices, unusable: notices.length > 0 ? { kind: 'repaired', text } : null };
 }

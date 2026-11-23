@@ -263,7 +263,7 @@ describe('a plan whose site or train is gone', () => {
     await mount();
     openPlanTab();
     const note = screen.getByTestId('plan-stale-train');
-    expect(note.textContent).toContain('train is no longer in your gear');
+    expect(note.textContent).toContain('Setup removed');
     expect(note.textContent).toContain('Showing "C11 f/10 + ASI2600MC Duo"');
     expect(within(note).getByRole('button', { name: /^Keep / })).toBeTruthy();
     expect(within(note).getByRole('button', { name: 'Change setup' })).toBeTruthy();
@@ -277,7 +277,7 @@ describe('a plan whose site or train is gone', () => {
     seedStale({ siteId: 'removed-site' });
     await mount();
     openPlanTab();
-    expect(screen.getByTestId('plan-stale-site').textContent).toMatch(/^The plan's site is no longer in your gear\. Showing "Fountain Hills.*"\./);
+    expect(screen.getByTestId('plan-stale-site').textContent).toMatch(/^Site removed\. Showing "Fountain Hills.*"\./);
     expect(storedPlan()!.siteId).toBe('removed-site');
     fireEvent.click(within(screen.getByTestId('plan-stale-site')).getByRole('button', { name: /^Keep / }));
     expect(storedPlan()!.siteId).toBe(sampleProfile().sites[0].id);
@@ -385,12 +385,12 @@ describe('a stored profile with values outside their ranges', () => {
     await waitFor(() => expect(planRowItems()).toHaveLength(1));
     expect(planRowItems()[0].textContent).toMatch(/Gear incomplete/);
     openGear();
-    expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values are not usable (outside the allowed range or not a number).');
+    expect(screen.getByTestId('gear-flagged').textContent).toContain('4 saved values not usable');
     pickClass('Scopes');
     const card = cards().find((c) => c.textContent?.includes(profile.equipment.scopes.find((s) => s.id === t.scopeId)!.name))!;
     expect(within(card).getAllByTestId('gear-flag').map((x) => x.textContent)).toEqual([
-      '! Focal length is an impossibly large number, outside 10 to 10,000 mm, so the planner does not use it. Change it and press Save.',
-      '! Aperture is an impossibly large number, outside 5 to 1,000 mm, so the planner does not use it. Change it and press Save.',
+      '! Focal length: impossibly large number, outside 10 to 10,000 mm.',
+      '! Aperture: impossibly large number, outside 5 to 1,000 mm.',
     ]);
     expect(JSON.parse(window.localStorage.getItem(PROFILE_KEY)!).equipment.scopes.find((s: { id: string }) => s.id === t.scopeId).focalLengthMm).toBe(1e300); // kept
     // Fixing the value is possible: Save with a value in range stores it.
@@ -457,7 +457,7 @@ describe('a plan whose train is gone is never used silently', () => {
     raw.plans[0].trainId = 'removed-train';
     window.localStorage.setItem(PLANS_KEY, JSON.stringify(raw));
   };
-  const noteText = 'train is no longer in your gear';
+  const noteText = 'Setup removed';
 
   it('the AI flyout says it and does not offer to ask until the user keeps or changes the train', async () => {
     seedStale();
@@ -497,7 +497,7 @@ describe('a plan whose train is gone is never used silently', () => {
       r.readAsText(blobs[0]);
     });
     expect(csv.split('\r\n')[0]).toContain('Warning');
-    expect(csv).toContain('no longer in your gear');
+    expect(csv).toContain('Setup removed');
   });
 });
 
@@ -545,7 +545,7 @@ describe('the gear forms', () => {
     expect(within(card).getByRole('alert').textContent).toBe('! Name: enter a name for this camera.');
     fireEvent.change(within(card).getByLabelText(/^Name/), { target: { value: 'new camera' } });
     fireEvent.click(button(card, 'Save'));
-    expect(within(card).getByRole('alert').textContent).toBe('! Name: there is already a camera named "new camera". Give this one a different name.');
+    expect(within(card).getByRole('alert').textContent).toBe('! Name: camera "new camera" exists already.');
   });
 
   it('a name of 81 characters is refused with the cap said; long names wrap instead of widening the page', async () => {
@@ -708,7 +708,7 @@ describe('a stored value that is negative, zero, empty or text opens plainly and
         expect(screen.getByText(/1 saved gear value not usable/)).toBeTruthy();
         openGear();
         pickClass(key === 'focalLengthMm' ? 'Scopes' : 'Cameras');
-        expect(document.querySelector('[data-testid="gear-flag"]')!.textContent).toMatch(/^! (Focal length|Pixel size) /);
+        expect(document.querySelector('[data-testid="gear-flag"]')!.textContent).toMatch(/^! (Focal length|Pixel size)/);
         pickClass('Filters');
         fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
         expect(status()).toMatch(/^Added a filter/);

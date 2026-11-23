@@ -93,7 +93,7 @@ describe('storage that cannot be read or written', () => {
     });
     render(<PlannerApp {...pageProps} />);
     await ready();
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/browser storage is blocked or unavailable/));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/storage blocked/));
     expect(screen.getByTestId('target-list')).toBeTruthy();
     openGear();
     expect((screen.getByRole('spinbutton', { name: /^Blocked from/ }) as HTMLInputElement).value).toBe('120');
@@ -131,7 +131,7 @@ describe('storage that cannot be read or written', () => {
       throw new DOMException('denied', 'SecurityError');
     });
     const u = userEvent.setup();
-    await u.click(screen.getAllByRole('button', { expanded: false, name: /^\d+\. / })[0]); // Captured is in the row's detail
+    await u.click(within(screen.getByTestId('target-list')).getAllByRole('button', { expanded: false })[0]); // Captured is in the row's detail
     await u.click(screen.getAllByRole('checkbox', { name: /^Captured:/ })[0]);
     expect(screen.getByRole('status').textContent).toMatch(/Not saved, so the tick is lost on reload: denied/);
   });

@@ -84,13 +84,13 @@ export function readPlansFile(text: string, today: string, dateText: (iso: strin
   if (!isRecord(json)) throw new PlansFileError(`${NOT_PLANS} It should be an object with a list of plans.`);
   if (json.format !== undefined && json.format !== FILE_FORMAT) throw new PlansFileError(`${NOT_PLANS} It was not made by this planner.`);
   if (json.format === undefined && Array.isArray(json.sites) && isRecord(json.equipment)) {
-    throw new PlansFileError('This file is a gear profile, not plans. Import it under Gear and site, Import profile.');
+    throw new PlansFileError('This file is a gear profile, not plans.');
   }
   if (json.format === undefined && !Array.isArray(json.plans)) throw new PlansFileError(`${NOT_PLANS} It has no list of plans.`);
   if (json.version === undefined) throw new PlansFileError(`${NOT_PLANS} It has no version number.`);
   if (typeof json.version !== 'number') throw new PlansFileError(`${NOT_PLANS} The version is not a number.`);
-  if (json.version > FILE_VERSION) throw new PlansFileError(`This file was made by a newer version of the planner (version ${json.version}); this one reads version ${FILE_VERSION}.`);
-  if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PLANS} It is version ${json.version}; this planner reads version ${FILE_VERSION}.`);
+  if (json.version > FILE_VERSION) throw new PlansFileError(`Newer file version ${json.version}; this planner reads ${FILE_VERSION}.`);
+  if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PLANS} Version ${json.version}; this planner reads ${FILE_VERSION}.`);
   if (!Array.isArray(json.plans)) throw new PlansFileError(`${NOT_PLANS} It has no list of plans.`);
   if (json.plans.length === 0) throw new PlansFileError('The file holds no plans.');
 
@@ -107,7 +107,7 @@ export function readPlansFile(text: string, today: string, dateText: (iso: strin
     const plan = readPlan(json.plans[i], i, today, notices, dateText, planProblemText);
     if (plan === null) continue;
     if (ids.has(plan.id)) {
-      notices.push(`The plan "${plan.name.length > 40 ? `${plan.name.slice(0, 40)}…` : plan.name}" repeats the id of an earlier plan in the file and is left out.`);
+      notices.push(`The plan "${plan.name.length > 40 ? `${plan.name.slice(0, 40)}…` : plan.name}" repeats an id: left out.`);
       continue;
     }
     ids.add(plan.id);
@@ -116,7 +116,7 @@ export function readPlansFile(text: string, today: string, dateText: (iso: strin
   extra += json.plans.length - looked;
   if (plans.length === 0) throw new PlansFileError(`None of the plans in the file could be read. ${notices.slice(0, MAX_PROBLEM_LINES).join(' ')}`.trim());
   if (notices.length > MAX_PROBLEM_LINES) notices.splice(MAX_PROBLEM_LINES, notices.length, `And ${notices.length - MAX_PROBLEM_LINES} more problems like these.`);
-  if (extra > 0) notices.push(`A plans file reads at most ${MAX_PLANS} plans, so ${extra} more in this file ${extra === 1 ? 'is' : 'are'} left out.`);
+  if (extra > 0) notices.push(`Plan limit ${MAX_PLANS}: ${extra} left out.`);
   return { plans, notices, hasGear: isRecord(json.profile) };
 }
 
@@ -145,8 +145,8 @@ export function readProjectsFile(text: string): ReadProjects {
   if (!isRecord(json)) throw new PlansFileError(`${NOT_PROJECTS} It should be an object.`);
   if (json.format !== FILE_FORMAT) throw new PlansFileError(`${NOT_PROJECTS} It was not made by this planner.`);
   if (typeof json.version !== 'number') throw new PlansFileError(`${NOT_PROJECTS} It has no version number.`);
-  if (json.version > FILE_VERSION) throw new PlansFileError(`This file was made by a newer version of the planner${Number.isSafeInteger(json.version) ? ` (version ${json.version})` : ''}; this one reads version ${FILE_VERSION}.`);
-  if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PROJECTS} ${Number.isSafeInteger(json.version) ? `It is version ${json.version}` : 'Its version is not a whole number'}; this planner reads version ${FILE_VERSION}.`);
+  if (json.version > FILE_VERSION) throw new PlansFileError(`Newer file version${Number.isSafeInteger(json.version) ? ` ${json.version}` : ''}; this planner reads ${FILE_VERSION}.`);
+  if (json.version !== FILE_VERSION) throw new PlansFileError(`${NOT_PROJECTS} ${Number.isSafeInteger(json.version) ? `Version ${json.version}` : 'Version is not a whole number'}; this planner reads ${FILE_VERSION}.`);
   if (json.projects === undefined) throw new PlansFileError('The file holds no projects.');
   if (!Array.isArray(json.projects)) throw new PlansFileError(`${NOT_PROJECTS} Its projects are not a list.`);
   if (json.projects.length === 0) throw new PlansFileError('The file holds no projects.');
@@ -164,7 +164,7 @@ export function readProjectsFile(text: string): ReadProjects {
     const raw: unknown = json.projects[i];
     try {
       const p = checkProject(raw, `$.projects[${i}]`);
-      if (ids.has(p.id)) notices.push(`The project ${nameForMessage(p.name, `number ${i + 1}`)} repeats the id of an earlier project in the file and is left out.`);
+      if (ids.has(p.id)) notices.push(`The project ${nameForMessage(p.name, `number ${i + 1}`)} repeats an id: left out.`);
       else {
         ids.add(p.id);
         projects.push(p);
@@ -178,6 +178,6 @@ export function readProjectsFile(text: string): ReadProjects {
   extra += json.projects.length - looked;
   if (projects.length === 0) throw new PlansFileError(`None of the projects in the file could be read. ${notices.slice(0, MAX_PROBLEM_LINES).join(' ')}`.trim());
   if (notices.length > MAX_PROBLEM_LINES) notices.splice(MAX_PROBLEM_LINES, notices.length, `And ${notices.length - MAX_PROBLEM_LINES} more problems like these.`);
-  if (extra > 0) notices.push(`A file reads at most ${MAX_PROJECTS} projects, so ${extra} more in this file ${extra === 1 ? 'is' : 'are'} left out.`);
+  if (extra > 0) notices.push(`Project limit ${MAX_PROJECTS}: ${extra} left out.`);
   return { projects, notices };
 }

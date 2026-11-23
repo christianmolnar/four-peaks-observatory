@@ -131,7 +131,7 @@ describe('touch targets', () => {
     openFind();
     openDetails();
     expect(listRows()[0].querySelector('button[aria-expanded]')!.className).toContain('min-h-11');
-    const noFit = screen.getByRole('checkbox', { name: 'Show targets that do not fit' });
+    const noFit = screen.getByRole('checkbox', { name: 'Show non-fitting' });
     expect(noFit.closest('label')!.className).toContain('min-h-11');
     const fav = screen.getAllByRole('checkbox', { name: 'Save as favorite' })[0];
     expect(fav.closest('label')!.className).toContain('min-h-11');
@@ -157,7 +157,6 @@ describe('plain labels', () => {
     openGear();
     expect(screen.getByRole('button', { name: /^Setups \(\d+\)$/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Trains \(/ })).toBeNull();
-    expect(screen.getByTestId('setup-help').textContent).toMatch(/train/i);
   });
 
   it('a ranked row prints nothing about a fit, and the columns say Score and Clear', async () => {

@@ -112,7 +112,7 @@ describe('fallback to Nominatim', () => {
   it('both down: a clear message, not a hang or a raw error', async () => {
     const r = rig({ meteo: () => { throw new Error('fetch failed') }, nominatim: () => json({}, 503) })
     await expect(r.service.searchPlaces(q('Phoenix'))).rejects.toThrow(LookupUnavailableError)
-    await expect(r.service.searchPlaces(q('Phoenix'))).rejects.toThrow(/not available right now/)
+    await expect(r.service.searchPlaces(q('Phoenix'))).rejects.toThrow(/unavailable/)
   })
 
   it('both answer and both are empty: an empty list, not an error', async () => {

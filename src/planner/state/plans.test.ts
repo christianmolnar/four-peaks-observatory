@@ -145,8 +145,8 @@ describe('plans: limits', () => {
     let s = startPlans(ctx);
     for (let i = 1; i < MAX_PLANS; i++) s = newPlan(s, ctx);
     expect(s.plans).toHaveLength(MAX_PLANS);
-    expect(() => newPlan(s, ctx)).toThrow(/at most 50 plans/);
-    expect(() => duplicatePlan(s, s.openId, NOW)).toThrow(/at most 50 plans/);
+    expect(() => newPlan(s, ctx)).toThrow(/Plan limit: 50/);
+    expect(() => duplicatePlan(s, s.openId, NOW)).toThrow(/Plan limit: 50/);
   });
 
   it(`holds at most ${MAX_PLAN_TARGETS} targets in one plan`, () => {
@@ -224,7 +224,7 @@ describe('plans: stored copy', () => {
     expect(r.state!.plans.map((p) => p.id)).toEqual(['plan-1', 'plan-2', 'plan-3', 'plan-4', 'plan-5']);
     expect(r.state!.plans[2].targets).toEqual([{ id: 'm31', preset: 'balanced' }, { id: 'm42', preset: 'deep' }]);
     expect(r.state!.openId).toBe('plan-3');
-    expect(r.notices).toEqual(['In the plan "Plan 3", 1 target had a preset this version does not know, so it is set to Balanced.']);
+    expect(r.notices).toEqual(['Plan "Plan 3": 1 unknown preset set to Balanced.']);
     expect(r.unusable).toEqual({ kind: 'repaired', text });
     expect(m.data.get(PLANS_KEY)).toBe(text);
   });
@@ -233,7 +233,7 @@ describe('plans: stored copy', () => {
     const r = loadPlans(memory({ [PLANS_KEY]: five((p) => { p[0].date = '14/11/2026'; }) }), TODAY);
     expect(r.state!.plans).toHaveLength(5);
     expect(r.state!.plans[0].date).toBe(TODAY);
-    expect(r.notices).toEqual([`The plan "Plan 1" had no usable date, so it is set to ${TODAY}.`]);
+    expect(r.notices).toEqual([`Plan "Plan 1": no usable date, set to ${TODAY}.`]);
   });
 
   it('a plan that cannot be repaired is left out alone, by name, and the other four load', () => {
@@ -248,15 +248,15 @@ describe('plans: stored copy', () => {
   it('a repeated plan id and more than 50 plans are left out, said, and the rest load', () => {
     const dup = loadPlans(memory({ [PLANS_KEY]: five((p) => { p[1].id = 'plan-1'; }) }), TODAY);
     expect(dup.state!.plans).toHaveLength(4);
-    expect(dup.notices[0]).toMatch(/repeated the id of another plan and is left out/);
+    expect(dup.notices[0]).toMatch(/repeats an id: left out/);
     const many = JSON.stringify({ version: 1, openId: 'p0', plans: Array.from({ length: MAX_PLANS + 2 }, (_, i) => ({ ...planWith(1), id: `p${i}`, name: `P${i}` })) });
     const over = loadPlans(memory({ [PLANS_KEY]: many }), TODAY);
     expect(over.state!.plans).toHaveLength(MAX_PLANS);
-    expect(over.notices).toEqual([`Plans hold at most ${MAX_PLANS} plans, so 2 more in the saved copy are left out.`]);
+    expect(over.notices).toEqual([`Plan limit ${MAX_PLANS}: 2 left out.`]);
   });
 
   it('says so when storage cannot be read', () => {
-    expect(() => loadPlans({ getItem: () => { throw new Error('denied'); } }, TODAY)).toThrow(/could not be read.*denied/);
+    expect(() => loadPlans({ getItem: () => { throw new Error('denied'); } }, TODAY)).toThrow(/unreadable.*denied/);
   });
 
   it('keepCopy gives every copy its own key, never overwrites one and does not repeat a text', () => {
@@ -357,7 +357,7 @@ describe('plans: migration from the old My plan and itinerary', () => {
   it('case C: two slots for one target merge: first mode, notes joined, and a plain line says so', () => {
     const { plan, problems } = migrateOldPlan(oldBrowser(null, [slot(1, 'm42', 'deep', 'Ha pass'), slot(2, 'm13', 'balanced'), slot(3, 'm42', 'quick', 'OIII pass')]), ctx);
     expect(plan!.targets).toEqual([{ id: 'm42', preset: 'deep', note: 'Ha pass / OIII pass' }, target('m13')]);
-    expect(problems).toEqual(["A repeated slot in your night timeline was merged into one (m42): the first slot's preset is kept and the notes are joined."]);
+    expect(problems).toEqual(['Repeated slots merged: m42.']);
   });
 
   it('joined notes are cut at the 200-character note limit', () => {
@@ -382,11 +382,11 @@ describe('plans: migration from the old My plan and itinerary', () => {
   it('keeps what is readable and says what was not, when one old key is damaged; the damaged key is cleared', () => {
     const itin = serializeItinerary([slot(1, 'm31', 'deep'), slot(2, 'm42', 'quick')], null);
     const a = migrateOldPlan(memory({ [MY_PLAN_KEY]: '{nope', [ITINERARY_KEY]: itin }), ctx);
-    expect(a.problems).toEqual([expect.stringMatching(/saved plan is damaged/)]);
+    expect(a.problems).toEqual([expect.stringMatching(/Saved plan damaged/)]);
     expect(ids(a.plan)).toEqual(['m31', 'm42']);
     expect(a.clear).toEqual([MY_PLAN_KEY, ITINERARY_KEY]);
     const b = migrateOldPlan(memory({ [MY_PLAN_KEY]: JSON.stringify({ version: 1, ids: ['ngc7000', 'm31'] }), [ITINERARY_KEY]: '{"version":9}' }), ctx);
-    expect(b.problems).toEqual(['Your saved night timeline could not be read, so it was not carried over.']);
+    expect(b.problems).toEqual(['Saved night timeline unreadable, not carried over.']);
     expect(ids(b.plan)).toEqual(['ngc7000', 'm31']);
     expect(b.clear).toEqual([MY_PLAN_KEY, ITINERARY_KEY]);
   });
@@ -396,7 +396,7 @@ describe('plans: migration from the old My plan and itinerary', () => {
     const get = m.getItem;
     const r = migrateOldPlan({ getItem: (k) => { if (k === MY_PLAN_KEY) throw new Error('denied'); return get(k); }, removeItem: m.removeItem }, ctx);
     expect(ids(r.plan)).toEqual(['m42']);
-    expect(r.problems).toEqual([expect.stringMatching(/could not be read.*denied/)]);
+    expect(r.problems).toEqual([expect.stringMatching(/unreadable.*denied/)]);
     expect(r.clear).toEqual([ITINERARY_KEY]);
   });
 
@@ -405,7 +405,7 @@ describe('plans: migration from the old My plan and itinerary', () => {
     const get = m.getItem;
     const r = migrateOldPlan({ getItem: (k) => { if (k === ITINERARY_KEY) throw new Error('denied'); return get(k); }, removeItem: m.removeItem }, ctx);
     expect(ids(r.plan)).toEqual(['m31']);
-    expect(r.problems).toEqual([expect.stringMatching(/night timeline could not be read.*denied/)]);
+    expect(r.problems).toEqual([expect.stringMatching(/night timeline unreadable.*denied/i)]);
     expect(r.clear).toEqual([MY_PLAN_KEY]);
   });
 
@@ -417,7 +417,7 @@ describe('plans: migration from the old My plan and itinerary', () => {
     expect(ids(plan)).not.toContain('a49');
     expect(problems).toEqual([]);
     expect(cut).toEqual(['a49']);
-    expect(cutMessage(cut, (id) => `Name of ${id}`)).toBe('A plan holds at most 50 targets, so 1 was left out: Name of a49.');
+    expect(cutMessage(cut, (id) => `Name of ${id}`)).toBe('Target limit 50, left out: Name of a49.');
   });
 
   it('leaves the old keys alone when reading; clearOldPlanKeys removes the ones named and the orphan exposure notice', () => {

@@ -78,7 +78,7 @@ describe('Plan cards', () => {
     expect(li.textContent).not.toMatch(/estimate/i);
     expect(light(li)).toMatch(/^\d+ s × \d+ subs = [\d.]+ min$/);
     expect(screen.getByTestId('timeline-estimate').textContent).toBe('Estimates');
-    expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light .+Changeover 0 minWaiting 0 minEnds \d\d:\d\dEstimates$/);
+    expect(screen.getByTestId('itinerary-totals').textContent).toMatch(/^Light .+Changeover 0 minEnds \d\d:\d\dEstimates$/);
   });
 
   it('has no Up or Down and no add box: the order is the plan\'s own', async () => {
@@ -151,7 +151,7 @@ describe('Plan cards', () => {
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: ['ic405'] }));
     const first = await app();
     const status = await screen.findByTestId('plans-messages');
-    expect(status.textContent).toBe('Your saved night timeline could not be read, so it was not carried over.Dismiss');
+    expect(status.textContent).toBe('Saved night timeline unreadable, not carried over.Dismiss');
     expect(status.textContent).not.toMatch(/\$|items\[|must be|JSON|itinerary/);
     expect(names()).toEqual(['Flaming Star Nebula']);
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull();

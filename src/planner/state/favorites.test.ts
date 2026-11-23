@@ -101,7 +101,7 @@ describe('the favorites store', () => {
   it('holds at most 500 favorites: the 501st is refused in words and the store is unchanged', () => {
     const full: FavoritesState = { version: FAVORITES_VERSION, favorites: Array.from({ length: MAX_FAVORITES }, (_, i) => fav(`t${i}`)) };
     expect(() => validateFavorites(full)).not.toThrow();
-    expect(() => withFavorite(full, fav('one-more'))).toThrow(/at most 500/);
+    expect(() => withFavorite(full, fav('one-more'))).toThrow(/limit: 500/i);
     expect(withFavorite(full, fav('t3', { subCount: 10 })).favorites).toHaveLength(MAX_FAVORITES); // replacing is not adding
     expect(() => validateFavorites({ ...full, favorites: [...full.favorites, fav('x')] })).toThrow(/at most 500/);
   });
@@ -150,7 +150,7 @@ describe('text that cannot be used is reported, never removed or repaired', () =
           throw new Error('blocked');
         },
       }),
-    ).toThrow(/could not be read \(browser storage is blocked or unavailable\): blocked/);
+    ).toThrow(/unreadable \(storage blocked\): blocked/);
   });
 });
 

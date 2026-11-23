@@ -30,7 +30,7 @@ export function loadSelection(storage: Pick<Storage, 'getItem' | 'removeItem'>):
   try {
     text = storage.getItem(SELECTION_KEY);
   } catch (e) {
-    throw new Error(`Your last site and train could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    throw new Error(`Last site and train unreadable (storage blocked): ${(e as Error).message}`);
   }
   if (text === null) return null;
   let v: unknown;
@@ -44,9 +44,9 @@ export function loadSelection(storage: Pick<Storage, 'getItem' | 'removeItem'>):
     try {
       storage.removeItem(SELECTION_KEY);
     } catch (e) {
-      throw new Error(`Your saved site and train choice is damaged and could not be cleared: ${(e as Error).message}`);
+      throw new Error(`Site and train choice damaged, not cleared: ${(e as Error).message}`);
     }
-    throw new Error('Your saved site and train choice is damaged, so the first of each is used.');
+    throw new Error('Site and train choice damaged. First of each used.');
   }
   // A type that is not text is dropped (All): the site and train beside it are still good.
   return {
@@ -70,7 +70,7 @@ export function loadMyPlan(storage: Pick<Storage, 'getItem' | 'removeItem'>): st
   try {
     text = storage.getItem(MY_PLAN_KEY);
   } catch (e) {
-    throw new Error(`Your plan could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    throw new Error(`Plan unreadable (storage blocked): ${(e as Error).message}`);
   }
   if (text === null) return [];
   let v: unknown;
@@ -90,9 +90,9 @@ export function loadMyPlan(storage: Pick<Storage, 'getItem' | 'removeItem'>): st
     try {
       storage.removeItem(MY_PLAN_KEY);
     } catch (e) {
-      throw new Error(`Your saved plan is damaged and could not be cleared: ${(e as Error).message}`);
+      throw new Error(`Saved plan damaged, not cleared: ${(e as Error).message}`);
     }
-    throw new Error('Your saved plan is damaged, so it starts empty.');
+    throw new Error('Saved plan damaged. Starting empty.');
   }
   return ids as string[];
 }
@@ -128,7 +128,7 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
   } catch (e) {
     return {
       profile: sampleProfile(),
-      error: `Saved profile could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`,
+      error: `Profile unreadable (storage blocked): ${(e as Error).message}`,
       stored: false,
       held: null,
     };
@@ -140,7 +140,7 @@ export function loadProfile(storage: Pick<Storage, 'getItem'>): LoadedProfile {
     if (e instanceof ProfileError) {
       const said = e.path === '$' && /not valid JSON/.test(e.message) ? 'It is not valid JSON.' : profileProblemText(e, JSON.parse(text));
       const why = /[.!?]$/.test(said) ? said : `${said}.`;
-      return { profile: sampleProfile(), error: `Your saved profile could not be used, so the sample is shown. ${why} Your saved copy is kept as it is: gear changes are not saved over it. Export profile gives you that copy. Reset all, or importing a corrected file, replaces it.`, stored: false, held: text };
+      return { profile: sampleProfile(), error: `Saved profile unusable; sample shown. ${why} Copy kept, gear changes not saved.`, stored: false, held: text };
     }
     throw e;
   }
@@ -157,10 +157,10 @@ export function loadCaptured(storage: Pick<Storage, 'getItem'>): Set<string> {
   try {
     text = storage.getItem(CAPTURED_KEY);
   } catch (e) {
-    throw new Error(`Your saved captured list could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    throw new Error(`Captured list unreadable (storage blocked): ${(e as Error).message}`);
   }
   if (text === null) return new Set();
-  const damaged = new Error('Your saved captured list is damaged, so it starts empty.');
+  const damaged = new Error('Captured list damaged. Starting empty.');
   let v: unknown;
   try {
     v = JSON.parse(text);

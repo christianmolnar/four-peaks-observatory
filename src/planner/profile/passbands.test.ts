@@ -40,8 +40,8 @@ describe('judgePassbands', () => {
     ['100 bands', Array.from({ length: 100 }, (_, i) => ({ centreNm: 400 + i, widthNm: 0.5 })), /at most 6/i],
     ['a duplicate band', [{ centreNm: 656, widthNm: 9 }, { centreNm: 656, widthNm: 9 }], /overlap/i],
     ['overlapping bands', [{ centreNm: 656, widthNm: 20 }, { centreNm: 660, widthNm: 20 }], /overlap/i],
-    ['width above the centre', [{ centreNm: 600, widthNm: 601 }], /wider than its own centre/i],
-    ['edges outside the range', [{ centreNm: 305, widthNm: 250 }], /edges reach/i],
+    ['width above the centre', [{ centreNm: 600, widthNm: 601 }], /wider than its centre/i],
+    ['edges outside the range', [{ centreNm: 305, widthNm: 250 }], /edges \d/i],
     ['total over 1000', [{ centreNm: 400, widthNm: 600 }, { centreNm: 1000, widthNm: 600 }], /total passband width: 1200 is outside/i],
   ] as const)('refuses %s in plain words', (_n, raw, re) => {
     const p = problems(raw);
@@ -96,7 +96,7 @@ describe('band boxes', () => {
     expect(bandsFromTexts(bandsToTexts([]))).toEqual({ bands: [] });
   });
   it('one box of a row blank is a plain problem naming the row', () => {
-    expect(bandsFromTexts({ band2Centre: '500', band2Width: '' })).toEqual({ problem: 'Passband 2: enter both the centre and the width, or remove the row.' });
+    expect(bandsFromTexts({ band2Centre: '500', band2Width: '' })).toEqual({ problem: 'Passband 2: enter centre and width.' });
   });
   it.each([['abc'], ['NaN'], ['1e308'], ['Infinity'], ['-5'], ['0']])('%s in a width box is a plain problem', (v) => {
     const r = bandsFromTexts({ band1Centre: '656', band1Width: v });

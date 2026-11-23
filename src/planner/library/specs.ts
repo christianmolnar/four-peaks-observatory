@@ -135,7 +135,7 @@ export function validateSpecs(cls: LibraryClass, raw: unknown): { specs: Specs }
   const o = c.out
   if (c.problems.length === 0 && cls === 'scope' && typeof o.fNumber === 'number' && typeof o.apertureMm === 'number' && typeof o.focalLengthMm === 'number') {
     const implied = o.focalLengthMm / o.apertureMm
-    if (Math.abs(implied - o.fNumber) / implied > FNUMBER_TOLERANCE) c.problems.push(`The focal ratio f/${o.fNumber} does not match the focal length and aperture (that is f/${Math.round(implied * 10) / 10}).`)
+    if (Math.abs(implied - o.fNumber) / implied > FNUMBER_TOLERANCE) c.problems.push(`f/${o.fNumber} does not match optics (f/${Math.round(implied * 10) / 10}).`)
   }
   if (c.problems.length > 0) return { problems: c.problems }
   if (Object.keys(o).length === 0) return { problems: ['The specs have no values.'] }

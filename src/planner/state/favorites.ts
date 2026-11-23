@@ -105,7 +105,7 @@ export function loadFavorites(storage: Pick<Storage, 'getItem'>): LoadedFavorite
   try {
     stored = storage.getItem(FAVORITES_KEY);
   } catch (e) {
-    throw new Error(`Your favorite exposures could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    throw new Error(`Favorites unreadable (storage blocked): ${(e as Error).message}`);
   }
   if (stored === null) return { state: null, unusable: null };
   let input: unknown;
@@ -170,7 +170,7 @@ export function withFavorite(s: FavoritesState, f: Favorite): FavoritesState {
   const problem = favoriteProblem(f);
   if (problem !== null) throw new Error(`The favorite was not saved: ${problem}.`);
   const others = s.favorites.filter((x) => x.id !== f.id);
-  if (others.length >= MAX_FAVORITES) throw new Error(`Favorites hold at most ${MAX_FAVORITES} exposures. Remove one to save another.`);
+  if (others.length >= MAX_FAVORITES) throw new Error(`Favorites limit: ${MAX_FAVORITES}`);
   const next = { ...s, favorites: [...others, f] };
   validateFavorites(next);
   return next;

@@ -129,7 +129,7 @@ describe('M2: messages name buttons that exist', () => {
     expect(held()!.textContent).not.toBe(messages());
     for (const name of named) expect(screen.getByRole('button', { name })).toBeTruthy();
     // The one other notice that names a control: the no-fit note names the box that lists them.
-    expect(screen.queryAllByLabelText('Show targets that do not fit').length + screen.queryAllByText('Show targets that do not fit').length).toBeGreaterThan(0);
+    expect(screen.queryAllByLabelText('Show non-fitting').length + screen.queryAllByText('Show non-fitting').length).toBeGreaterThan(0);
   });
 });
 
@@ -278,7 +278,7 @@ describe('S5 and S6: messages stay until dismissed, in the page\'s words', () =>
     await app();
     expect(screen.queryByRole('status')).toBeNull();
     // S6: the repaired date is the page's date text, not ISO.
-    expect(messages()).toContain('The plan "Night 1" had no usable date, so it is set to Tue 15 Dec.');
+    expect(messages()).toContain('Plan "Night 1": no usable date, set to Tue 15 Dec.');
     expect(messages()).not.toMatch(/2026-12-15/);
     openGear();
     expect(screen.getByTestId('plans-messages')).toBeTruthy();

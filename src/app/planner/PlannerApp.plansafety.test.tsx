@@ -98,7 +98,7 @@ describe('the old night timeline keeps its order', () => {
     window.localStorage.setItem(ITINERARY_KEY, serializeItinerary([slot(1, 'm42', 'deep', 'Ha pass'), slot(2, 'm42', 'quick', 'OIII pass')], null));
     await app();
     expect(storedPlan()!.targets).toEqual([{ id: 'm42', preset: 'deep', note: 'Ha pass / OIII pass' }]);
-    expect(status()).toMatch(/A repeated slot in your night timeline was merged into one \(m42\)/);
+    expect(status()).toMatch(/Repeated slots merged: m42/);
   });
 
   it('S7: the orphan exposure notice is removed with the old keys, and by Reset all', async () => {
@@ -128,7 +128,7 @@ describe('the old night timeline keeps its order', () => {
     });
     await app();
     expect(planIds()).toEqual(['m42']);
-    expect(status()).toMatch(/Your plan could not be read.*denied/);
+    expect(status()).toMatch(/Plan unreadable.*denied/);
     jest.restoreAllMocks();
     expect(window.localStorage.getItem(MY_PLAN_KEY)).not.toBeNull();
     expect(window.localStorage.getItem(ITINERARY_KEY)).toBeNull();
@@ -224,7 +224,7 @@ describe('stored plans that cannot be used whole are never removed', () => {
     await app();
     expect(switchNames()).toEqual(['Night 1 (1)', 'Night 2 (1)', 'Night 3 (1)', 'Night 4 (1)', 'Night 5 (1)']);
     expect(heading()).toBe('PLAN: Night 2 (1 target)');
-    expect(status()).toMatch(/In the plan "Night 4", 1 target had a preset this version does not know, so it is set to Balanced\./);
+    expect(status()).toMatch(/Plan "Night 4": 1 unknown preset set to Balanced\./);
     expect(backups()).toEqual([text]);
     expect(window.localStorage.getItem(PLANS_KEY)).toBe(text); // kept until the next save
   });

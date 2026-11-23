@@ -21,7 +21,7 @@ describe('saved site and train choice', () => {
     expect(() => loadSelection(store(text))).toThrow(/damaged/);
   });
   it('says blocked storage is blocked', () => {
-    expect(() => loadSelection({ getItem: () => { throw new Error('denied'); }, removeItem: () => {} })).toThrow(/could not be read.*denied/);
+    expect(() => loadSelection({ getItem: () => { throw new Error('denied'); }, removeItem: () => {} })).toThrow(/unreadable.*denied/);
   });
   it('removes a damaged value from storage when it reports it, and leaves a good one', () => {
     const removed: string[] = [];
@@ -32,6 +32,6 @@ describe('saved site and train choice', () => {
     expect(removed).toEqual([SELECTION_KEY]);
   });
   it('says so when a damaged value cannot be removed', () => {
-    expect(() => loadSelection({ getItem: () => 'x', removeItem: () => { throw new Error('denied'); } })).toThrow(/damaged and could not be cleared.*denied/);
+    expect(() => loadSelection({ getItem: () => 'x', removeItem: () => { throw new Error('denied'); } })).toThrow(/damaged, not cleared.*denied/);
   });
 });

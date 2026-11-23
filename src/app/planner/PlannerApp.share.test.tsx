@@ -197,7 +197,7 @@ describe('the run sheet carries the numbers the rows show', () => {
     await ready();
     openPlanTab();
     openSheet();
-    expect(text()).toMatch(/Warning: The plan's train is no longer in your gear/);
+    expect(text()).toMatch(/Warning: Setup removed/);
   });
 
   it('other plans are shared as they are stored, and say their numbers were not worked out', async () => {
@@ -207,7 +207,7 @@ describe('the run sheet carries the numbers the rows show', () => {
     const t = text();
     expect(t).toContain('PLAN: Second plan');
     expect(t).toContain('30 x 120 s = 60 min');
-    expect(t).toMatch(/open this plan and share it for them/);
+    expect(t).toMatch(/No totals: open this plan to share them/);
   });
 });
 
@@ -339,7 +339,7 @@ describe('Import plans', () => {
     ['not JSON', () => '{nope', /not valid JSON/],
     ['an array', () => '[1,2,3]', /should be an object/],
     ['a gear profile', () => JSON.stringify(profile), /gear profile, not plans/],
-    ['a newer version', () => JSON.stringify({ format: 'four-peaks-planner', version: 7, plans: [] }), /newer version of the planner \(version 7\)/],
+    ['a newer version', () => JSON.stringify({ format: 'four-peaks-planner', version: 7, plans: [] }), /Newer file version 7/],
     ['no plans', () => JSON.stringify({ format: 'four-peaks-planner', version: 1, plans: [] }), /holds no plans/],
     ['too many plans for the size limit', () => JSON.stringify({ format: 'four-peaks-planner', version: 1, plans: Array.from({ length: 10_000 }, (_, i) => other(`p${i}`, 'P')) }), /too large/],
     ['3,000-character names only', () => JSON.stringify({ format: 'four-peaks-planner', version: 1, plans: [other('x', 'n'.repeat(3000))] }), /None of the plans in the file could be read.*holds at most 60 characters/],
@@ -365,7 +365,7 @@ describe('Import plans', () => {
     const ask = await screen.findByTestId('import-ask');
     expect(ask.textContent).toMatch(/holds 1 plan: "Good one"/);
     expect(ask.textContent).toMatch(/a name holds at most 60 characters/);
-    expect(ask.textContent).toMatch(/repeats the id of an earlier plan/);
+    expect(ask.textContent).toMatch(/repeats an id/);
     expect(ask.textContent).toMatch(/The plan number 4 could not be read/);
     expect(ask.textContent).not.toMatch(/x{41,}/);
     fireEvent.click(screen.getByRole('button', { name: 'Import the plan' }));

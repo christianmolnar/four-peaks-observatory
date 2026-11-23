@@ -102,10 +102,10 @@ describe('validateProfile', () => {
     };
     // 0 to 360 is a zero-length arc once 360 becomes 0: do not say "use 0 instead of 360".
     expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).not.toMatch(/use 0 instead/);
-    expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).toMatch(/start and end must differ/);
+    expect(msg({ startAz: 0, endAz: 360, heightDeg: 10 })).toMatch(/arc must span/);
     // A near-full arc must not be told to use null, which means nothing is blocked.
     expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).not.toMatch(/use null/);
-    expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).toMatch(/shorten it/);
+    expect(msg({ startAz: 0, endAz: 359.95, heightDeg: 10 })).toMatch(/unblocked/);
     // The advice still works where it applies.
     const p = clone(full());
     p.sites[0].blockedArcs = [{ startAz: 100, endAz: 360, heightDeg: 10 }];

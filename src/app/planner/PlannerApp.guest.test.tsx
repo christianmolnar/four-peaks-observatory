@@ -109,7 +109,7 @@ describe('editing site and gear', () => {
     await u.clear(lat);
     await u.type(lat, '33');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
-    expect(within(siteBox).getByRole('alert').textContent).toMatch(/Time zone: "Mars\/Base" is not a time zone name\. Enter one such as America\/Phoenix/);
+    expect(within(siteBox).getByRole('alert').textContent).toMatch(/Time zone: "Mars\/Base" is not a time zone name\. Example: America\/Phoenix/);
   });
 
   it('renaming a train is stored and shows in the Train box', async () => {
@@ -200,7 +200,7 @@ describe('profile JSON', () => {
 
   it.each([
     ['malformed JSON', '{"version": 2,', /not a planner profile.*not valid JSON/i],
-    ['a wrong version', JSON.stringify({ ...sampleProfile(), version: 9 }), /version 9; this planner reads version 3/],
+    ['a wrong version', JSON.stringify({ ...sampleProfile(), version: 9 }), /Version 9; this planner reads 3/],
     ['an array', '[1,2]', /not a planner profile/i],
     ['an invalid field', JSON.stringify({ ...sampleProfile(), sites: [{ ...sampleProfile().sites[0], latitude: 123 }] }), /Site "Fountain Hills, AZ", latitude: Enter a latitude between -90 and 90 deg\. It is 123/],
   ])('rejects %s with a readable message and changes nothing', async (_n, text, message) => {
@@ -248,7 +248,7 @@ describe('CSV', () => {
     chooseMore('Export CSV');
     const text = (await blobs[blobs.length - 1].text()).replace(/^\uFEFF/, '');
     const lines = text.trim().split('\r\n');
-    fireEvent.click(screen.getByRole('button', { name: /^Solar system up/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Solar system \(/ }));
     showAll();
     const rowCount = listRows().length + listRows('planet-list').length;
     expect(lines).toHaveLength(rowCount + 1);

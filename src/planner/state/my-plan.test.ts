@@ -21,7 +21,7 @@ describe('saved my plan', () => {
     '{"version":1,"ids":["m31","m31"]}',
     `{"version":1,"ids":[${Array.from({ length: MAX_MY_PLAN + 1 }, (_, i) => `"t${i}"`).join(',')}]}`,
   ])('says a damaged value is damaged: %s', (text) => {
-    expect(() => loadMyPlan(store(text))).toThrow(/Your saved plan is damaged, so it starts empty/);
+    expect(() => loadMyPlan(store(text))).toThrow(/Saved plan damaged\. Starting empty/);
   });
 
   it('removes a damaged value, leaves a good one, and says when it cannot remove or read', () => {
@@ -31,7 +31,7 @@ describe('saved my plan', () => {
     expect(removed).toEqual([MY_PLAN_KEY]);
     loadMyPlan(s('{"version":1,"ids":["m31"]}'));
     expect(removed).toEqual([MY_PLAN_KEY]);
-    expect(() => loadMyPlan({ getItem: () => 'x', removeItem: () => { throw new Error('denied'); } })).toThrow(/damaged and could not be cleared.*denied/);
-    expect(() => loadMyPlan({ getItem: () => { throw new Error('denied'); }, removeItem: () => {} })).toThrow(/could not be read.*denied/);
+    expect(() => loadMyPlan({ getItem: () => 'x', removeItem: () => { throw new Error('denied'); } })).toThrow(/damaged, not cleared.*denied/);
+    expect(() => loadMyPlan({ getItem: () => { throw new Error('denied'); }, removeItem: () => {} })).toThrow(/unreadable.*denied/);
   });
 });

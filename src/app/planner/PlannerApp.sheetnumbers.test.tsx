@@ -83,7 +83,7 @@ describe('a scheduled row carries the timeline slot\'s own numbers', () => {
     expect(timelineSlots()[0].textContent).toContain('120 s × 105 subs = 210 min');
     openSheet();
     expect(text()).toContain('105 x 120 s = 210 min');
-    expect(text()).toContain('Warning: The plan\'s site is no longer in your gear');
+    expect(text()).toContain('Warning: Site removed or unusable');
     expect(text()).toContain(`Total light: ${timelineLight()} min`);
     expect(text()).not.toMatch(/224 min/);
   });
@@ -182,7 +182,7 @@ describe('a stored plan whose custom numbers are outside the limits', () => {
       choose('All plans', format);
       const t = text();
       expect(t.match(/Custom values outside the limits \(not used\)/g)).toHaveLength(3);
-      expect(t).toMatch(/outside the limits \(a sub of 1 to 300 s, 1 to 500 whole subs\), so they are not used/);
+      expect(t).toMatch(/Custom outside limits \(1 to 300 s, 1 to 500 subs\): .* used/);
       expect(t).not.toMatch(NUMBERS);
     }
     choose('Everything', 'Plain text');

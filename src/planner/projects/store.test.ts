@@ -88,8 +88,8 @@ describe('reading the store', () => {
     const text = JSON.stringify({ version: 1, projects: [project(), project({ name: 'Other' }), ...Array.from({ length: 22 }, (_, i) => project({ id: `q${i}` }))] });
     const r = loadProjects(memory({ [PROJECTS_KEY]: text }));
     expect(r.state!.projects).toHaveLength(20);
-    expect(r.notices.join(' ')).toMatch(/repeated the id of another project/);
-    expect(r.notices.join(' ')).toMatch(/at most 20 projects, so 3 more/);
+    expect(r.notices.join(' ')).toMatch(/repeats an id/);
+    expect(r.notices.join(' ')).toMatch(/Project limit 20: 3 left out/);
   });
 
   it('a storage that cannot be read throws in words; opening it says so and is not held', () => {

@@ -99,7 +99,7 @@ describe('the Gear form edits the bands and the sums stay consistent', () => {
     expect(f).toMatchObject({ passbands: [NBZ[0], { centreNm: 500.7, widthNm: 12 }], passbandWidthNm: 21.5, narrowestBandNm: 9.5 });
   });
   it('sums that disagree with the bands are refused in plain words, nothing saved', () => {
-    expect(() => replaceItem(base(), 'filters', 'f1', texts({ passbandWidthNm: '40' }))).toThrow('Total passband width: 40 does not match the passbands (17.5 nm). Clear the box to use the passbands, or change the passbands.');
+    expect(() => replaceItem(base(), 'filters', 'f1', texts({ passbandWidthNm: '40' }))).toThrow('Total passband width: 40 does not match the passbands (17.5 nm).');
     expect(() => replaceItem(base(), 'filters', 'f1', texts({ narrowestBandNm: '3' }))).toThrow(/Narrowest band: 3 does not match the passbands \(8 nm\)/);
   });
   it('removing every band row keeps the typed sums as plain numbers and drops the field', () => {
@@ -109,7 +109,7 @@ describe('the Gear form edits the bands and the sums stay consistent', () => {
     expect(f).toMatchObject({ passbandWidthNm: 17.5, narrowestBandNm: 8 });
   });
   it('a row with one box empty, or a hostile value, is a plain problem and nothing is saved', () => {
-    expect(() => replaceItem(base(), 'filters', 'f1', texts({ band2Width: '' }))).toThrow('Passband 2: enter both the centre and the width, or remove the row.');
+    expect(() => replaceItem(base(), 'filters', 'f1', texts({ band2Width: '' }))).toThrow('Passband 2: enter centre and width.');
     for (const v of ['NaN', 'abc', '1e308', '-3', '0', 'Infinity']) {
       expect(() => replaceItem(base(), 'filters', 'f1', texts({ band1Width: v }))).toThrow(/Passband 1 width/);
     }

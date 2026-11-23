@@ -115,7 +115,7 @@ describe('the page opens on the site and train last chosen', () => {
   it('says so, and falls back, when the remembered choice is damaged', async () => {
     window.localStorage.setItem(SELECTION_KEY, '{nope');
     await app();
-    expect((await screen.findByRole('status')).textContent).toMatch(/saved site and train choice is damaged/);
+    expect((await screen.findByRole('status')).textContent).toMatch(/Site and train choice damaged/);
     expect(trainSelect().value).toBe('deep-c11-reducer-533');
   });
 

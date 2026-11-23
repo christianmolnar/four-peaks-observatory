@@ -20,7 +20,7 @@ export interface NewProject {
 }
 
 export function addProject(s: ProjectsState, draft: NewProject, now: string): { state: ProjectsState; id: string } {
-  if (s.projects.length >= MAX_PROJECTS) throw new Error(`Projects hold at most ${MAX_PROJECTS} projects. Delete one to make another.`);
+  if (s.projects.length >= MAX_PROJECTS) throw new Error(`Project limit: ${MAX_PROJECTS}`);
   const id = freshId('project', s.projects.map((p) => p.id), now);
   const project = checkProject({ id, name: draft.name, status: draft.status ?? 'active', setup: draft.setup, targets: draft.targets, sessions: [], createdAt: now, updatedAt: now }, '$');
   return { state: validateProjects({ ...s, projects: [...s.projects, project] }), id };

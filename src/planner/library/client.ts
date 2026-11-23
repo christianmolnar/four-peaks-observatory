@@ -11,7 +11,7 @@ export type LookupResult =
 export type SaveResult = { kind: 'saved'; entry: LibraryEntry } | { kind: 'error'; message: string }
 
 const BASE = '/api/planner/library'
-const UNREADABLE = 'The library answered with values that cannot be used, so nothing was filled.'
+const UNREADABLE = 'Library values unusable.'
 const UNREACHABLE = 'Could not reach the spec library. Check your connection and try again.'
 
 async function send(fetchImpl: ClientFetch, url: string, init?: RequestInit): Promise<{ status: number; body: Record<string, unknown> } | { message: string }> {

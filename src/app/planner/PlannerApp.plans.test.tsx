@@ -173,7 +173,7 @@ describe('My plans', () => {
     await app();
     expect(planSwitch().options).toHaveLength(MAX_PLANS);
     fireEvent.click(within(bar()).getByRole('button', { name: 'New' }));
-    expect((await screen.findByRole('status')).textContent).toBe('Plans hold at most 50 plans. Delete one to make another.');
+    expect((await screen.findByRole('status')).textContent).toBe('Plan limit: 50');
     expect(planSwitch().options).toHaveLength(MAX_PLANS);
     expect(storedPlans()!.plans).toHaveLength(MAX_PLANS);
   });

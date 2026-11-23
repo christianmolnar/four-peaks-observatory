@@ -192,8 +192,8 @@ describe('the file: lossless import, a repeat adds nothing, old files still impo
     refuses(JSON.stringify({ format: 'other', version: 1, projects: [] }), /not made by this planner/);
     refuses(JSON.stringify({ version: 1, projects: [] }), /not made by this planner/);
     refuses(env({ version: undefined }), /no version/);
-    refuses(env({ version: 9 }), /newer version of the planner \(version 9\)/);
-    refuses(env({ version: 0 }), /version 0/);
+    refuses(env({ version: 9 }), /Newer file version 9/);
+    refuses(env({ version: 0 }), /Version 0/);
     refuses(env({ projects: [] }), /holds no projects/);
     refuses(env({ projects: {} }), /not a list/);
     refuses('x'.repeat(MAX_PLANS_FILE_CHARS + 1), /too large/);
@@ -224,8 +224,8 @@ describe('the file: lossless import, a repeat adds nothing, old files still impo
   it('a project that repeats an id inside the file is left out; more than the limit is counted', () => {
     const r = readProjectsFile(env({ projects: [stored, { ...stored, name: 'Again' }, ...Array.from({ length: 21 }, (_, i) => ({ ...stored, id: `q${i}`, name: `Q${i}` }))] }));
     expect(r.projects).toHaveLength(20);
-    expect(r.notices.join(' ')).toMatch(/repeats the id of an earlier project/);
-    expect(r.notices.join(' ')).toMatch(/reads at most 20 projects, so 2 more/);
+    expect(r.notices.join(' ')).toMatch(/repeats an id/);
+    expect(r.notices.join(' ')).toMatch(/Project limit 20: 2 left out/);
   });
 });
 
@@ -239,14 +239,14 @@ describe('the version in a refusal is worded, never raw number formatting', () =
     throw new Error('expected a refusal');
   };
   it('a newer whole version is named; a huge one is not printed as 1e+308', () => {
-    expect(refusal(7)).toMatch(/newer version of the planner \(version 7\); this one reads version 1\./);
+    expect(refusal(7)).toMatch(/Newer file version 7; this planner reads 1\./);
     const huge = refusal(1e308);
-    expect(huge).toMatch(/newer version of the planner; this one reads version 1\./);
+    expect(huge).toMatch(/Newer file version; this planner reads 1\./);
     expect(huge).not.toMatch(/e\+/);
   });
   it('an odd older version is worded without its raw digits', () => {
-    expect(refusal(0)).toMatch(/It is version 0;/);
-    expect(refusal(0.5)).toMatch(/Its version is not a whole number;/);
+    expect(refusal(0)).toMatch(/Version 0;/);
+    expect(refusal(0.5)).toMatch(/Version is not a whole number;/);
     expect(refusal(1e-7)).not.toMatch(/e-/);
   });
 });

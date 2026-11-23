@@ -97,7 +97,7 @@ describe('GET /api/planner/geocode', () => {
     upstream = () => json({}, 500)
     const res = await place('Phoenix')
     expect(res.status).toBe(502)
-    expect((await res.json()).error).toMatch(/not available right now/)
+    expect((await res.json()).error).toMatch(/unavailable/)
     expect(res.headers.get('Cache-Control')).toBe('private, no-store')
   })
   it('nothing found: 200 with an empty list, not cached by the CDN', async () => {
@@ -132,7 +132,7 @@ describe('GET /api/planner/elevation', () => {
     upstream = () => { throw new Error('ETIMEDOUT') }
     const res = await height('lat=33&lon=-112')
     expect(res.status).toBe(502)
-    expect((await res.json()).error).toMatch(/Enter it by hand/)
+    expect((await res.json()).error).toMatch(/Elevation unavailable/)
   })
   it('no height for the point is 200 with null', async () => {
     upstream = () => json({ elevation: [-9999] })

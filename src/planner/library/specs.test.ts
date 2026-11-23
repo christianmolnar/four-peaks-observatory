@@ -82,7 +82,7 @@ const bandsOf = (raw: unknown) => (ok('filter', raw) as FilterSpecs).passbands
 describe('validateSpecs judges the values a filter derives from its passbands', () => {
   it('refuses the Wide Pair (two bands of 600 nm, 1,200 nm in total) with a plain total-width sentence', () => {
     expect(bad('filter', WIDE_PAIR)).toMatch(/^Total passband width: 1200 is outside the allowed range\. Enter a total passband width between 0\.1 and 1,000 nm\./)
-    expect(bad('filter', WIDE_PAIR)).toMatch(/edges reach 100 to 700 nm/)
+    expect(bad('filter', WIDE_PAIR)).toMatch(/edges 100 to 700 nm/)
   })
   it('accepts a total of exactly 1,000 nm and refuses 1,000.5', () => {
     const tiled = [{ centreNm: 350, widthNm: 300 }, { centreNm: 650, widthNm: 300 }, { centreNm: 1000, widthNm: 400 }] // 200 to 1,200 nm, bands touching
@@ -90,8 +90,8 @@ describe('validateSpecs judges the values a filter derives from its passbands', 
     expect(bad('filter', { passbands: [tiled[0], tiled[1], { centreNm: 1000.25, widthNm: 400.5 }] })).toMatch(/Total passband width/)
   })
   it('refuses a band whose edges leave the wavelength range, in plain words with the edges', () => {
-    expect(bad('filter', { passbands: [{ centreNm: 300, widthNm: 900 }] })).toMatch(/^Passband 300 nm, 900 nm wide: its edges reach -150 to 750 nm, outside 200 to 1,200 nm\./)
-    expect(bad('filter', { passbands: [{ centreNm: 1100, widthNm: 300 }] })).toMatch(/edges reach 950 to 1,250 nm/)
+    expect(bad('filter', { passbands: [{ centreNm: 300, widthNm: 900 }] })).toMatch(/^Passband 300 nm, 900 nm wide: edges -150 to 750 nm, outside 200 to 1,200 nm\./)
+    expect(bad('filter', { passbands: [{ centreNm: 1100, widthNm: 300 }] })).toMatch(/edges 950 to 1,250 nm/)
     expect(bandsOf({ passbands: [{ centreNm: 400, widthNm: 400 }] })).toEqual([{ centreNm: 400, widthNm: 400 }])
   })
   it('the edges are judged at the boundary: 200 and 1,200 nm are fine', () => {

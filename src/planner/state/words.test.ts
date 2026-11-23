@@ -8,10 +8,10 @@ const clone = (): Rec => JSON.parse(JSON.stringify(sampleProfile()));
 
 /** Every way the validator can refuse a profile, one edit of the sample each. `want` is a sentence the user must see. */
 const CASES: { name: string; edit: (p: Rec) => unknown; want?: RegExp }[] = [
-  { name: 'version too new', edit: (p) => { p.version = 99; }, want: /^It is version 99; this planner reads version 3 \(and upgrades versions 1 and 2\)\.$/ },
+  { name: 'version too new', edit: (p) => { p.version = 99; }, want: /^Version 99; this planner reads 3\.$/ },
   { name: 'version missing', edit: (p) => { delete p.version; }, want: /no version number/ },
-  { name: 'top level not an object', edit: () => [1, 2, 3], want: /not in the planner\u2019s format/ },
-  { name: 'null', edit: () => null, want: /not in the planner\u2019s format/ },
+  { name: 'top level not an object', edit: () => [1, 2, 3], want: /Not a planner profile/ },
+  { name: 'null', edit: () => null, want: /Not a planner profile/ },
   { name: 'unknown top-level field', edit: (p) => { p.extra = 1; }, want: /"extra"/ },
   { name: 'unknown item field', edit: (p) => { p.equipment.scopes[0].colr = 1; }, want: /"colr"/ },
   { name: 'list is not a list', edit: (p) => { p.sites = 5; }, want: /should be a list/ },
@@ -20,11 +20,11 @@ const CASES: { name: string; edit: (p: Rec) => unknown; want?: RegExp }[] = [
   { name: 'notes not text', edit: (p) => { p.plans[0].notes = 5; }, want: /not text/ },
   { name: 'list item empty', edit: (p) => { p.plans[0].targetIds = ['']; } },
   { name: 'arc number', edit: (p) => { p.sites[0].blockedArcs = [{ startAz: 'x', endAz: 10, heightDeg: 5 }]; }, want: /should be a number from 0 to 360/ },
-  { name: 'arc too small', edit: (p) => { p.sites[0].blockedArcs = [{ startAz: 10, endAz: 10, heightDeg: 5 }]; }, want: /must differ/ },
+  { name: 'arc too small', edit: (p) => { p.sites[0].blockedArcs = [{ startAz: 10, endAz: 10, heightDeg: 5 }]; }, want: /zone must span/ },
   { name: 'arc leaves nothing', edit: (p) => { p.sites[0].blockedArcs = [{ startAz: 10, endAz: 9.95, heightDeg: 5 }]; }, want: /open/ },
   { name: 'arc 360', edit: (p) => { p.sites[0].blockedArcs = [{ startAz: 360, endAz: 10, heightDeg: 5 }]; }, want: /0 instead of 360/ },
   { name: 'too many zones', edit: (p) => { p.sites[0].blockedArcs = Array.from({ length: 40 }, (_, i) => ({ startAz: i, endAz: i + 1, heightDeg: 5 })); }, want: /at most/ },
-  { name: 'time zone', edit: (p) => { p.sites[0].timeZone = 'Mars/Base'; }, want: /not a time zone name/ },
+  { name: 'time zone', edit: (p) => { p.sites[0].timeZone = 'Mars/Base'; }, want: /not a time zone/ },
   { name: 'bortle fraction', edit: (p) => { p.sites[0].bortle = 2.5; }, want: /whole number/ },
   { name: 'bortle word', edit: (p) => { p.sites[0].bortle = 'abc'; } },
   { name: 'zones missing', edit: (p) => { delete p.sites[0].blockedArcs; }, want: /zones/ },
@@ -38,7 +38,7 @@ const CASES: { name: string; edit: (p: Rec) => unknown; want?: RegExp }[] = [
   { name: 'train tag', edit: (p) => { p.trains.find((t: Rec) => t.kind === 'optical').tag = 'zzz'; }, want: /planetary/ },
   { name: 'train kind', edit: (p) => { p.trains[0].kind = 'zzz'; }, want: /optical/ },
   { name: 'plan date', edit: (p) => { p.plans[0].date = '2026-13-45'; }, want: /YYYY-MM-DD/ },
-  { name: 'duplicate id', edit: (p) => { p.equipment.cameras.push({ ...p.equipment.cameras[0] }); }, want: /which another camera already uses/ },
+  { name: 'duplicate id', edit: (p) => { p.equipment.cameras.push({ ...p.equipment.cameras[0] }); }, want: /used by another camera/ },
   { name: 'unknown scope', edit: (p) => { p.trains.find((t: Rec) => t.kind === 'optical').scopeId = 'nope'; }, want: /no scope has the id "nope"/ },
   { name: 'unknown accessory', edit: (p) => { p.trains.find((t: Rec) => t.kind === 'optical').accessoryIds = ['nope']; }, want: /accessory/ },
   { name: 'unknown smart scope', edit: (p) => { p.trains.find((t: Rec) => t.kind === 'smart').smartScopeId = 'nope'; }, want: /smart scope/ },
@@ -117,6 +117,6 @@ describe('the held notice and the import error use the same words', () => {
 
   it('version too new reads like the import sentence', () => {
     const r = loadProfile({ getItem: () => JSON.stringify({ ...clone(), version: 99 }) });
-    expect(r.error).toContain('It is version 99; this planner reads version 3 (and upgrades versions 1 and 2).');
+    expect(r.error).toContain('Version 99; this planner reads 3.');
   });
 });

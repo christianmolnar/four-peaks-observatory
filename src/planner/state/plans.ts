@@ -221,7 +221,7 @@ export function readPlan(raw: unknown, i: number, today: string, notices: string
       const copy: Record<string, unknown> = { ...raw };
       if (typeof copy.date !== 'string' || !DATE_RE.test(copy.date) || Number.isNaN(Date.parse(copy.date))) {
         copy.date = today;
-        fixes.push(`The plan ${label} had no usable date, so it is set to ${dateText(today)}.`);
+        fixes.push(`Plan ${label}: no usable date, set to ${dateText(today)}.`);
       }
       if (Array.isArray(copy.targets)) {
         let changed = 0;
@@ -233,7 +233,7 @@ export function readPlan(raw: unknown, i: number, today: string, notices: string
           delete fixed.base;
           return fixed;
         });
-        if (changed > 0) fixes.push(`In the plan ${label}, ${changed} ${changed === 1 ? 'target had a preset' : 'targets had presets'} this version does not know, so ${changed === 1 ? 'it is' : 'they are'} set to Balanced.`);
+        if (changed > 0) fixes.push(`Plan ${label}: ${changed} unknown ${changed === 1 ? 'preset' : 'presets'} set to Balanced.`);
       }
       try {
         const plan = checkPlan(copy, path);
@@ -258,7 +258,7 @@ export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string, date
   try {
     text = storage.getItem(PLANS_KEY);
   } catch (e) {
-    throw new Error(`Your plans could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    throw new Error(`Plans unreadable (storage blocked): ${(e as Error).message}`);
   }
   if (text === null) return { state: null, notices: [], unusable: null };
   const damaged = { state: null, notices: [DAMAGED_NOTICE], unusable: { kind: 'damaged' as const, text } };
@@ -283,13 +283,13 @@ export function loadPlans(storage: Pick<Storage, 'getItem'>, today: string, date
     const plan = readPlan(raw, i, today, notices, dateText);
     if (plan === null) return;
     if (ids.has(plan.id)) {
-      notices.push(`The plan "${plan.name}" repeated the id of another plan and is left out.`);
+      notices.push(`Plan "${plan.name}" repeats an id: left out.`);
       return;
     }
     ids.add(plan.id);
     plans.push(plan);
   });
-  if (extra > 0) notices.push(`Plans hold at most ${MAX_PLANS} plans, so ${extra} more in the saved copy ${extra === 1 ? 'is' : 'are'} left out.`);
+  if (extra > 0) notices.push(`Plan limit ${MAX_PLANS}: ${extra} left out.`);
   if (plans.length === 0) return { state: null, notices: [...notices, DAMAGED_NOTICE], unusable: { kind: 'damaged', text } };
   const openId = typeof input.openId === 'string' && ids.has(input.openId) ? input.openId : plans[0].id;
   return { state: { version: PLANS_VERSION, openId, plans }, notices, unusable: notices.length > 0 ? { kind: 'repaired', text } : null };
@@ -408,7 +408,7 @@ const blank = (d: PlanDefaults, id: string, name: string): Plan => ({
 });
 
 const room = (s: PlansState): void => {
-  if (s.plans.length >= MAX_PLANS) throw new Error(`Plans hold at most ${MAX_PLANS} plans. Delete one to make another.`);
+  if (s.plans.length >= MAX_PLANS) throw new Error(`Plan limit: ${MAX_PLANS}`);
 };
 
 /** The first state: one empty plan named "My plan", or the migrated one. */
@@ -579,7 +579,7 @@ export function migrateOldPlan(
     if (storage.getItem(MY_PLAN_KEY) !== null) myPlan = 'read';
   } catch (e) {
     myPlan = 'unreadable';
-    problems.push(`Your plan could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    problems.push(`Plan unreadable (storage blocked): ${(e as Error).message}`);
   }
   if (myPlan === 'read') {
     try {
@@ -602,12 +602,12 @@ export function migrateOldPlan(
         itinerary = 'read';
       } catch {
         itinerary = 'damaged';
-        problems.push('Your saved night timeline could not be read, so it was not carried over.');
+        problems.push('Saved night timeline unreadable, not carried over.');
       }
     }
   } catch (e) {
     itinerary = 'unreadable';
-    problems.push(`Your saved night timeline could not be read (browser storage is blocked or unavailable): ${(e as Error).message}`);
+    problems.push(`Night timeline unreadable (storage blocked): ${(e as Error).message}`);
   }
   const clear: string[] = [];
   if (myPlan === 'read' || myPlan === 'damaged') clear.push(MY_PLAN_KEY);
@@ -625,7 +625,7 @@ export function migrateOldPlan(
     }
   }
   if (merged.length > 0) {
-    problems.push(`A repeated slot in your night timeline was merged into one (${merged.join(', ')}): the first slot's preset is kept and the notes are joined.`);
+    problems.push(`Repeated slots merged: ${merged.join(', ')}.`);
   }
   const all = [...slots.keys(), ...ids.filter((id) => !slots.has(id))];
   const order = all.slice(0, MAX_PLAN_TARGETS);
@@ -641,7 +641,7 @@ export function migrateOldPlan(
 
 /** The sentence for targets the 50-target limit left out of a carried-over plan, by the names `nameOf` gives. */
 export function cutMessage(cut: readonly string[], nameOf: (id: string) => string): string {
-  return `A plan holds at most ${MAX_PLAN_TARGETS} targets, so ${cut.length} ${cut.length === 1 ? 'was' : 'were'} left out: ${cut.map(nameOf).join(', ')}.`;
+  return `Target limit ${MAX_PLAN_TARGETS}, left out: ${cut.map(nameOf).join(', ')}.`;
 }
 
 /** The carried-over plan added after the plans being saved (a new id, the open plan unchanged). Throws, in words, when there is no room. */

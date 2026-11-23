@@ -32,7 +32,7 @@ export function arcToHorizonPoints(arcs: readonly BlockedArc[]): HorizonPoint[] 
   for (const { startAz, endAz } of arcs) {
     const span = (endAz - startAz + 360) % 360;
     if (!(span >= 2 * EDGE_STEP_DEG) || 360 - span < 2 * EDGE_STEP_DEG) {
-      throw new RangeError(`Arc ${startAz} to ${endAz} is too narrow or too wide to place its edges`);
+      throw new RangeError(`Arc ${startAz} to ${endAz} is too narrow or too wide`);
     }
   }
   // Every arc has two distinct edges, so there are at least two. The height only changes at a zone's start or end: constant between these azimuths.

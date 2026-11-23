@@ -70,8 +70,8 @@ describe('a file that is not a plans file is refused in plain words', () => {
   it('a missing, text or other version; a newer one says so and imports nothing', () => {
     refuses(JSON.stringify({ format: 'four-peaks-planner', plans: [raw()] }), /no version/);
     refuses(JSON.stringify({ format: 'four-peaks-planner', version: '1', plans: [raw()] }), /version is not a number/);
-    refuses(JSON.stringify({ format: 'four-peaks-planner', version: 0, plans: [raw()] }), /version 0/);
-    refuses(JSON.stringify({ format: 'four-peaks-planner', version: 9, plans: [raw()] }), /newer version of the planner \(version 9\)/);
+    refuses(JSON.stringify({ format: 'four-peaks-planner', version: 0, plans: [raw()] }), /Version 0/);
+    refuses(JSON.stringify({ format: 'four-peaks-planner', version: 9, plans: [raw()] }), /Newer file version 9/);
   });
   it('a file over the size limit, without parsing it', () => {
     refuses('x'.repeat(MAX_PLANS_FILE_CHARS + 1), /too large/);
@@ -91,7 +91,7 @@ describe('hostile contents never crash and never reach the store whole', () => {
     const small = (i: number) => ({ id: `p${i}`, name: 'P', createdAt: '2026-11-14', updatedAt: '2026-11-14', date: '2026-11-14', siteId: 's', trainId: 't', startTime: null, targets: [], notes: '' });
     const out = read(fileOf(Array.from({ length: 8_000 }, (_, i) => small(i)) as never));
     expect(out.plans).toHaveLength(MAX_PLANS);
-    expect(out.notices.join(' ')).toMatch(new RegExp(`${8_000 - MAX_PLANS} more`));
+    expect(out.notices.join(' ')).toMatch(new RegExp(`${8_000 - MAX_PLANS} left out`));
     const bad = read(fileOf([small(1), ...Array.from({ length: 6_000 }, () => ({ nope: 1 }))] as never));
     expect(bad.plans).toHaveLength(1);
     expect(bad.notices.length).toBeLessThanOrEqual(10);
@@ -108,7 +108,7 @@ describe('hostile contents never crash and never reach the store whole', () => {
   it('duplicate ids inside the file: the first is kept, the repeat is said', () => {
     const out = read(fileOf([raw({ name: 'First' }, 1), raw({ name: 'Second' }, 1)]));
     expect(out.plans.map((p) => p.name)).toEqual(['First']);
-    expect(out.notices[0]).toMatch(/repeats the id of an earlier plan/);
+    expect(out.notices[0]).toMatch(/repeats an id/);
   });
   it('wrong types inside a plan are said without the validator\'s words', () => {
     const out = read(fileOf([raw({ name: 'Bad times', targets: [{ id: 'm42', preset: 'balanced', start: 'soon' }] }, 1), raw({ targets: 'none' }, 2), raw({}, 3), 7 as never, null as never]));

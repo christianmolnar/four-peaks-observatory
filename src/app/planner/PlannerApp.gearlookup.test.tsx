@@ -220,7 +220,7 @@ describe('Look up specs', () => {
     await mount();
     const form = openScope();
     await lookup(form, 'Bad');
-    expect(within(form).getByText(/cannot be used/)).toBeTruthy();
+    expect(within(form).getByText(/unusable/)).toBeTruthy();
     expect(value(form, /^Aperture/)).toBe('');
     expect(form.textContent).not.toContain('99999');
   });
@@ -283,7 +283,7 @@ describe('Look up specs', () => {
     await mount();
     const form = openFilter();
     await lookup(form, 'Wide Pair');
-    expect(within(form).getByText(/cannot be used/)).toBeTruthy();
+    expect(within(form).getByText(/unusable/)).toBeTruthy();
     for (const label of [/^Total passband width/, /^Narrowest band/, /^Size/, /^Bandpass notes/]) expect(value(form, label)).toBe('');
     expect(within(form).queryByLabelText('Passband centre (nm)')).toBeNull();
     expect(form.textContent).not.toContain('1200');
@@ -731,7 +731,7 @@ describe('Look up specs', () => {
       fireEvent.change(w[0], { target: { value: '20' } });
       fireEvent.change(c[1], { target: { value: '660' } });
       fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
-      expect((await within(form).findByRole('alert')).textContent).toBe('! Passband 2: enter both the centre and the width, or remove the row.');
+      expect((await within(form).findByRole('alert')).textContent).toBe('! Passband 2: enter centre and width.');
       fireEvent.change(w[1], { target: { value: '20' } });
       fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
       expect((await within(form).findByRole('alert')).textContent).toMatch(/overlap/);
@@ -756,7 +756,7 @@ describe('Look up specs', () => {
       p.trains = p.trains.map((t: { kind: string }) => (t.kind === 'optical' ? { ...t, filterId: 'f1' } : t));
       window.localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
       await mount();
-      expect(document.body.textContent).toMatch(/could not be used/i);
+      expect(document.body.textContent).toMatch(/unusable/i);
       expect(document.body.textContent).not.toMatch(/e\+\d/);
     });
   });

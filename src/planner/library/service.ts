@@ -31,13 +31,13 @@ export function parseLookupReply(cls: LibraryClass, text: string): { specs: Spec
   try {
     raw = JSON.parse(FENCE.exec(body)?.[1] ?? body)
   } catch {
-    return { problem: 'The AI did not answer in a form that can be used.' }
+    return { problem: 'AI answer unusable.' }
   }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || !Object.prototype.hasOwnProperty.call(raw, 'specs')) return { problem: 'The AI did not answer in a form that can be used.' }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || !Object.prototype.hasOwnProperty.call(raw, 'specs')) return { problem: 'AI answer unusable.' }
   const specs = (raw as { specs: unknown }).specs
   if (specs === null) return { problem: 'The AI does not know this item.' }
   const r = validateSpecs(cls, specs)
-  if ('problems' in r) return { problem: `The AI gave values that cannot be used, so nothing was saved. ${r.problems[0]}` }
+  if ('problems' in r) return { problem: `AI values unusable. ${r.problems[0]}` }
   return r
 }
 
@@ -64,7 +64,7 @@ export async function fillFromModel(o: { store: LibraryStore; callModel: CallMod
   try {
     text = await o.callModel(buildLookupMessages(t.cls, t.name))
   } catch {
-    throw new LookupError('The AI lookup failed, nothing was saved. Try again later or enter the values yourself.')
+    throw new LookupError('AI lookup failed.')
   }
   const parsed = parseLookupReply(t.cls, text)
   if ('problem' in parsed) throw new LookupError(parsed.problem)
@@ -84,7 +84,7 @@ export async function applyCorrection(o: { store: LibraryStore; cls: unknown; na
   const old = await o.store.get(t.cls, t.key)
   let specs: Specs
   if (o.specs === undefined) {
-    if (!old) throw new LibraryDataError('This item is not in the library yet, so there is nothing to confirm.')
+    if (!old) throw new LibraryDataError('Not in the library.')
     // Already confirmed: nothing to confirm, and writing again would replace the real previous value with this one.
     if (old.confirmed) return old
     specs = old.specs

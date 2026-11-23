@@ -20,7 +20,7 @@ async function getFromRoute(url: string, fetchImpl: ClientFetch, timeoutMs: numb
   const timedOut = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       controller.abort()
-      reject(new LookupError('The lookup took too long. Try again, or enter the values by hand.'))
+      reject(new LookupError('Lookup timed out.'))
     }, timeoutMs)
   })
   const exchange = async (): Promise<Record<string, unknown>> => {
@@ -28,7 +28,7 @@ async function getFromRoute(url: string, fetchImpl: ClientFetch, timeoutMs: numb
     try {
       res = await fetchImpl(url, { signal: controller.signal })
     } catch {
-      throw new LookupError('Could not reach the lookup service. Check your connection, or enter the values by hand.')
+      throw new LookupError('Lookup unreachable.')
     }
     let body: unknown
     try {

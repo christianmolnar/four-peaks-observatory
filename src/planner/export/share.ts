@@ -128,9 +128,9 @@ export const CUSTOM_OUTSIDE = 'Custom values outside the limits (not used)';
 export const customInLimits = (subSeconds: unknown, subCount: unknown): boolean =>
   typeof subSeconds === 'number' && Number.isFinite(subSeconds) && subSeconds >= MIN_CUSTOM_SUB_S && subSeconds <= MAX_SUB_S && typeof subCount === 'number' && Number.isInteger(subCount) && subCount >= 1 && subCount <= MAX_SUBS;
 
-/** Why a stored custom is not used, in words with the limits and never the stored numbers. */
+/** A stored custom that is not used, with the limits and never the stored numbers. */
 export const customOutsideText = (base: keyof typeof PRESETS): string =>
-  `The stored custom numbers are outside the limits (a sub of ${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} whole subs), so they are not used; the ${PRESETS[base].label} preset is used instead.`;
+  `Custom outside limits (${MIN_CUSTOM_SUB_S} to ${MAX_SUB_S} s, 1 to ${MAX_SUBS} subs): ${PRESETS[base].label} used.`;
 
 export const presetName = (ref: Pick<PlanTargetRef, 'preset' | 'base'>): string => (ref.preset === 'custom' ? `Custom (from ${PRESETS[ref.base ?? 'balanced'].label})` : PRESETS[ref.preset].label);
 
@@ -195,7 +195,7 @@ export function storedSheet(plan: Plan, profile: Profile, facts: (id: string) =>
     startsAt: plan.startTime ?? '',
     notes: plan.notes,
     warnings: [],
-    caveat: 'Sub lengths, counts, times and total light are worked out for the plan that is open; open this plan and share it for them. Shown here: what the plan stores, with no total.',
+    caveat: 'No totals: open this plan to share them.',
     rows,
     totalLightMin: null,
   };

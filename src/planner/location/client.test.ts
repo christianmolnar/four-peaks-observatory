@@ -38,13 +38,13 @@ describe('lookupPlace', () => {
     await expect(lookupPlace('Phoenix', async () => f())).rejects.toThrow(LookupError)
   })
   it('a network failure is a clear LookupError', async () => {
-    await expect(lookupPlace('Phoenix', async () => { throw new TypeError('Failed to fetch') })).rejects.toThrow(/Could not reach/)
+    await expect(lookupPlace('Phoenix', async () => { throw new TypeError('Failed to fetch') })).rejects.toThrow(/unreachable/)
   })
   it('a fetch that never answers times out', async () => {
     jest.useFakeTimers()
     try {
       const p = lookupPlace('Phoenix', () => new Promise<Response>(() => undefined))
-      const settled = expect(p).rejects.toThrow(/took too long/)
+      const settled = expect(p).rejects.toThrow(/timed out/)
       await jest.advanceTimersByTimeAsync(CLIENT_TIMEOUT_MS + 1)
       await settled
     } finally {
@@ -109,7 +109,7 @@ describe('describeCoordinates', () => {
       await jest.advanceTimersByTimeAsync(CLIENT_TIMEOUT_MS + 1)
       const d = await p
       expect(d.timeZone).toBe('America/Phoenix')
-      expect(d.notes[0]).toMatch(/took too long/)
+      expect(d.notes[0]).toMatch(/timed out/)
     } finally {
       jest.useRealTimers()
     }

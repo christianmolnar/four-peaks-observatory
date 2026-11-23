@@ -154,7 +154,7 @@ export function checkName(raw: string, noun: string, others: readonly string[]):
   const name = raw.trim();
   if (name === '') throw new Error(`Name: enter a name for this ${noun}.`);
   if (name.length > MAX_NAME_CHARS) throw new Error(`Name: use at most ${MAX_NAME_CHARS} characters. This one has ${name.length}.`);
-  if (others.some((o) => sameName(o, name))) throw new Error(`Name: there is already a ${noun} named "${name}". Give this one a different name.`);
+  if (others.some((o) => sameName(o, name))) throw new Error(`Name: ${noun} "${name}" exists already.`);
   return name;
 }
 
@@ -183,7 +183,7 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>,
       if (bands && (f.key === 'passbandWidthNm' || f.key === 'narrowestBandNm')) {
         // With bands the sums are theirs: a typed value that differs is refused, never silently kept or changed.
         const derived = bandSums(bands)[f.key];
-        if (Math.abs(n - derived) > 1e-6) throw new Error(`${f.label}: ${t} does not match the passbands (${derived} nm). Clear the box to use the passbands, or change the passbands.`);
+        if (Math.abs(n - derived) > 1e-6) throw new Error(`${f.label}: ${t} does not match the passbands (${derived} nm).`);
       }
       out[f.key] = n;
     } else if (f.kind === 'tristate') {
@@ -197,7 +197,7 @@ function itemFromTexts(list: ListKey, base: Item, texts: Record<string, string>,
         try {
           new Intl.DateTimeFormat('en-US', { timeZone: t });
         } catch {
-          throw new Error(`Time zone: "${t.length > 30 ? `${t.slice(0, 30)}…` : t}" is not a time zone name. Enter one such as America/Phoenix, or leave it empty to use your browser.`);
+          throw new Error(`Time zone: "${t.length > 30 ? `${t.slice(0, 30)}…` : t}" is not a time zone name. Example: America/Phoenix.`);
         }
       }
       out[f.key] = t;
@@ -373,10 +373,10 @@ export function profileFromText(text: string): Profile {
   const migrated = migrateProfile(json) as Record<string, unknown>;
   if (migrated.version === undefined) throw new Error(`${NOT_A_PROFILE} It has no version number.`);
   if (typeof migrated.version !== 'number') {
-    throw new Error(`${NOT_A_PROFILE} The version must be a number, not text (this planner reads version ${PROFILE_VERSION}).`);
+    throw new Error(`${NOT_A_PROFILE} The version must be a number.`);
   }
   if (migrated.version !== PROFILE_VERSION) {
-    throw new Error(`${NOT_A_PROFILE} It is version ${JSON.stringify(migrated.version)}; this planner reads version ${PROFILE_VERSION} (and upgrades versions 1 and 2).`);
+    throw new Error(`${NOT_A_PROFILE} Version ${JSON.stringify(migrated.version)}; this planner reads ${PROFILE_VERSION}.`);
   }
   try {
     return validateProfile(migrated);

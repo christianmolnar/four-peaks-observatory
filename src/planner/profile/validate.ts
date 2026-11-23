@@ -129,13 +129,13 @@ function blockedArc(v: unknown, path: string): BlockedArc {
   if (span < MIN_ARC_DEG) {
     throw new ProfileError(
       path,
-      `arc must span at least ${MIN_ARC_DEG} degrees, and start and end must differ (start ${startAz}, end ${endAz}; 360 is the same direction as 0)`,
+      `arc must span at least ${MIN_ARC_DEG} degrees (start ${startAz}, end ${endAz})`,
     );
   }
   if (360 - span < MIN_ARC_DEG) {
     throw new ProfileError(
       path,
-      `arc must leave at least ${MIN_ARC_DEG} degrees unblocked (start ${startAz}, end ${endAz}); shorten it. Remove the zone if nothing is blocked`,
+      `arc must leave at least ${MIN_ARC_DEG} degrees unblocked (start ${startAz}, end ${endAz})`,
     );
   }
   if (startAz === 360 || endAz === 360) {
@@ -250,7 +250,7 @@ function passbands(o: Obj, path: string): Passband[] | undefined {
   if (o.passbands === undefined) return undefined;
   const at = `${path}.passbands`;
   const list = arr(o.passbands, at);
-  if (list.length === 0) throw new ProfileError(at, 'a filter has 1 to 6 passbands; leave the field out when they are not known');
+  if (list.length === 0) throw new ProfileError(at, 'a filter has 1 to 6 passbands');
   list.forEach((b, i) => onlyKeys(obj(b, `${at}[${i}]`), `${at}[${i}]`, ['centreNm', 'widthNm']));
   const r = judgePassbands(list);
   if ('problems' in r) throw new ProfileError(at, r.problems.join(' '));
@@ -265,7 +265,7 @@ function derivedSum(o: Obj, key: 'passbandWidthNm' | 'narrowestBandNm', label: s
   const derived = bandSums(bands)[key];
   const given = optLimited(o, key, path, strict);
   if (given !== undefined && !(typeof given === 'number' && Math.abs(given - derived) <= 1e-6)) {
-    throw new ProfileError(`${path}.${key}`, `${label}${plainNm(given)} does not match its passbands (${derived} nm). Remove the field to use the passbands' value, or change the passbands.`);
+    throw new ProfileError(`${path}.${key}`, `${label}${plainNm(given)} does not match its passbands (${derived} nm).`);
   }
   return derived;
 }

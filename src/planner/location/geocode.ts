@@ -22,7 +22,7 @@ export const PLACE_ELEVATION_BUDGET_MS = 3000
 export const CACHE_TTL_MS = 24 * 3600 * 1000
 export const CACHE_MAX_ENTRIES = 500
 
-const UNAVAILABLE = 'Place search is not available right now. Enter the coordinates by hand or try again later.'
+const UNAVAILABLE = 'Place search unavailable.'
 
 /** Neither service could answer. The message is fit to show the user. */
 export class LookupUnavailableError extends Error {}

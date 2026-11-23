@@ -53,7 +53,7 @@ describe('profile storage', () => {
     const s = memory({ [PROFILE_KEY]: bad });
     const r = loadProfile(s);
     expect(r.error).toContain('Train "');
-    expect(r.error).toContain('no scope has the id "gone" in this profile. Your saved copy is kept as it is');
+    expect(r.error).toContain('no scope has the id "gone" in this profile.');
     expect(r.error).not.toContain('$.');
     expect(r.profile).toEqual(sampleProfile());
     expect(r.held).toBe(bad);
@@ -78,7 +78,7 @@ describe('profile storage', () => {
 
   it('reports malformed stored JSON as an error, not a crash', () => {
     const r = loadProfile(memory({ [PROFILE_KEY]: '{nope' }));
-    expect(r.error).toMatch(/^Your saved profile could not be used, so the sample is shown\. .*not valid JSON/);
+    expect(r.error).toMatch(/^Saved profile unusable; sample shown\. .*not valid JSON/);
     expect(r.error).not.toMatch(/\$|Unexpected|rejected/);
   });
 
@@ -97,8 +97,8 @@ describe('captured', () => {
     saveCaptured(s, new Set(['m42', 'm31']));
     expect([...loadCaptured(s)].sort()).toEqual(['m31', 'm42']);
     expect(loadCaptured(memory()).size).toBe(0);
-    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{"a":1}' }))).toThrow(/^Your saved captured list is damaged, so it starts empty\.$/);
-    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{oops' }))).toThrow(/^Your saved captured list is damaged, so it starts empty\.$/);
+    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{"a":1}' }))).toThrow(/^Captured list damaged\. Starting empty\.$/);
+    expect(() => loadCaptured(memory({ [CAPTURED_KEY]: '{oops' }))).toThrow(/^Captured list damaged\. Starting empty\.$/);
   });
 });
 
@@ -113,8 +113,8 @@ describe('withSiteArcs', () => {
   });
 
   it('rejects arcs the M1b validator rejects, with the field path', () => {
-    expect(() => withSiteArcs(p, id, [{ startAz: 100, endAz: 100, heightDeg: 30 }])).toThrow(/\$\.sites\[0\]\.blockedArcs\[0\]: .*differ/);
-    expect(() => withSiteArcs(p, id, [{ startAz: 0, endAz: 359.99, heightDeg: 30 }])).toThrow(/shorten/);
+    expect(() => withSiteArcs(p, id, [{ startAz: 100, endAz: 100, heightDeg: 30 }])).toThrow(/\$\.sites\[0\]\.blockedArcs\[0\]: arc must span/);
+    expect(() => withSiteArcs(p, id, [{ startAz: 0, endAz: 359.99, heightDeg: 30 }])).toThrow(/unblocked/);
     expect(() => withSiteArcs(p, id, [{ startAz: 10, endAz: 50, heightDeg: 91 }])).toThrow(/heightDeg/);
     expect(() => withSiteArcs(p, id, [{ startAz: -5, endAz: 50, heightDeg: 30 }])).toThrow(/startAz/);
     expect(() => withSiteArcs(p, id, [{ startAz: Number.NaN, endAz: 50, heightDeg: 30 }])).toThrow(/startAz/);
@@ -234,7 +234,7 @@ describe('loadProfile with unusable storage', () => {
     const r = loadProfile(blocked);
     expect(r.profile).toEqual(sampleProfile());
     expect(r.stored).toBe(false);
-    expect(r.error).toMatch(/could not be read.*denied/);
+    expect(r.error).toMatch(/unreadable.*denied/);
   });
 });
 

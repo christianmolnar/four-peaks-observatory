@@ -15,23 +15,23 @@ export const SEED_ENTRIES: readonly LibraryEntry[] = [
     type: 'dual-band',
     passbands: [{ centreNm: 656.3, widthNm: 9.5 }, { centreNm: 500.7, widthNm: 8 }],
     glassMm: 2,
-    notes: 'Ha 656.3 nm 9.5 nm and OIII 500.7 nm 8 nm, f/2 optimized. Not yet checked against the maker.',
+    notes: 'Ha 9.5 nm, OIII 8 nm. Unchecked.',
   }),
   seed('IDAS NB3-PM', {
     type: 'dual-band',
     passbands: [{ centreNm: 672, widthNm: 19 }, { centreNm: 500.7, widthNm: 21 }],
     glassMm: 2,
     needsUvIrCut: true,
-    notes: 'Needs a UV/IR cut in the train (IDAS, via research note, unverified). SII about 672 nm about 19 nm and OIII about 21 nm. Glass 2.0 or 2.5 mm. Not yet checked against the maker.',
+    notes: 'Needs a UV/IR cut. SII 19 nm, OIII 21 nm. Unchecked.',
   }),
   seed('Optolong H-alpha 7 nm', {
     type: 'narrowband',
     passbands: [{ centreNm: 656.3, widthNm: 7 }],
-    notes: 'Ha 656.3 nm 7 nm (the vendor width, centred on the line). Not yet checked against the maker.',
+    notes: 'Ha 7 nm. Unchecked.',
   }),
   seed('Optolong L-eXtreme (standard)', {
     type: 'dual-band',
     passbands: [{ centreNm: 656.3, widthNm: 7 }, { centreNm: 500.7, widthNm: 7 }],
-    notes: 'The standard 7 nm version: Ha 656.3 nm 7 nm and OIII 500.7 nm 7 nm (the vendor widths, centred on the lines). Not yet checked against the maker.',
+    notes: 'Ha 7 nm, OIII 7 nm. Unchecked.',
   }),
 ]

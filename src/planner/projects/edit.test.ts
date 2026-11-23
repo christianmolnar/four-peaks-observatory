@@ -21,7 +21,7 @@ describe('changes check every limit', () => {
     let s = EMPTY_PROJECTS;
     for (let i = 0; i < 20; i++) s = addProject(s, { name: `P${i}`, setup: project().setup, targets: project().targets }, `2026-11-17T01:00:${String(i).padStart(2, '0')}.000Z`).state;
     expect(new Set(s.projects.map((p) => p.id)).size).toBe(20);
-    expect(() => addProject(s, { name: 'one more', setup: project().setup, targets: project().targets }, NOW)).toThrow(/at most 20 projects/);
+    expect(() => addProject(s, { name: 'one more', setup: project().setup, targets: project().targets }, NOW)).toThrow(/Project limit: 20/);
   });
 
   it('adds, edits and removes a session; ids are unique and the project is stamped', () => {

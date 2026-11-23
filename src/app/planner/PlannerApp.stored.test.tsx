@@ -64,12 +64,11 @@ describe('a stored site number that cannot be used keeps the profile (round 4)',
       await mount({ noSite: true });
       // The profile is not set aside: no sample, no "could not be used", no validator text.
       expect(document.body.textContent).not.toMatch(/\$\.|Problem at|could not be used|\[object|outside the allowed range for/);
-      expect(screen.getByTestId('no-usable-site').textContent).toMatch(/cannot be used/);
+      expect(screen.getByTestId('no-usable-site').textContent).toMatch(/unusable/);
       expect(screen.getByTestId('no-usable-site').textContent).toContain(raw.sites[0].name);
-      expect(screen.getByTestId('no-usable-site').textContent).toMatch(/so the planner does not use this site/);
       // The Gear section is on the page, on Sites, with the site's card saying why.
       const flag = screen.getAllByTestId('gear-flag')[0].textContent!;
-      expect(flag).toMatch(/so the planner does not use this site\.( .*)? Change it and press Save\.$/);
+      expect(flag).toMatch(/^! .*(outside|not a number)/);
       expect(flag).not.toMatch(/\[object/);
       // A gear edit keeps the user's gear.
       pickClass('Cameras');
@@ -122,8 +121,8 @@ describe('a stored site number that cannot be used keeps the profile (round 4)',
     openGear();
     pickClass('Sites');
     const card = document.querySelector('[data-testid="gear-card-sites:bad-site"]') as HTMLElement;
-    expect(within(card).getByTestId('gear-flag').textContent).toMatch(/^! Latitude is saved as "abc", which is not a number, so the planner does not use this site\./);
-    expect(screen.getByTestId('gear-flagged').textContent).toContain('1 saved value is not usable');
+    expect(within(card).getByTestId('gear-flag').textContent).toMatch(/^! Latitude: "abc", not a number\./);
+    expect(screen.getByTestId('gear-flagged').textContent).toContain('1 saved value not usable');
   });
 });
 
@@ -158,7 +157,7 @@ describe('a stored profile this page cannot load is never written over (round 4)
     const before = window.localStorage.getItem(PROFILE_KEY);
     await mount();
     const box = screen.getByTestId('profile-held');
-    expect(box.textContent).toMatch(/could not be used, so the sample is shown/);
+    expect(box.textContent).toMatch(/unusable; sample shown/);
     expect(box.textContent).not.toMatch(/\$\.|Problem at/);
     expect(box.textContent).toMatch(/kept as it is/);
     openGear();
@@ -235,7 +234,7 @@ describe('odd stored types read in words (round 4)', () => {
       openGear();
       pickClass('Scopes');
       const flag = screen.getByTestId('gear-flag').textContent!;
-      expect(flag).toMatch(/^! Focal length is saved as /);
+      expect(flag).toMatch(/^! Focal length(: |, )/);
       expect(flag).not.toMatch(/outside 10 to 10,000 mm, so/);
       if (typeof value === 'object' && value !== null) expect(flag).toContain('something that is not a number');
       const form = openGearItem('Scopes', raw.equipment.scopes.length - 1);
@@ -257,9 +256,9 @@ describe('smaller round 4 fixes', () => {
     await mount();
     openPlanTab();
     const note = screen.getByTestId('plan-stale-site').textContent!;
-    expect(note).toContain('cannot be used');
+    expect(note).toContain('Site unusable');
     expect(note).toContain(`Showing "${raw.sites[1].name}".`);
-    expect(document.body.textContent).not.toMatch(/no longer in your gear\. Showing "Broken/);
+    expect(document.body.textContent).not.toMatch(/Site removed\. Showing "Broken/);
   });
 
   it('a refused Save clears the earlier "Saved ..." line', async () => {
@@ -301,7 +300,7 @@ describe('smaller round 4 fixes', () => {
     openGear();
     const note = screen.getByTestId('gear-focal-note').textContent!;
     expect(note).toContain('9.8 mm');
-    expect(note).toContain('under the 10 mm');
+    expect(note).toContain('under 10 mm');
   });
 
   it('the "Open <plan>" button breaks inside a long name and may shrink (320 px)', async () => {
@@ -337,11 +336,11 @@ describe('round 5: plain words for a held profile, no false Saved, one message',
   };
 
   it.each([
-    ['a version from a newer planner', (r: Record<string, unknown>) => { r.version = 99; }, 'It is version 99; this planner reads version 3 (and upgrades versions 1 and 2).'],
+    ['a version from a newer planner', (r: Record<string, unknown>) => { r.version = 99; }, 'Version 99; this planner reads 3.'],
     ['a read-noise class that is not one', (r: any) => { r.equipment.cameras[0].readNoiseClass = 'zzz'; }, 'read noise is saved as "zzz"; use low, medium or high.'], // eslint-disable-line @typescript-eslint/no-explicit-any
-    ['a field nobody knows', (r: Record<string, unknown>) => { r.extra = 1; }, 'has a field the planner does not know: "extra"'],
-    ['a profile that is a list', () => [1, 2, 3], 'not in the planner\u2019s format'],
-    ['a repeated id', (r: any) => { r.equipment.cameras.push({ ...r.equipment.cameras[0] }); }, 'which another camera already uses'], // eslint-disable-line @typescript-eslint/no-explicit-any
+    ['a field nobody knows', (r: Record<string, unknown>) => { r.extra = 1; }, 'unknown field "extra"'],
+    ['a profile that is a list', () => [1, 2, 3], 'Not a planner profile'],
+    ['a repeated id', (r: any) => { r.equipment.cameras.push({ ...r.equipment.cameras[0] }); }, 'used by another camera'], // eslint-disable-line @typescript-eslint/no-explicit-any
   ])('%s: the notice, and the toast of a refused horizon Save, are plain', async (_n, edit, said) => {
     heldWith(edit as (raw: Record<string, unknown>) => unknown);
     await mount();
@@ -369,7 +368,7 @@ describe('round 5: plain words for a held profile, no false Saved, one message',
     expect(gear).toMatch(/^Not saved/);
     expect(gear.length).toBeLessThan(120);
     expect(gear).not.toMatch(/Export profile|Reset all|could not be loaded/);
-    expect(screen.getByTestId('profile-held').textContent).toMatch(/Export profile/);
+    expect(screen.getByTestId('profile-held').textContent).toMatch(/Copy kept/);
   });
 
   describe.each([
@@ -452,7 +451,7 @@ describe('round 5: plain words for a held profile, no false Saved, one message',
     );
     await mount();
     const note = screen.getByTestId('plan-train-note');
-    expect(note.textContent).toMatch(/under the 10 mm/);
+    expect(note.textContent).toMatch(/under 10 mm/);
     const span = note.querySelector('span') as HTMLElement;
     expect(span.className).toMatch(/min-w-0/);
     expect(span.className).toMatch(/max-w-full/);

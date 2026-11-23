@@ -173,7 +173,7 @@ describe('a stored plan never prints a custom value outside the limits as a numb
     it(`${label}: the row says the custom is not used, with no numbers, in text, Markdown, CSV and the sheet itself`, () => {
       const s = sheetOf(c, n);
       expect(s.rows[0]).toMatchObject({ preset: 'Custom values outside the limits (not used)', subSeconds: null, subCount: null, lightMin: null });
-      expect(s.rows[0].warning).toMatch(/outside the limits.*not used.*Deep Project preset is used instead/);
+      expect(s.rows[0].warning).toMatch(/Custom outside limits.*Deep Project used/);
       expect(s.totalLightMin).toBeNull();
       const d = doc([s]);
       for (const out of [docToText(d), docToMarkdown(d), docToCsv(d), JSON.stringify(s)]) {
