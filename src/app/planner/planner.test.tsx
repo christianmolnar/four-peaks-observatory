@@ -24,7 +24,7 @@ describe('planner page', () => {
     expect(html).toContain('value="2026-12-15"');
     expect(html).toContain('Fountain Hills, AZ');
     expect(html).toContain('Best targets for');
-    expect(html).toContain('Ranking the whole catalog');
+    expect(html).toContain('Ranking...');
     expect(html).not.toContain('data-testid="target-list"');
     expect(html).toContain('Search the catalog by name or number');
     expect(html).toContain('role="tablist"');
@@ -36,7 +36,6 @@ describe('planner page', () => {
   });
 
   it('says only what is true about data leaving the browser, in the Gear and site tab', () => {
-    expect(html).toContain('stay in this browser');
     expect(html).not.toContain('nothing is sent anywhere');
   });
 
@@ -57,7 +56,7 @@ describe('planner page', () => {
   });
 
   it('shows the sample arc in the summary and the sliders', () => {
-    expect(html).toContain('Horizon: blocked 120° (SE) to 320° (NW), 42° high.');
+    expect(html).toContain('Horizon: blocked 120° (SE) to 320° (NW), 42° high');
     expect(html).toContain('value="42"');
   });
 

@@ -116,7 +116,7 @@ import PlansBar from './PlansBar';
 import ProjectsTab from './ProjectsTab';
 import { sheetNames } from './projectNames';
 import { useProjects } from './useProjects';
-import PlanRowExposure, { ExposureChips, ExposureWarnings, Fold } from './PlanRowExposure';
+import PlanRowExposure, { ExposureChips, ExposureWarnings } from './PlanRowExposure';
 import SlotDetails from './SlotDetails';
 import PlanRowMix from './PlanRowMix';
 import NarrowbandPanel from './NarrowbandPanel';
@@ -203,33 +203,8 @@ function detailText(e: RankedEntry, formatTime: (d: Date) => string) {
   return {
     moon: `${(e.moonIllumination * 100).toFixed(0)}% lit, ${e.moonSeparation.toFixed(0)}° away${e.moonUp ? '' : ' (down)'}`,
     windows: e.windows.map((w) => `${formatTime(w.start)} to ${formatTime(w.end)}`).join(', '),
-    parts: `Score parts: ${scorePartsText(e.score)}.${e.fitDetail ? ` ${e.fitDetail}.` : ''}`,
+    parts: `Score parts: ${scorePartsText(e.score)}`,
   };
-}
-
-/**
- * What the size screen left out of the list, said with names instead of a silent disappearance. The one control for them is
- * the "Show targets that do not fit" box: off, this says what is left out; on, it says where they went.
- */
-function NoFitNote({ counts, showNoFit, listed, nightWord }: { counts: RankResult['counts']; showNoFit: boolean; listed: number; nightWord: string }) {
-  const total = counts.tooLarge + counts.tooSmall;
-  if (total === 0) return null;
-  return (
-    <div className="mb-3 space-y-1 text-p-t1/70 font-normal text-sm" data-testid="hidden-note">
-      {showNoFit ? (
-        <p>
-          Showing {listed} targets that do not fit this camera view in the group below the list
-          {listed < total ? ` (${listed} of ${total}: only targets that are up ${nightWord} are listed)` : ''}.
-        </p>
-      ) : (
-        <>
-          {counts.tooLarge > 0 && <p>{counts.tooLarge} {counts.tooLarge === 1 ? 'target is' : 'targets are'} too big for your camera view.</p>}
-          {counts.tooSmall > 0 && <p>{counts.tooSmall} {counts.tooSmall === 1 ? 'target is' : 'targets are'} too small for your camera view.</p>}
-          <p>Tick “Show targets that do not fit”.</p>
-        </>
-      )}
-    </div>
-  );
 }
 
 export interface PlannerAppProps {
@@ -1375,7 +1350,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   const addToPlan = (id: string) => {
     if (planIds.includes(id)) return;
     if (planIds.length >= MAX_PLAN_TARGETS) {
-      setNotice(`The plan is full (${MAX_PLAN_TARGETS} targets). Remove one to add more.`);
+      setNotice('Plan is full');
       return;
     }
     if (!editOpen({ targets: [...planTargets, newRef(id)] })) return;
@@ -1399,7 +1374,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const first = planIds.length + 1;
     const last = planIds.length + picks.length;
     const places = picks.length === 1 ? `#${first}` : `#${first} to #${last}`;
-    const short = picks.length < fresh.length ? ` The plan is full: ${fresh.length - picks.length} not added.` : '';
+    const short = picks.length < fresh.length ? `  Plan is full: ${fresh.length - picks.length} not added.` : '';
     setAdded({ id: TOP_ADDED_ID, text: `Added ${picks.length}, ${places} in the plan.${short}`, say: `Added ${picks.length} to the plan, ${places}: ${nameList(picks.map((e) => e.name))}.${short}` });
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setAdded(null), ADDED_MS);
@@ -1991,22 +1966,18 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
 
   const night = stableNight ?? undefined;
   const bortle = site.bortle ?? DEFAULT_BORTLE;
-  const zoneName = siteZone ?? zone;
-  const zoneText = zoneName ? `Times are in ${siteZone ? "the site's" : "your browser's"} time zone (${zoneName}).` : '';
   const horizonText =
     savedArcs.length === 0
-      ? 'Horizon not set: only the flat minimum altitude applies.'
-      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}.${describeOverlaps(savedArcs) && ` ${describeOverlaps(savedArcs)}`}`;
+      ? 'Horizon not set'
+      : `Horizon: ${savedArcs.map((a) => `blocked ${a.startAz}° (${compass(a.startAz)}) to ${a.endAz}° (${compass(a.endAz)}), ${a.heightDeg}° high`).join('; ')}`;
   const midMoon = night?.kind === 'normal' ? moonIllumination(new Date(((night.start as Date).getTime() + (night.end as Date).getTime()) / 2)) : null;
   const nightHours = night?.kind === 'normal' ? (((night.end as Date).getTime() - (night.start as Date).getTime()) / 3600000).toFixed(1) : null;
   const nightText =
     night === undefined
-      ? 'Loading the date…'
+      ? 'Loading...'
       : night.kind === 'normal'
-        ? `Astronomical night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${nightHours} h), Moon ${((midMoon ?? 0) * 100).toFixed(0)}% lit at mid-night. `
-        : night.kind === 'none'
-          ? 'The Sun stays above -18 deg here on this date: no astronomical night. '
-          : 'The Sun stays below -18 deg all day (polar night): no usable night. ';
+        ? `Night ${formatTime(night.start as Date)} to ${formatTime(night.end as Date)} (${nightHours} h)  Moon ${((midMoon ?? 0) * 100).toFixed(0)}%${siteZone ?? zone ? `  ${siteZone ?? zone}` : ''}`
+        : 'No astronomical night';
   const planetary = train.kind === 'optical' && train.tag === 'planetary';
   // The Solar system group: open on a planetary train, and for the Solar system view only; closed otherwise. A hand-made open or close wins.
   const groupOpen = planetsOpen ?? (planetary || isSolar);
@@ -2058,7 +2029,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
     const t = detailText(e, formatTime);
     return (
       <div className="space-y-2 font-normal text-p-t1">
-        <p>{e.why}</p>
         <p className="text-sm text-p-t1/70">{t.parts}</p>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
           <dt className="text-p-t1/70">Usable window</dt><dd>{t.windows === '' ? 'none' : t.windows}</dd>
@@ -2092,18 +2062,16 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   };
   /** Why a type has no list: nothing up long enough, or everything that is up is the wrong size for camera view. */
   const emptyText = (notFit: RankResult['typeNotFit']): string => {
-    const what = group.id === 'all' ? 'targets' : group.noun;
     // Only what is up is said: a type's catalog-wide too-large count would claim objects that never rise.
     const up = groupNotFit(group, notFit);
     const wrongSize = up.tooLarge + up.tooSmall;
-    if (wrongSize > 0) return `No ${what} fit this camera view ${nightWord}.`;
-    return `No ${what} are up ${nightWord} above your horizon.`;
+    return wrongSize > 0 ? `Nothing fits ${nightWord}.` : `Nothing up ${nightWord}.`;
   };
   /** The Add top 3 row above a ranked list: the button, and in words what it did or why it cannot. */
   const topThree = (list: readonly PlanEntry[]) => {
     const full = planIds.length >= MAX_PLAN_TARGETS;
     const nothingNew = list.every((e) => planIdSet.has(e.id));
-    const why = full ? `The plan is full (${MAX_PLAN_TARGETS} targets). Remove one to add more.` : nothingNew ? 'Everything in this list is already in the plan.' : '';
+    const why = full ? 'Plan is full' : nothingNew ? 'All in plan' : '';
     return (
       <div className="mb-2 mt-2 flex flex-wrap items-center gap-x-3" data-testid="top-three">
         <button
@@ -2472,20 +2440,14 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           </div>
         </div>
 
-        <p className="mb-3 text-p-t1/70 font-normal text-sm" data-testid="score-note">
-          Score is out of 100, best first.{group.id === 'all' ? ' Types are mixed, so not strictly in score order.' : ''}
-        </p>
-        <Fold id="score-fold" title="Not ranked">
-          <p className="mb-3 text-p-t1/70 font-normal text-sm">Asterisms and double stars are not ranked; search finds both.</p>
-        </Fold>
         {hasNight && midMoon !== null && midMoon > BRIGHT_MOON && (
           <p className="mb-3 text-p-t1 font-normal text-sm" data-testid="bright-moon-note">
-            Bright Moon ({(midMoon * 100).toFixed(0)}% lit): faint nebulae and galaxies will wash out.
+            Bright Moon {(midMoon * 100).toFixed(0)}%
           </p>
         )}
         {planetary && (
           <p className="mb-3 flex flex-wrap items-center gap-x-3 text-p-t1 font-normal text-sm" data-testid="planetary-note">
-            <span>Solar-system setup: most deep-sky targets will not fit.</span>
+            <span>Solar-system setup</span>
             {deepTrain && (
               <button type="button" className={`${btn} min-h-11`} onClick={() => chooseTrain(deepTrain.id)}>
                 Use {deepTrain.name}
@@ -2495,21 +2457,20 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         )}
 
         {stableNight && !hasNight ? (
-          <p className="text-p-t1 font-normal">No astronomical night, so there is nothing to rank.</p>
+          <p className="text-p-t1 font-normal">No astronomical night</p>
         ) : tonight.status === 'error' ? (
           <div role="alert" className="flex flex-wrap items-center gap-3 rounded border border-p-warn/40 bg-p-warn-fill/15 px-3 py-2 text-p-warn-text font-normal text-sm">
-            <span className="min-w-0 break-words">The list for {nightWord} could not be ranked: {tonight.message}</span>
+            <span className="min-w-0 break-words">Could not rank</span>
             <button type="button" className={`${btn} min-h-11`} onClick={retryTonight}>Retry</button>
           </div>
         ) : tonight.status !== 'ready' ? (
           planError ? null : (
             <p aria-live="polite" aria-busy="true" className="text-p-t1 font-normal">
-              Ranking the whole catalog for {nightWord}…
+              Ranking...
             </p>
           )
         ) : (
           <>
-            {!isSolar && <NoFitNote counts={ranked!.counts} showNoFit={showNoFit} listed={noFitList.length} nightWord={nightWord} />}
             {(planetGroup.length > 0 || notUpGroup.length > 0) && (
               <Group id="planets-group" title={`Solar system up ${nightWord} (${planetGroup.length})`} open={groupOpen} onToggle={() => setPlanetsOpen(!groupOpen)}>
                 {planetGroup.length > 0 && <TargetList {...listProps} entries={planetGroup} label={`Solar system up ${nightWord}`} idPrefix="planet" fitText={bodyFit} />}
@@ -2521,7 +2482,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
               </Group>
             )}
             {isSolar ? (
-              planetGroup.length === 0 ? <p className="text-p-t1 font-normal" data-testid="list-empty">{`No Moon or planet is up ${nightWord} above your horizon and minimum altitude.`}</p> : topThree(planetGroup)
+              planetGroup.length === 0 ? <p className="text-p-t1 font-normal" data-testid="list-empty">{`Nothing up ${nightWord}.`}</p> : topThree(planetGroup)
             ) : mainList.length === 0 ? (
               <p className="text-p-t1 font-normal" data-testid="list-empty">{emptyText(ranked!.typeNotFit)}</p>
             ) : (
@@ -2603,7 +2564,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           <div className="space-y-1">
             <p className="text-p-t1/70 font-normal text-sm" data-testid="night-summary">
               {nightText}
-              {zoneText}
             </p>
             <p className="text-p-t1/70 font-normal text-sm" data-testid="horizon-summary">
               {horizonText}{' '}
@@ -2643,7 +2603,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
           blocked={shareBlocked}
           note={heldNote}
           make={makeShare}
-          asiair={{ count: asiairTargets.length, panes: asiairPanes(asiairTargets), left: asiairLeft, fovNote: asiairFov === null && train ? 'Field size unknown, so each position uses a 60 arcminute pane.' : null, make: asiairMake }}
+          asiair={{ count: asiairTargets.length, panes: asiairPanes(asiairTargets), left: asiairLeft, fovNote: asiairFov === null && train ? 'Field size unknown' : null, make: asiairMake }}
           onPrint={() => window.print()}
           onPickFile={(f) => void pickPlansFile(f)}
           importPanel={importPanel}
@@ -2742,9 +2702,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         <div className="mt-4">
           <ResetAll onConfirm={resetAll} />
         </div>
-        <p className="text-p-t1/70 font-normal text-sm mt-3">
-          Your profile and plans stay in this browser.
-        </p>
       </section>
       </div>
 

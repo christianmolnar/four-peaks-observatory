@@ -133,11 +133,10 @@ describe('dates in words and quick dates', () => {
 });
 
 describe('a bright Moon is said in words', () => {
-  it('above 80 percent: one line above the list, with the percent and the advice', async () => {
+  it('above 80 percent: one short line above the list, with the percent', async () => {
     await app(BRIGHT);
     const note = screen.getByTestId('bright-moon-note');
-    expect(note.textContent).toMatch(/Bright Moon \(\d+% lit\)/);
-    expect(note.textContent).toMatch(/faint nebulae and galaxies will wash out/);
+    expect(note.textContent).toMatch(/^Bright Moon \d+%$/);
     expect(note.compareDocumentPosition(screen.getByTestId('target-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -229,9 +228,9 @@ describe('the detail: score parts add up to the score', () => {
 });
 
 describe('the small should-fixes', () => {
-  it('the score note says the list mixes types', async () => {
+  it('there is no score note above the list', async () => {
     await app();
-    expect(screen.getByTestId('score-note').textContent).toMatch(/not strictly in score order/);
+    expect(screen.queryByTestId('score-note')).toBeNull();
   });
 
   it('The plan calls the Moon and planets "Solar system"', async () => {

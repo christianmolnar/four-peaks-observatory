@@ -107,7 +107,7 @@ describe('the Type selector', () => {
     await ready();
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`Nothing fits ${WORD}.`);
     expect(typeSelect().value).toBe('supernova-remnants');
     fireEvent.click(screen.getByLabelText(/show targets that do not fit/i));
     await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
@@ -150,8 +150,6 @@ describe('the list for a type', () => {
     const scores = listRows().map(scoreOf);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
     for (const r of listRows()) expect(r.textContent).toMatch(/Open cluster/);
-    expect(screen.getByTestId('score-note').textContent).not.toMatch(/not strictly in score order/);
-    expect(screen.getByTestId('score-note').textContent).toMatch(/best first/);
     // The same rows in the mixed list carry the same score text.
     await choose('all');
     await listed();
@@ -180,18 +178,16 @@ describe('the list for a type', () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'deep-c11-reducer-533', typeId: 'supernova-remnants' }));
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
-    expect(empty.textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
-    expect(screen.getByTestId('hidden-note').textContent).toMatch(/1 target is too big for your camera view/);
+    expect(empty.textContent).toBe(`Nothing fits ${WORD}.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: /^Does not fit this camera view \(1\)/ });
-    expect(screen.getByTestId('hidden-note').textContent).toMatch(/Showing 1 targets that do not fit/);
   });
 
   it('a type with nothing up at all says so in plain words', async () => {
     window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ siteId: 'fountain-hills', trainId: 'deep-c11-reducer-533', typeId: 'galaxy-groups' }));
     mount();
     const empty = await screen.findByTestId('list-empty', {}, { timeout: 20000 });
-    expect(empty.textContent).toBe(`No galaxy groups and pairs are up ${WORD} above your horizon.`);
+    expect(empty.textContent).toBe(`Nothing up ${WORD}.`);
     expect(typeSelect().value).toBe('galaxy-groups'); // the chosen one stays pickable and chosen
   });
 });
@@ -247,7 +243,7 @@ describe('adding from a type list', () => {
     await listed();
     const button = screen.getByRole('button', { name: 'Add top 3 to the plan' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    expect(screen.getByTestId('top-three').textContent).toMatch(/The plan is full \(50 targets\)\. Remove one to add more\./);
+    expect(screen.getByTestId('top-three').textContent).toMatch(/Plan is full/);
     cleanup();
     window.localStorage.clear(); // the first visit moved the old list into a saved plan; start over for the second
     window.localStorage.setItem(MY_PLAN_KEY, JSON.stringify({ version: 1, ids: full.slice(0, MAX_MY_PLAN - 1) }));
@@ -258,7 +254,7 @@ describe('adding from a type list', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Add top 3 to the plan' }));
     expect(stored()?.ids).toHaveLength(MAX_MY_PLAN);
     expect(stored()?.ids[MAX_MY_PLAN - 1]).toBe('tc1');
-    expect(live()).toMatch(/The plan is full: 2 not added\.$/);
+    expect(live()).toMatch(/Plan is full: 2 not added\.$/);
   });
 
   it('Add top 3 is disabled when everything in the list is already in the plan', async () => {
@@ -268,7 +264,7 @@ describe('adding from a type list', () => {
     await choose('open-clusters');
     await listed();
     expect((screen.getByRole('button', { name: 'Add top 3 to the plan' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('top-three').textContent).toMatch(/already in the plan/);
+    expect(screen.getByTestId('top-three').textContent).toMatch(/All in plan/);
   });
 });
 
@@ -316,7 +312,7 @@ describe('fast changes', () => {
     await choose('open-clusters');
     expect(worker.requests.at(-1)?.query.types).toEqual(['open-cluster']);
     expect(screen.queryByTestId('target-list')).toBeNull();
-    expect(screen.getByText(/Ranking the whole catalog for/)).toBeTruthy();
+    expect(screen.getByText(/^Ranking\.\.\./)).toBeTruthy();
     await act(async () => { await worker.release(); });
     await listed();
     expect(rowNames()).toEqual(['Test Cluster 1', 'Test Cluster 2', 'Test Cluster 3', 'Test Cluster 4', 'Test Cluster 5']);
@@ -389,7 +385,7 @@ describe('over the real catalog', () => {
     expect(direct(targets, ['supernova-remnant'], trainId)).toHaveLength(0);
     await choose('supernova-remnants');
     await screen.findByTestId('list-empty');
-    expect(screen.getByTestId('list-empty').textContent).toBe(`No supernova remnants fit this camera view ${WORD}.`);
+    expect(screen.getByTestId('list-empty').textContent).toBe(`Nothing fits ${WORD}.`);
     fireEvent.click(screen.getByRole('checkbox', { name: /Show targets that do not fit/ }));
     await screen.findByRole('button', { name: new RegExp(`^Does not fit this camera view \\(${snr}\\)`) });
   }, 120000);

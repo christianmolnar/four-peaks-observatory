@@ -43,16 +43,16 @@ export function sizeText(size: { major: number; minor: number } | undefined): st
 
 /** The fit in the words the page uses; the files keep `fitLabel`'s. */
 export function fitWords(e: Pick<PlanEntry, 'fit' | 'isPlanet'>): string {
-  return e.fit === 'fits' ? 'Fits your camera view' : e.fit === 'too-large' ? 'Too big for your camera view' : fitLabel(e);
+  return e.fit === 'fits' ? '' : e.fit === 'too-large' ? 'Too big' : fitLabel(e);
 }
 
 /** What one target does on the chosen night, in words, from its entry in the one scoring: up and when best, or not up. */
 export function nightStatus(entry: PlanEntry, nightWord: string, formatTime: (d: Date) => string): string {
   if (entry.usableMinutes > 0) {
-    const fit = entry.fit === 'too-large' ? ' Too big for your camera view.' : '';
+    const fit = entry.fit === 'too-large' ? ' Too big.' : '';
     return `Up ${nightWord}: clear ${(entry.usableMinutes / 60).toFixed(1)} h, peak ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)} at ${formatTime(entry.peakTime)}. Score ${Math.round(entry.score.total)}.${fit}`;
   }
-  return `Not up ${nightWord}: it peaks at ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)}, never clear of your horizon and minimum altitude.`;
+  return `Never up ${nightWord}: peaks ${whole(entry.peakAltitude)}° ${compass(entry.peakAzimuth)}.`;
 }
 
 /** "A, B and C"; with `more` left out: "A, B, C and 12 more". */
@@ -73,17 +73,10 @@ export function peakText(e: Pick<PlanEntry, 'peakAltitude' | 'peakAzimuth' | 'pe
 }
 
 /**
- * The short reason shown in a row: the facts that tell this target from the next one (hours clear, share of the frame,
- * brightness for its kind, the Moon), not a sentence every row shares. The full reason is in the detail.
+ * What a row shows under Clear: the hours the target is clear.
  */
 export function rowWhy(e: PlanEntry): string {
-  const parts = [`${(e.usableMinutes / 60).toFixed(1)} h clear`];
-  if (e.percentOfFrame !== null) parts.push(`fills ${e.percentOfFrame < 10 ? e.percentOfFrame.toFixed(1) : e.percentOfFrame.toFixed(0)}% of the frame`);
-  if (e.score.brightness >= 5) parts.push('bright for its kind');
-  else if (e.score.brightness <= -5) parts.push('faint for its kind');
-  if (!e.moonUp) parts.push('Moon down');
-  else if (e.score.moon <= -5) parts.push(`Moon ${e.moonSeparation.toFixed(0)}° away`);
-  return parts.join(', ');
+  return `${(e.usableMinutes / 60).toFixed(1)} h`;
 }
 
 /** Why a target is in the "does not fit" group: its size against the frame, in the same numbers the note uses. */
@@ -92,10 +85,10 @@ export function fitReason(e: Pick<PlanEntry, 'fit' | 'percentOfFrame'>, size: { 
   const own = sizeText(size);
   // Round or squat objects can fit the long side and still miss the short one: say which side.
   if (e.fit === 'too-large' && size !== undefined && size.major <= field.long) {
-    return `Too big for your camera view (its short side): ${arc(size.minor)} vs ${arc(field.short)} (your view ${frame})`;
+    return `Too big (short side): ${arc(size.minor)} vs ${arc(field.short)}`;
   }
-  if (e.fit === 'too-large') return `Too big for your camera view: ${own} vs your ${frame}`;
-  return `Too small for your camera view: ${own} is under ${DEFAULT_MIN_FRAME_PERCENT}% of your ${frame}`;
+  if (e.fit === 'too-large') return `Too big: ${own} vs ${frame}`;
+  return `Too small: ${own} vs ${frame}`;
 }
 
 const PART_LABELS: readonly [keyof Omit<ScoreParts, 'total'>, string, boolean][] = [

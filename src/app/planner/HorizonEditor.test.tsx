@@ -1162,13 +1162,13 @@ describe('layout: zone cards above the chart in at most 2 columns', () => {
     expect(describeArcs([{ startAz: 0, endAz: 180, heightDeg: 20 }, { startAz: 180, endAz: 350, heightDeg: 30 }])).toContain('Nothing is blocked elsewhere.');
   });
 
-  it('the Tonight Horizon line says when zones overlap and that the highest applies, in the editor wording', async () => {
+  it('the Tonight Horizon line says no overlap sentence', async () => {
     const p = sampleProfile();
     const two = { ...p, sites: [{ ...p.sites[0], blockedArcs: [{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 55 }] }] };
     await app(two);
     const line = summary() as string;
-    expect(line).toContain(describeOverlaps([{ startAz: 100, endAz: 200, heightDeg: 30 }, { startAz: 150, endAz: 250, heightDeg: 55 }]));
-    expect(line).toContain('there the highest applies, 55 deg.');
+    expect(line).toContain('blocked 100° (E) to 200° (S), 30° high; blocked 150° (SE) to 250° (W), 55° high');
+    expect(line).not.toContain('overlap');
     cleanup();
     await app();
     expect(summary()).not.toContain('overlap');

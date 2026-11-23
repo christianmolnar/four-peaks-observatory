@@ -382,7 +382,6 @@ describe('Delete, Import and Reset say what they do', () => {
     const text = screen.getByTestId('reset-confirm').textContent!;
     expect(text).toMatch(/Plans are not part of the profile export: share them first .*or they cannot be recovered\./);
     expect(text).not.toMatch(/Export your profile first to keep a copy\./);
-    expect(document.getElementById('profile-heading')!.closest('section')!.textContent).toMatch(/Your profile and plans stay in this browser/);
   });
 });
 

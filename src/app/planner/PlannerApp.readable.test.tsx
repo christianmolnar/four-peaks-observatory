@@ -160,13 +160,13 @@ describe('plain labels', () => {
     expect(screen.getByTestId('setup-help').textContent).toMatch(/train/i);
   });
 
-  it('a ranked row says "Fits your camera view" and the column says "Score (max 100)"', async () => {
+  it('a ranked row prints nothing about a fit, and the columns say Score and Clear', async () => {
     mount(TARGETS);
     await listReady();
     openFind();
-    expect(screen.getAllByTestId('row-fit-score').some((r) => /Fits your camera view/.test(r.textContent ?? ''))).toBe(true);
-    expect(screen.queryByText(/^Fits$/)).toBeNull();
-    expect(document.body.textContent).toContain('Score (max 100)');
+    expect(screen.getAllByTestId('row-fit-score').every((r) => !/Fits/.test(r.textContent ?? ''))).toBe(true);
+    expect(document.body.textContent).toContain('Score');
+    expect(document.body.textContent).not.toContain('Score (max 100)');
   });
 
   it('a row\'s exposure boxes say "Exposure per shot (seconds)" and "Number of shots"', async () => {

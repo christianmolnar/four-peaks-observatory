@@ -25,12 +25,12 @@ interface Row {
   type: string | null;
 }
 
-/** Why a target that is up tonight is not in the list, in a sentence; '' when there is nothing to add. */
+/** Why a target that is up tonight is not in the list, in a few words; '' when there is nothing to add. */
 function outsideTheList(type: string, entry: PlanEntry): string {
-  if (NON_IMAGING_TYPES.includes(type)) return 'Double stars are not ranked, so it is not in the list.';
-  if (entry.fit === 'too-large') return 'Tick “Show targets that do not fit” to list it.';
-  if (entry.percentOfFrame !== null && entry.percentOfFrame < DEFAULT_MIN_FRAME_PERCENT) return `Under ${DEFAULT_MIN_FRAME_PERCENT}% of the camera view; tick “Show targets that do not fit” to list it.`;
-  return 'Below the best 100, so it is not in the list.';
+  if (NON_IMAGING_TYPES.includes(type)) return 'Not ranked';
+  if (entry.fit === 'too-large') return 'Does not fit';
+  if (entry.percentOfFrame !== null && entry.percentOfFrame < DEFAULT_MIN_FRAME_PERCENT) return 'Does not fit';
+  return 'Below the best 100';
 }
 
 export interface TargetSearchProps {
@@ -74,7 +74,6 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
   const [, setSubmitted] = useState('');
   const uid = useId();
   const inputId = inProject ? 'project-target-search' : 'target-search'; // one search box on the plan; the sticky strip jumps to it
-  const hintId = `${uid}-find-hint`;
   const typed = text.trim();
   const result = useMemo(() => (catalog.status === 'ready' && typed !== '' ? catalog.index.search({ text: typed, limit: MAX_RESULTS }) : null), [catalog, typed]);
   // The planets and the Moon are not in the catalog: they answer to their own names, first, and are scored by the same night scorer.
@@ -100,7 +99,6 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
     return [...planets, ...targets];
   }, [typed, bodies, result, scorer]);
   const notFound = result !== null && result.notFoundLocally && bodies.length === 0;
-  const ready = catalog.status === 'ready' ? catalog.index.size : null;
   // One line says how many matched, or that none did, and sits in the live region so a screen reader hears the miss too.
   const summary =
     result === null && bodies.length === 0
@@ -130,7 +128,6 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
             type="search"
             autoComplete="off"
             maxLength={100}
-            aria-describedby={hintId}
             placeholder="M31, NGC 7000, Orion, Veil"
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -144,9 +141,6 @@ export default function TargetSearch({ catalog, onRetryCatalog, scorer, nightWor
           Search
         </button>
       </form>
-      <p id={hintId} className="mt-1 text-p-t1/70 font-normal text-sm">
-        Searches the bundled catalog{ready === null ? '' : ` of ${ready.toLocaleString('en-US')} objects`}{inProject ? '' : ', the solar system (Moon and planets)'} on this device.
-      </p>
 
       {catalog.status === 'loading' && <p aria-live="polite" className="mt-3 text-p-t1/70 font-normal text-sm">Loading the catalog…</p>}
       {catalog.status === 'error' && (

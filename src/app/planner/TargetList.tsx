@@ -72,8 +72,8 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
       <div className={`${GRID} sticky top-[var(--planner-top,0px)] z-20 hidden gap-x-3 border-b border-p-line/20 bg-p-bg px-1 pb-1 pt-1 text-sm text-p-t1/70 md:grid`} aria-hidden="true">
         <span>Target</span>
         <span>Up and peak</span>
-        <span>Fit, Score (max 100)</span>
-        <span>Why</span>
+        <span>Score</span>
+        <span>Clear</span>
         <span />
       </div>
       <ul aria-label={label} className="text-sm leading-5 font-normal text-p-t1" data-testid={`${idPrefix}-list`}>
@@ -113,7 +113,7 @@ export default function TargetList({ entries, label, idPrefix, formatTime, descr
                   {notClear === undefined && <span className="hidden md:block">Score <span className="font-medium text-p-t1">{Math.round(e.score.total)}</span></span>}
                 </span>
               </div>
-              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-p-t1/70 md:col-auto md:line-clamp-2 md:pl-0">{notClear === undefined ? rowWhy(e) : 'Never clear of your horizon and minimum altitude.'}</p>
+              <p className="col-start-1 line-clamp-1 pl-[1.375rem] text-p-t1/70 md:col-auto md:line-clamp-2 md:pl-0">{notClear === undefined ? rowWhy(e) : 'Never up'}</p>
               <div className="col-start-2 row-span-3 row-start-1 flex flex-col items-end self-center md:col-auto md:row-span-1 md:row-start-auto">
                 {/* On a phone the score sits above the button, so the stats line keeps to one line. */}
                 {notClear === undefined && <span aria-hidden="true" className="md:hidden">Score <span className="font-medium text-p-t1">{Math.round(e.score.total)}</span></span>}

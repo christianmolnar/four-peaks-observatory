@@ -146,7 +146,7 @@ describe('a search result outside the list says why', () => {
     await ready();
     await userEvent.setup().type(searchBox(), 'M40');
     const hit = within(results()).getAllByRole('listitem')[0];
-    expect(hit.textContent).toContain('Double stars are not ranked, so it is not in the list.');
+    expect(hit.textContent).toContain('Not ranked');
   });
 
   it('an object below the best 100: says so, and a listed one says its place', async () => {
@@ -159,7 +159,7 @@ describe('a search result outside the list says why', () => {
     const u = userEvent.setup();
     await u.type(searchBox(), out.name);
     await waitFor(() => expect(within(results()).getAllByRole('listitem')[0].textContent).toContain(out.name));
-    expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('Below the best 100, so it is not in the list.');
+    expect(within(results()).getAllByRole('listitem')[0].textContent).toContain('Below the best 100');
     await u.clear(searchBox());
     await u.type(searchBox(), inList.name);
     expect(within(results()).getAllByRole('listitem')[0].textContent).toMatch(/#\d+ in the list below\./);

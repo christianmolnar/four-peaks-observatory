@@ -185,7 +185,7 @@ describe('My plans', () => {
     await app();
     await user.type(screen.getByLabelText('Search the catalog by name or number'), 'm31');
     await user.click(within(screen.getByRole('list', { name: 'Search results' })).getByRole('button', { name: 'Add Andromeda Galaxy to the plan' }));
-    expect((await screen.findByRole('status')).textContent).toMatch(/plan is full \(50 targets\)/);
+    expect((await screen.findByRole('status')).textContent).toMatch(/Plan is full/);
     expect(storedPlan()!.targets).toHaveLength(50);
   });
 
@@ -485,8 +485,8 @@ describe('the top of the page', () => {
     expect(toggle.closest('section')!.querySelector('h2')!.textContent).toMatch(/^PLAN: /);
     openPart('Night and horizon');
     const body = document.getElementById('night-and-horizon-body')!;
-    expect(within(body).getByTestId('night-summary').textContent).toMatch(/^Astronomical night \d\d:\d\d to \d\d:\d\d \(.* h\), Moon \d+% lit at mid-night\. Times are in the site's time zone \(America\/Phoenix\)\.$/);
-    expect(within(body).getByTestId('horizon-summary').textContent).toMatch(/^Horizon: blocked 120° \(SE\) to 320° \(NW\), 42° high\. Edit horizon$/);
+    expect(within(body).getByTestId('night-summary').textContent).toMatch(/^Night \d\d:\d\d to \d\d:\d\d \(.* h\)  Moon \d+%  America\/Phoenix$/);
+    expect(within(body).getByTestId('horizon-summary').textContent).toMatch(/^Horizon: blocked 120° \(SE\) to 320° \(NW\), 42° high Edit horizon$/);
     expect(within(body).getByRole('link', { name: 'Edit horizon' }).getAttribute('href')).toBe('#horizon');
     // Not loose under the strip any more.
     expect(document.querySelectorAll('[data-testid="night-summary"]')).toHaveLength(1);

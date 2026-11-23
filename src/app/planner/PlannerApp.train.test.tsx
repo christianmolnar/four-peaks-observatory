@@ -78,11 +78,10 @@ describe('the planetary note', () => {
 });
 
 describe('what the list says about itself', () => {
-  it('one line above the list says what 100 means, and the score is a whole number labelled Score', async () => {
+  it('no note above the list; the score is a whole number labelled Score', async () => {
     mount();
     await ready();
-    const note = screen.getByTestId('score-note').textContent as string;
-    expect(note).toMatch(/Score is out of 100/);
+    expect(screen.queryByTestId('score-note')).toBeNull();
     const rows = [...screen.getByTestId('target-list').querySelectorAll(':scope > li')];
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) expect(r.querySelector('[data-testid="row-fit-score"]')!.textContent).toMatch(/Score \d+$/);
@@ -98,11 +97,10 @@ describe('what the list says about itself', () => {
 describe('search says what it did', () => {
   const box = () => screen.getByLabelText('Search the catalog by name or number');
 
-  it('the hint counts what the catalog holds (the curated 25 plus the objects, from the index), not a fixed number', async () => {
-    const { catalog } = mount();
+  it('prints no hint about the catalog size', async () => {
+    mount();
     await ready();
-    const size = (await catalog.load()).size;
-    expect(screen.getByText(new RegExp(`^Searches the bundled catalog of ${size} objects, the solar system \\(Moon and planets\\) on this device`))).toBeTruthy();
+    expect(document.body.textContent).not.toContain('Searches the bundled catalog');
     expect(document.body.textContent).not.toContain('14,000');
   });
 

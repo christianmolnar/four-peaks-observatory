@@ -86,13 +86,13 @@ describe('TargetList paging', () => {
 });
 
 describe('TargetList rows on a phone and at md', () => {
-  it('keeps one line for up, peak, fit and score, and a one-line Why that is not hidden on a phone', () => {
+  it('keeps one line for up, peak, fit and score, and a one-line Clear hours that is not hidden on a phone', () => {
     mount(many(2));
     const row = screen.getAllByRole('listitem')[0];
     const stats = row.querySelector('[data-testid="row-fit-score"]')!.parentElement!;
     expect(stats.className).toContain('md:contents');
     expect(stats.textContent).toMatch(/Up .*peak .*Score \d+/);
-    const why = [...row.querySelectorAll('p')].find((p) => /h clear/.test(p.textContent ?? ''))!;
+    const why = [...row.querySelectorAll('p')].find((p) => /^\d+\.\d h$/.test(p.textContent ?? ''))!;
     expect(why.className).toContain('line-clamp-1');
     expect(why.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });

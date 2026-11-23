@@ -80,18 +80,18 @@ describe('editing site and gear', () => {
     expect(stored().sites[0].latitude).toBe(-33.9);
   });
 
-  it('a site time zone changes the times shown and the zone sentence', async () => {
+  it('a site time zone changes the times shown and the zone name', async () => {
     const u = userEvent.setup();
     await app();
     const before = nightSummary();
-    expect(before).toMatch(/site's time zone \(America\/Phoenix\)/);
+    expect(before).toMatch(/America\/Phoenix/);
     const siteBox = await open(u, /^Site \(1\)/);
     const tz = within(siteBox).getByLabelText(/^Time zone/);
     await u.clear(tz);
     await u.type(tz, 'Europe/Berlin');
     await u.click(within(siteBox).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(nightSummary()).toMatch(/Europe\/Berlin/));
-    expect(nightSummary().match(/Astronomical night [\d:]+ to [\d:]+/)?.[0]).not.toBe(before.match(/Astronomical night [\d:]+ to [\d:]+/)?.[0]);
+    expect(nightSummary().match(/Night [\d:]+ to [\d:]+/)?.[0]).not.toBe(before.match(/Night [\d:]+ to [\d:]+/)?.[0]);
   });
 
   it('a bad value is refused with the reason and nothing is stored', async () => {

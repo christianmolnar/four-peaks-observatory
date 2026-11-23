@@ -79,14 +79,14 @@ describe('dates and small texts', () => {
   it('never writes -0°', () => {
     const entry = { peakAltitude: -0.3, peakAzimuth: 90, peakTime: new Date('2026-11-14T08:00:00Z'), usableMinutes: 0 } as Parameters<typeof nightStatus>[0];
     const fmt = (d: Date) => d.toISOString().slice(11, 16);
-    expect(nightStatus(entry, 'tonight', fmt)).toContain('peaks at 0° E');
+    expect(nightStatus(entry, 'tonight', fmt)).toContain('peaks 0° E');
     expect(nightStatus(entry, 'tonight', fmt)).not.toContain('-0');
     expect(peakText(entry, fmt)).toBe('0° E at 08:00');
   });
 
   it('a round object that fits the long side but not the short one says it is the short side', () => {
     const frame = { long: 29, short: 19 };
-    expect(fitReason({ fit: 'too-large', percentOfFrame: 120 }, { major: 23, minor: 23 }, frame)).toBe("Too big for your camera view (its short side): 23′ vs 19′ (your view 29′ × 19′)");
-    expect(fitReason({ fit: 'too-large', percentOfFrame: 500 }, { major: 160, minor: 40 }, frame)).toBe('Too big for your camera view: 160′ × 40′ vs your 29′ × 19′');
+    expect(fitReason({ fit: 'too-large', percentOfFrame: 120 }, { major: 23, minor: 23 }, frame)).toBe('Too big (short side): 23′ vs 19′');
+    expect(fitReason({ fit: 'too-large', percentOfFrame: 500 }, { major: 160, minor: 40 }, frame)).toBe('Too big: 160′ × 40′ vs 29′ × 19′');
   });
 });

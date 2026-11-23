@@ -35,10 +35,10 @@ describe('compact target rows', () => {
     expect(text).toContain('Andromeda');
     expect(text).toMatch(/Up \d\d:\d\d–\d\d:\d\d/);
     expect(text).toMatch(/peak \d+° [NESW]+ at \d\d:\d\d/);
-    expect(text).toMatch(/Fits|Too large|Fit unknown|Smart scope/);
+    expect(text).not.toMatch(/Fits your camera view/); // a fitting row prints nothing about fit
     const score = row.querySelector('[data-testid="row-fit-score"]')!.textContent as string;
     expect(score).toMatch(/Score \d+$/);
-    expect(text).toMatch(/[\d.]+ h clear/);
+    expect(text).toMatch(/[\d.]+ h/);
     const add = within(row).getByRole('button', { name: 'Add NGC 891 to the plan' });
     expect(add.textContent).toBe('Add');
     expect(add.className).toContain('min-h-11');
