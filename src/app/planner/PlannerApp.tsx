@@ -121,7 +121,6 @@ import PlanRowExposure, { Fold } from './PlanRowExposure';
 import PlanRowMix from './PlanRowMix';
 import type { AiSlotView } from './AiSlotMix';
 import NarrowbandPanel from './NarrowbandPanel';
-import RowHow from './RowHow';
 import type { PlanLine } from './projectDraft';
 import { nbRowView } from './nbRow';
 import type { NbGear, NbRowTarget, NbView } from './nbRow';
@@ -1125,7 +1124,7 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
       return f === undefined ? [] : [{ id: f.id, name: f.name, bands: f.passbands }];
     });
   }, [train, mixPicks, profile]);
-  const noMixFilters = !train ? 'No setup chosen.' : train.kind !== 'optical' ? 'Smart scope: filter built in, so no filter mix.' : 'No filter in this setup. Pick one under Setup.';
+  const noMixFilters = !train ? 'No setup' : train.kind !== 'optical' ? 'No filter mix' : 'No filter';
   // The timeline's plan, once it is worked out for this night and site (the rail reads it the same way); null before then, and the row's own light stands in.
   const mixTimeline = stableNight && astroSite && catalog.status !== 'loading' ? timelinePlan : null;
   /** The light one plan target gets on a timeline: the timeline's slot for it (the same light the sheet and the timeline show); a target the timeline leaves out has none. */
@@ -1144,9 +1143,9 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
   );
   // The narrowband panel's gear: the open plan's train and camera, or why there is none.
   const nbGear = useMemo((): NbGear | { problem: string } => {
-    if (!train) return { problem: 'No setup chosen.' };
-    if (train.kind !== 'optical') return { problem: 'Smart scope: no narrowband to add.' };
-    if (planTrain === null || planTrain.kind !== 'optical' || planTrain.optics === null) return { problem: trainError ?? 'Setup numbers incomplete. Add them in Gear.' };
+    if (!train) return { problem: 'No setup' };
+    if (train.kind !== 'optical') return { problem: 'No narrowband filters' };
+    if (planTrain === null || planTrain.kind !== 'optical' || planTrain.optics === null) return { problem: trainError ?? 'Gear incomplete' };
     const camera = resolveTrain(profile, train).cameraSpec;
     return { fRatio: planTrain.optics.focalRatio, focalLengthMm: planTrain.optics.focalLengthMm, pixelUm: camera?.pixelSizeUm, colour: camera?.colour, readNoiseClass: camera?.readNoiseClass };
   }, [train, planTrain, trainError, profile]);
@@ -1159,13 +1158,12 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
         light: lightFor(id, timeline),
         gear: nbGear,
         bortle: bortleOfSite,
-        bortleAssumed: site?.bortle === undefined,
         knee: baseOf(ref),
         filters: profile.equipment.filters,
         hoursText: nbHours.get(id),
         ticks: nbTicks.get(id),
       }),
-    [lightFor, nbGear, bortleOfSite, site, profile, nbHours, nbTicks],
+    [lightFor, nbGear, bortleOfSite, profile, nbHours, nbTicks],
   );
   /** One plan target's filter mix on a timeline: the plan row's, the text export's and the AI result's all come from here. */
   const mixOf = useCallback(
@@ -1664,7 +1662,6 @@ export default function PlannerApp({ initialDate, initialProfile, rank = rankTon
             preset={ref.preset}
             view={view}
             favorite={fav}
-            how={<RowHow id={id} mix={mixViews.get(id) as RowMix} nb={nbViews.get(id) as NbView} />}
             favoritesBlocked={favs.blocked}
             prompt={ref.favorite ?? null}
             onPreset={(p) => editTarget(id, (t) => withPreset(t, p))}

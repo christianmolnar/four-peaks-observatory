@@ -61,8 +61,6 @@ export interface PlanRowExposureProps {
   view: RowExposure;
   /** This object's saved favorite, or null. */
   favorite: Favorite | null;
-  /** The filter mix and narrowband explanation (RowHow), shown at the end of the row's one fold. */
-  how?: ReactNode;
   /** Why saving favorites is off (a held store), or null. */
   favoritesBlocked: string | null;
   /** `ask`: "Restore favorite?" shows; `restored`: the favorite was applied automatically and the line says so; null: neither. */
@@ -83,7 +81,7 @@ export interface PlanRowExposureProps {
  * the Custom edit with "Back to <preset>", the warnings to act on, the fold ("How this is worked out": limits, range, stop point,
  * notes, a three-column preset comparison, what more time buys and the inputs), and the row's favorite.
  */
-export default function PlanRowExposure({ id, name, preset, view, favorite, how, favoritesBlocked, prompt, onPreset, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow, onGoTo }: PlanRowExposureProps) {
+export default function PlanRowExposure({ id, name, preset, view, favorite, favoritesBlocked, prompt, onPreset, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow, onGoTo }: PlanRowExposureProps) {
   // What is typed in a box until it is applied (Enter or leaving the box); a box that is not being edited shows the stored number.
   const [draft, setDraft] = useState<{ subSeconds?: string; subCount?: string }>({});
   const [errors, setErrors] = useState<{ subSeconds?: string; subCount?: string }>({});
@@ -245,7 +243,6 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, how,
             </p>
             <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}%. Dither every {chosen.ditherEveryFrames} subs.</p>
             <p className="text-sm text-p-t1/70">All numbers are estimates.</p>
-            {how}
             {split.notes.length > 0 && (
               <Fold id={`plan-notes-${id}`} title={`Notes (${split.notes.length})`} level={1}>
                 <ul className="list-disc space-y-1 pl-5">

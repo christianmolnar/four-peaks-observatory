@@ -33,8 +33,6 @@ describe('research example cases', () => {
     const l = of(r, 'NB3-PM');
     expect(l.verdict).toBe('adds');
     expect(l.adds).toEqual(['OIII']);
-    expect(l.reason).toMatch(/Adds OIII/);
-    expect(l.detail).toMatch(/SII is \d+% of the strongest line; the cut is 15%/);
     expect(l.minutes).toBe(HOURS);
     expect(r.uncovered).toEqual(['Ha']);
   });
@@ -46,7 +44,6 @@ describe('research example cases', () => {
       const duo = of(r, 'Duo-Band');
       expect(duo.verdict).toBe('covered');
       expect(duo.coveredBy).toEqual(['NB3-PM']);
-      expect(duo.reason).toMatch(/covered by NB3-PM/);
       expect(duo.minutes).toBe(0);
       expect(of(r, 'NB3-PM').minutes).toBe(HOURS);
     }
@@ -64,24 +61,23 @@ describe('research example cases', () => {
 
   it('M31 has HII knots, so it is not gated: the Ha filter adds minutes', () => {
     const r = mix(M31, [NBZ]);
-    expect(r.headline).toBeNull();
+    expect(r.needed.length).toBeGreaterThan(0);
     expect(of(r, 'NBZ II').verdict).not.toBe('gate');
   });
 
   it('M87 with any narrowband filter returns the gate message and gives all light to broadband', () => {
     for (const f of [NBZ, NB3, DUO]) {
       const r = mix(M87, [f]);
-      expect(r.headline).toMatch(/Almost no emission light/);
+      expect(r.needed).toEqual([]);
       expect(r.lines[0]).toMatchObject({ verdict: 'broadband', minutes: HOURS });
       expect(of(r, f.name)).toMatchObject({ verdict: 'gate', minutes: 0 });
       expect(sum(r)).toBe(HOURS);
     }
   });
 
-  it('NBZ II plus NB3-PM on NGC 1499 flags "OIII shared, SII new"', () => {
+  it('NBZ II plus NB3-PM on NGC 1499: OIII shared, SII new', () => {
     const r = mix(CALIFORNIA, [NBZ, NB3]);
     const nb3 = of(r, 'NB3-PM');
-    expect(nb3.reason).toContain('OIII shared, SII new');
     expect(nb3.adds).toEqual(['SII']);
     expect(nb3.shared).toEqual(['OIII']);
     expect(of(r, 'NBZ II').adds).toEqual(['Ha']);
@@ -105,16 +101,11 @@ describe('rules', () => {
       expect(of(r, 'OIII tight').verdict).toBe('adds');
       const l = of(r, 'Ha tight');
       expect(l.verdict).toBe('contrast');
-      expect(l.reason).toMatch(/narrower bands/);
-      expect(l.reason).toMatch(/Ha 8 vs 15 nm/);
       expect(l.coveredBy).toEqual(['OIII tight']);
       expect(l.minutes).toBeGreaterThan(0);
       expect(of(r, 'OIII tight').minutes).toBeGreaterThan(0);
       expect(sum(r)).toBe(HOURS);
     }
-    // A band only a little narrower says so.
-    const little: MixFilter = { id: 'c', name: 'Little', bands: [{ centreNm: 656.3, widthNm: 12 }, { centreNm: 500.7, widthNm: 35 }] };
-    expect(of(mix(M42, [oTight, little]), 'Little').reason).toMatch(/slightly narrower bands/);
   });
 
   it('the wider of two filters on the same lines is the one that adds nothing, whatever the order', () => {
@@ -129,22 +120,19 @@ describe('rules', () => {
     const r = mix(M42, [NBZ, DUO]);
     expect(of(r, 'NBZ II').verdict).toBe('adds');
     expect(of(r, 'Duo-Band').verdict).toBe('covered');
-    expect(of(r, 'Duo-Band').reason).toMatch(/covered by NBZ II/);
   });
 
   it('a filter that passes no needed line adds nothing and says why', () => {
     const r = mix(CALIFORNIA, [{ id: 'o3', name: 'OIII only', bands: [{ centreNm: 500.7, widthNm: 6 }] }]);
     const l = of(r, 'OIII only');
     expect(l.verdict).toBe('no-need');
-    expect(l.reason).toMatch(/passes no needed line/);
-    expect(l.detail).toMatch(/OIII is \d+% of the strongest line/);
     // All the light goes to broadband.
     expect(r.lines[0]).toMatchObject({ verdict: 'broadband', minutes: HOURS });
   });
 
-  it('a filter that passes none of the three lines says so', () => {
+  it('a filter that passes none of the three lines adds nothing', () => {
     const r = mix(M42, [{ id: 'x', name: 'Violet', bands: [{ centreNm: 420, widthNm: 20 }] }]);
-    expect(of(r, 'Violet').detail).toMatch(/passes none of Ha, OIII or SII/);
+    expect(of(r, 'Violet')).toMatchObject({ verdict: 'no-need', minutes: 0, adds: [] });
   });
 
   it('hours split: never double counted, narrower band takes more of a shared line, sums exactly', () => {
@@ -168,12 +156,10 @@ describe('rules', () => {
     }
   });
 
-  it('Ha band NII note: the Ha band here mostly passes nitrogen', () => {
+  it('the Ha band here mostly passes nitrogen', () => {
     const r = mix(M57, [NBZ]);
     expect(r.haMostlyNii).toBe(true);
-    expect(of(r, 'NBZ II').detail).toMatch(/mostly passes nitrogen \(NII\), not hydrogen/);
     expect(mix(M42, [NBZ]).haMostlyNii).toBe(false);
-    expect(of(mix(M42, [NBZ]), 'NBZ II').detail ?? '').not.toMatch(/nitrogen/);
   });
 
   it('continuum keeps a broadband slot and narrowband gets only what is left', () => {
@@ -181,7 +167,6 @@ describe('rules', () => {
     expect(0.9).toBeGreaterThanOrEqual(BROADBAND_KEEP);
     const r = mix(hii, [NBZ, NB3], 100);
     expect(r.lines[0]).toMatchObject({ verdict: 'broadband', minutes: 90 });
-    expect(r.lines[0].reason).toMatch(/Broadband stays: \d+% of its light is continuum/);
     expect(sum(r)).toBe(100);
     // A narrowband hour drops out when no needed line is passed.
     const none = mix(hii, [{ id: 'hb', name: 'Hb only', bands: [{ centreNm: 486.1, widthNm: 8 }] }], 100);
@@ -200,12 +185,6 @@ describe('rules', () => {
     expect(gate.lines[0].minutes).toBe(HOURS);
   });
 
-  it('confidence label: a type default says typical, not measured; a measured one names its source', () => {
-    expect(mix(profile('ngc7822', 'nebula'), [NB3]).confidence).toBe('Typical for this type, not measured');
-    expect(mix(M42, [NB3]).confidence).toMatch(/^Measured \(Sanchez/);
-    expect(mix(CALIFORNIA, [NB3]).confidence).toMatch(/^Amateur reports, not measured/);
-  });
-
   it('a measured override changes the verdict a type default would give', () => {
     const typeDefault = profile('ngc7822', 'nebula');
     expect(of(mix(typeDefault, [NB3]), 'NB3-PM').adds).toEqual(['OIII', 'SII']);
@@ -218,7 +197,6 @@ describe('nothing to split, and filters it cannot use', () => {
     const r = mix(M42, [NOBANDS, NB3]);
     const l = of(r, 'Mystery filter');
     expect(l).toMatchObject({ verdict: 'skipped', minutes: 0 });
-    expect(l.reason).toBe('Unknown passband, not used in the mix. Add its passbands in Gear.');
     expect(of(r, 'NB3-PM').minutes).toBe(HOURS);
     expect(sum(r)).toBe(HOURS);
   });
@@ -227,15 +205,15 @@ describe('nothing to split, and filters it cannot use', () => {
     const r = filterMix({ profile: M42, filters: [NOBANDS], minutes: HOURS });
     expect(r.kind).toBe('none');
     if (r.kind === 'none') {
-      expect(r.message).toMatch(/No selected filter has known passbands/);
+      expect(r.message).toBe('Passbands unknown');
       expect(r.skipped.map((l) => l.name)).toEqual(['Mystery filter']);
     }
   });
 
   it('no filters, no light, a bad profile', () => {
-    expect(filterMix({ profile: M42, filters: [], minutes: HOURS })).toMatchObject({ kind: 'none', message: expect.stringMatching(/No filter is selected in the setup/) });
-    for (const minutes of [0, -5, Number.NaN, Infinity]) expect(filterMix({ profile: M42, filters: [NB3], minutes })).toMatchObject({ kind: 'none', message: expect.stringMatching(/no planned light/) });
-    expect(filterMix({ profile: { ...M42, continuum: 7 }, filters: [NB3], minutes: HOURS })).toMatchObject({ kind: 'none', message: expect.stringMatching(/no usable emission profile/) });
+    expect(filterMix({ profile: M42, filters: [], minutes: HOURS })).toMatchObject({ kind: 'none', message: 'No filter' });
+    for (const minutes of [0, -5, Number.NaN, Infinity]) expect(filterMix({ profile: M42, filters: [NB3], minutes })).toMatchObject({ kind: 'none', message: 'No filter mix' });
+    expect(filterMix({ profile: { ...M42, continuum: 7 }, filters: [NB3], minutes: HOURS })).toMatchObject({ kind: 'none', message: 'No filter mix' });
   });
 
   it('never prints NaN, Infinity, undefined, null or an exponent', () => {
@@ -249,13 +227,12 @@ describe('nothing to split, and filters it cannot use', () => {
     }
   });
 
-  it('the summary line names each filter, its hours and the confidence', () => {
+  it('the summary line names each filter and its hours', () => {
     const r = mix(M42, [NBZ, NB3], 120);
     const text = mixSummary('M42', r, (m) => `${m} min`);
     expect(text).toMatch(/^M42 \(120 min of light\): /);
     expect(text).toMatch(/NBZ II \d+ min \(adds Ha and OIII\)/);
     expect(text).toMatch(/NB3-PM 0 min \(covered by NBZ II\)/);
-    expect(text).toMatch(/Measured \(Sanchez/);
   });
 });
 
@@ -269,7 +246,6 @@ describe('every selected filter appears once, broadband ones included', () => {
     expect(names(r)).toEqual(['lum', 'nbz']);
     const l = of(r, 'Broadband (Lum)');
     expect(l).toMatchObject({ filterId: 'lum', minutes: 0, verdict: 'broadband' });
-    expect(l.reason).toMatch(/Narrowband takes all the light/);
     expect(of(r, 'NBZ II').minutes).toBe(HOURS);
     expect(sum(r)).toBe(HOURS);
     expect(mixSummary('M42', r, (m) => `${m} min`)).toContain('Broadband (Lum) 0 min (earns no hours here)');

@@ -109,8 +109,6 @@ export function timelinePlanOfNight(night: CampaignNight, items: readonly Itiner
   };
 }
 
-const round = (x: number): number => Math.round(x);
-
 /** The itinerary's own low-altitude words for a slot that starts or ends under the limit (the engine places slots above it, so this is empty unless the two disagree). */
 export function lowAltitudeNotes(slot: Slot): string[] {
   const a = slot.altitudes;

@@ -92,12 +92,8 @@ describe('a preset on each target', () => {
     const why = document.getElementById('plan-why-m31-body')!;
     expect(why.hasAttribute('hidden')).toBe(true);
     open('plan-why-m31');
-    expect(why.textContent).toMatch(/Sub length set by .+; light by /);
     expect(why.textContent).toMatch(/Range: subs \d+ to \d+ s; light/);
     expect(why.textContent).toMatch(/Stop point .+Surface brightness [\d.]+ \(/);
-    expect(why.textContent).toMatch(/All numbers are estimates\./);
-    const notes = screen.getByRole('button', { name: /^Notes \(\d+\)$/ });
-    expect(notes.getAttribute('aria-expanded')).toBe('false');
     expect(document.getElementById('plan-compare-m31-body')!.hasAttribute('hidden')).toBe(true);
     expect(document.getElementById('plan-buys-m31-body')!.hasAttribute('hidden')).toBe(true);
     open('plan-buys-m31');
@@ -108,11 +104,8 @@ describe('a preset on each target', () => {
   it('a warning to act on shows on the row with the word Warning, the one thing to change, and no note mixed in', async () => {
     await app([m31]);
     const w = screen.getByTestId('plan-warning-m31');
-    expect(w.textContent).toMatch(/^WarningMeridian flip adds \d+ min; plan a pause at the crossing\.$/);
+    expect(w.textContent).toBe('WarningFlip +10 min');
     expect(within(w).queryByRole('button')).toBeNull(); // the flip has no control that changes it
-    open('plan-why-m31');
-    open('plan-notes-m31');
-    expect(document.getElementById('plan-notes-m31-body')!.textContent).not.toMatch(/meridian flip/i);
   });
 
   it('a row with no engine numbers (a smart scope) says why and still offers the choice', async () => {

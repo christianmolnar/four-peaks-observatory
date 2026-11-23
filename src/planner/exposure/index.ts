@@ -39,11 +39,9 @@ import {
   MOON_NOTE_ILLUMINATION,
   MOON_NOTE_SEPARATION_DEG,
   NO_FILTER_BANDWIDTH_NM,
-  OIII_NM,
   OVERHEAD_PER_SUB_S,
   SAME_NOISE_TOLERANCE,
   OVERHEAD_RANGE,
-  OVERSAMPLED_BELOW_ARCSEC,
   READ_NOISE_E,
   REF_BANDWIDTH_NM,
   REF_F_RATIO,
@@ -59,7 +57,6 @@ import {
   SUB_RANGE_FACTOR,
   SUB_RANGE_FACTOR_ASSUMED,
   SUB_STEPS_S,
-  UNDERSAMPLED_ABOVE_ARCSEC,
   UNKNOWN_KIND_BANDWIDTH_NM,
   VISUAL_OR_IMAGING_NAME,
 } from './constants';
@@ -119,7 +116,6 @@ export interface FitCamera {
   hasUvIrCut?: boolean;
 }
 
-const nm = (x: number) => x.toFixed(1);
 /** Focal ratio as printed: f/1.93, f/7, f/10. */
 const fr = (x: number) => String(Number(x.toFixed(2)));
 
@@ -702,7 +698,6 @@ function compute(object: ExposureTarget, rig: ExposureRig, site: ExposureSite, n
   const o = choice.overrides ?? {};
   const sky: SkyInput = { bortle: site.bortle, moonIllumination: night.moonIllumination, moonSeparationDeg: night.moonSeparationDeg, moonUp: night.moonUp };
   const warnings: ExposureWarning[] = [...c.shared];
-  const sb = surfaceBrightnessOf(object);
   const emission = object.type !== undefined && EMISSION_TYPES.includes(object.type);
 
   // ---- Sub length: the sky-limited optimum, then the clamps.

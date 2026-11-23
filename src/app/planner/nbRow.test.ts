@@ -12,7 +12,6 @@ const base: NbRowInput = {
   light: { kind: 'ok', minutes: 120, usableMinutes: 360 },
   gear: { fRatio: 1.9, focalLengthMm: 560, pixelUm: 3.76, colour: true, readNoiseClass: 'low' },
   bortle: 6,
-  bortleAssumed: false,
   knee: 'balanced',
   filters: [NBZ, NB3, UNKNOWN],
   hoursText: undefined,
@@ -32,13 +31,10 @@ describe('nbRowView: galaxies', () => {
     if (v.kind !== 'panel') throw new Error(v.kind);
     return v;
   };
-  it.each([['m33', 23.61], ['m51', 22.9], ['m101', 23.97]])('%s gets a Ha-only suggestion with minutes and the knots headline', (id, mu) => {
+  it.each([['m33', 23.61], ['m51', 22.9], ['m101', 23.97]])('%s gets a Ha-only suggestion with minutes', (id, mu) => {
     const v = panel(galaxy(id, mu));
     expect(v.result.gate).toBe(false);
     expect(v.result.needed).toEqual(['Ha']);
-    expect(v.result.headline).toBe('Only the star-forming knots gain from narrowband; the disk is broadband light.');
-    expect(v.result.headline).not.toMatch(/almost no emission/);
-    expect(v.result.profileNote).toMatch(/knots only/);
     const rec = v.result.filters.filter((f) => f.minutes > 0);
     expect(rec).toHaveLength(1);
     expect(rec[0].minutes).toBeGreaterThanOrEqual(30);
@@ -54,16 +50,10 @@ describe('nbRowView: galaxies', () => {
   it('the Leo Triplet (M65, M66 and NGC 3628 in one entry) still gets none', () => {
     expect(panel(galaxy('leo-triplet', 23)).result.gate).toBe(true);
   });
-  it('the knots use a faint feature’s brightness, not the whole galaxy’s mean, and say so', () => {
-    const v = panel(galaxy('m51', 22.9));
-    expect(v.assumptions.join(' ')).toMatch(/Knot brightness assumed/);
-    expect(v.assumptions.join(' ')).toMatch(/24 mag/);
-  });
   it.each(['ngc4486', 'ngc4472', 'ngc4649'])('the elliptical %s still gets no narrowband', (id) => {
     const v = panel(galaxy(id, 22.8));
     expect(v.result.gate).toBe(true);
     expect(v.result.filters.every((f) => f.minutes === 0)).toBe(true);
-    expect(v.result.headline).toMatch(/almost no emission/);
   });
   it('a galaxy of unknown morphology gets no narrowband', () => {
     const v = panel(galaxy('ngc7814x', 23));
@@ -80,7 +70,6 @@ describe('nbRowView', () => {
     expect(v.result.filters.map((f) => f.filterId)).toEqual(['nbz', 'nb3', 'u']);
     expect([...v.ticked].sort()).toEqual(['nb3', 'nbz']);
     expect(v.result.filters.find((f) => f.filterId === 'u')?.verdict).toBe('cannot-judge');
-    expect(v.assumptions).toEqual([]);
   });
   it('the recommended filters are ticked from the start, an untick removes one, and a not-recommended filter with minutes can be ticked', () => {
     const at = (over: Partial<NbRowInput>) => {
@@ -103,7 +92,7 @@ describe('nbRowView', () => {
   });
   it('a typed time that is not a number says so and gives no minutes', () => {
     const v = nbRowView({ ...base, hoursText: 'lots' });
-    expect(v).toEqual({ kind: 'hours-error', hoursText: 'lots', error: expect.stringMatching(/from 0.25 to 48/) });
+    expect(v).toEqual({ kind: 'hours-error', hoursText: 'lots', error: 'Hours: 0.25 to 48' });
   });
   it('unticking removes a filter from the ticked set, and ticking restores it', () => {
     const off = nbRowView({ ...base, ticks: new Map([['nbz', false]]) });
@@ -118,14 +107,6 @@ describe('nbRowView', () => {
     if (v.kind !== 'panel') throw new Error('panel');
     expect(v.ticked.has('u')).toBe(false);
   });
-  it('says what it assumed: no catalog brightness, no read noise class, no Bortle class', () => {
-    const v = nbRowView({ ...base, target: { id: 'ngc2237', type: 'nebula' }, gear: { fRatio: 1.9, focalLengthMm: 560, pixelUm: 3.76 }, bortleAssumed: true });
-    if (v.kind !== 'panel') throw new Error('panel');
-    expect(v.assumptions).toHaveLength(3);
-    expect(v.assumptions.join(' ')).toMatch(/Brightness assumed/);
-    expect(v.assumptions.join(' ')).toMatch(/Read noise assumed/);
-    expect(v.assumptions.join(' ')).toMatch(/Bortle assumed/);
-  });
   it('a galaxy gives a panel whose filters all say no narrowband', () => {
     const v = nbRowView({ ...base, target: { id: 'ngc224', type: 'galaxy', surfaceBrightness: 23 } });
     if (v.kind !== 'panel') throw new Error('panel');
@@ -138,10 +119,10 @@ describe('nbRowView', () => {
     ['no planned light', { light: { kind: 'none' as const, reason: 'x' } }],
   ])('shows nothing for %s (the mix line says why)', (_n, over) => expect(nbRowView({ ...base, ...over })).toEqual({ kind: 'hidden' }));
   it('says so for a mono camera, missing gear numbers, no filters, a target not up', () => {
-    expect(nbRowView({ ...base, gear: { ...(base.gear as object), colour: false } })).toMatchObject({ kind: 'message', text: expect.stringMatching(/Mono camera/) });
-    expect(nbRowView({ ...base, gear: { fRatio: 1.9, colour: true } })).toMatchObject({ kind: 'message', text: expect.stringMatching(/Missing focal length and pixel size/) });
+    expect(nbRowView({ ...base, gear: { ...(base.gear as object), colour: false } })).toMatchObject({ kind: 'message', text: 'Mono camera' });
+    expect(nbRowView({ ...base, gear: { fRatio: 1.9, colour: true } })).toMatchObject({ kind: 'message', text: 'Gear incomplete' });
     expect(nbRowView({ ...base, gear: { problem: 'A smart scope has its filter built in.' } })).toEqual({ kind: 'message', text: 'A smart scope has its filter built in.' });
-    expect(nbRowView({ ...base, filters: [] })).toMatchObject({ kind: 'message', text: expect.stringMatching(/No filters in your gear/) });
+    expect(nbRowView({ ...base, filters: [] })).toMatchObject({ kind: 'message', text: 'No filters' });
     expect(nbRowView({ ...base, light: { kind: 'ok', minutes: 60, usableMinutes: 0 } })).toMatchObject({ kind: 'message' });
   });
 });

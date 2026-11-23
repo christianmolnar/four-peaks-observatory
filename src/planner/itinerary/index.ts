@@ -224,7 +224,6 @@ export const WARNING_TEXT = {
 
 const minutesBetween = (a: Date, b: Date): number => (b.getTime() - a.getTime()) / 60000;
 const after = (d: Date, min: number): Date => new Date(d.getTime() + min * 60000);
-const round = (x: number): number => Math.round(x);
 
 export function changeoverBetween(prev: Pick<ItineraryItem, 'trainId' | 'filterId'>, next: Pick<ItineraryItem, 'trainId' | 'filterId'>): Changeover {
   const parts = [{ label: 'slew and centre', minutes: SLEW_CENTER_MIN }];
@@ -343,7 +342,7 @@ export interface Scheduler {
  * calls it for every prefix it tries, so what it scores is what the page shows.
  */
 export function makeScheduler(input: BuildInput): Scheduler {
-  const { site, night, horizon, minAltitude, bortle, formatTime } = input;
+  const { site, night, horizon, minAltitude, bortle } = input;
   if (night.kind !== 'normal' || !night.start || !night.end) throw new RangeError('buildItinerary needs a normal astronomical night');
   const nightStart = night.start;
   const nightEnd = night.end;

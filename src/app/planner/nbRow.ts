@@ -11,7 +11,7 @@ import type { PlanTargetRef } from '@/planner/state/plans';
 /** The panel's most and least broadband hours a person may type. */
 export const NB_HOURS_MIN = 0.25;
 export const NB_HOURS_MAX = 48;
-export const NB_HOURS_TEXT = `Enter hours from ${NB_HOURS_MIN} to ${NB_HOURS_MAX}, such as 3.5.`;
+export const NB_HOURS_TEXT = `Hours: ${NB_HOURS_MIN} to ${NB_HOURS_MAX}`;
 
 /** What the train and camera of the open plan give the engine; a field absent is a number the gear does not hold. */
 export interface NbGear {
@@ -40,7 +40,6 @@ export interface NbRowInput {
   /** The open plan's train and camera, or why it has none (a smart scope, no setup). */
   gear: NbGear | { problem: string };
   bortle: number;
-  bortleAssumed: boolean;
   knee: ExposureMode;
   /** Every filter in the user's gear. */
   filters: readonly ProfileFilter[];
@@ -64,8 +63,6 @@ export type NbView =
       hoursText: string;
       /** The filters ticked: the recommended ones unless the user unticked them, and any other filter with minutes the user ticked. Always in the plan. */
       ticked: ReadonlySet<string>;
-      /** Inputs the planner assumed (a surface brightness, a read noise, a Bortle class), each said in words. */
-      assumptions: string[];
     };
 
 const hoursOf = (minutes: number): string => String(Math.round((minutes / 60) * 100) / 100);
@@ -90,39 +87,29 @@ export function nbRowView(input: NbRowInput): NbView {
   if (profile === null) return { kind: 'hidden' };
   if ('problem' in input.gear) return { kind: 'message', text: input.gear.problem };
   const g = input.gear;
-  if (g.colour === false) return { kind: 'message', text: 'Mono camera: narrowband minutes are for colour cameras only.' };
-  const missing = [pos(g.fRatio) ? null : 'focal ratio', pos(g.focalLengthMm) ? null : 'focal length', pos(g.pixelUm) ? null : 'pixel size'].filter((x): x is string => x !== null);
-  if (missing.length > 0) return { kind: 'message', text: `Missing ${missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}` : missing[0]}. Add them in Gear.` };
-  if (input.filters.length === 0) return { kind: 'message', text: 'No filters in your gear. Add them in Gear.' };
+  if (g.colour === false) return { kind: 'message', text: 'Mono camera' };
+  if (!pos(g.fRatio) || !pos(g.focalLengthMm) || !pos(g.pixelUm)) return { kind: 'message', text: 'Gear incomplete' };
+  if (input.filters.length === 0) return { kind: 'message', text: 'No filters' };
 
   const defaultText = hoursOf(input.light.minutes);
   const hoursText = input.hoursText ?? defaultText;
   const hours = readHours(hoursText);
   if (hours === null) return { kind: 'hours-error', hoursText, error: NB_HOURS_TEXT };
 
-  const assumptions: string[] = [];
   const sb = input.target.surfaceBrightness;
   // A galaxy's knots are small, faint features against the disk: the mean brightness of the whole galaxy is not theirs. Taken as the faint class (24 mag per
   // square arcsecond, a planner stand-in, not a measurement), or fainter when the galaxy's own mean already is.
   const knots = profile.knotsOnly === true;
   const mu =
     knots
-      ? (() => {
-          const faint = Math.max(SB_CLASS_MU.low, sb ?? SB_CLASS_MU.low);
-          assumptions.push(`Knot brightness assumed: ${faint} mag per square arcsecond.`);
-          return faint;
-        })()
+      ? Math.max(SB_CLASS_MU.low, sb ?? SB_CLASS_MU.low)
       : sb !== undefined
       ? sb
       : (() => {
           const cls = surfaceBrightnessOf({ type: input.target?.type });
-          const used = cls === 'unknown' ? UNKNOWN_SB_CLASS : cls;
-          assumptions.push(`Brightness assumed: ${SB_CLASS_MU[used]} mag per square arcsecond.`);
-          return SB_CLASS_MU[used];
+          return SB_CLASS_MU[cls === 'unknown' ? UNKNOWN_SB_CLASS : cls];
         })();
   const rnClass = g.readNoiseClass ?? DEFAULT_READ_NOISE_CLASS;
-  if (g.readNoiseClass === undefined) assumptions.push(`Read noise assumed: ${rnClass} (${READ_NOISE_E[rnClass]} e).`);
-  if (input.bortleAssumed) assumptions.push(`Bortle assumed: ${input.bortle}.`);
 
   const result = narrowbandHours({
     profile,
@@ -135,5 +122,5 @@ export function nbRowView(input: NbRowInput): NbView {
     filters: input.filters.map((f) => ({ id: f.id, name: f.name, bands: f.passbands, ratedMinFRatio: f.ratedMinFRatio })),
   });
   const ticked = new Set(result.filters.filter((f) => f.standaloneMin > 0 && (input.ticks?.get(f.filterId) ?? f.minutes > 0)).map((f) => f.filterId));
-  return { kind: 'panel', result, hours, hoursText, ticked, assumptions };
+  return { kind: 'panel', result, hours, hoursText, ticked };
 }

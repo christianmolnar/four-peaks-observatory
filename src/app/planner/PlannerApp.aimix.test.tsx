@@ -110,7 +110,7 @@ describe('the Filters line under each slot of the AI result', () => {
     expect(slotMix(0)).toContain('IDAS NBZ-II copy: 0 min (covered by IDAS NBZ-II)');
     const shown = pairs(slotMix(0));
     await afterUse(user);
-    expect(rowMix('ic405')).toContain('covered by IDAS NBZ-II');
+    expect(rowMix('ic405')).toContain('IDAS NBZ-II copy: 0 min');
     expect(pairs(rowMix('ic405'))).toEqual(shown);
   });
 
@@ -118,7 +118,7 @@ describe('the Filters line under each slot of the AI result', () => {
     mount(fetchWith(), ['ic405'], profileWith(undefined));
     await planned();
     untickNarrowband();
-    expect(slotMix(0)).toMatch(/No filter in this setup/);
+    expect(slotMix(0)).toMatch(/No filter/);
     expect(slotMix(0)).not.toMatch(/\d+ min|\d+ h/);
   });
 

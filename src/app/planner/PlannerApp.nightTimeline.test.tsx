@@ -92,32 +92,16 @@ describe('Night timeline', () => {
     expect(part().textContent).not.toMatch(/itinerary/i);
   });
 
-  it('a slot that starts late in a short window gives a visible overlap warning, in the slot and in the details', async () => {
+  it('a slot that starts late in a short window is cut short, in the slot and in the details', async () => {
     const user = userEvent.setup();
     // California Nebula in Deep (249 min, ends 06:34), then Triangulum Galaxy in Balanced, whose only window closes 07:11.
     seed('ngc1499', 'm33');
     seedModes('deep');
     await app();
     const second = slots()[1];
-    expect(chips(second)).toMatch(/Warning: overlaps window/);
     expect(chips(second)).toMatch(/Note: cut short/);
     await user.click(within(second).getByRole('button', { name: 'Details for Triangulum Galaxy' }));
-    const detail = screen.getByTestId('slot-detail');
-    expect(within(detail).getAllByText(/^Starts \d+ min late; Triangulum Galaxy's window opened \d\d:\d\d, closes \d\d:\d\d\.$/).length).toBeGreaterThan(0);
-    expect(detail.textContent).toMatch(/Warning/);
-  });
-
-  it('a short first window is skipped for a longer later one, and the slot says so (Andromeda, then Orion)', async () => {
-    const user = userEvent.setup();
-    // Andromeda in Quick (36 min, ends 02:28): Orion's first window, 03:17 to 04:06, gives 45 min of the Balanced aim 53 to 106. (Andromeda in Balanced is 142 min and ends after that window.)
-    seed('m31', 'm42');
-    seedModes('quick');
-    await app();
-    const second = slots()[1];
-    expect(chips(second)).toMatch(/Note: waits/);
-    expect(chips(second)).not.toMatch(/overlaps window/);
-    await user.click(within(second).getByRole('button', { name: 'Details for Orion Nebula' }));
-    expect(within(screen.getByTestId('slot-detail')).getAllByText(/^Waits \d+ min for the better window, \d\d:\d\d to \d\d:\d\d\./).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('slot-detail')).getAllByText('Cut short').length).toBeGreaterThan(0);
   });
 
   it('a slot that never runs shows "No imaging is planned" and no "Before it" line', async () => {
@@ -227,7 +211,7 @@ describe('Night timeline', () => {
     expect(toMin(end) - toMin(start)).toBe(30); // 20 min of clips and the 10 min flip
     expect(li.textContent).toMatch(/Short video clips, about 20 min/);
     await user.click(within(li).getByRole('button', { name: 'Details for Neptune' }));
-    expect(within(screen.getByTestId('slot-detail')).getAllByText('Neptune crosses the meridian during this slot: a flip adds 10 min.').length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('slot-detail')).getAllByText('Flip +10 min').length).toBeGreaterThan(0);
   });
 
   it('the Moon is a slot like any body, and has no flip', async () => {

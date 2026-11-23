@@ -1,9 +1,7 @@
 import { lineNote } from '@/planner/filtermix';
 import type { MixLine } from '@/planner/filtermix';
 import type { RowMix } from '@/planner/filtermix/row';
-import { Fold } from './PlanRowExposure';
 import NarrowbandPanel from './NarrowbandPanel';
-import RowHow from './RowHow';
 import type { NbView } from './nbRow';
 import { minutesText } from './rowExposure';
 import { mixLightText } from './PlanRowMix';
@@ -33,19 +31,11 @@ export default function AiSlotMix({ index, targetId, slot, onNbHours, onNbTick }
         <>
           <p className="text-p-t1">Filters (light after Use this plan: {minutesText(mix.availableMin)})</p>
           {mix.narrowbandAdded === true && <p className="mt-1 break-words">{mixLightText(mix)}</p>}
-          {mix.headline !== null && <p className="mt-1 break-words">{mix.headline}</p>}
           <Lines lines={mix.lines} />
-          {mix.uncovered.length > 0 && <p className="mt-1 break-words">No selected filter passes {mix.uncovered.join(' and ')}, which it needs.</p>}
+          {mix.uncovered.length > 0 && <p className="mt-1 break-words">No filter for {mix.uncovered.join(', ')}</p>}
         </>
       )}
       <NarrowbandPanel idBase={`ai-${targetId}`} view={slot.nb} onHours={(t) => onNbHours(targetId, t)} onTick={(f, on) => onNbTick(targetId, f, on)} />
-      {(mix.kind === 'mix' || slot.nb.kind === 'panel') && (
-        <Fold id={`ai-how-${index}`} title="How this is worked out">
-          <div className="space-y-1 text-sm font-normal text-p-t1/70">
-            <RowHow id={`ai-${targetId}`} mix={mix} nb={slot.nb} />
-          </div>
-        </Fold>
-      )}
     </div>
   );
 }

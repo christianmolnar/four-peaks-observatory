@@ -11,10 +11,10 @@ describe('rowMix', () => {
     if (r.kind === 'mix') expect(r.availableMin).toBe(120);
   });
 
-  it('says why there is no number, in plain words, for each case', () => {
+  it('gives a short message for each case with no number', () => {
     expect(rowMix({ ...base, body: true })).toEqual({ kind: 'message', text: SOLAR_MIX_TEXT });
     expect(rowMix({ ...base, target: null })).toEqual({ kind: 'message', text: NOT_IN_CATALOG_MIX_TEXT });
-    expect(rowMix({ ...base, light: { kind: 'none', reason: 'Numbers appear once the night has loaded.' } })).toEqual({ kind: 'message', text: 'No planned light yet.' });
+    expect(rowMix({ ...base, light: { kind: 'none', reason: 'Numbers appear once the night has loaded.' } })).toEqual({ kind: 'message', text: 'No filter mix' });
     expect(rowMix({ ...base, light: { kind: 'ok', minutes: 0, usableMinutes: 0 } })).toEqual({ kind: 'message', text: NOT_UP_MIX_TEXT });
     expect(rowMix({ ...base, light: { kind: 'ok', minutes: 0, usableMinutes: 200 } })).toEqual({ kind: 'message', text: TOO_LITTLE_LIGHT_MIX_TEXT });
     expect(rowMix({ ...base, target: { id: 'm42', type: 'star' } })).toEqual({ kind: 'message', text: NO_PROFILE_MIX_TEXT });

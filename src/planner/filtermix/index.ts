@@ -6,7 +6,7 @@ import type { Passband } from '../profile/types';
 /**
  * The per-target filter mix: which of the user's filters earn hours on a target, and how the planned light is split. Pure code, no model. The rules are the
  * research note's (emission and continuum content of deep-sky targets): gate, line need, new coverage, adds nothing, adds contrast only, hours split, the Ha band
- * NII note, the broadband slot for a continuum target, and the confidence label. The target's profile is physical line flux; hours are whole minutes that always add
+ * NII rule and the broadband slot for a continuum target. The target's profile is physical line flux; hours are whole minutes that always add
  * up to the light given.
  */
 
@@ -44,10 +44,6 @@ export interface MixLine {
   /** Whole minutes of the light given to it; 0 when it earns none. */
   minutes: number;
   verdict: MixVerdict;
-  /** One short plain sentence. */
-  reason: string;
-  /** What the reason leaves out, for the row's fold. Absent when there is nothing more to say. */
-  detail?: string;
   /** Needed lines this filter brings that no filter before it passes. */
   adds: MixLineName[];
   /** Lines of Ha, OIII and SII that it passes and an earlier filter passes too. */
@@ -62,18 +58,12 @@ export type MixResult =
       /** The light given, in whole minutes; the lines' minutes add up to it. */
       availableMin: number;
       lines: MixLine[];
-      /** Said first when the mix is not the usual one (a target that gives off almost no emission). */
-      headline: string | null;
       /** The lines this target needs, in the order Ha, OIII, SII. */
       needed: MixLineName[];
       /** Needed lines that no filter in the mix passes. */
       uncovered: MixLineName[];
       /** The Ha band here carries more nitrogen than hydrogen. */
       haMostlyNii: boolean;
-      /** "Typical for this type, not measured" and its siblings. */
-      confidence: string;
-      /** The profile's own note, when it has one. */
-      profileNote: string | null;
       /** Set when the lines are the broadband time plus ticked narrowband minutes (the total is then more than the planned light), not a split of it. */
       narrowbandAdded?: boolean;
     }
@@ -87,20 +77,7 @@ export interface MixInput {
 }
 
 const round = (n: number): number => Math.round(n * 1e6) / 1e6;
-const wide = (n: number): string => String(Math.round(n * 10) / 10);
 const list = (xs: readonly string[]): string => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-/** A line's `detail` from the sentences the reason leaves out: nothing at all when there are none. */
-const detailOf = (parts: readonly string[]): { detail?: string } => {
-  const text = parts.filter((s) => s !== '').join(' ');
-  return text === '' ? {} : { detail: text };
-};
-
-export function confidenceLabel(p: Pick<EmissionProfile, 'confidence' | 'source'>): string {
-  if (p.confidence === 'type-default') return 'Typical for this type, not measured';
-  if (p.confidence === 'amateur') return `Amateur reports, not measured (${p.source})`;
-  return `Measured (${p.source})`;
-}
-
 /** The width of the narrowest band of `bands` that passes the line (any line of that symbol), or null when none does. */
 function widthAt(bands: readonly Passband[], symbol: string): number | null {
   let best: number | null = null;
@@ -148,10 +125,8 @@ function apportion(total: number, weights: readonly number[]): number[] {
   return parts;
 }
 
-const SKIPPED = 'Unknown passband, not used in the mix. Add its passbands in Gear.';
-
 function skippedLine(f: MixFilter): MixLine {
-  return { filterId: f.id, name: f.name, minutes: 0, verdict: 'skipped', reason: SKIPPED, adds: [], shared: [], coveredBy: [] };
+  return { filterId: f.id, name: f.name, minutes: 0, verdict: 'skipped', adds: [], shared: [], coveredBy: [] };
 }
 
 /**
@@ -160,16 +135,16 @@ function skippedLine(f: MixFilter): MixLine {
  */
 export function filterMix(input: MixInput): MixResult {
   const bad = judgeProfile(input.profile);
-  if (bad.length > 0) return { kind: 'none', message: 'This target has no usable emission profile, so no filter mix is worked out.', skipped: [] };
+  if (bad.length > 0) return { kind: 'none', message: 'No filter mix', skipped: [] };
   const total = Number.isFinite(input.minutes) ? Math.round(input.minutes) : 0;
-  if (total <= 0) return { kind: 'none', message: 'There is no planned light to split between filters.', skipped: [] };
-  if (input.filters.length === 0) return { kind: 'none', message: 'No filter is selected in the setup, so there is no mix to work out.', skipped: [] };
+  if (total <= 0) return { kind: 'none', message: 'No filter mix', skipped: [] };
+  if (input.filters.length === 0) return { kind: 'none', message: 'No filter', skipped: [] };
 
   const p = input.profile;
   const skipped = input.filters.filter((f) => (f.bands ?? []).length === 0).map(skippedLine);
   const usable = input.filters.map((f, i) => analyse(f, i)).filter((a) => a.bands.length > 0);
   if (usable.length === 0) {
-    return { kind: 'none', message: 'No selected filter has known passbands, so no hours are split. Add the passbands in Gear.', skipped };
+    return { kind: 'none', message: 'Passbands unknown', skipped };
   }
 
   // Broadband filters (a band 50 nm or wider) take the broadband slot; the rest are judged line by line.
@@ -177,38 +152,33 @@ export function filterMix(input: MixInput): MixResult {
   const narrow = usable.filter((a) => !broad.includes(a));
   const slotFilter = broad[0]?.filter ?? null;
   const slotName = slotFilter === null ? 'Broadband (no narrowband filter)' : `Broadband (${slotFilter.name})`;
-  const confidence = confidenceLabel(p);
-  const profileNote = p.note ?? null;
   const weight = (L: string): number => p.lines[L as keyof EmissionProfile['lines']] ?? 0;
-  const pct = (L: MixLineName): string => `${Math.round(weight(L) * 100)}%`;
 
   const lineOf = (a: Analysed, rest: Omit<MixLine, 'filterId' | 'name'>): MixLine => ({ filterId: a.filter.id, name: a.filter.name, ...rest });
-  const extraBroad = (): MixLine[] => broad.slice(1).map((a) => lineOf(a, { minutes: 0, verdict: 'covered', reason: 'Adds nothing: also broadband.', adds: [], shared: [], coveredBy: [slotName] }));
-  const slotLine = (minutes: number, reason: string): MixLine => ({ filterId: slotFilter?.id ?? null, name: slotName, minutes, verdict: 'broadband', reason, adds: [], shared: [], coveredBy: [] });
+  const extraBroad = (): MixLine[] => broad.slice(1).map((a) => lineOf(a, { minutes: 0, verdict: 'covered', adds: [], shared: [], coveredBy: [slotName] }));
+  const slotLine = (minutes: number): MixLine => ({ filterId: slotFilter?.id ?? null, name: slotName, minutes, verdict: 'broadband', adds: [], shared: [], coveredBy: [] });
   const inOrder = (lines: MixLine[]): MixLine[] => {
     const rank = new Map(input.filters.map((f, i) => [f.id, i] as const));
     const [slot, others] = [lines.filter((l) => l.verdict === 'broadband'), lines.filter((l) => l.verdict !== 'broadband')];
     return [...slot, ...others.sort((a, b) => (rank.get(a.filterId ?? '') ?? 0) - (rank.get(b.filterId ?? '') ?? 0))];
   };
-  const finish = (lines: MixLine[], extra: Omit<Extract<MixResult, { kind: 'mix' }>, 'kind' | 'availableMin' | 'lines' | 'confidence' | 'profileNote'>): MixResult => {
+  const finish = (lines: MixLine[], extra: Omit<Extract<MixResult, { kind: 'mix' }>, 'kind' | 'availableMin' | 'lines'>): MixResult => {
     const all = inOrder([...lines, ...skipped]);
     const sum = all.reduce((t, l) => t + l.minutes, 0);
     if (sum !== total) throw new Error(`The filter mix gives ${sum} min for ${total} min of light.`);
-    return { kind: 'mix', availableMin: total, lines: all, confidence, profileNote, ...extra };
+    return { kind: 'mix', availableMin: total, lines: all, ...extra };
   };
 
   const haMostlyNii = (p.lines.NII ?? 0) > 0 && (p.lines.NII ?? 0) >= (p.lines.Ha ?? 0);
-  const niiWords = 'On this target the Ha band mostly passes nitrogen (NII), not hydrogen.';
 
   // 1. Gate: almost no emission, so narrowband adds nothing.
   if (weight('Ha') + weight('OIII') + weight('SII') < GATE_SUM) {
-    const headline = 'Almost no emission light: shoot it broadband.';
     const lines = [
-      slotLine(total, 'All light here: almost all continuum.'),
+      slotLine(total),
       ...extraBroad(),
-      ...narrow.map((a) => lineOf(a, { minutes: 0, verdict: 'gate', reason: 'Adds nothing: almost no emission light.', adds: [], shared: [], coveredBy: [] })),
+      ...narrow.map((a) => lineOf(a, { minutes: 0, verdict: 'gate', adds: [], shared: [], coveredBy: [] })),
     ];
-    return finish(lines, { headline, needed: [], uncovered: [], haMostlyNii: false });
+    return finish(lines, { needed: [], uncovered: [], haMostlyNii: false });
   }
 
   // 2. Line need. Where the Ha band mostly passes nitrogen, Ha is not counted as a need (the hours there would be nitrogen hours).
@@ -231,20 +201,13 @@ export function filterMix(input: MixInput): MixResult {
     const passesAll = NEED_LINES.filter((L) => a.at[L] !== undefined);
     const fresh = mine.filter((L) => coverOf(L).length === 0);
     const shared = passesAll.filter((L) => coverOf(L).length > 0);
-    const weak = passesAll.filter((L) => !needed.includes(L) && !shared.includes(L));
-    const weakText = weak.map((L) => (L === 'Ha' && haMostlyNii ? '' : `${L} is ${pct(L)} of the strongest line; the cut is ${Math.round(W_MIN * 100)}%.`)).filter((s) => s !== '');
-    const nii = a.at.Ha !== undefined && haMostlyNii ? [niiWords] : [];
     if (fresh.length > 0) {
-      const names = [...new Set(shared.flatMap((L) => coverOf(L).map((m) => m.filter.name)))];
-      const head = shared.length === 0 ? `Adds ${list(fresh)}.` : `${list(shared)} shared, ${list(fresh)} new.`;
-      const detail = shared.length === 0 ? [] : [`${list(names)} already ${names.length > 1 ? 'pass' : 'passes'} the ${list(shared)}.`];
       mixed.push(a);
-      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'adds', reason: head, ...detailOf([...detail, ...weakText, ...nii]), adds: fresh, shared, coveredBy: [] }));
+      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'adds', adds: fresh, shared, coveredBy: [] }));
       continue;
     }
     if (mine.length === 0) {
-      const why = passesAll.length === 0 ? 'It passes none of Ha, OIII or SII.' : weakText.length > 0 || haMostlyNii ? [...weakText, ...nii].join(' ') : `${list(passesAll)} ${passesAll.length > 1 ? 'are' : 'is'} already covered.`;
-      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'no-need', reason: 'Adds nothing: passes no needed line.', ...detailOf([why]), adds: [], shared, coveredBy: [...new Set(shared.flatMap((L) => coverOf(L).map((m) => m.filter.name)))] }));
+      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'no-need', adds: [], shared, coveredBy: [...new Set(shared.flatMap((L) => coverOf(L).map((m) => m.filter.name)))] }));
       continue;
     }
     // Every needed line it passes is already in the mix: better contrast, or nothing.
@@ -254,22 +217,19 @@ export function filterMix(input: MixInput): MixResult {
     });
     const covering = [...new Set(mine.flatMap((L) => coverOf(L).map((m) => m.filter.name)))];
     if (better.length === 0) {
-      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'covered', reason: `Adds nothing: covered by ${list(covering)}.`, ...detailOf([...weakText, ...nii]), adds: [], shared, coveredBy: covering }));
+      verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'covered', adds: [], shared, coveredBy: covering }));
       continue;
     }
-    const clearly = better.some((L) => (a.at[L] as number) <= CONTRAST_SHARE * Math.min(...coverOf(L).map((m) => m.at[L] as number)));
-    const widths = better.map((L) => `${L} ${wide(a.at[L] as number)} vs ${wide(Math.min(...coverOf(L).map((m) => m.at[L] as number)))} nm`);
     mixed.push(a);
-    verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'contrast', reason: `Same lines as ${list(covering)}, ${clearly ? 'narrower' : 'slightly narrower'} bands (${list(widths)}).`, ...detailOf(nii), adds: [], shared, coveredBy: covering }));
+    verdicts.set(a, lineOf(a, { minutes: 0, verdict: 'contrast', adds: [], shared, coveredBy: covering }));
   }
 
   const uncovered = needed.filter((L) => coverOf(L).length === 0);
-  const result = { headline: null, needed: [...needed], uncovered, haMostlyNii };
+  const result = { needed: [...needed], uncovered, haMostlyNii };
 
   // 3. Hours. Broadband first (a continuum target keeps its slot), then the rest over the filters that earn.
   if (mixed.length === 0) {
-    const reason = needed.length === 0 ? 'All light here: no line strong enough for a filter.' : 'All light here: no selected filter passes a needed line.';
-    const lines = [slotLine(total, reason), ...extraBroad(), ...ranked.map((a) => verdicts.get(a) as MixLine)];
+    const lines = [slotLine(total), ...extraBroad(), ...ranked.map((a) => verdicts.get(a) as MixLine)];
     return finish(lines, result);
   }
   const continuum = p.continuum;
@@ -293,8 +253,8 @@ export function filterMix(input: MixInput): MixResult {
     v.minutes = parts[i];
   });
   const lines: MixLine[] = [];
-  if (broadMin > 0) lines.push(slotLine(broadMin, `Broadband stays: ${Math.round(continuum * 100)}% of its light is continuum.`));
-  else if (slotFilter !== null) lines.push(slotLine(0, `Narrowband takes all the light (only ${Math.round(continuum * 100)}% is continuum).`));
+  if (broadMin > 0) lines.push(slotLine(broadMin));
+  else if (slotFilter !== null) lines.push(slotLine(0));
   lines.push(...extraBroad(), ...ranked.map((a) => verdicts.get(a) as MixLine));
   return finish(lines, result);
 }
@@ -311,11 +271,11 @@ export function lineNote(l: MixLine): string | null {
   return l.verdict === 'covered' && l.coveredBy.length > 0 ? `covered by ${list(l.coveredBy)}` : 'adds nothing';
 }
 
-/** One line for the plan text: "M42: NB3-PM 2 h (adds OIII); NBZ II 0 min (covered by NB3-PM). Typical for this type, not measured." */
+/** One line for the plan text: "M42 (2 h of light): NB3-PM 2 h (adds OIII); NBZ II 0 min (covered by NB3-PM)." */
 export function mixSummary(name: string, r: Extract<MixResult, { kind: 'mix' }>, fmt: MinutesText): string {
   const parts = r.lines.map((l) => {
     const note = lineNote(l);
     return `${l.name} ${fmt(l.minutes)}${note === null ? '' : ` (${note})`}`;
   });
-  return `${name} (${fmt(r.availableMin)} of light): ${parts.join('; ')}. ${r.confidence}.`;
+  return `${name} (${fmt(r.availableMin)} of light): ${parts.join('; ')}.`;
 }

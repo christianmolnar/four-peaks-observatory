@@ -84,14 +84,14 @@ describe('start time', () => {
   it('a start in the daytime after the night gives a plain message, no time for any slot, and no crash', async () => {
     seed(2, ['m31', 'ic405'], '11:00');
     await app();
-    expect(screen.getByTestId('itinerary-start-note').textContent).toMatch(/is after the night ends \(\d\d:\d\d\), so there is no time for any slot\./);
+    expect(screen.getByTestId('itinerary-start-note').textContent).toBe('Start after night');
     expect(slots().map((li) => li.textContent)).toEqual([expect.stringContaining('no time'), expect.stringContaining('no time')]);
   });
 
-  it('a start before the night says imaging begins when the night starts', async () => {
+  it('a start before the night says so in three words', async () => {
     seed(2, ['m31'], '15:00');
     await app();
-    expect(screen.getByTestId('itinerary-start-note').textContent).toMatch(/^Your start time is before the night: imaging begins when the night starts, \d\d:\d\d\.$/);
+    expect(screen.getByTestId('itinerary-start-note').textContent).toBe('Start before night');
   });
 
   it('the start is a 24 h text box with a numeric keyboard; 21:30, 2130 and 9:05 are accepted, half a time and nonsense are not', async () => {

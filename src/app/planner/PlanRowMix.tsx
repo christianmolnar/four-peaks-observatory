@@ -6,7 +6,7 @@ import { minutesText } from './rowExposure';
 
 /**
  * The "Filter mix" part of a plan row, folded by default: the row's planned light split between the filters of the setup (hours per filter, one plain line each),
- * which filters add nothing. The detail, the emission note and how sure the numbers are live in the row's one fold (RowHow). A row with no mix says why in one plain line; nothing is made up.
+ * which filters add nothing. A row with no mix says why in one plain line; nothing is made up.
  */
 export type LineExtra = (filterId: string | null, minutes: number) => { subs: string; warning: string | null } | null;
 
@@ -23,12 +23,11 @@ export default function PlanRowMix({ id, mix, extra }: { id: string; mix: RowMix
           </div>
         ) : (
           <div className="space-y-2 text-sm font-normal text-p-t1">
-            {mix.headline !== null && <p className="break-words font-medium text-p-t1" data-testid={`plan-mix-headline-${id}`}>{mix.headline}</p>}
             <p data-testid={`plan-mix-light-${id}`}>{mixLightText(mix)}</p>
             <MixLines lines={mix.lines} extra={extra} />
             {mix.uncovered.length > 0 && (
               <p className="break-words" data-testid={`plan-mix-uncovered-${id}`}>
-                No selected filter passes {mix.uncovered.join(' and ')}, which it needs.
+                No filter for {mix.uncovered.join(', ')}
               </p>
             )}
           </div>
@@ -46,7 +45,7 @@ export function mixLightText(mix: Extract<RowMix, { kind: 'mix' }>): string {
   return `Light: ${[...broad, ...adds].map((l) => `${l.filterId === null ? 'broadband' : l.name} ${minutesText(l.minutes)}`).join(' plus ')} = ${minutesText(mix.availableMin)}.`;
 }
 
-function MixLines({ lines, extra }: { lines: readonly { filterId: string | null; name: string; minutes: number; verdict: string; reason: string }[]; extra?: LineExtra }) {
+function MixLines({ lines, extra }: { lines: readonly { filterId: string | null; name: string; minutes: number; verdict: string }[]; extra?: LineExtra }) {
   return (
     <ul className="space-y-2">
       {lines.map((l) => {
@@ -59,7 +58,6 @@ function MixLines({ lines, extra }: { lines: readonly { filterId: string | null;
           </p>
           {more !== null && <p className="break-words text-p-t1" data-testid="plan-mix-subs">{more.subs}</p>}
           {more?.warning != null && <p className="break-words rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-p-t1" data-testid="plan-mix-uvir">{more.warning}</p>}
-          <p className="break-words text-p-t1/70">{l.reason}</p>
         </li>
         );
       })}

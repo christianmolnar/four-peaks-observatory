@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { HONESTY_LINE, narrowbandPlan } from '@/planner/filtermix/narrowband-hours';
+import { narrowbandPlan } from '@/planner/filtermix/narrowband-hours';
 import { Fold } from './PlanRowExposure';
 import { minutesText } from './rowExposure';
 import type { NbView } from './nbRow';
@@ -60,7 +60,6 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
   const noneJudged = result.filters.every((f) => f.verdict === 'cannot-judge');
   return (
     <>
-      {result.headline !== null && <p className="break-words font-medium text-p-t1" data-testid={`nb-headline-${idBase}`}>{result.headline}</p>}
       {noneJudged ? (
         <p className="break-words" data-testid={`nb-none-${idBase}`}>None of your filters is a narrowband filter with known passbands.</p>
       ) : (
@@ -84,7 +83,6 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
                   {f.gain !== null && f.verdict !== 'no-narrowband' && <span className="text-p-t1/70"> (gain {f.gain >= 10 ? Math.round(f.gain) : Math.round(f.gain * 10) / 10}×)</span>}
                 </span>
               </label>
-              {f.reason !== '' && <p className="break-words pl-7 text-p-t1/70">{f.reason}</p>}
               {view.ticked.has(f.filterId) && coveredOnly.has(f.filterId) && (
                 <p className="break-words pl-7 text-p-t1/70" data-testid={`nb-adds-nothing-${idBase}-${f.filterId}`}>
                   Adds nothing: {(coveredOnly.get(f.filterId) ?? []).join(' and ')} already covered.
@@ -99,10 +97,6 @@ function Result({ idBase, view, onTick }: { idBase: string; view: Extract<NbView
       <p data-testid={`nb-total-${idBase}`}>
         Broadband {minutesText(Math.round(view.hours * 60))}{added > 0 ? ` plus ${plan.map((p) => `${p.name} ${minutesText(p.minutes)}`).join(' plus ')} = ${minutesText(Math.round(view.hours * 60) + added)}` : '; no narrowband ticked'}.
       </p>
-      {view.assumptions.map((a) => (
-        <p key={a} className="break-words text-p-t1/70">{a}</p>
-      ))}
-      <p className="break-words text-p-t1/70" data-testid={`nb-honesty-${idBase}`}>{HONESTY_LINE}</p>
     </>
   );
 }
