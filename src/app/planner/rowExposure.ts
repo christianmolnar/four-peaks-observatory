@@ -18,6 +18,8 @@ export type RowExposure =
       presets: Record<ExposureMode, ExposureResult>;
       marginal: MarginalRow[];
       inputs: string;
+      /** Arcseconds per pixel of the plan's train and camera. */
+      imageScale: number | null;
       usableMinutes: number;
       /**
        * Set when the row is Custom and its stored numbers give an unusable result on this night (more than MAX_SUBS subs, or no subs).
@@ -133,7 +135,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   const presets = {} as Record<ExposureMode, ExposureResult>;
   for (const m of MODE_ORDER) {
     const r = run({ preset: m });
-    if (!r.ok) return { kind: 'missing', reason: slot.gearNote ?? 'Gear incomplete' };
+    if (!r.ok) return { kind: 'missing', reason: 'Gear incomplete' };
     presets[m] = r;
   }
   // A stored custom number outside the limits never reaches the engine (it throws on a count that is not whole): the preset's numbers are used.
@@ -142,7 +144,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
   let chosen = presets[baseOf(ref)];
   if (ref.preset === 'custom' && stored === null) {
     const own = run(choiceOf(ref));
-    if (!own.ok) return { kind: 'missing', reason: slot.gearNote ?? 'Gear incomplete' };
+    if (!own.ok) return { kind: 'missing', reason: 'Gear incomplete' };
     problem = resultProblem(own, entry.usableMinutes);
     if (problem === null) chosen = own;
   } else if (ref.preset !== 'custom') {
@@ -170,7 +172,7 @@ export function rowExposure(ref: PlanTargetRef, slot: SlotInput, entry: PlanEntr
     const warning = filter === null ? null : (filterWarnings(slot.optics?.focalRatio ?? 0, filter, cam).find((w) => w.code === 'filter-needs-uvir')?.text ?? null);
     return { subs: s.kind === 'ok' ? `Subs: ${s.subSeconds} s x ${s.subCount}, total ${minutesText(s.minutes)}` : `Subs: ${s.text}`, warning };
   };
-  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, usableMinutes: entry.usableMinutes, customUnusable, withNumber, forFilter };
+  return { kind: 'ok', chosen, presets, marginal: marginalBenefit(entry.usableMinutes), inputs, imageScale: slot.optics.imageScale ?? null, usableMinutes: entry.usableMinutes, customUnusable, withNumber, forFilter };
 }
 
 /** The most light one plan row accepts. The longest sub, the shortest sub and the most subs are the engine's own (MAX_SUB_S, MIN_CUSTOM_SUB_S, MAX_SUBS). */

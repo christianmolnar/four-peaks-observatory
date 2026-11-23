@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { MAX_SUBS, MODE_ORDER, needText } from '@/planner/exposure';
-import type { ExposureMode, ExposureResult } from '@/planner/exposure';
+import { MODE_ORDER, needText } from '@/planner/exposure';
+import type { ExposureWarning } from '@/planner/exposure';
 import { favoriteProblem } from '@/planner/state/favorites';
 import type { Favorite } from '@/planner/state/favorites';
 import type { PlanPreset } from '@/planner/state/plans';
@@ -13,22 +13,6 @@ import type { RowExposure } from './rowExposure';
 const btn = 'min-h-11 min-w-11 whitespace-nowrap rounded border border-p-line/30 px-3 text-sm font-normal text-p-t1 hover:bg-p-raised/10 disabled:opacity-40';
 const input = 'min-h-11 w-24 rounded border border-p-line/30 bg-p-bg/60 px-2 text-sm font-normal text-p-t1';
 
-const SUB_LIMIT: Record<ExposureResult['limitedBy']['sub'], string> = {
-  'read-noise': 'sky and read noise',
-  'risk-cap': 'the risk cap',
-  saturation: 'star saturation',
-  floor: 'the 15 s floor',
-  'count-cap': 'the limit on subs',
-  user: 'your choice',
-};
-const TOTAL_LIMIT: Record<ExposureResult['limitedBy']['total'], string> = {
-  'snr-target': 'the signal-to-noise target',
-  'diminishing-returns': 'diminishing returns',
-  'minimum-total': 'the 30 minute minimum',
-  'usable-window': 'the usable time tonight',
-  'count-cap': `the limit of ${MAX_SUBS} subs`,
-  user: 'your choice',
-};
 const GO_LABEL = { date: 'Change the date', train: 'Change the setup', filter: 'Change the filter' } as const;
 
 /** A small closed-by-default part of a row: one 44 px button that names it, a body that is hidden while closed. */
@@ -44,13 +28,54 @@ export function Fold({ id, title, children, level = 0 }: { id: string; title: st
         onClick={() => setOpen(!open)}
         className="flex min-h-11 w-full items-center gap-2 rounded text-left text-sm font-normal text-p-accent"
       >
-        <span aria-hidden="true" className="w-4 shrink-0 text-p-t1/70">{open ? '▾' : '▸'}</span>
+        <span aria-hidden="true" className="w-4 shrink-0 text-p-t2">{open ? '▾' : '▸'}</span>
         {title}
       </button>
       <div id={`${id}-body`} hidden={!open} className="pb-2">
         {open && children}
       </div>
     </div>
+  );
+}
+
+/** The mode chips of a card: Quick, Balanced, Deep, and Custom. The pressed one is filled. */
+export function ExposureChips({ id, name, preset, onPreset }: { id: string; name: string; preset: PlanPreset; onPreset: (preset: PlanPreset) => void }) {
+  return (
+    <div role="group" aria-label={`Exposure preset for ${name}`} className="flex flex-wrap gap-1.5">
+      {([...MODE_ORDER, 'custom'] as const).map((p) => (
+        <button
+          key={p}
+          type="button"
+          id={`plan-preset-${id}-${p}`}
+          aria-pressed={preset === p}
+          onClick={() => {
+            if (preset !== p) onPreset(p);
+          }}
+          className={`min-h-11 rounded-full border px-3 text-sm font-normal ${preset === p ? 'border-p-mode-on bg-p-mode-on text-p-on-mode' : 'border-p-line/40 text-p-t1 hover:bg-p-raised/10'}`}
+        >
+          {p === 'custom' ? 'Custom' : presetLabel(p)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The warnings on a card that have a control that changes them: the short text and the one button. */
+export function ExposureWarnings({ id, warnings, onGoTo }: { id: string; warnings: readonly ExposureWarning[]; onGoTo: (control: 'date' | 'train' | 'filter') => void }) {
+  return (
+    <>
+      {warnings.map((w) => {
+        const to = ACT_ON[w.code];
+        return (
+          <span key={w.code} className="inline-flex flex-wrap items-center gap-1.5" data-testid={`plan-warning-${id}`}>
+            <span className="p-chip-plain rounded bg-p-warn/15 px-2 py-0.5 text-sm text-p-warn-text">{w.text}</span>
+            {to.map((c) => (
+              <button key={c} type="button" className={btn} onClick={() => onGoTo(c)}>{GO_LABEL[c]}</button>
+            ))}
+          </span>
+        );
+      })}
+    </>
   );
 }
 
@@ -63,25 +88,24 @@ export interface PlanRowExposureProps {
   favorite: Favorite | null;
   /** Why saving favorites is off (a held store), or null. */
   favoritesBlocked: string | null;
-  /** `ask`: "Restore favorite?" shows; `restored`: the favorite was applied automatically and the line says so; null: neither. */
+  /** `ask`: "Restore favorite?" shows; null: it does not. */
   prompt: 'ask' | 'restored' | null;
-  onPreset: (preset: PlanPreset) => void;
   onNumber: (field: 'subSeconds' | 'subCount', value: number) => void;
   onBack: () => void;
   onSaveFavorite: () => void;
   onRemoveFavorite: () => void;
   onRestore: () => void;
   onNotNow: () => void;
-  /** Opens the strip and focuses the plan's own date, train or filter control. */
-  onGoTo: (control: 'date' | 'train' | 'filter') => void;
 }
 
+const surfaceFrom = { catalog: 'catalog', class: 'class', assumed: 'assumed' } as const;
+
 /**
- * The exposure of one deep-sky row of the plan: the preset choice, what the engine computes for it (sub length, subs, light, elapsed),
- * the Custom edit with "Back to <preset>", the warnings to act on, the fold ("How this is worked out": limits, range, stop point,
- * notes, a three-column preset comparison, what more time buys and the inputs), and the row's favorite.
+ * The numbers of one deep-sky row, for the card's Details: the sub length and count (editable), the Custom line, the figures behind them
+ * (range, stop point, what the target needs, surface brightness, read noise, dither, image scale), the preset comparison, what more time buys,
+ * the inputs, and the row's favorite. Nothing here explains; each line is a label and a number.
  */
-export default function PlanRowExposure({ id, name, preset, view, favorite, favoritesBlocked, prompt, onPreset, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow, onGoTo }: PlanRowExposureProps) {
+export default function PlanRowExposure({ id, name, preset, view, favorite, favoritesBlocked, prompt, onNumber, onBack, onSaveFavorite, onRemoveFavorite, onRestore, onNotNow }: PlanRowExposureProps) {
   // What is typed in a box until it is applied (Enter or leaving the box); a box that is not being edited shows the stored number.
   const [draft, setDraft] = useState<{ subSeconds?: string; subCount?: string }>({});
   const [errors, setErrors] = useState<{ subSeconds?: string; subCount?: string }>({});
@@ -96,13 +120,13 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
   const ok = view.kind === 'ok' ? view : null;
   const chosen = ok?.chosen ?? null;
 
-  /** The plain reason a typed number cannot be used, or null: the engine's own result for it, judged against the night as it is now. */
+  /** The short reason a typed number cannot be used, or null: the engine's own result for it, judged against the night as it is now. */
   const judge = (field: 'subSeconds' | 'subCount', text: string): { problem: string | null; value: number } => {
     const c = checkNumber(field, text);
     if (!c.ok) return { problem: c.message, value: 0 };
     // The light the engine gives for this number (it recomputes the count when only the sub length is set), not the stored count times the new length.
     const result = ok?.withNumber(field, c.value) ?? null;
-    return { problem: result === null ? 'The engine could not compute numbers for that.' : resultProblem(result, ok?.usableMinutes ?? 0), value: c.value };
+    return { problem: result === null ? 'No numbers' : resultProblem(result, ok?.usableMinutes ?? 0), value: c.value };
   };
   const apply = (field: 'subSeconds' | 'subCount') => {
     const text = draft[field];
@@ -122,7 +146,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
     const err = liveError[field];
     return (
       <div>
-        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-p-t1/70">{label}</label>
+        <label htmlFor={`plan-${field}-${id}`} className="block text-sm font-medium text-p-t2">{label}</label>
         <input
           id={`plan-${field}-${id}`}
           type="text"
@@ -151,46 +175,27 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
     subCount: errors.subCount !== undefined && draft.subCount !== undefined ? (judge('subCount', draft.subCount).problem ?? undefined) : undefined,
   };
   const unusable = ok?.customUnusable ?? null;
-  // A row that gives no subs on this night cannot be saved as a favorite: refused in plain words, never sent to the store.
+  // A row that gives no subs on this night cannot be saved as a favorite: refused in a few words, never sent to the store.
   const noSubs = unusable === null && chosen !== null && chosen.subCount < 1;
   const refuse = unusable !== null || noSubs;
-  const split = chosen === null ? null : splitWarnings(chosen.warnings);
   const dropFavoriteFocus = () => requestAnimationFrame(() => document.getElementById(`plan-fav-${id}`)?.focus());
   const figure = (f: { subSeconds: number; subCount: number }) => `${f.subSeconds} s × ${f.subCount}`;
-  // A favorite saved under older limits stays saved but is not offered: the row says why.
+  // A favorite saved under older limits stays saved but is not offered.
   const favoriteUnusable = favorite === null ? null : favoriteProblem(favorite);
   const differsFromFavorite =
     favorite !== null && chosen !== null && (favorite.subSeconds !== chosen.subSeconds || favorite.subCount !== chosen.subCount);
-  const base: ExposureMode | null = chosen === null ? null : chosen.mode;
+  const base = chosen === null ? null : chosen.mode;
+  const th = 'font-normal text-p-t2';
 
   return (
-    <div className="mt-2 space-y-1" data-testid={`plan-exposure-${id}`}>
-      <div role="group" aria-label={`Exposure preset for ${name}`} className="grid grid-cols-2 gap-1 min-[420px]:grid-cols-4">
-        {([...MODE_ORDER, 'custom'] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            id={`plan-preset-${id}-${p}`}
-            aria-pressed={preset === p}
-            onClick={() => {
-              if (preset === p) return;
-              clear();
-              onPreset(p);
-            }}
-            className={`min-h-11 rounded border px-0 text-sm font-normal ${preset === p ? 'border-p-accent bg-p-info-fill/20 text-p-t1' : 'border-p-line/30 text-p-t1 hover:bg-p-raised/10'}`}
-          >
-            {p === 'custom' ? 'Custom' : presetLabel(p)}
-          </button>
-        ))}
-      </div>
-
+    <div className="space-y-1" data-testid={`plan-exposure-${id}`}>
       {chosen === null ? (
-        <p className="break-words text-sm font-normal text-p-t1/70" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
+        <p className="break-words text-sm font-normal text-p-t2" data-testid={`plan-numbers-${id}`}>{view.kind === 'ok' ? '' : view.reason}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
-            {box('subSeconds', 'Exposure per shot (seconds)')}
-            {box('subCount', 'Number of shots')}
+            {box('subSeconds', 'Sub (s)')}
+            {box('subCount', 'Subs')}
           </div>
           {(liveError.subSeconds || liveError.subCount) && (
             <p role="alert" className="text-sm font-normal text-p-warn-strong">
@@ -198,8 +203,8 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
               {liveError.subCount && <span id={`plan-subCount-err-${id}`} className="block">{liveError.subCount}</span>}
             </p>
           )}
-          {ok?.customUnusable != null && (
-            <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-custom-unusable-${id}`}>{ok.customUnusable}</p>
+          {unusable !== null && (
+            <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-custom-unusable-${id}`}>{unusable}</p>
           )}
           <p className="text-sm font-normal text-p-t1" data-testid={`plan-numbers-${id}`}>
             <span data-testid="plan-figure" className="block font-medium text-p-t1">{chosen.subSeconds} s × {chosen.subCount} {chosen.subCount === 1 ? 'sub' : 'subs'}</span>
@@ -207,7 +212,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
           </p>
           {preset === 'custom' && base !== null && (
             <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-custom-${id}`}>
-              <span>{unusable === null ? differsText() : 'Custom: not used tonight.'}</span>
+              <span>{unusable === null ? differsText() : 'Custom not used'}</span>
               <button type="button" className={btn} onClick={() => { clear(); onBack(); requestAnimationFrame(() => document.getElementById(`plan-preset-${id}-${base}`)?.focus()); }}>
                 Back to {presetLabel(base)}
               </button>
@@ -216,88 +221,61 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
         </>
       )}
 
-      {split?.act.map((w) => {
-        const to = ACT_ON[w.code];
-        return (
-          <div key={w.code} className="rounded border border-p-warn/40 bg-p-warn-fill/10 p-2 text-sm font-normal text-p-t1" data-testid={`plan-warning-${id}`}>
-            <p><span className="p-chip-plain mr-2 rounded bg-p-warn/30 px-1.5 py-0.5 text-sm text-p-t1">Warning</span>{w.text}</p>
-            {to.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-2">
-                {to.map((c) => (
-                  <button key={c} type="button" className={btn} onClick={() => onGoTo(c)}>{GO_LABEL[c]}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {chosen !== null && ok !== null && split !== null && (
-        <Fold id={`plan-why-${id}`} title="How this is worked out">
-          <div className="space-y-1 text-sm font-normal text-p-t1/70">
-            <p>Sub length set by {SUB_LIMIT[chosen.limitedBy.sub]}; light by {TOTAL_LIMIT[chosen.limitedBy.total]}.</p>
-            <p>Range: subs {chosen.subSecondsRange[0]} to {chosen.subSecondsRange[1]} s; light {minutesText(chosen.modeRangeMin[0])} to {minutesText(chosen.modeRangeMin[1])}.</p>
-            <p>
-              Stop point {minutesText(chosen.knee.minutes)}; target needs {needText(chosen.knee.snrTimeMin)}.
-              Surface brightness {chosen.knee.surfaceBrightnessMu.toFixed(1)} ({chosen.knee.surfaceBrightnessFrom === 'catalog' ? 'catalog' : chosen.knee.surfaceBrightnessFrom === 'class' ? 'class stand-in' : 'assumed'}).
-            </p>
-            <p>Read noise adds {(chosen.readNoisePenalty * 100).toFixed(1)}%. Dither every {chosen.ditherEveryFrames} subs.</p>
-            <p className="text-sm text-p-t1/70">All numbers are estimates.</p>
-            {split.notes.length > 0 && (
-              <Fold id={`plan-notes-${id}`} title={`Notes (${split.notes.length})`} level={1}>
-                <ul className="list-disc space-y-1 pl-5">
-                  {split.notes.map((n, i) => (
-                    <li key={`${n.code}-${i}`}>{n.severity === 'warning' ? 'Warning: ' : ''}{n.text}</li>
+      {chosen !== null && ok !== null && (
+        <div className="space-y-1">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-sm font-normal text-p-t1" data-testid={`plan-figures-${id}`}>
+            <dt className={th}>Sub range</dt><dd>{chosen.subSecondsRange[0]} to {chosen.subSecondsRange[1]} s</dd>
+            <dt className={th}>Light range</dt><dd>{minutesText(chosen.modeRangeMin[0])} to {minutesText(chosen.modeRangeMin[1])}</dd>
+            <dt className={th}>Stop point</dt><dd>{minutesText(chosen.knee.minutes)}</dd>
+            <dt className={th}>Needs</dt><dd>{needText(chosen.knee.snrTimeMin)}</dd>
+            <dt className={th}>Surface brightness</dt><dd>{chosen.knee.surfaceBrightnessMu.toFixed(1)} <span className="text-p-t2">{surfaceFrom[chosen.knee.surfaceBrightnessFrom]}</span></dd>
+            <dt className={th}>Read noise</dt><dd>{(chosen.readNoisePenalty * 100).toFixed(1)}%</dd>
+            <dt className={th}>Dither every</dt><dd>{chosen.ditherEveryFrames} subs</dd>
+            {ok.imageScale != null && <><dt className={th}>Image scale</dt><dd>{ok.imageScale.toFixed(2)}″/px</dd></>}
+          </dl>
+          <Fold id={`plan-compare-${id}`} title="Compare" level={1}>
+            <table className="w-full table-fixed text-left text-sm font-normal text-p-t1 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
+              <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="w-[28%]"><span className="sr-only">Number</span></th>
+                  {MODE_ORDER.map((m) => (
+                    <th key={m} scope="col">{presetLabel(m)}</th>
                   ))}
-                </ul>
-              </Fold>
-            )}
-            <Fold id={`plan-compare-${id}`} title="Compare presets" level={1}>
-              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1 [&_td]:pr-2 [&_th]:pr-2 [&_td]:align-top" data-testid={`plan-compare-table-${id}`}>
-                <caption className="sr-only">Quick, Balanced and Deep for {name}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="w-[28%]"><span className="sr-only">Number</span></th>
-                    {MODE_ORDER.map((m) => (
-                      <th key={m} scope="col">{presetLabel(m)}</th>
-                    ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row" className={th}>Sub</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subSeconds} s</td>)}</tr>
+                <tr><th scope="row" className={th}>Subs</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subCount}</td>)}</tr>
+                <tr><th scope="row" className={th}>Light</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].integrationMin)}</td>)}</tr>
+                <tr><th scope="row" className={th}>Total</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].elapsedMin)}</td>)}</tr>
+              </tbody>
+            </table>
+          </Fold>
+          <Fold id={`plan-buys-${id}`} title="Extra light" level={1}>
+            <table className="w-full table-fixed text-left text-sm font-normal text-p-t1 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
+              <caption className="sr-only">What more light buys for {name}</caption>
+              <thead>
+                <tr><th scope="col">Light</th><th scope="col">SNR</th><th scope="col">Gain</th><th scope="col">Tonight</th></tr>
+              </thead>
+              <tbody>
+                {ok.marginal.map((r) => (
+                  <tr key={r.minutes}>
+                    <td>{r.minutes} min</td>
+                    <td>{r.relativeSnr.toFixed(2)}×</td>
+                    <td>{r.gainPercent === null ? 'base' : `+${r.gainPercent.toFixed(0)}%`}</td>
+                    <td>{r.availableTonight ? 'fits' : 'too long'}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  <tr><th scope="row" className="font-normal text-p-t1/70">Sub length</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subSeconds} s</td>)}</tr>
-                  <tr><th scope="row" className="font-normal text-p-t1/70">Subs</th>{MODE_ORDER.map((m) => <td key={m}>{ok.presets[m].subCount}</td>)}</tr>
-                  <tr><th scope="row" className="font-normal text-p-t1/70">Light</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].integrationMin)}</td>)}</tr>
-                  <tr><th scope="row" className="font-normal text-p-t1/70">Elapsed</th>{MODE_ORDER.map((m) => <td key={m}>{minutesText(ok.presets[m].elapsedMin)}</td>)}</tr>
-                </tbody>
-              </table>
-            </Fold>
-            <Fold id={`plan-buys-${id}`} title="More time" level={1}>
-              <table className="w-full table-fixed text-left text-sm font-normal text-p-t1 [&_td]:pr-2 [&_th]:pr-2" data-testid={`plan-buys-table-${id}`}>
-                <caption className="sr-only">What more light buys for {name}, sky-limited</caption>
-                <thead>
-                  <tr><th scope="col">Light</th><th scope="col">Signal to noise</th><th scope="col">Gain</th><th scope="col">Tonight</th></tr>
-                </thead>
-                <tbody>
-                  {ok.marginal.map((r) => (
-                    <tr key={r.minutes}>
-                      <td>{r.minutes} min</td>
-                      <td>{r.relativeSnr.toFixed(2)}×</td>
-                      <td>{r.gainPercent === null ? 'base' : `+${r.gainPercent.toFixed(0)}%`}</td>
-                      <td>{r.availableTonight ? 'fits' : 'too long'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-1 text-sm text-p-t1/70" data-testid={`plan-inputs-${id}`}>Inputs: {ok.inputs}.</p>
-            </Fold>
-          </div>
-        </Fold>
+                ))}
+              </tbody>
+            </table>
+          </Fold>
+          <p className="text-sm font-normal text-p-t2" data-testid={`plan-inputs-${id}`}>Inputs: {ok.inputs}.</p>
+        </div>
       )}
 
       {favorite !== null && favoriteUnusable !== null && (
-        <p className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-unusable-${id}`}>
-          Your favorite cannot be used: {favoriteUnusable}.
-        </p>
+        <p className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-unusable-${id}`}>Favorite not usable</p>
       )}
       {prompt === 'ask' && favorite !== null && favoriteUnusable === null && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm font-normal text-p-t1" data-testid={`plan-favorite-ask-${id}`}>
@@ -306,11 +284,6 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
             <button type="button" className={btn} onClick={() => { onRestore(); dropFavoriteFocus(); }}>Restore</button>
             <button type="button" className={btn} onClick={() => { onNotNow(); dropFavoriteFocus(); }}>Not now</button>
           </span>
-        </p>
-      )}
-      {prompt === 'restored' && favorite !== null && favoriteUnusable === null && (
-        <p className="text-sm font-normal text-p-t1" data-testid={`plan-favorite-restored-${id}`}>
-          Restored your favorite: {figure(favorite)}.
         </p>
       )}
 
@@ -341,9 +314,7 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
       </div>
       {refusedFavorite && refuse && (
         <p role="alert" className="text-sm font-normal text-p-warn-strong" data-testid={`plan-favorite-refused-${id}`}>
-          {unusable !== null
-            ? 'Not saved: your custom numbers do not work tonight.'
-            : 'Not saved: no subs fit this target tonight.'}
+          {unusable !== null ? 'Not saved: custom not used' : 'Not saved: no subs fit'}
         </p>
       )}
       {favoritesBlocked !== null && <p className="text-sm font-normal text-p-warn-text" data-testid={`plan-favorite-blocked-${id}`}>{favoritesBlocked}</p>}
@@ -368,3 +339,5 @@ export default function PlanRowExposure({ id, name, preset, view, favorite, favo
     </div>
   );
 }
+
+export { splitWarnings };

@@ -623,7 +623,7 @@ function Result({
       {timeline !== null && base !== null && night !== null && slots.length > 0 && (
         <div>
           <h3 className="text-p-t1 font-normal text-base mb-2">Night graph</h3>
-          <NightTimeline plan={timeline} inputs={inputs} night={night} site={base.site} horizon={base.horizon} minAltitude={base.minAltitude} formatTime={formatTime} nightWord={nightWord} idPrefix="ai-timeline" />
+          <NightTimeline plan={timeline} inputs={inputs} night={night} site={base.site} horizon={base.horizon} minAltitude={base.minAltitude} formatTime={formatTime} idPrefix="ai-timeline" />
         </div>
       )}
 
